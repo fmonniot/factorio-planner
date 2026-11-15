@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Solves an exported plan (the JSON from the workspace menu's "Export plan") with the app's own
 // solver and prints what one block came out as: rows, left-over items, imports, warnings and
-// connection flows. Optional what-if edits (pin, drop, sourcing, import-off, no-area) answer "what would it
+// connection flows and the served lists. Optional what-if edits (pin, drop, sourcing, import-off, no-area) answer "what would it
 // do if...?" without touching the file. The logic is src/solver/inspect.ts; this file only reads
 // the files and loads that module through Vite so TypeScript needs no build step.
 // Usage: node scripts/inspect-plan.mjs --help

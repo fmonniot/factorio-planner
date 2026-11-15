@@ -11,7 +11,7 @@ import type { ServedRank } from './servedRank'
  * The source's own extra output of the item (the sum of its products' `extraRate`) is served last.
  * A pair the solver served by the source's stored list (`rankOf` gives its rank) is reported in that
  * order, the consumers the list does not name after the named ones in flow order, and the extra at the
- * place the list gives it.
+ * place the list gives it. Members of a group keep the list's order; `share` is what was asked, not the group's grant.
  */
 export function buildServed(
   flows: ConnectionFlow[],

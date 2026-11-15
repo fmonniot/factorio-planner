@@ -34,7 +34,7 @@ npm run test:watch # Vitest in watch mode
 npm run test:e2e   # Playwright; starts the dev server itself
 ```
 
-To see what the solver does with an exported plan (rows, left-over items, imports, warnings, connection flows) without writing a throwaway script, run `node scripts/inspect-plan.mjs <plan.json> --block <name>`; `--pin`, `--drop`, `--sourcing` and `--no-area` ask what-if questions, `--list` names the blocks and `--help` has the rest. It reads the data set from the plan's stamp.
+To see what the solver does with an exported plan (rows, left-over items, imports, warnings, connection flows, served lists) without writing a throwaway script, run `node scripts/inspect-plan.mjs <plan.json> --block <name>`; `--pin`, `--drop`, `--sourcing` and `--no-area` ask what-if questions, `--list` names the blocks and `--help` has the rest. It reads the data set from the plan's stamp.
 
 The in-game viewer's bridge is a separate Rust workspace in `bridge/` (CI: `.github/workflows/bridge.yml`):
 
@@ -87,7 +87,7 @@ Read these before making decisions that affect core behaviour:
 | [spec/tech-stack.md](spec/tech-stack.md) | Technology choices, rationale, CI and deploy |
 | [spec/solver.md](spec/solver.md) | LP formulation, solver pipeline, warnings, machine metrics |
 | [spec/data-model.md](spec/data-model.md) | Field-level game-data and plan-state model |
-| [spec/test-synthetic.md](spec/test-synthetic.md) | 17 synthetic cases with full derivations — ground truth for the solver |
+| [spec/test-synthetic.md](spec/test-synthetic.md) | 18 synthetic cases with full derivations — ground truth for the solver |
 | [spec/ui.md](spec/ui.md) | The production-table UI as it is today |
 | [spec/in-game-viewer-protocol.md](spec/in-game-viewer-protocol.md) | In-game viewer wire protocol: planner to bridge (WebSocket), bridge to mod (UDP) |
 | [initiatives/README.md](initiatives/README.md) | Index of active and archived initiatives |

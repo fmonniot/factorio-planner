@@ -40,7 +40,8 @@ function withFlags(e: ServedEntry, tied: boolean, share: number | undefined): Se
   return { kind: 'block', blockId: e.blockId, ...(e.areaId !== undefined ? { areaId: e.areaId } : {}), ...flags }
 }
 
-const validShare = (share: number | undefined): share is number => share !== undefined && Number.isFinite(share) && share > 0
+/** A share the model reads: finite and positive. */
+export const validShare = (share: number | undefined): share is number => share !== undefined && Number.isFinite(share) && share > 0
 
 /** The groups of a list: a line plus the `tied` lines under it. The first line never counts as tied. */
 export function servedGroups(list: readonly ServedEntry[]): ServedEntry[][] {

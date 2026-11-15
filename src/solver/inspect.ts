@@ -1,11 +1,13 @@
 import { solveAll } from './index'
 import { makeHereOf } from '../data/sourceRules'
+import { rankedPairs, type RankedEntry } from './servedRank'
 import type {
   AppState,
   AreaRoute,
   Block,
   ConnectionFlow,
   GameData,
+  MultiBlockSolve,
   SourceRule,
   SolverWarning,
   SubPlan,
@@ -47,6 +49,32 @@ export interface ItemReport {
   isProduct: boolean
 }
 
+/** One line of a served list: a consumer block, or the source's own extra output. */
+export interface ServedLineReport {
+  /** 1-based; the members of a group share one; lines the list does not name get a rank of their own after it. */
+  rank: number
+  /** The consumer block's name, or 'extra output'. */
+  name: string
+  /** Absent for the extra. */
+  blockId?: string
+  kind: 'request' | 'take' | 'extra'
+  /** Only for a member of a group of two or more. `percent` is its weight in the group (equal when none is stored); a group that holds a take has `listOrder` instead and no percent, because it is served in list order. */
+  group?: { size: number; percent?: number; listOrder?: true }
+  /** The list names this line; always false when the item is not ranked. */
+  listed: boolean
+  /** items/min asked (request), credited (take), or the extra's asked. */
+  share: number
+  got: number
+  notCredited?: true
+}
+
+export interface ServedItemReport {
+  itemId: string
+  /** The solver served the item by the source's list (else in solve order). */
+  ranked: boolean
+  lines: ServedLineReport[]
+}
+
 export interface InspectReport {
   block: { id: string; name: string }
   rows: RowReport[]
@@ -56,6 +84,8 @@ export interface InspectReport {
   /** Connections into and out of the block. */
   flows: ConnectionFlow[]
   areaRoutes: AreaRoute[]
+  /** The inspected block's items other blocks take from it: the order they were served in and what each got. */
+  served: ServedItemReport[]
   totals: { executions: number; machineCountExact: number; machineCountCeil: number; powerKw: number }
   /** The solver failed on the block (the other fields are then empty). */
   error?: string
@@ -116,6 +146,72 @@ export function applyWhatIf(appState: AppState, blockId: string, whatIf: WhatIf)
   }
 }
 
+/** The served lists of `sourceId` as the solver read them: ranks, groups and what each line got. */
+export function servedReportOf(blocks: readonly Block[], sourceId: string, served: MultiBlockSolve['served']): ServedItemReport[] {
+  const pairs = rankedPairs(blocks).get(sourceId)
+  const names = new Map(blocks.map(b => [b.id, b.name]))
+  const nameOf = (id: string) => names.get(id) ?? id
+  return Object.entries(served[sourceId] ?? {}).map(([itemId, list]) => {
+    const pair = pairs?.get(itemId)
+    const ranked = pair !== undefined
+    const takes = new Set(list.consumers.filter(c => c.kind !== 'request').map(c => c.blockId))
+    const groupOf = new Map<string, { g: number; group: NonNullable<ServedLineReport['group']> }>()
+    if (pair) {
+      // One pass: the entries of a group are the head and the `tied` entries after it.
+      const groups: RankedEntry[][] = []
+      pair.listed.forEach((e, i) => {
+        if (i === 0 || !e.tied) groups.push([e])
+        else groups[groups.length - 1].push(e)
+      })
+      groups.forEach((members, g) => {
+        // A group that holds a take is served in list order (see grantByRank), so no percent applies to it.
+        const inListOrder = members.some(e => e.kind === 'block' && takes.has(e.blockId))
+        for (const e of members) {
+          const group = inListOrder ? { size: members.length, listOrder: true as const } : { size: members.length, percent: e.weight ?? 100 / members.length }
+          groupOf.set(e.kind === 'extra' ? 'extra' : e.blockId, { g, group })
+        }
+      })
+    }
+    type Line = Omit<ServedLineReport, 'rank'>
+    const lines: Line[] = list.consumers.map(c => {
+      const info = groupOf.get(c.blockId)
+      return {
+        name: nameOf(c.blockId),
+        blockId: c.blockId,
+        kind: c.kind === 'request' ? 'request' : 'take',
+        ...(info && info.group.size >= 2 ? { group: info.group } : {}),
+        listed: info !== undefined,
+        share: c.share,
+        got: c.got,
+        ...(c.notCredited ? { notCredited: true as const } : {}),
+      }
+    })
+    if (list.extra) {
+      const info = groupOf.get('extra')
+      lines.splice(list.extra.place, 0, {
+        name: 'extra output',
+        kind: 'extra',
+        ...(info && info.group.size >= 2 ? { group: info.group } : {}),
+        listed: info !== undefined,
+        share: list.extra.asked,
+        got: list.extra.got,
+      })
+    }
+    let rank = 0
+    const rankOfGroup = new Map<number, number>()
+    const out = lines.map((l): ServedLineReport => {
+      const info = groupOf.get(l.kind === 'extra' ? 'extra' : l.blockId ?? '')
+      if (info) {
+        let r = rankOfGroup.get(info.g)
+        if (r === undefined) rankOfGroup.set(info.g, (r = ++rank))
+        return { rank: r, ...l }
+      }
+      return { rank: ++rank, ...l }
+    })
+    return { itemId, ranked, lines: out }
+  })
+}
+
 /** recipeNodeId -> recipeId for every game-recipe row of the plan tree. */
 function recipeIds(plan: SubPlan, into = new Map<string, string>()): Map<string, string> {
   for (const n of plan.nodes) if (n.kind === 'game-recipe') into.set(n.id, n.recipeId)
@@ -137,6 +233,7 @@ export function inspectPlan(appState: AppState, gameData: GameData, blockName: s
     warnings: [],
     flows: [],
     areaRoutes: [],
+    served: [],
     totals: { executions: 0, machineCountExact: 0, machineCountCeil: 0, powerKw: 0 },
   }
   const error = solved.errors[block.id]
@@ -184,6 +281,7 @@ export function inspectPlan(appState: AppState, gameData: GameData, blockName: s
     warnings: result.warnings,
     flows: solved.flows.filter(f => f.fromBlockId === block.id || f.toBlockId === block.id),
     areaRoutes: result.areaRoutes ?? [],
+    served: servedReportOf(state.blocks, block.id, solved.served),
     totals,
   }
 }
@@ -244,6 +342,19 @@ export function formatReport(report: InspectReport, options: FormatOptions = {})
   out.push('', 'Connections (from → to, item, delivered, available, status):')
   for (const f of flows) out.push(`  ${f.fromBlockId.slice(0, 8)} → ${f.toBlockId.slice(0, 8)}  ${f.itemId}  ${num(f.rate)}  ${num(f.available)}  ${f.status}`)
   if (flows.length === 0) out.push('  none')
+
+  if (report.served.length > 0) {
+    out.push('', 'Served lists (items other blocks take from this block; rank, line, kind, share, got):')
+    for (const item of report.served) {
+      out.push(`  ${item.itemId}  ${item.ranked ? '(list)' : '(no list: solve order)'}`)
+      for (const l of item.lines) {
+        const group = l.group ? ` [group of ${l.group.size}, ${l.group.percent !== undefined ? `${num(l.group.percent)}%` : 'in list order'}]` : ''
+        out.push(
+          `    ${l.rank}  ${l.name}${group}  ${l.kind}  share ${num(l.share)}  got ${num(l.got)}${item.ranked && !l.listed ? '  (not in the list)' : ''}${l.notCredited ? '  (not credited)' : ''}`,
+        )
+      }
+    }
+  }
 
   if (report.areaRoutes.length > 0) {
     out.push('', 'Area routes (item, from → to, items/min):')
