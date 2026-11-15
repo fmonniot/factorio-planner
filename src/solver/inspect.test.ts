@@ -114,18 +114,24 @@ describe('servedReportOf', () => {
     expect(item.lines[3]).not.toHaveProperty('blockId')
   })
 
-  it('marks a group that holds a take as served in list order, with no percent', () => {
-    // List {T1, T2} (tied, no shares) on A: both are takes, so the group is served in list order (T1 first), not 50/50.
-    // A group of requests keeps its percent: {R1 80, R2 20} on the same source for another item is covered above.
+  it('marks a group whose takes carry groupInListOrder as served in list order, with no percent', () => {
+    // List {T1, T2} (tied, no shares) on A: the solver could not share the group by need, so it served T1 first, not 50/50.
     const list: ServedEntry[] = [{ kind: 'block', blockId: 'T1' }, { kind: 'block', blockId: 'T2', tied: true }]
     const blocks = [blk('A', { list }), blk('T1', { from: 'A' }), blk('T2', { from: 'A' })]
-    const take = (id: string, share: number, got: number) => consumer(id, share, got, 'take')
+    const take = (id: string, share: number, got: number) => ({ ...consumer(id, share, got, 'take'), groupInListOrder: true as const })
     const [item] = servedReportOf(blocks, 'A', served([take('T1', 25, 25), take('T2', 25, 5)]))
     expect(item.lines.map(l => [l.rank, l.group])).toEqual([
       [1, { size: 2, listOrder: true }],
       [1, { size: 2, listOrder: true }],
     ])
     expect(item.lines[0].group).not.toHaveProperty('percent')
+  })
+
+  it('a group of takes without the flag shows its percents', () => {
+    const list: ServedEntry[] = [{ kind: 'block', blockId: 'T1' }, { kind: 'block', blockId: 'T2', tied: true }]
+    const blocks = [blk('A', { list }), blk('T1', { from: 'A' }), blk('T2', { from: 'A' })]
+    const [item] = servedReportOf(blocks, 'A', served([consumer('T1', 15, 15, 'take'), consumer('T2', 15, 15, 'take')]))
+    expect(item.lines.map(l => l.group)).toEqual([{ size: 2, percent: 50 }, { size: 2, percent: 50 }])
   })
 
   it('ranks an item with no list from 1 and says so', () => {

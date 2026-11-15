@@ -1,5 +1,5 @@
 import type { Block, BlockConnection } from '../data/types'
-import { dropServedEntries, groupPercents, servedEntryKey, servedGroups, validShare } from '../data/servedEntries'
+import { dropServedEntries, groupPercents, servedEntryKey, servedGroups, servedGroupSpans, validShare } from '../data/servedEntries'
 import { blockAreas } from './areas'
 import { FLOW_TOLERANCE } from './blockResult'
 import type { AreaNeed } from './servedAreas'
@@ -126,7 +126,8 @@ export function rankedPairs(blocks: readonly Block[]): RankedPairs {
  * each from what the groups above left. A group of one gets `min(its share, what is left)`; inside a group of two or more
  * each member still short is offered `left * weight / sum of the weights` and takes `min(what it lacks, that)`, again and
  * again while something is left and somebody is short. The extra is a member like any block (its share is `extraRate`)
- * but has no grant entry. A group that holds a take (`isTake`) is served in list order, member by member. `held` is what the
+ * but has no grant entry. A group with a member for which `inListOrder` holds is served in list order, member by member (a group
+ * of takes the request pass could not share by need; see `computeRequests`). `held` is what the
  * order holds in all (never above the offer). An entry of a split consumer (see `splitByArea`) asks its connection's share times
  * its `part`; a connection's grant is the sum over its entries, and `entryGrants` lists each entry's own grant, parallel to `order`.
  */
@@ -135,7 +136,7 @@ export function grantByRank(
   order: readonly RankedEntry[],
   extraRate: number,
   shareOf: (connectionId: string) => number,
-  isTake?: (connectionId: string) => boolean,
+  inListOrder?: (connectionId: string) => boolean,
 ): { grants: Map<string, number>; held: number; entryGrants: number[] } {
   const total = Math.max(0, offer)
   let rest = total
@@ -150,14 +151,9 @@ export function grantByRank(
     entryGrants[at] = amount
     if (e.kind === 'block') grants.set(e.connection.id, (grants.get(e.connection.id) ?? 0) + amount)
   }
-  let i = 0
-  while (i < order.length) {
-    let j = i + 1
-    while (j < order.length && order[j].tied === true) j++
-    const group = order.slice(i, j)
-    const start = i
-    i = j
-    const holdsTake = isTake !== undefined && group.some(e => e.kind === 'block' && isTake(e.connection.id))
+  for (const [start, end] of servedGroupSpans(order)) {
+    const group = order.slice(start, end)
+    const holdsTake = inListOrder !== undefined && group.some(e => e.kind === 'block' && inListOrder(e.connection.id))
     if (group.length === 1 || holdsTake) {
       group.forEach((e, m) => {
         const amount = Math.min(askOf(e), rest)
@@ -181,7 +177,7 @@ export function grantByRank(
  * weighted part of what is left and takes at most what it lacks; what a covered member leaves goes round again. Every pass
  * either covers a member or ends the loop, so it stops after at most `shares.length` passes.
  */
-function waterFill(room: number, shares: readonly number[], weights?: readonly number[]): number[] {
+export function waterFill(room: number, shares: readonly number[], weights?: readonly number[]): number[] {
   const taken = shares.map(() => 0)
   const w = weights ?? shares.map(() => 1)
   let short = shares.flatMap((s, m) => (s > 0 ? [m] : []))

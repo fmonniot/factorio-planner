@@ -21,7 +21,7 @@ export function buildServed(
   shareOf: (connectionId: string) => number,
   left: ReadonlyMap<string, ReadonlyMap<string, number>>,
   rankOf?: (sourceId: string, itemId: string) => ServedRank | undefined,
-  takeInfo?: { needs: ReadonlyMap<string, number>; uncredited: ReadonlySet<string> },
+  takeInfo?: { needs: ReadonlyMap<string, number>; uncredited: ReadonlySet<string>; inListOrder?: ReadonlySet<string> },
   areaReport?: AreaReport,
 ): Record<string, Record<string, ServedList>> {
   const bySource = new Map<string, Map<string, ServedConsumer[]>>()
@@ -37,6 +37,7 @@ export function buildServed(
       const need = takeInfo.needs.get(f.connectionId)
       if (need !== undefined) consumer.need = need
       if (takeInfo.uncredited.has(f.connectionId)) consumer.notCredited = true
+      if (takeInfo.inListOrder?.has(f.connectionId)) consumer.groupInListOrder = true
     }
     consumers.push(consumer)
   }

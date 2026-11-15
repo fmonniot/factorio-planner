@@ -1,7 +1,8 @@
 import { solveAll } from './index'
 import { makeHereOf } from '../data/sourceRules'
+import { servedGroups } from '../data/servedEntries'
 import { areaName } from '../data/subPlanTree'
-import { rankedPairs, type RankedEntry } from './servedRank'
+import { rankedPairs } from './servedRank'
 import type {
   AppState,
   AreaRoute,
@@ -61,7 +62,7 @@ export interface ServedLineReport {
   /** The area of the consumer this line is, when the block shows as areas (see `ServedConsumer.areaId`). */
   areaId?: string
   kind: 'request' | 'take' | 'extra'
-  /** Only for a member of a group of two or more. `percent` is its weight in the group (equal when none is stored); a group that holds a take has `listOrder` instead and no percent, because it is served in list order. */
+  /** Only for a member of a group of two or more. `percent` is its weight in the group (equal when none is stored); a group served in list order (`ServedConsumer.groupInListOrder`) has `listOrder` instead and no percent. */
   group?: { size: number; percent?: number; listOrder?: true }
   /** The list names this line; always false when the item is not ranked. */
   listed: boolean
@@ -164,18 +165,13 @@ export function servedReportOf(blocks: readonly Block[], sourceId: string, serve
   return Object.entries(served[sourceId] ?? {}).map(([itemId, list]) => {
     const pair = pairs?.get(itemId)
     const ranked = pair !== undefined
-    const takes = new Set(list.consumers.filter(c => c.kind !== 'request').map(c => c.blockId))
+    const flagged = new Set(list.consumers.filter(c => c.groupInListOrder).map(c => c.blockId))
     const groupOf = new Map<string, { g: number; group: NonNullable<ServedLineReport['group']> }>()
     if (pair) {
-      // One pass: the entries of a group are the head and the `tied` entries after it.
-      const groups: RankedEntry[][] = []
-      pair.listed.forEach((e, i) => {
-        if (i === 0 || !e.tied) groups.push([e])
-        else groups[groups.length - 1].push(e)
-      })
+      const groups = servedGroups(pair.listed)
       groups.forEach((members, g) => {
-        // A group that holds a take is served in list order (see grantByRank), so no percent applies to it.
-        const inListOrder = members.some(e => e.kind === 'block' && takes.has(e.blockId))
+        // A group of takes the solver could not share by need is served in list order (see `ServedConsumer.groupInListOrder`), so no percent applies to it.
+        const inListOrder = members.some(e => e.kind === 'block' && flagged.has(e.blockId))
         for (const e of members) {
           const group = inListOrder ? { size: members.length, listOrder: true as const } : { size: members.length, percent: e.weight ?? 100 / members.length }
           groupOf.set(e.kind === 'extra' ? 'extra' : entryKey(e.blockId, e.areaId), { g, group })
