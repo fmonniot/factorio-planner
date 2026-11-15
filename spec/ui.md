@@ -721,7 +721,7 @@ Each of the three panes is a `SummaryPane` (a `section` region named after its l
 |---|---|
 | `export`, `source` | the block's colour as a translucent fill with a solid border; a limited source has an amber border (amber in the micro-bar) |
 | `kept`, `left` | dark fill, grey border |
-| `import` | no fill, light grey outline |
+| `import` | light grey diagonal stripes, 135° like the locked ones but lighter (also in the micro-bar), light grey outline |
 | `short` | faint amber fill, dashed amber border; on an Ingredients slot it is the `missing` segment of an item with Import off |
 | unused / self / deleted source | no fill, dashed grey border; takes no share of the bar, but fills it (dark grey in the micro-bar) when the item has no segment, and otherwise is a 10px mark at the end of the detail bar |
 | Import off | grey stripes; fills the bar when the item has no segment |
