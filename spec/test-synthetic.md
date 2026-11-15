@@ -803,7 +803,7 @@ Braces are a group, equal unless a percentage is given. Each row is checked with
 | d | {B, C, D} | 17.5 `limited`, 12.5 imported | 17.5 `limited`, 2.5 imported | 10 `ok` | 0 / 3 | B, C, D |
 | e | B, {C, extra} | 30 `ok` | 7.5 `limited`, 12.5 imported | 0 `limited`, 10 imported | 7.5 / 2 | B, C, D |
 
-A runs at 45 in every row. Each `served.A` consumer is a request with `share` the amount asked (30, 20, 10) and `got` its rate; `extra.asked` is 10. A stale head or middle entry in row a's list (`B, ghost, C, {D}` and `B, {C, ghost, D}`) gives row a's numbers. A group of takes stays in list order (case 14's fixture with the list `H2, {H1}` gives case 14 b).
+A runs at 45 in every row. Each `served.A` consumer is a request with `share` the amount asked (30, 20, 10) and `got` its rate; `extra.asked` is 10. A stale head or middle entry in row a's list (`B, {ghost, C, D}`, where C must head {C, D} and not join B's group, and `B, {C, ghost, D}`) gives row a's numbers. A group of takes stays in list order (case 14's fixture with the list `{H2, H1}` gives case 14 b). A group holding an ignored request is served in list order too, not water-filled: A pinned at 25 with an extra of 10 and receiving plate from an empty Z makes B, C, D takes (`source-receives`); with the list `{B, extra}`, B gets 25 and the extra 0 (a water-fill would give B 15 and the extra 10), C and D 0.
 
 ### Derivation
 

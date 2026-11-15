@@ -1,5 +1,5 @@
 import type { Block, BlockConnection } from '../data/types'
-import { dropServedEntries, groupPercents, servedGroups } from '../data/servedEntries'
+import { dropServedEntries, groupPercents, servedGroups, validShare } from '../data/servedEntries'
 import { FLOW_TOLERANCE } from './blockResult'
 
 /** Group flags of a listed entry; absent on a list without `tied`. */
@@ -118,8 +118,9 @@ export function grantByRank(
       continue
     }
     const shares = group.map(askOf)
-    const given = group.flatMap(e => (e.weight !== undefined && Number.isFinite(e.weight) && e.weight > 0 ? [e.weight] : []))
-    const taken = waterFill(rest, shares, given.length === group.length ? given : undefined)
+    // `rankedPairs` gives every member a valid weight or none; a hand-built group with some missing or invalid reads as equal.
+    const given = group.map(e => e.weight)
+    const taken = waterFill(rest, shares, given.every(validShare) ? given : undefined)
     group.forEach((e, m) => {
       if (e.kind === 'block') grants.set(e.connection.id, taken[m])
     })

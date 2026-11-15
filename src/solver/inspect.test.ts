@@ -91,7 +91,7 @@ describe('servedReportOf', () => {
       ...(opts.list ? { servedOrder: { plate: opts.list } } : {}),
       rootPlan: { id: `root-${id}`, name: 'root', nodes: [], subPlans: [] },
     }) as unknown as Block
-  const consumer = (id: string, share: number, got: number) => ({ blockId: id, connectionId: `c-${id}`, kind: 'request' as const, share, got })
+  const consumer = (id: string, share: number, got: number, kind: 'request' | 'take' = 'request') => ({ blockId: id, connectionId: `c-${id}`, kind, share, got })
   const served = (consumers: ReturnType<typeof consumer>[], extra?: { place: number; asked: number; got: number }): MultiBlockSolve['served'] => ({
     A: { plate: { consumers, ...(extra ? { extra } : {}) } },
   })
@@ -114,6 +114,20 @@ describe('servedReportOf', () => {
     expect(item.lines[3]).not.toHaveProperty('blockId')
   })
 
+  it('marks a group that holds a take as served in list order, with no percent', () => {
+    // List {T1, T2} (tied, no shares) on A: both are takes, so the group is served in list order (T1 first), not 50/50.
+    // A group of requests keeps its percent: {R1 80, R2 20} on the same source for another item is covered above.
+    const list: ServedEntry[] = [{ kind: 'block', blockId: 'T1' }, { kind: 'block', blockId: 'T2', tied: true }]
+    const blocks = [blk('A', { list }), blk('T1', { from: 'A' }), blk('T2', { from: 'A' })]
+    const take = (id: string, share: number, got: number) => consumer(id, share, got, 'take')
+    const [item] = servedReportOf(blocks, 'A', served([take('T1', 25, 25), take('T2', 25, 5)]))
+    expect(item.lines.map(l => [l.rank, l.group])).toEqual([
+      [1, { size: 2, listOrder: true }],
+      [1, { size: 2, listOrder: true }],
+    ])
+    expect(item.lines[0].group).not.toHaveProperty('percent')
+  })
+
   it('ranks an item with no list from 1 and says so', () => {
     const blocks = [blk('A'), blk('B', { from: 'A' }), blk('C', { from: 'A' })]
     const [item] = servedReportOf(blocks, 'A', served([consumer('B', 30, 30), consumer('C', 20, 15)]))
@@ -133,12 +147,18 @@ describe('formatReport served lists', () => {
           { rank: 2, name: 'C', blockId: 'C', kind: 'request', group: { size: 2, percent: 80 }, listed: true, share: 20, got: 12 },
           { rank: 3, name: 'E', blockId: 'E', kind: 'request', listed: false, share: 5, got: 0 },
         ] },
+        { itemId: 'ore', ranked: true, lines: [
+          { rank: 1, name: 'T1', blockId: 'T1', kind: 'take', group: { size: 2, listOrder: true }, listed: true, share: 25, got: 25 },
+          { rank: 1, name: 'T2', blockId: 'T2', kind: 'take', group: { size: 2, listOrder: true }, listed: true, share: 25, got: 5 },
+        ] },
         { itemId: 'gear', ranked: false, lines: [{ rank: 1, name: 'B', blockId: 'B', kind: 'take', listed: false, share: 4, got: 4 }] },
       ],
     }
     const text = formatReport(report)
     expect(text).toContain('Served lists')
     expect(text).toContain('[group of 2, 80.00%]')
+    expect(text).toContain('T1 [group of 2, in list order]')
+    expect(text).not.toContain('[group of 2, 50')
     expect(text).toContain('(not in the list)')
     expect(text).toContain('(no list: solve order)')
     expect(text).toContain('plate  (list)')

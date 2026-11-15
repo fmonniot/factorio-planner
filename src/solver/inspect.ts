@@ -1,6 +1,6 @@
 import { solveAll } from './index'
 import { makeHereOf } from '../data/sourceRules'
-import { rankedPairs } from './servedRank'
+import { rankedPairs, type RankedEntry } from './servedRank'
 import type {
   AppState,
   AreaRoute,
@@ -58,8 +58,8 @@ export interface ServedLineReport {
   /** Absent for the extra. */
   blockId?: string
   kind: 'request' | 'take' | 'extra'
-  /** Only for a member of a group of two or more; `percent` is its weight in the group (equal when none is stored). */
-  group?: { size: number; percent: number }
+  /** Only for a member of a group of two or more. `percent` is its weight in the group (equal when none is stored); a group that holds a take has `listOrder` instead and no percent, because it is served in list order. */
+  group?: { size: number; percent?: number; listOrder?: true }
   /** The list names this line; always false when the item is not ranked. */
   listed: boolean
   /** items/min asked (request), credited (take), or the extra's asked. */
@@ -149,21 +149,27 @@ export function applyWhatIf(appState: AppState, blockId: string, whatIf: WhatIf)
 /** The served lists of `sourceId` as the solver read them: ranks, groups and what each line got. */
 export function servedReportOf(blocks: readonly Block[], sourceId: string, served: MultiBlockSolve['served']): ServedItemReport[] {
   const pairs = rankedPairs(blocks).get(sourceId)
-  const nameOf = (id: string) => blocks.find(b => b.id === id)?.name ?? id
+  const names = new Map(blocks.map(b => [b.id, b.name]))
+  const nameOf = (id: string) => names.get(id) ?? id
   return Object.entries(served[sourceId] ?? {}).map(([itemId, list]) => {
     const pair = pairs?.get(itemId)
     const ranked = pair !== undefined
-    const groupOf = new Map<string, { g: number; size: number; percent: number }>()
+    const takes = new Set(list.consumers.filter(c => c.kind !== 'request').map(c => c.blockId))
+    const groupOf = new Map<string, { g: number; group: NonNullable<ServedLineReport['group']> }>()
     if (pair) {
-      let g = -1
-      const heads: number[] = []
+      // One pass: the entries of a group are the head and the `tied` entries after it.
+      const groups: RankedEntry[][] = []
       pair.listed.forEach((e, i) => {
-        if (i === 0 || !e.tied) g++
-        heads.push(g)
+        if (i === 0 || !e.tied) groups.push([e])
+        else groups[groups.length - 1].push(e)
       })
-      pair.listed.forEach((e, i) => {
-        const size = heads.filter(h => h === heads[i]).length
-        groupOf.set(e.kind === 'extra' ? 'extra' : e.blockId, { g: heads[i], size, percent: e.weight ?? 100 / size })
+      groups.forEach((members, g) => {
+        // A group that holds a take is served in list order (see grantByRank), so no percent applies to it.
+        const inListOrder = members.some(e => e.kind === 'block' && takes.has(e.blockId))
+        for (const e of members) {
+          const group = inListOrder ? { size: members.length, listOrder: true as const } : { size: members.length, percent: e.weight ?? 100 / members.length }
+          groupOf.set(e.kind === 'extra' ? 'extra' : e.blockId, { g, group })
+        }
       })
     }
     type Line = Omit<ServedLineReport, 'rank'>
@@ -173,7 +179,7 @@ export function servedReportOf(blocks: readonly Block[], sourceId: string, serve
         name: nameOf(c.blockId),
         blockId: c.blockId,
         kind: c.kind === 'request' ? 'request' : 'take',
-        ...(info && info.size >= 2 ? { group: { size: info.size, percent: info.percent } } : {}),
+        ...(info && info.group.size >= 2 ? { group: info.group } : {}),
         listed: info !== undefined,
         share: c.share,
         got: c.got,
@@ -185,7 +191,7 @@ export function servedReportOf(blocks: readonly Block[], sourceId: string, serve
       lines.splice(list.extra.place, 0, {
         name: 'extra output',
         kind: 'extra',
-        ...(info && info.size >= 2 ? { group: { size: info.size, percent: info.percent } } : {}),
+        ...(info && info.group.size >= 2 ? { group: info.group } : {}),
         listed: info !== undefined,
         share: list.extra.asked,
         got: list.extra.got,
@@ -342,7 +348,7 @@ export function formatReport(report: InspectReport, options: FormatOptions = {})
     for (const item of report.served) {
       out.push(`  ${item.itemId}  ${item.ranked ? '(list)' : '(no list: solve order)'}`)
       for (const l of item.lines) {
-        const group = l.group ? ` [group of ${l.group.size}, ${num(l.group.percent)}%]` : ''
+        const group = l.group ? ` [group of ${l.group.size}, ${l.group.percent !== undefined ? `${num(l.group.percent)}%` : 'in list order'}]` : ''
         out.push(
           `    ${l.rank}  ${l.name}${group}  ${l.kind}  share ${num(l.share)}  got ${num(l.got)}${item.ranked && !l.listed ? '  (not in the list)' : ''}${l.notCredited ? '  (not credited)' : ''}`,
         )

@@ -1206,7 +1206,14 @@ describe('solver synthetic cases', () => {
     // A stale head or middle entry never merges or splits groups: the numbers are row a's.
     const rowA = cases[0][2]
     it('g: a stale head promotes its first follower', () => {
-      const list: ServedEntry[] = [{ kind: 'block', blockId: 'B' }, { kind: 'block', blockId: 'ghost' }, { kind: 'block', blockId: 'C' }, { kind: 'block', blockId: 'D', tied: true }]
+      // B, {ghost, C, D}: the stale head leaves, C heads {C, D} (it does not join B's group): B 30, C 7.5, D 7.5 (row a).
+      // Merged into B's group it would read {B, C, D} and give B 17.5 (row d).
+      const list: ServedEntry[] = [
+        { kind: 'block', blockId: 'B' },
+        { kind: 'block', blockId: 'ghost' },
+        { kind: 'block', blockId: 'C', tied: true },
+        { kind: 'block', blockId: 'D', tied: true },
+      ]
       check(run18(['A', 'B', 'C', 'D'], list), rowA, ['B', 'C', 'D'], 0, 3)
     })
     it('h: a stale middle entry leaves the group as it was', () => {
@@ -1228,6 +1235,24 @@ describe('solver synthetic cases', () => {
         expect(flowIn(all, 'c-H1').rate, 'H1').toBeCloseTo(5, 6)
         expect(flowIn(all, 'c-H1').status).toBe('limited')
         expect(unsatisfiedRate(all.results.H1, X) ?? 0).toBeCloseTo(15, 6)
+      }
+    })
+
+    it('j: a group holding an ignored request (a take) is served in list order, not water-filled', () => {
+      // A is pinned at 25 plate/min with an extra of 10, and itself receives plate from Z (which has none to give), so every request of
+      // A is ignored (source-receives) and B, C, D are takes. List {B, extra}: C, D unlisted.
+      // List order: B is credited min(30, 25) = 25 and gets min(25, 25) = 25; the extra gets min(10, 25 - 25) = 0; C and D get 0.
+      // An equal water-fill of {B 25, extra 10} over 25 would offer 12.5 each: the extra takes 10, B gets 15 (and C, D still 0).
+      const Ap = mk('A', [[P, 10]], [{ ...rowIn('case13-make-plate', 'root'), pinnedRate: 25 }], [{ id: 'c-AZ', itemId: P, fromBlockId: 'Z' }], [{ kind: 'block', blockId: 'B' }, { kind: 'extra', tied: true }], P)
+      const Z = mk('Z', [[P, 0]], [])
+      for (const tabs of [['Z', 'A', 'B', 'C', 'D'], ['Z', 'A', 'D', 'C', 'B']]) {
+        const byId: Record<string, Block> = { Z, A: Ap, B: C('B', 30), C: C('C', 20), D: C('D', 10) }
+        const all = solveAll(tabs.map(t => byId[t]), makeGameData())
+        expect(flowIn(all, 'c-B').requestIgnored).toBe('source-receives')
+        expect(flowIn(all, 'c-B').rate, 'B').toBeCloseTo(25, 6)
+        expect(flowIn(all, 'c-C').rate, 'C').toBeCloseTo(0, 6)
+        expect(flowIn(all, 'c-D').rate, 'D').toBeCloseTo(0, 6)
+        expect(all.served.A[P].extra?.got, 'extra got').toBeCloseTo(0, 6)
       }
     })
   })
