@@ -63,8 +63,8 @@ test.describe('collapsed summary', () => {
     const toolbar = (await page.getByTestId('table-toolbar').boundingBox())!
     const tab = (await expandButton(page).boundingBox())!
     expect(toolbar.y, 'the toolbar starts where the summary ends').toBeCloseTo(line.y + line.height, 0)
-    expect(tab.y, 'the tab starts at the summary border').toBeCloseTo(line.y + line.height, 0)
-    expect(tab.height).toBe(18)
+    expect(tab.y, 'the tab starts on the summary border, covering its last pixel').toBeCloseTo(line.y + line.height - 1, 0)
+    expect(tab.height).toBe(19)
     expect(tab.y + tab.height, 'and overlaps the toolbar').toBeGreaterThan(toolbar.y + 1)
     expect(tab.x + tab.width / 2, 'centred').toBeCloseTo(line.x + line.width / 2, 0)
     // The tab is on top: a click on it reaches it and not the toolbar.
@@ -78,8 +78,8 @@ test.describe('collapsed summary', () => {
     const line = (await page.getByTestId('summary-line').boundingBox())!
     const toolbar = (await page.getByTestId('table-toolbar').boundingBox())!
     const tab = (await expandButton(page).boundingBox())!
-    expect(tab.y).toBeCloseTo(line.y + line.height, 0)
-    expect(toolbar.y, 'the toolbar is pushed down by the 18 px row').toBeCloseTo(tab.y + 18, 0)
+    expect(tab.y).toBeCloseTo(line.y + line.height - 1, 0)
+    expect(toolbar.y, 'the toolbar is pushed down by the 18 px row').toBeCloseTo(line.y + line.height + 18, 0)
     expect(tab.x + tab.width / 2).toBeCloseTo(line.x + line.width / 2, 0)
   })
 
@@ -165,7 +165,7 @@ test.describe('collapsed summary', () => {
     await expect(page.getByTestId('summary-slot').first()).toBeVisible()
     const handle = collapseHandle(page)
     await expect(handle).toHaveText('Collapse summary')
-    expect((await handle.boundingBox())!.height).toBe(18)
+    expect((await handle.boundingBox())!.height).toBe(19)
     const expandedTop = await tableTop(page)
     expect(expandedTop, 'the table moves down to make room').toBeGreaterThan(collapsedTop + 150)
 
@@ -214,7 +214,7 @@ test.describe('collapsed summary at narrow widths', () => {
   test.use({ storageState: NO_CHOICE })
 
   // 1 sumStack
-  test('under 768 px the three lines stack at 38 px and the 18 px handle row expands', async ({ page }) => {
+  test('under 768 px the three lines stack at 38 px and the handle tab expands', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await setup(page)
     await expect(lines(page)).toHaveCount(3)
@@ -231,7 +231,7 @@ test.describe('collapsed summary at narrow widths', () => {
     const handle = expandButton(page)
     await expect(handle).toBeVisible()
     await expect(handle).toHaveText('Expand summary')
-    expect((await handle.boundingBox())!.height).toBe(18)
+    expect((await handle.boundingBox())!.height).toBe(19)
     expect((await handle.boundingBox())!.y).toBeGreaterThanOrEqual(boxes[2].y + boxes[2].height - 1)
 
     // Chips fit in the line as at any width, and the +N still lists everything.
@@ -256,7 +256,7 @@ test.describe('collapsed summary at narrow widths', () => {
     const panes = page.getByTestId('summary-pane')
     await expect(panes).toHaveCount(3)
     await expect(panes.nth(2)).not.toBeInViewport()
-    expect((await collapseHandle(page).boundingBox())!.height).toBe(18)
+    expect((await collapseHandle(page).boundingBox())!.height).toBe(19)
     await collapseHandle(page).click()
     await expect(lines(page)).toHaveCount(3)
   })

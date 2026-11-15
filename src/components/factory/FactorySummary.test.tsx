@@ -2392,7 +2392,7 @@ describe('FactorySummary — collapsed summary', () => {
     // No Expand button inside the line: the handle tab is outside it, with an 18 px row that has no height from xl.
     expect(within(line).queryByRole('button', { name: /summary/ })).toBeNull()
     const handle = expandButton()
-    expect(handle).toHaveClass('h-[18px]', 'rounded-b-lg', 'border-t-0')
+    expect(handle).toHaveClass('h-[19px]', '-mt-px', 'rounded-b-lg', 'border-t-0')
     expect(handle.parentElement).toHaveClass('h-[18px]', 'xl:h-0')
   })
 })
