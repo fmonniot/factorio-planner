@@ -2080,6 +2080,60 @@ describe('served order', () => {
       })
     })
 
+    describe('placeServed', () => {
+      const rank = (before: ServedEntry | null) => ({ kind: 'rank' as const, before })
+      const join = (target: ServedEntry) => ({ kind: 'join' as const, target })
+
+      it('creates the list from the shown order and joins a group, as one history entry', () => {
+        store().placeServed('S', 'plate', blk('C'), join(blk('B')), shown)
+        expect(listOf('S')).toStrictEqual([e('A'), e('B'), e('C', T), extra])
+        expect(depth('S')).toBe(1)
+        for (const id of ['A', 'B', 'C']) expect(depth(id)).toBe(0)
+        store().undo()
+        expect('servedOrder' in get('S')).toBe(false)
+        store().redo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B'), e('C', T), extra])
+      })
+
+      it('splits a group with an edge drop in one undoable step', () => {
+        give([e('A'), e('B', T), e('C', T), extra])
+        store().placeServed('S', 'plate', blk('C'), rank(blk('B')), shown)
+        expect(listOf('S')).toStrictEqual([e('A'), e('C'), e('B'), extra])
+        expect(depth('S')).toBe(1)
+        store().undo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B', T), e('C', T), extra])
+      })
+
+      it('joins an entry that is not in the list', () => {
+        give([e('A'), e('B')])
+        store().placeServed('S', 'plate', blk('C'), join(blk('A')), shown)
+        expect(listOf('S')).toStrictEqual([e('A'), e('C', T), e('B')])
+        store().undo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B')])
+      })
+
+      it('drops the shares of a group left and undo restores them', () => {
+        const list = [e('A', { share: 50 }), e('B', { ...T, share: 50 }), e('C')]
+        give(list)
+        store().placeServed('S', 'plate', blk('B'), join(blk('C')), shown)
+        expect(listOf('S')).toStrictEqual([e('A'), e('C'), e('B', T)])
+        store().undo()
+        expect(listOf('S')).toStrictEqual(list)
+      })
+
+      it('does nothing when nothing would change or the input is unknown', () => {
+        give([e('A'), e('B'), e('C')])
+        const before = store().blocks
+        store().placeServed('S', 'plate', blk('B'), join(blk('B')), shown)
+        store().placeServed('S', 'plate', blk('B'), join(blk('Z')), shown)
+        store().placeServed('nope', 'plate', blk('B'), join(blk('A')), shown)
+        store().placeServed('S', 'plate', blk('ghost'), join(blk('A')), shown)
+        store().placeServed('S', 'plate', blk('B'), rank(blk('C')), shown)
+        expect(store().blocks).toBe(before)
+        expect(depth('S')).toBe(0)
+      })
+    })
+
     describe('moveServed keeps the shape', () => {
       it('swaps by position', () => {
         give([e('A'), e('B', T), e('C')])

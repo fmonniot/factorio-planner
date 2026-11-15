@@ -7,7 +7,8 @@ import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockCo
 import { useGameDataStore, selectGameData } from './gameDataStore'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, SourceRule, ServedEntry } from '../data/types'
 import { insertionTarget } from '../utils/insertionTarget'
-import { canonicalServedList, dropServedEntries, isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedList, withServedShare, withServedTied } from '../data/servedEntries'
+import { canonicalServedList, dropServedEntries, isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedEntryRanked, withServedList, withServedShare, withServedTied } from '../data/servedEntries'
+import type { ServedPlace } from '../data/servedEntries'
 import { cutServedEntries, lostAreaIds, restoreServedCuts, type ServedCut } from './servedCuts'
 
 // ---------------------------------------------------------------------------
@@ -591,6 +592,13 @@ export interface BlockStoreState {
   setServedTied: (sourceBlockId: string, itemId: string, entry: ServedEntry, tied: boolean, shown: ServedEntry[]) => void
   /** Sets the entry's percentage of its group; the others scale to fill the rest. */
   setServedShare: (sourceBlockId: string, itemId: string, entry: ServedEntry, percent: number, shown: ServedEntry[]) => void
+  /**
+   * Puts the entry at a place given by entry, not by index: `{ kind: 'rank', before }` gives it a rank of its own before
+   * `before` (last when null), `{ kind: 'join', target }` ties it right after `target`, joining its group (`shown`: see
+   * `moveServed`). Atomic: one history entry in the source block, so an edge drop inside a group splits it in the same
+   * step. No-op with no history entry when the source is unknown, `entry` is not a consumer or the extra, or nothing would change.
+   */
+  placeServed: (sourceBlockId: string, itemId: string, entry: ServedEntry, place: ServedPlace, shown: ServedEntry[]) => void
   /** Remove the stored list; the item is served in today's order again. No-op with no history entry when there is none. */
   resetServedOrder: (sourceBlockId: string, itemId: string) => void
 
@@ -1332,6 +1340,9 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
 
   setServedShare: (sourceBlockId, itemId, entry, percent, shown) =>
     set(state => servedEditState(state, sourceBlockId, itemId, entry, shown, list => withServedShare(list, entry, percent))),
+
+  placeServed: (sourceBlockId, itemId, entry, place, shown) =>
+    set(state => servedEditState(state, sourceBlockId, itemId, entry, shown, list => withServedEntryRanked(list, entry, place))),
 
   resetServedOrder: (sourceBlockId, itemId) =>
     set(state => {

@@ -2734,6 +2734,53 @@ describe('FactorySummary — Served order', () => {
     expect(served('Products').getByRole('button', { name: 'Served order…' })).toBeInTheDocument()
   })
 
+  describe('groups, shares and drops write through the store', () => {
+    const wired = (id: string, name: string): Block => ({ ...consumer(id, name), inputConnections: [{ id: `c-${id}`, itemId: 'iron-plate', fromBlockId: 'miner' }] })
+    const blk = (blockId: string) => ({ kind: 'block' as const, blockId })
+    const listNow = () => useBlockStore.getState().blocks[0].servedOrder?.['iron-plate']
+    function open() {
+      const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', products: [ironGoal] }
+      useBlockStore.setState({ blocks: [miner, wired('b', 'Gears'), wired('c', 'Belts')], activeBlockId: 'miner', history: {} })
+      useSolverStore.setState({
+        lastResult: result, lastResults: { miner: result }, flows: [], _setStatus: () => {},
+        served: { miner: { 'iron-plate': { consumers: [entry('b', 'request', 30, 30), entry('c', 'request', 20, 20)] } } },
+      })
+      render(<FactorySummary />)
+      select('Products', 'Iron Plate')
+      fireEvent.click(served('Products').getByRole('button', { name: 'Served order…' }))
+      return screen.getByTestId('served-order-popover')
+    }
+
+    it('toggles, sets a percentage and undoes both', () => {
+      const popover = open()
+      fireEvent.click(within(popover.querySelector<HTMLElement>('[data-line-key="block:c"]')!).getByTestId('served-tie'))
+      expect(listNow()).toEqual([blk('b'), { ...blk('c'), tied: true }])
+      const input = within(popover).getByLabelText('Share of Gears in its group (%)')
+      fireEvent.change(input, { target: { value: '70' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(listNow()).toEqual([{ ...blk('b'), share: 70 }, { ...blk('c'), tied: true, share: 30 }])
+      act(() => useBlockStore.getState().undo())
+      expect(listNow()).toEqual([blk('b'), { ...blk('c'), tied: true }])
+      act(() => useBlockStore.getState().undo())
+      expect(listNow()).toBeUndefined()
+    })
+
+    it('places a dropped line by its edge', () => {
+      const popover = open()
+      const target = popover.querySelector<HTMLElement>('[data-line-key="block:b"]')!
+      vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 300, 40))
+      const dataTransfer = { setData: vi.fn(), getData: vi.fn(), effectAllowed: '', dropEffect: '' }
+      fireEvent.dragStart(popover.querySelector<HTMLElement>('[data-line-key="block:c"]')!, { dataTransfer })
+      // happy-dom has no DragEvent, so the events are plain ones and `clientY` is set by hand.
+      for (const type of ['dragOver', 'drop'] as const) {
+        const event = createEvent[type](target, { dataTransfer })
+        Object.defineProperty(event, 'clientY', { value: 102 })
+        fireEvent(target, event)
+      }
+      expect(listNow()).toEqual([blk('c'), blk('b')])
+    })
+  })
+
   it('closes when another block becomes active', () => {
     setupServed({ miner: { 'iron-plate': { consumers: [entry('b', 'request', 30, 30), entry('c', 'request', 20, 20)] } } })
     render(<FactorySummary />)

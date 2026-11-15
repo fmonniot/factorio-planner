@@ -1,12 +1,16 @@
 import type { ServedConsumer, ServedEntry, ServedList } from '../../data/types'
-import { servedEntryKey } from '../../data/servedEntries'
+import { dropServedEntries, groupPercents, servedEntryKey, servedGroupSpans } from '../../data/servedEntries'
+import type { ServedPlace } from '../../data/servedEntries'
 import type { RateUnit } from '../../store/uiStore'
 import { isShortfall } from './summarySegments'
+
+/** A line's group: how many lines share its place, its index among them, its percentage and whether the solver served the group in list order. */
+export interface ServedLineGroup { size: number; index: number; percent: number; listOrder: boolean }
 
 /** One line of the served-order popover: a consumer, or the source's own extra output. */
 export interface ServedLine {
   kind: 'request' | 'take' | 'extra'
-  /** 1-based position in the ranked list; 0 for a line the list does not rank (also before `splitServed` has run) */
+  /** 1-based place of the line's group among the ranked groups (lines of a group share it); 0 for a line the list does not rank (also before `splitServed` has run) */
   rank: number
   blockId?: string
   connectionId?: string
@@ -19,6 +23,10 @@ export interface ServedLine {
   need?: number
   /** the take got no credit because the request pass was not done with its source yet (see `ServedConsumer.notCredited`) */
   notCredited?: true
+  /** a take whose group the solver served in list order, not by its weights (copied from the consumer) */
+  groupInListOrder?: true
+  /** only on a ranked line whose group has two lines or more */
+  group?: ServedLineGroup
 }
 
 /**
@@ -40,6 +48,7 @@ export function blockLines(list: ServedList): { consumers: ServedConsumer[]; ext
     first.got += c.got
     if (c.need !== undefined) first.need = (first.need ?? 0) + c.need
     if (c.notCredited) first.notCredited = true
+    if (c.groupInListOrder) first.groupInListOrder = true
   }
   const extraPlace = list.extra ? new Set(list.consumers.slice(0, list.extra.place).map(c => c.blockId)).size : undefined
   return { consumers: [...merged.values()], extraPlace }
@@ -65,6 +74,7 @@ export function servedLines(list: ServedList, itemId: string, unit: RateUnit): S
       if (isShortfall(c.share, c.got, unit, itemId)) line.short = c.share - c.got
     } else {
       if (c.notCredited) line.notCredited = true
+      if (c.groupInListOrder) line.groupInListOrder = true
       if (c.need !== undefined) line.need = c.need
     }
     return line
@@ -110,15 +120,26 @@ export interface ServedSections {
 export function splitServed(lines: ServedLine[], stored: readonly ServedEntry[] | undefined): ServedSections {
   if (stored === undefined) return { hasList: false, ranked: lines.map((l, i) => ({ ...l, rank: i + 1 })), unranked: [] }
   const byKey = new Map(lines.map(l => [lineKey(l), l]))
-  const ranked: ServedLine[] = []
   const used = new Set<string>()
-  for (const e of stored) {
+  // the solver's own stale rule: a stale or repeated entry goes, a removed head promotes its first follower
+  const kept = dropServedEntries(stored, e => {
     const key = lineKey(e)
-    const line = byKey.get(key)
-    if (!line || used.has(key)) continue
+    if (!byKey.has(key) || used.has(key)) return true
     used.add(key)
-    ranked.push({ ...line, rank: ranked.length + 1 })
-  }
+    return false
+  })
+  const ranked: ServedLine[] = []
+  servedGroupSpans(kept).forEach(([start, end], g) => {
+    const members = kept.slice(start, end)
+    const percents = groupPercents(members)
+    const memberLines = members.flatMap(e => byKey.get(lineKey(e)) ?? [])
+    const listOrder = memberLines.some(l => l.groupInListOrder === true)
+    memberLines.forEach((l, i) => {
+      const line: ServedLine = { ...l, rank: g + 1 }
+      if (members.length >= 2) line.group = { size: members.length, index: i, percent: percents[i], listOrder }
+      ranked.push(line)
+    })
+  })
   const rest = lines.filter(l => !used.has(lineKey(l)) && l.kind !== 'extra').map(l => ({ ...l, rank: 0 }))
   const extra = lines.find(l => l.kind === 'extra' && !used.has('extra'))
   return { hasList: true, ranked, unranked: extra ? [...rest, { ...extra, rank: 0 }] : rest }
@@ -147,3 +168,26 @@ export function placement(
 export function moveTarget(ranked: readonly ServedLine[], index: number, delta: -1 | 1): ServedLine | null {
   return delta < 0 ? (ranked[index - 1] ?? null) : (ranked[index + 2] ?? null)
 }
+
+/** A drop within this fraction of a line's height from its top or bottom is an edge; the rest is the middle. */
+export const EDGE_FRACTION = 0.3
+export type DropZone = 'top' | 'middle' | 'bottom'
+
+/** The zone of a line a drop at `offsetY` (from the line's top) lands in; a line with no height reads as the middle. */
+export function dropZone(offsetY: number, height: number): DropZone {
+  if (!(height > 0)) return 'middle'
+  if (offsetY < height * EDGE_FRACTION) return 'top'
+  if (offsetY > height * (1 - EDGE_FRACTION)) return 'bottom'
+  return 'middle'
+}
+
+/** The place a drop on ranked line `index` lands (`index >= ranked.length`: the divider, last): an edge a rank of its own, the middle the line's group. */
+export function dropPlace(ranked: readonly ServedLine[], index: number, zone: DropZone): ServedPlace {
+  if (index >= ranked.length) return { kind: 'rank', before: null }
+  if (zone === 'middle') return { kind: 'join', target: entryOf(ranked[index]) }
+  const before = zone === 'top' ? ranked[index] : ranked[index + 1]
+  return { kind: 'rank', before: before ? entryOf(before) : null }
+}
+
+/** A percentage with at most one decimal. */
+export const fmtPercent = (p: number): string => String(Math.round(p * 10) / 10)

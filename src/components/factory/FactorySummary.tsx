@@ -189,6 +189,9 @@ export function FactorySummary() {
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const moveServed = useBlockStore(s => s.moveServed)
+  const placeServed = useBlockStore(s => s.placeServed)
+  const setServedTied = useBlockStore(s => s.setServedTied)
+  const setServedShare = useBlockStore(s => s.setServedShare)
   const resetServedOrder = useBlockStore(s => s.resetServedOrder)
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
   const allFlows = useSolverStore(selectFlows)
@@ -622,6 +625,9 @@ export function FactorySummary() {
           rateUnit={rateUnit}
           stored={storedOf(servedPopover.itemId)}
           onMove={(entry, to, shown) => moveServed(servedPopover.blockId, servedPopover.itemId, entry, to, shown)}
+          onPlace={(entry, place, shown) => placeServed(servedPopover.blockId, servedPopover.itemId, entry, place, shown)}
+          onTie={(entry, tied, shown) => setServedTied(servedPopover.blockId, servedPopover.itemId, entry, tied, shown)}
+          onShare={(entry, pct, shown) => setServedShare(servedPopover.blockId, servedPopover.itemId, entry, pct, shown)}
           onReset={() => resetServedOrder(servedPopover.blockId, servedPopover.itemId)}
           x={servedPopover.x}
           y={servedPopover.y}
