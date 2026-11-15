@@ -221,22 +221,22 @@ Each ticket appends its report here (deviations and additions only), as in [phas
 
 ## Running the tickets
 
-For the session that orchestrates. Each ticket is one run of the `backlog-task` skill (`.claude/skills/backlog-task/SKILL.md`) with `noplan`, and one pull request. The tiers below are the ones the skill's own criteria give (small, standard, hard), so step 1's classification is not redone. Explore is `haiku` at `medium` wherever a plan is written.
+For the session that orchestrates. Each ticket is one run of the `backlog-task` skill (`.claude/skills/backlog-task/SKILL.md`) with `noplan`, and one pull request. The tiers below are the ones the skill's own criteria give (small, standard, hard, and the spike shape for T2), so step 1's classification is not redone. Explore is `haiku` at `medium` wherever a plan is written.
 
-The author's subscription limits Opus, so the models depart from the skill's table: it would put seven agents on Opus (the plan and the review of T2, T4 and T5, plus T2's implementer); this run uses three. Every ticket except T2 and T4 is invoked with the `sonnet` control word, which also keeps the skill's risky-diff rule from raising a review to Opus.
+The author's subscription limits Opus, so the run uses it three times: T2's investigator, and the plan and the review of T4. T2 is invoked with `spike`. Every ticket except T2 and T4 is invoked with the `sonnet` control word: the tiers already keep them on Sonnet, and the word keeps the skill's risky-diff rule from raising a review to Opus (T5's diff will be large enough to trigger it).
 
 | Ticket | Tier | Plan | Implement | Review (`code-review` level) | Why |
 | --- | --- | --- | --- | --- | --- |
 | T1 | standard | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | UI only, on helpers that exist; the plan is short |
-| T2 | hard | none: the implementer plans | one agent, `opus`, `high` | `sonnet`, `high` | **Opus 1.** An experiment has no implementation-grade plan, so a separate planner would be paid for twice. The review checks the tests and the report's claims against the code; the judgement on the LP is the author's, who reads the report |
+| T2 | spike, with a hard criterion | none: the main session writes the brief | one agent, `opus`, `high` | `sonnet`, `high` | **Opus 1.** An experiment has no implementation-grade plan, so a separate planner would be paid for twice. The review checks the tests and the report's claims against the code; the judgement on the LP is the author's, who reads the report |
 | T3 | standard | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | Wide but mechanical, on phase 4's precedent (`servedCuts.ts`); an optional key, no migration |
 | T4 | hard | `Plan`, `opus`, `high` | `sonnet`, `medium` | Opus wrapper (`low`), `high` | **Opus 2 and 3.** The LP change every later ticket stands on; the plan re-derives case 21 A and C and the reviewer re-derives them again |
-| T5 | hard by the skill's rule, run as standard | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | By then the pair flows were prototyped in T2 and the split shape reviewed in T4; case 21 B and C pin the result. T2's report and T4's plan go into the planner's prompt |
+| T5 | standard: it follows the spike and T4 | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | By then the pair flows were prototyped in T2 and the split shape reviewed in T4; case 21 B and C pin the result. T2's report and T4's plan go into the planner's prompt |
 | T6 | standard | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | UI on a settled design (D9, D10) |
 | T7 | standard | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | UI on a settled design (D6, D12) |
 | T8 | small | none: the main session | the main session | none (docs only; `npm run lint:docs`) | No planning needed: the ticket lists the edits |
 
-If Opus is scarcer still, drop in this order: T4's review (to `sonnet`, `high`), then T4's plan. T2 keeps Opus last: a wrong conclusion there misleads four tickets. If there is Opus to spare, add it in the reverse order of the skill's table: T5's plan, then T5's review.
+If Opus is scarcer still, drop in this order: T4's review (to `sonnet`, `high`), then T4's plan. T2 keeps Opus last: a wrong conclusion there misleads four tickets. If there is Opus to spare, add it to T5: its review first (drop the `sonnet` word and the risky-diff rule does it), then its plan.
 
 Rules of the run, as agreed for phases 3 and 4:
 
