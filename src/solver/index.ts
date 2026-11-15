@@ -617,7 +617,7 @@ interface RequestPlan {
   credits: Map<string, number>
   /** One entry per cycle of requests: `rounds` are demand rounds, `converged` whether the demand settled. */
   loops: BlockLoop[]
-  /** take connection id → items/min its consumer needs of the item before any take covers it (only takes the request pass probed). */
+  /** take connection id → items/min of its consumer's need still uncovered when the take was reached (only takes the pass reached). */
   needs: Map<string, number>
   /** take connection ids the request pass reached before it could credit them (see `ServedConsumer.notCredited`). */
   uncredited: Set<string>
@@ -692,9 +692,9 @@ function applyTakeCredits(
 ): void {
   for (const [itemId, list] of takes ?? []) {
     let need = needed.get(itemId) ?? 0
-    for (const t of list) needs?.set(t.id, need)
     for (const t of list) {
       if (need <= 0) break
+      needs?.set(t.id, need) // what is left to cover when this take is reached
       const r = rankedRest?.(t, itemId)
       const left = r ?? estimates.get(t.fromBlockId)?.get(itemId) ?? 0
       const cover = Math.min(left, t.maxRate ?? Infinity, need)
@@ -1089,7 +1089,7 @@ function computeRequests(
           }),
           members.flatMap(m =>
             [...(takesOf(m.id) ?? [])].flatMap(([itemId, takes]) =>
-              takes.map(t => [t.fromBlockId, itemId, estimates.get(t.fromBlockId)?.get(itemId) ?? null]),
+              takes.map(t => [t.fromBlockId, itemId, estimates.has(t.fromBlockId), estimates.get(t.fromBlockId)?.get(itemId) ?? null]),
             ),
           ),
           // The lists of the ranked pairs the members take from, and what their outside takes are credited.

@@ -27,10 +27,10 @@ export function hasServedOrder(list: ServedList | undefined): boolean {
 }
 
 /**
- * The lines in the order the solver served them. `onlySource(blockId)` says the consumer's only connection for the item is
- * this one: only then is a take's gap to its `need` a shortfall (another connection may cover it).
+ * The lines in the order the solver served them. A take gets no `short`: its `need` comes from the request probe (unlimited
+ * supply), so a gap to `got` may be the consumer's own limit or another source, not this one running dry.
  */
-export function servedLines(list: ServedList, itemId: string, unit: RateUnit, onlySource: (blockId: string) => boolean = () => true): ServedLine[] {
+export function servedLines(list: ServedList, itemId: string, unit: RateUnit): ServedLine[] {
   const lines: ServedLine[] = list.consumers.map(c => {
     const line: ServedLine = { kind: c.kind, rank: 0, blockId: c.blockId, connectionId: c.connectionId, got: c.got }
     if (c.kind === 'request') {
@@ -38,10 +38,7 @@ export function servedLines(list: ServedList, itemId: string, unit: RateUnit, on
       if (isShortfall(c.share, c.got, unit, itemId)) line.short = c.share - c.got
     } else {
       if (c.notCredited) line.notCredited = true
-      if (c.need !== undefined) {
-        line.need = c.need
-        if (onlySource(c.blockId) && isShortfall(c.need, c.got, unit, itemId)) line.short = c.need - c.got
-      }
+      if (c.need !== undefined) line.need = c.need
     }
     return line
   })

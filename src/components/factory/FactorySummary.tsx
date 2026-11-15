@@ -277,17 +277,20 @@ export function FactorySummary() {
   // The popover is tied to one item of one block: close it when either goes away or the order stops being worth showing.
   if (servedPopover && (servedPopover.blockId !== activeBlockId || !hasServedOrder(servedOf(servedPopover.itemId)))) setServedPopover(null)
   const storedOf = (itemId: string) => (activeBlock ? servedListOf(activeBlock, itemId) : undefined)
-  const servedAction = (itemId: string): StripAction[] => hasServedOrder(servedOf(itemId))
-    ? [{
-        label: unrankedCount(servedOf(itemId)!, storedOf(itemId)) > 0
-          ? `Served order… · ${unrankedCount(servedOf(itemId)!, storedOf(itemId))} not ranked`
-          : 'Served order…',
-        onSelect: e => {
-          const r = e.currentTarget.getBoundingClientRect()
-          setServedPopover({ blockId: activeBlockId!, itemId, x: r.left, y: r.bottom })
-        },
-      }]
-    : []
+  const servedAction = (itemId: string): StripAction[] => {
+    const list = servedOf(itemId)
+    if (!hasServedOrder(list)) return []
+    const n = unrankedCount(list!, storedOf(itemId))
+    return [{
+      id: 'served-order',
+      label: 'Served order…',
+      badge: n > 0 ? { count: n, noun: 'not ranked' } : undefined,
+      onSelect: e => {
+        const r = e.currentTarget.getBoundingClientRect()
+        setServedPopover({ blockId: activeBlockId!, itemId, x: r.left, y: r.bottom })
+      },
+    }]
+  }
   // Slots: one per item, each split into allocation segments.
   const exportsOf = (itemId: string) => outputFlows.filter(f => f.itemId === itemId)
   const blockIds = new Set(blocks.map(b => b.id))

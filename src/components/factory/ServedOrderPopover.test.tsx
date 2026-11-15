@@ -112,35 +112,62 @@ describe('ServedOrderPopover', () => {
     expect(screen.getByTestId('served-unranked').textContent).toContain('Extra output')
   })
 
-  it('reads a take as needs / got / short, and flags a take with no credit', () => {
+  it('reads a take as needs / got, never short, and flags a take with no credit', () => {
     const takes = (need: number | undefined, notCredited?: true): ServedList => ({
       consumers: [
         { blockId: 'b', connectionId: 'cb', kind: 'take', share: 0, got: 0, ...(need !== undefined ? { need } : {}), ...(notCredited ? { notCredited } : {}) },
         { blockId: 'c', connectionId: 'cc', kind: 'request', share: 1, got: 1 },
       ],
     })
-    const sole = [
-      { ...blocks[0], inputConnections: [{ id: 'cb', itemId: 'plate', fromBlockId: 's' }] },
-      blocks[1],
-    ] as typeof blocks
     const { unmount } = render(
-      <ServedOrderPopover itemId="plate" list={takes(8, true)} items={items} blocks={sole} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} x={0} y={0} onClose={vi.fn()} />,
+      <ServedOrderPopover itemId="plate" list={takes(8, true)} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} x={0} y={0} onClose={vi.fn()} />,
     )
     const line = lineOf('block:b')
     expect(line.textContent).toContain('needs 8.0')
     expect(line.textContent).toContain('got 0.0')
-    expect(within(line).getByTestId('served-short').textContent).toContain('short 8.0')
+    expect(within(line).queryByTestId('served-short')).toBeNull()
     expect(within(line).getByTestId('served-not-credited').textContent).toBe('no credit')
     unmount()
-    const two = [
-      { ...blocks[0], inputConnections: [{ id: 'cb', itemId: 'plate', fromBlockId: 's' }, { id: 'cb2', itemId: 'plate', fromBlockId: 't' }] },
-      blocks[1],
-    ] as typeof blocks
     render(
-      <ServedOrderPopover itemId="plate" list={takes(8)} items={items} blocks={two} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} x={0} y={0} onClose={vi.fn()} />,
+      <ServedOrderPopover itemId="plate" list={takes(undefined)} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} x={0} y={0} onClose={vi.fn()} />,
     )
-    expect(within(lineOf('block:b')).queryByTestId('served-short')).toBeNull()
+    expect(lineOf('block:b').textContent).toContain('takes what is left')
     expect(within(lineOf('block:b')).queryByTestId('served-not-credited')).toBeNull()
+  })
+
+  it('closes on a scroll outside the popover, not on one inside it', () => {
+    const onClose = renderPopover()
+    fireEvent.scroll(screen.getByTestId('served-ranked'))
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.scroll(document.body)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps its clicks and drags from reaching the components around it', () => {
+    const onClick = vi.fn()
+    const onDragStart = vi.fn()
+    render(
+      <div onClick={onClick} onDragStart={onDragStart}>
+        <ServedOrderPopover itemId="plate" list={list} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} x={0} y={0} onClose={vi.fn()} />
+      </div>,
+    )
+    fireEvent.click(screen.getByText('Served in this order'))
+    fireEvent.dragStart(lineOf('block:b'))
+    expect(onClick).not.toHaveBeenCalled()
+    expect(onDragStart).not.toHaveBeenCalled()
+  })
+
+  it('announces the place an added line takes', () => {
+    renderWith({ stored: [blk('b'), blk('c')], list: { consumers: [...list.consumers, { blockId: 'd', connectionId: 'cd', kind: 'request', share: 1, got: 1 }] }, blocks: [...blocks, { ...makeEmptyBlock('Cogs'), id: 'd' }] })
+    fireEvent.click(button('block:d', 'served-add'))
+    expect(screen.getByRole('status').textContent).toBe('Cogs moved to place 3.')
+  })
+
+  it('does not announce or call onMove for a move that changes nothing', () => {
+    const { onMove } = renderWith({ stored: [blk('b'), blk('c')] })
+    fireEvent.click(button('block:c', 'served-move-down')) // disabled: the last line
+    expect(onMove).not.toHaveBeenCalled()
+    expect(screen.getByRole('status').textContent).toBe('')
   })
 
   it('closes on Escape', () => {

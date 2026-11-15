@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { ModalPortal } from '../ModalPortal'
 import type { Block, GameData, ServedEntry, ServedList } from '../../data/types'
 import { sameServedEntry, withServedEntryPlaced } from '../../data/servedEntries'
 import type { RateUnit } from '../../store/uiStore'
@@ -50,7 +50,7 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
     refocus.current = null
     if (selector) ref.current?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true })
   })
-  const [announce, setAnnounce] = useState('')
+  const [announce, setAnnounce] = useState({ text: '', n: 0 })
   // What is dragged (a line key), as a ref for the handlers and as state for the faded look; the drop line.
   const dragRef = useRef<string | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
@@ -62,15 +62,24 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
     ref.current?.focus()
   }, [])
 
+  // Keep the box inside the window, whenever its anchor or its size changes (badges wrap, a divider or hint appears).
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const { width, height } = el.getBoundingClientRect()
-    setPos({
-      x: Math.max(0, Math.min(x, window.innerWidth - width)),
-      y: Math.max(0, Math.min(y, window.innerHeight - height)),
-    })
-  }, [x, y, lineCount, stored?.length])
+    const clamp = () => {
+      const { width, height } = el.getBoundingClientRect()
+      const next = {
+        x: Math.max(0, Math.min(x, window.innerWidth - width)),
+        y: Math.max(0, Math.min(y, window.innerHeight - height)),
+      }
+      setPos(p => (p.x === next.x && p.y === next.y ? p : next))
+    }
+    clamp()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(clamp)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [x, y, lineCount])
 
   useDismiss(ref, true, () => {
     onClose()
@@ -83,38 +92,46 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   useLayoutEffect(() => { onCloseRef.current = onClose })
   useLayoutEffect(() => {
     const dismiss = () => onCloseRef.current()
+    // A scroll inside the popover (its own list) is not the page moving away from the slot.
+    const dismissOnScroll = (e: Event) => {
+      if (e.target instanceof Node && ref.current?.contains(e.target)) return
+      dismiss()
+    }
     window.addEventListener('resize', dismiss)
-    window.addEventListener('scroll', dismiss, true)
+    window.addEventListener('scroll', dismissOnScroll, true)
     return () => {
       window.removeEventListener('resize', dismiss)
-      window.removeEventListener('scroll', dismiss, true)
+      window.removeEventListener('scroll', dismissOnScroll, true)
     }
   }, [])
 
   if (!hasServedOrder(list)) return null
   const amount = (perMin: number) => fmtItemRateText(itemId, perMin / 60, rateUnit)
-  const soleConnection = (blockId: string) =>
-    blocks.find(b => b.id === blockId)?.inputConnections.filter(c => c.itemId === itemId).length === 1
-  const lines = servedLines(list, itemId, rateUnit, soleConnection)
+  const lines = servedLines(list, itemId, rateUnit)
   const { hasList, ranked, unranked } = splitServed(lines, stored)
   const nameOf = (line: ServedLine) =>
     line.kind === 'extra' ? 'Extra output' : (blocks.find(b => b.id === line.blockId)?.name ?? line.blockId ?? '')
 
-  function move(line: ServedLine, before: ServedLine | null, focus: string) {
+  /** `prefer`: the button that was pressed (a drag or Add: Move up). Focus goes to an enabled button of the line, else the dialog. */
+  function move(line: ServedLine, before: ServedLine | null, prefer: 'served-move-up' | 'served-move-down') {
     const to = placement(ranked, stored, before)
     const entry = entryOf(line)
-    const place = (withServedEntryPlaced(to.shown, entry, before && entryOf(before)) ?? to.shown).findIndex(e => sameServedEntry(e, entry)) + 1
-    refocus.current = `[data-line-key="${lineKey(line)}"] [data-testid="${focus}"]`
-    setAnnounce(`${nameOf(line)} moved to place ${place}.`)
+    const next = withServedEntryPlaced(stored ?? to.shown, entry, before && entryOf(before))
+    if (next === undefined) return // the store would ignore it too
+    const keys = new Set(lines.map(lineKey))
+    const after = next.filter(e => keys.has(lineKey(e)))
+    const at = after.findIndex(e => sameServedEntry(e, entry))
+    const canUp = at > 0
+    const canDown = at < after.length - 1
+    const focus = prefer === 'served-move-down' ? (canDown ? 'served-move-down' : canUp ? 'served-move-up' : null) : (canUp ? 'served-move-up' : canDown ? 'served-move-down' : null)
+    refocus.current = focus ? `[data-line-key="${lineKey(line)}"] [data-testid="${focus}"]` : null
+    setAnnounce(a => ({ text: `${nameOf(line)} moved to place ${at + 1}.`, n: a.n + 1 }))
     onMove(entry, to.toIndex, to.shown)
   }
   const step = (line: ServedLine, index: number, delta: -1 | 1) => {
     const next = index + delta
     if (next < 0 || next > ranked.length - 1) return
-    const exhausted = next === 0 || next === ranked.length - 1
-    const pressed = delta < 0 ? 'served-move-up' : 'served-move-down'
-    const other = delta < 0 ? 'served-move-down' : 'served-move-up'
-    move(line, moveTarget(ranked, index, delta), exhausted ? other : pressed)
+    move(line, moveTarget(ranked, index, delta), delta < 0 ? 'served-move-up' : 'served-move-down')
   }
 
   // Dragging: a line moves to a ranked place (before a ranked line, or last when dropped on the divider).
@@ -248,7 +265,8 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
     )
   }
 
-  return createPortal(
+  return (
+    <ModalPortal>
     <div
       ref={ref}
       role="dialog"
@@ -257,11 +275,8 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
       data-testid="served-order-popover"
       data-item-id={itemId}
       style={{ position: 'fixed', left: pos.x, top: pos.y }}
-      className="z-50 flex w-[360px] max-w-[calc(100vw-1rem)] flex-col gap-1.5 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl px-3 py-2.5 text-left outline-none"
-      onContextMenu={e => {
-        e.preventDefault()
-        e.stopPropagation()
-      }}
+      className="z-50 flex max-h-[calc(100vh-1rem)] w-[360px] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto gap-1.5 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl px-3 py-2.5 text-left outline-none"
+      onContextMenu={e => e.preventDefault()}
     >
       <div className="flex items-center gap-2">
         <div className="flex-1 text-xs font-semibold text-gray-100">Served in this order</div>
@@ -303,8 +318,8 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
           </ol>
         </>
       )}
-      <div role="status" className="sr-only">{announce}</div>
-    </div>,
-    document.body,
+      <div role="status" className="sr-only">{announce.text}</div>
+    </div>
+    </ModalPortal>
   )
 }

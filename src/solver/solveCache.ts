@@ -27,7 +27,7 @@ export interface RequestLoopSolve {
   credits: Map<string, number>
   /** [take source, item, leftover estimate after the members' takes]. */
   credited: [string, string, number][]
-  /** take connection id → items/min its member needs of the item before any take covers it. */
+  /** take connection id → items/min of its member's need still uncovered when the take was reached. */
   needs: Map<string, number>
   /** take connection ids reached before they could be credited. */
   uncredited: Set<string>

@@ -44,17 +44,14 @@ describe('servedLines', () => {
 describe('servedLines of takes', () => {
   const take = (blockId: string, over: Partial<ServedConsumer>): ServedConsumer => ({ ...c(blockId, 'take', 0, 0), ...over })
 
-  it('carries need and notCredited, and a short only for a sole connection above the display tolerance', () => {
-    const list: ServedList = { consumers: [take('b', { need: 8, got: 3, notCredited: true }), take('c', { need: 8, got: 3 }), take('d', { need: 8, got: 7.9999 }), take('e', {})] }
-    const lines = servedLines(list, 'plate', 'min', id => id !== 'c')
+  it('carries need and notCredited, and never a short on a take', () => {
+    const list: ServedList = { consumers: [take('b', { need: 8, got: 3, notCredited: true }), take('c', { need: 8, got: 3 }), take('d', {})] }
+    const lines = servedLines(list, 'plate', 'min')
     expect(lines[0]).toMatchObject({ need: 8, notCredited: true })
-    expect(lines[0].short).toBeCloseTo(5, 6)
     expect(lines[1].need).toBe(8)
-    expect(lines[1].short).toBeUndefined()
-    expect(lines[2].short).toBeUndefined()
-    expect(lines[3].need).toBeUndefined()
-    expect(lines[3].short).toBeUndefined()
-    expect(lines[3].notCredited).toBeUndefined()
+    expect(lines.map(l => l.short)).toEqual([undefined, undefined, undefined])
+    expect(lines[2].need).toBeUndefined()
+    expect(lines[2].notCredited).toBeUndefined()
   })
 })
 

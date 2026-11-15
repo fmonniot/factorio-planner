@@ -3002,6 +3002,24 @@ describe('solveAll — served lists', () => {
         expect(flowOf(all, 'ct').rate).toBeCloseTo(0, 4)
         expect(flowOf(all, 'c2').rate).toBeCloseTo(20, 4)
       }
+      // H needs 20 plate; U's take (reached first) covers all 20, so T's take is never reached and reports no need.
+      const listed = solveAll(mk(listOf('H', 'H2')), listData())
+      expect(listed.served.U.plate.consumers[0].need).toBeCloseTo(20, 4)
+      const hOnT = listed.served.T.plate.consumers.find(c => c.blockId === 'H')!
+      expect(hOnT.need).toBeUndefined()
+      expect(listed.served.T.plate.consumers.find(c => c.blockId === 'H2')!.need).toBeCloseTo(20, 4)
+    })
+
+    // Same shape, U leaves only 5: U's take covers 5 of H's 20, so T's take is reached with 15 left to cover.
+    it("a take's need is what is left of the consumer's need when it is reached", () => {
+      const t = withList(block('T', [prod('slag', 20)], [planNode('t', 'twin')]), 'plate', listOf('H'))
+      const all = solveAll([
+        t,
+        block('U', [prod('slag', 5)], [planNode('u', 'twin')]),
+        block('H', [prod('gear', 10)], [planNode('g', 'gear')], [link('cu', 'U'), link('ct', 'T')]),
+      ], listData())
+      expect(all.served.U.plate.consumers[0].need).toBeCloseTo(20, 4)
+      expect(all.served.T.plate.consumers[0].need).toBeCloseTo(15, 4)
     })
 
     // A list moves the request-pass order of blocks it ranks, and so the credits they get from other sources.

@@ -72,7 +72,7 @@ async function rankBeltsFirstAndConnectLate(page: Page) {
   await expect(popover(page)).toHaveCount(0)
   await connectLate(page)
   await selectSlot(page, 'Products', 'Iron plate')
-  await expect(servedButton(page)).toHaveText('Served order… · 1 not ranked')
+  await expect(servedButton(page)).toHaveAccessibleName('Served order… · 1 not ranked')
   await servedButton(page).click()
   await expect(popover(page).getByTestId('served-divider')).toContainText('Not ranked: served after the list')
 }
@@ -104,7 +104,7 @@ test('Served order: move, add and reset with the buttons', async ({ page }, test
   // Late joins afterwards: not ranked, served last, short.
   await connectLate(page)
   await selectSlot(page, 'Products', 'Iron plate')
-  await expect(servedButton(page)).toHaveText('Served order… · 1 not ranked')
+  await expect(servedButton(page)).toHaveAccessibleName('Served order… · 1 not ranked')
   await servedButton(page).click()
   await expect(popover(page).getByTestId('served-divider')).toContainText('Not ranked: served after the list')
   await expect.poll(() => rankedNames(page)).toEqual(['Belts', 'Gears'])
