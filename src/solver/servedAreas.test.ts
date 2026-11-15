@@ -136,4 +136,16 @@ describe('areaLines', () => {
     const out = areaLines('A', 'plate', [base('H', 20, 50)], ranked, needsOf)!
     expect(out.consumers.map(l => l.got)).toEqual([8, 42])
   })
+  it('gives the leftover to the last entry that draws a line, not to a trailing zero entry', () => {
+    // H's rate 50 against needs B 8, L 12: B 8, L 12, and the 30 no entry took goes to L (the last line), not to the zero entry
+    // (which draws none): lines B 8 and L 12 + 30 = 42, together 50.
+    const zero = e('H', { areas: [], total: 20, part: 0 })
+    const ranked: PairEntries = { entries: [e('S'), HB, HL, zero], granted: [30, 8, 12, 0] }
+    const out = areaLines('A', 'plate', [base('S', 30, 30), base('H', 20, 50)], ranked, needsOf)!
+    expect(view(out.consumers)).toEqual([['S', undefined, 30, 30], ['H', 'B', 8, 8], ['H', 'L', 12, 42]])
+  })
+  it('handOut sends the leftover to the last index with a positive target', () => {
+    // [8, 12, 0] with 50: 8 and 12 are taken, 30 left, the last positive index is 1.
+    expect(handOut(50, [[8, 12, 0]])).toEqual([8, 42, 0])
+  })
 })

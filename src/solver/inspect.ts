@@ -1,5 +1,6 @@
 import { solveAll } from './index'
 import { makeHereOf } from '../data/sourceRules'
+import { areaName } from '../data/subPlanTree'
 import { rankedPairs, type RankedEntry } from './servedRank'
 import type {
   AppState,
@@ -154,10 +155,9 @@ export function servedReportOf(blocks: readonly Block[], sourceId: string, serve
   const names = new Map(blocks.map(b => [b.id, b.name]))
   const nameOf = (id: string) => names.get(id) ?? id
   const byId = new Map(blocks.map(b => [b.id, b]))
-  const areaName = (blockId: string, areaId: string): string => {
-    const find = (plan: SubPlan): string | undefined => (plan.id === areaId ? plan.name : plan.subPlans.map(find).find(n => n !== undefined))
+  const areaLabel = (blockId: string, areaId: string): string => {
     const root = byId.get(blockId)?.rootPlan
-    return (root && find(root)) ?? areaId
+    return root ? areaName(root, areaId) : areaId
   }
   // A group is keyed by its entry: an area entry by block and area, a block entry by block.
   const entryKey = (blockId: string, areaId?: string): string => (areaId === undefined ? blockId : `${blockId}\0${areaId}`)
@@ -187,7 +187,7 @@ export function servedReportOf(blocks: readonly Block[], sourceId: string, serve
     const lines: Line[] = list.consumers.map(c => {
       const info = infoOf(c.blockId, c.areaId)
       return {
-        name: c.areaId !== undefined ? `${nameOf(c.blockId)} / ${areaName(c.blockId, c.areaId)}` : nameOf(c.blockId),
+        name: c.areaId !== undefined ? `${nameOf(c.blockId)} / ${areaLabel(c.blockId, c.areaId)}` : nameOf(c.blockId),
         blockId: c.blockId,
         ...(c.areaId !== undefined ? { areaId: c.areaId } : {}),
         kind: c.kind === 'request' ? 'request' : 'take',

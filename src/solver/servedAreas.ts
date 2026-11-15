@@ -59,7 +59,7 @@ export function splitByArea(order: readonly RankedEntry[], needsOf: (blockId: st
 /**
  * Hand `total` to the targets of an index in turn: for each list of `targets`, every index in order takes up to what that list
  * allows it beyond what it already has. Something no list took (a take that got more than it was credited or needed) goes
- * to the last index.
+ * to the last index with a positive target (the last one when none has).
  */
 export function handOut(total: number, targets: readonly (readonly number[])[]): number[] {
   const n = targets[0]?.length ?? 0
@@ -72,7 +72,14 @@ export function handOut(total: number, targets: readonly (readonly number[])[]):
       left -= give
     }
   }
-  if (left > FLOW_TOLERANCE && n > 0) got[n - 1] += left
+  if (left > FLOW_TOLERANCE && n > 0) {
+    // the last index that draws a line (one with a share or a need somewhere): a zero entry has no line to show it on
+    let last = n - 1
+    for (let i = n - 1; i >= 0; i--) {
+      if (targets.some(t => t[i] > 0)) { last = i; break }
+    }
+    got[last] += left
+  }
   return got
 }
 

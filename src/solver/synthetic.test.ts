@@ -1364,7 +1364,7 @@ describe('solver synthetic cases', () => {
         common(all, 45, 30, 15)
         expectLines(all, [['S', undefined, 30, 30], ['H', 'L', 12, 12], ['H', 'B', 8, 3]])
       })
-      it('an area entry for an area that no longer needs the item keeps one line for H and does not crash', () => {
+      it('an area entry for L, the only area that needs the item, keeps one line for H and does not crash', () => {
         // B makes the plate it uses, so only L needs plate from outside: 12 - 8 = 4.
         const quiet = areaBlock('H', 'c-H', 'A', ['case13-gear', 12], [['L', pinned('case13-use-plate', 'L', 12)], ['B', pinned('case13-make-plate', 'B', 8)]])
         const all = solveAll([A(45, [blk('S'), HL, blk('H')]), S(), quiet], makeGameData())
@@ -1373,6 +1373,16 @@ describe('solver synthetic cases', () => {
         expect(lines[0][3]).toBeCloseTo(flowIn(all, 'c-H').rate, 6)
         expect(lines[0][2]).toBeCloseTo(flowIn(all, 'c-H').requested!, 6)
       })
+    })
+
+    it('an area entry for an area that needs nothing is a zero entry: no line, no grant, H keeps its line', () => {
+      // B makes 8 plate and L uses 12: only L needs plate from outside, 12 - 8 = 4. List [S, H/B, H]: S 30 of 30; H/B is a zero entry
+      // (share 0, grant 0, no line); H's block entry covers the rest, L: share 4 (c-H requests 4), grant 4. A (pin 45) has room.
+      const quiet = areaBlock('H', 'c-H', 'A', ['case13-gear', 12], [['L', pinned('case13-use-plate', 'L', 12)], ['B', pinned('case13-make-plate', 'B', 8)]])
+      const all = solveAll([A(45, [blk('S'), HB, blk('H')]), S(), quiet], makeGameData())
+      expect(flowIn(all, 'c-S').rate, 'c-S').toBeCloseTo(30, 6)
+      expect(flowIn(all, 'c-H').rate, 'c-H').toBeCloseTo(4, 6)
+      expectLines(all, [['S', undefined, 30, 30], ['H', 'L', 4, 4]])
     })
 
     describe('i: a consumer whose areas trade the item', () => {
@@ -1440,11 +1450,67 @@ describe('solver synthetic cases', () => {
           expectLinesOf(all, [['H3', 'B', 8, 8], ['J', undefined, 10, 10], ['H3', 'L', 12, 12]])
         })
       }
+      it('j4 limitation: a first entry for an area that needs nothing still holds the credit of the whole consumer', () => {
+        // T leaves 10 X. C has area A (needs nothing) and area B (use-x pinned 10: needs 10); J needs 10. List [C/A, J, C].
+        // The credit of C is taken at its first entry (C/A, position 0): min(10, 10) = 10, so J, ranked above C's only needy area,
+        // is credited 0 and gets 0 (a rank-faithful solve would give J 10, C 0). The order is decided before the needs are known.
+        const T10 = mk('T', [['case11-goal', 10]], [planNode('case11-make-goal')], [], [{ kind: 'block', blockId: 'C', areaId: 'A' }, blk('J'), blk('C')], X)
+        const J10 = mk('J', [['case11-other', 10]], [planNode('case11-use-x')], [{ id: 'c-J', itemId: X, fromBlockId: 'T' }])
+        const C = {
+          ...areaBlock('C', 'c-C', 'T', ['case11-other', 10], [['A', pinned('case11-use-x', 'A', 0)], ['B', pinned('case11-use-x', 'B', 10)]]),
+          inputConnections: [{ id: 'c-C', itemId: X, fromBlockId: 'T' }],
+        }
+        const all = solveAll([T10, J10, C], makeGameData())
+        expect(flowIn(all, 'c-C').rate, 'c-C').toBeCloseTo(10, 6)
+        expect(flowIn(all, 'c-J').rate, 'c-J').toBeCloseTo(0, 6)
+      })
+      it('j5: a block entry after both of its area entries is credited once: list H3/B, H3/L, J', () => {
+        // T leaves 30. H3's credit is taken at its first entry: min(30, 20) = 20; H3/L (same connection) adds nothing, so J is
+        // credited min(30 - 20, 25) = 10. Shares: B 20 * 8/20 = 8, L 12, J 10; grants 8, 12, 10 (all 30). c-H3 20 ok, c-J 10 limited.
+        for (const order of [['T', 'J', 'H3'], ['T', 'H3', 'J']]) {
+          const all = run(order, [h3('B'), h3('L'), blk('J')])
+          expect(flowIn(all, 'c-H3').rate, 'c-H3').toBeCloseTo(20, 6)
+          expect(flowIn(all, 'c-J').rate, 'c-J').toBeCloseTo(10, 6)
+          expect(flowIn(all, 'c-J').status).toBe('limited')
+          expectLinesOf(all, [['H3', 'B', 8, 8], ['H3', 'L', 12, 12], ['J', undefined, 10, 10]])
+        }
+      })
+      it('j6: a consumer named only by area entries and a takes-first consumer the list does not name', () => {
+        // C (areas L 12, B 8) takes X from T and requests it from V; U (needs 10) does the same and is not named; J needs 5.
+        // T leaves 30; list [C/B, J]. C at its first entry: min(30, 20) = 20; J: 30 - 20 = 10, min(10, 5) = 5; U (unlisted, after
+        // the listed ones, C counted once): 30 - 20 - 5 = 5, min(5, 10) = 5, and asks V for the other 5. C asks V for 20 - 20 = 0.
+        // Grants: C/B 20 * 8/20 = 8, J 5, then C's block entry (rest L) 12, then U 5: 30 in all.
+        const V = mk('V', [[X, 0]], [planNode('case11-make-x')])
+        const J5 = mk('J', [['case11-other', 5]], [planNode('case11-use-x')], [{ id: 'c-J', itemId: X, fromBlockId: 'T' }])
+        const U = mk('U', [['case11-other', 10]], [planNode('case11-use-x')], [{ id: 'c-U', itemId: X, fromBlockId: 'T' }, { id: 'c-UV', itemId: X, fromBlockId: 'V' }])
+        const C = {
+          ...H3(), id: 'C', name: 'C',
+          inputConnections: [{ id: 'c-C', itemId: X, fromBlockId: 'T' }, { id: 'c-CV', itemId: X, fromBlockId: 'V' }],
+        } as Block
+        const list: ServedEntry[] = [{ kind: 'block', blockId: 'C', areaId: 'B' }, blk('J')]
+        for (const order of [['T', 'V', 'J', 'U', 'C'], ['T', 'V', 'C', 'U', 'J']]) {
+          const bs: Record<string, Block> = { T: T(list), V, J: J5, U, C }
+          const all = solveAll(order.map(t => bs[t]), makeGameData())
+          expect(flowIn(all, 'c-C').rate, 'c-C').toBeCloseTo(20, 6)
+          expect(flowIn(all, 'c-J').rate, 'c-J').toBeCloseTo(5, 6)
+          expect(flowIn(all, 'c-U').rate, 'c-U').toBeCloseTo(5, 6)
+          expect(flowIn(all, 'c-UV').rate, 'c-UV').toBeCloseTo(5, 6)
+          expect(flowIn(all, 'c-CV').rate, 'c-CV').toBeCloseTo(0, 6)
+        }
+      })
       it('j3: no list, an unlisted take-only consumer with two needy areas reports an area line each', () => {
         const all = run(['T', 'J', 'H3'])
         const lines = all.served.T[X].consumers.filter(c => c.blockId === 'H3')
         expect(lines.map(c => c.areaId)).toEqual(['L', 'B'])
         expect(lines.reduce((a, c) => a + c.got, 0)).toBeCloseTo(flowIn(all, 'c-H3').rate, 6)
+      })
+      it('j3: a list naming only J leaves the take-only H3 unlisted: its areas come from the final solve', () => {
+        // T leaves 30. J is credited min(30, 25) = 25; H3 requests nothing, so it has no credit and no share, and gets the 5 left.
+        // H3's rows are pinned (L 12, B 8): the final solve needs L 12, B 8. The 5 go to L first (table order): L 5, B 0; shares 0.
+        const all = run(['T', 'J', 'H3'], [blk('J')])
+        expect(flowIn(all, 'c-J').rate, 'c-J').toBeCloseTo(25, 6)
+        expect(flowIn(all, 'c-H3').rate, 'c-H3').toBeCloseTo(5, 6)
+        expectLinesOf(all, [['J', undefined, 25, 25], ['H3', 'L', 0, 5], ['H3', 'B', 0, 0]])
       })
       it('j3: a warm solve of the unlisted area consumer reads the solve cache only', () => {
         const gd = makeGameData()
@@ -1468,7 +1534,7 @@ describe('solver synthetic cases', () => {
     describe('k: a member of a cycle of requests with areas', () => {
       // Case 17's cycle (T, V, K1, K2) with K1 split in two areas: A1 makes p (X needed 10) and A2 uses X (6).
       const X = 'case11-x'
-      const T = (): Block => mk('T', [['case11-goal', 15]], [planNode('case11-make-goal')], [], undefined, X)
+      const T = (list?: ServedEntry[]): Block => mk('T', [['case11-goal', 15]], [planNode('case11-make-goal')], [], list, X)
       const V = (): Block => mk('V', [[X, 0]], [planNode('case11-make-x')])
       const K1 = (): Block => ({
         ...mk('K1', [['case17-r', 10], ['case17-p', 0], ['case11-other', 6]], [], [
@@ -1496,6 +1562,35 @@ describe('solver synthetic cases', () => {
         expect(lines[0].share / lines[1].share, 'shares in proportion to need').toBeCloseTo(10 / 6, 6)
         expect(lines.reduce((a, c) => a + c.got, 0), 'got').toBeCloseTo(flowIn(all, 'c-K1T').rate, 6)
       }
+      it('ranks the areas of K1 by the needs of the cycle memo: list K1/A2, K1/A1, K2 on T', () => {
+        // T leaves 15 X. Settled round: K1 needs 10 (A1) + 6 (A2) = 16, K2 needs 10. Credits down the list: K1 (first entry) min(15, 16) = 15,
+        // K2 min(15 - 15, 10) = 0. Shares of c-K1T: A2 15 * 6/16 = 5.625, A1 15 * 10/16 = 9.375; K2 0. Grants A2 5.625, A1 9.375.
+        // c-K1T 15, c-K2T 0; K1 asks V for the 1 it lacks, K2 for 10. Lines in list order: A2 5.625/5.625, A1 9.375/9.375.
+        const list: ServedEntry[] = [{ kind: 'block', blockId: 'K1', areaId: 'A2' }, { kind: 'block', blockId: 'K1', areaId: 'A1' }, { kind: 'block', blockId: 'K2' }]
+        const all = solveAll([T(list), V(), K1(), K2()], makeGameData())
+        expect(all.requestLoops[0].converged).toBe(true)
+        expect(flowIn(all, 'c-K1T').rate, 'c-K1T').toBeCloseTo(15, 6)
+        expect(flowIn(all, 'c-K2T').rate, 'c-K2T').toBeCloseTo(0, 6)
+        const lines = all.served.T[X].consumers.filter(c => c.blockId === 'K1')
+        expect(lines.map(c => c.areaId)).toEqual(['A2', 'A1'])
+        expect(lines.map(c => c.share)[0]).toBeCloseTo(5.625, 6)
+        expect(lines.map(c => c.share)[1]).toBeCloseTo(9.375, 6)
+        expect(lines.map(c => c.got)[0]).toBeCloseTo(5.625, 6)
+        expect(lines.map(c => c.got)[1]).toBeCloseTo(9.375, 6)
+      })
+      it('a warm solve of the ranked areas reads the memo of the cycle and reports the same lists', () => {
+        const list: ServedEntry[] = [{ kind: 'block', blockId: 'K1', areaId: 'A2' }, { kind: 'block', blockId: 'K1', areaId: 'A1' }, { kind: 'block', blockId: 'K2' }]
+        const gd = makeGameData()
+        const mkBlocks = () => [T(list), V(), K1(), K2()]
+        const cold = solveAll(mkBlocks(), gd)
+        const cache = createSolveCache()
+        solveAll(mkBlocks(), gd, cache)
+        const lookup = vi.spyOn(cache, 'getRequestLoop')
+        const warm = solveAll(mkBlocks(), gd, cache)
+        expect(lookup.mock.results[0].value, 'the cycle is not solved again').toBeDefined()
+        expect(warm.served).toEqual(cold.served)
+        expect(warm.flows).toEqual(cold.flows)
+      })
       it('splits the take of K1 by the needs of its areas', () => {
         check(solveAll(blocks(), makeGameData()))
       })

@@ -914,13 +914,10 @@ function computeRequests(
   }
   for (const [sourceId, items] of ranked) {
     for (const pair of items.values()) {
-      const seenConn = new Set<string>() // one edge per consumer: its first entry stands for the others
-      const listedTakes = pair.listed.flatMap(e => {
-        if (e.kind !== 'block' || !rankedTake.has(e.connection.id) || seenConn.has(e.connection.id)) return []
-        seenConn.add(e.connection.id)
-        return [e]
-      })
-      const unlistedTakes = pair.unlisted.filter(u => rankedTake.has(u.connection.id) && !u.areaNamed)
+      // A consumer with several entries gets several edges: the later ones are skipped by `orderEdge` (it never links a block to itself,
+      // and an edge already present makes `reaches` true).
+      const listedTakes = pair.listed.filter((e): e is Extract<RankedEntry, { kind: 'block' }> => e.kind === 'block' && rankedTake.has(e.connection.id))
+      const unlistedTakes = pair.unlisted.filter(u => rankedTake.has(u.connection.id))
       if (listedTakes.length + unlistedTakes.length > 0) takeSources.add(sourceId)
       listedTakes.forEach((h, i) => {
         orderEdge(sourceId, h.blockId, pair.itemId, `rank\0source\0${h.connection.id}`)
@@ -1017,14 +1014,6 @@ function computeRequests(
     estimates.set(block.id, leftoverEstimate(nodes, requested.get(block.id)))
   }
 
-  // Blocks with areas the request pass probes only to know the needs of their areas: the unlisted consumers of a ranked pair
-  // (a listed one, and one that requests, is probed anyway). One cached solve each.
-  const areaProbe = new Set<string>()
-  for (const items of ranked.values()) {
-    for (const pair of items.values()) {
-      for (const u of pair.unlisted) if (blockAreas(byId.get(u.blockId)!.rootPlan) !== undefined) areaProbe.add(u.blockId)
-    }
-  }
   const areaNeeds = new Map<string, AreaNeeds>()
 
   for (const component of components) {
@@ -1036,7 +1025,7 @@ function computeRequests(
 
       const requests = requestsOf.get(block.id)
       const rankedTakes = rankedTakeOf.get(block.id)
-      if (!requests && !rankedTakes && !takeSources.has(block.id) && !areaProbe.has(block.id)) continue
+      if (!requests && !rankedTakes && !takeSources.has(block.id)) continue
       const probe = probeBlock(block, effectiveGoals, gameData, connectedCaps(block, byId, selfConnectionIds), cache)
       if (probe.areaNeeds) areaNeeds.set(block.id, probe.areaNeeds)
       if (requests || rankedTakes) {
@@ -1519,7 +1508,10 @@ export function solveAll(
     entriesOf: (sourceId, itemId) => {
       const pair = ranked.get(sourceId)?.get(itemId)
       if (!pair) return undefined
-      const entries = entriesOf.get(pair)!
+      // A consumer the list does not name takes none of the pair's leftover at grant time (a take nobody requested has no
+      // credit, so no share), so the request pass never probed it: its areas come from the final solve, like an unranked pair's.
+      const listedEnd = pair.listed.length
+      const entries = entriesOf.get(pair)!.map((e, i) => (i < listedEnd || e.kind === 'extra' || e.areas !== undefined ? e : splitByArea([e], id => reportNeedsOf(id, itemId))[0]))
       return { entries, granted: granted.get(pair) ?? entries.map(() => 0) }
     },
   }

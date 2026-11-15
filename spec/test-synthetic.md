@@ -869,7 +869,13 @@ h: H/L 12, H/B 8, 25 left; S min(30, 25) = 25.
 - j1, list J, H3/B, H3/L: J is credited min(30, 25) = 25; H3, at its first entry, 5 of its need of 20. Shares: H3/B 5 x 8/20 = 2, H3/L 3. Grants J 25, H3/B 2, H3/L 3, all 30 held. `c-J` 25 `ok`; `c-H3` 5 `limited`, H3 imports 15. Lines: J 25 / 25 (need 25), H3/B 2 / 2 (need 8), H3/L 3 / 3 (need 12), all takes, none `notCredited`.
 - j2, list H3/B, J, H3 (a known limitation): H3's credit is computed at its first entry, min(30, 20) = 20; J, below it, is credited 10. Shares: H3/B 8, J 10, H3 (the block entry, covering L) 12. Grants 8, 10, 12. `c-H3` 20 `ok`, `c-J` 10 `limited`. A rank-faithful solve would give J 22.
 - j3, no list and H3 an unlisted take-only consumer with two needy areas: two H3 lines, L then B, whose `got` add up to `c-H3`'s rate (the needs come from the final solve), and a second solve through the solve cache solves no block again.
+- j3, list J only (H3 unlisted, take-only): J 25; H3 has no credit, so share 0, and gets the 5 left; its areas come from the final solve (L 12, B 8): lines H3/L 0 / 5 and H3/B 0 / 0.
+- j4, a known limitation. T leaves 10 X; the list is C/A, J, C where C has an empty area A and area B (`case11-use-x` pinned at 10) and J needs 10. C's credit sits at its first entry (C/A): min(10, 10) = 10, so J is credited 0 (a rank-faithful solve would give J 10 and C 0): `c-C` 10, `c-J` 0.
+- j5, list H3/B, H3/L, J: H3's credit is taken once, at H3/B: 20; J is credited 10. Shares 8, 12, 10; `c-H3` 20, `c-J` 10 `limited`.
+- j6, list C/B, J with C taking X from T and requesting it from V (areas L 12, B 8), J needing 5 and an unnamed U needing 10 that takes and requests the same way: T leaves 30. C 20 (once), J 5, U 5 and U asks V for 5; C asks V nothing: `c-C` 20, `c-J` 5, `c-U` 5, `c-UV` 5, `c-CV` 0.
 
 ### Sub-case k — a member of a cycle of requests with areas
 
 Case 17's cycle (T, V, K1, K2) with K1 in two areas: A1 (`case17-make-p`) and A2 (`case11-use-x`, a product of 6 `case11-other`). K1's request probe needs X 10 in A1 (the p that K2 requests) and 6 in A2. Only invariants are asserted: the cycle settles in its members' order, `served.T[case11-x]` has K1 lines A1 and A2 with shares in the ratio 10 : 6 and `got` adding up to `c-K1T`'s rate; a second solve through the solve cache reads the memo of the cycle and reports the same lists and flows.
+
+With the list K1/A2, K1/A1, K2 on T, the grants read the cycle memo's needs: T leaves 15, K1 needs 16 (A1 10, A2 6) and is credited 15 at its first entry, K2 0. Shares of `c-K1T`: A2 15 x 6/16 = 5.625, A1 15 x 10/16 = 9.375; lines A2 5.625 / 5.625 and A1 9.375 / 9.375, `c-K2T` 0; a second solve through the cache reports the same.
