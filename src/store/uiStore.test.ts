@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 beforeEach(() => {
   localStorageMock.clear()
   vi.clearAllMocks()
-  useUiStore.setState({ rateUnit: 'min', bridgeUrl: 'ws://127.0.0.1:34199/', viewerAutoSend: false, summaryCollapsed: true, defaultMachinesRequest: null, revealRowRequest: null })
+  useUiStore.setState({ rateUnit: 'min', bridgeUrl: 'ws://127.0.0.1:34199/', viewerAutoSend: false, viewerEnabled: false, summaryCollapsed: true, defaultMachinesRequest: null, revealRowRequest: null })
 })
 
 afterEach(() => {
@@ -92,7 +92,7 @@ describe('defaultMachinesRequest', () => {
     useUiStore.getState().requestDefaultMachines('crafting')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'summaryCollapsed'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'viewerEnabled', 'summaryCollapsed'])
   })
 })
 
@@ -109,7 +109,7 @@ describe('revealRowRequest', () => {
     useUiStore.getState().requestRevealRow('a')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'summaryCollapsed'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'viewerEnabled', 'summaryCollapsed'])
   })
 })
 
@@ -146,6 +146,12 @@ describe('loadPersistedUiState', () => {
     loadPersistedUiState()
     expect(useUiStore.getState().bridgeUrl).toBe('ws://127.0.0.1:40000/')
     expect(useUiStore.getState().viewerAutoSend).toBe(true)
+  })
+
+  it('restores the remembered connection switch', () => {
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ viewerEnabled: true }))
+    loadPersistedUiState()
+    expect(useUiStore.getState().viewerEnabled).toBe(true)
   })
 
   it('restores the summary strip choice; the summary starts collapsed without one', () => {

@@ -18,12 +18,15 @@ export type RateUnit = 'sec' | 'min'
 export interface UiStoreState {
   rateUnit: RateUnit
   setRateUnit: (unit: RateUnit) => void
-  /** Address of the in-game viewer's bridge (a WebSocket URL). The connection itself is never persisted: it starts off. */
+  /** Address of the in-game viewer's bridge (a WebSocket URL). The connection is restored from `viewerEnabled` at startup. */
   bridgeUrl: string
   setBridgeUrl: (url: string) => void
   /** Send the plan to the in-game viewer after every solve, not only on request. */
   viewerAutoSend: boolean
   setViewerAutoSend: (value: boolean) => void
+  /** Whether "Connect to the bridge" is on, remembered so the next page load reconnects. Follows the connection (see `wireViewer`). */
+  viewerEnabled: boolean
+  setViewerEnabled: (value: boolean) => void
   /** The summary strip shows one line per pane (true, the default) or the three full panes. Persisted; it spans block switches. */
   summaryCollapsed: boolean
   setSummaryCollapsed: (value: boolean) => void
@@ -121,6 +124,8 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   setBridgeUrl: (url) => set({ bridgeUrl: url }),
   viewerAutoSend: false,
   setViewerAutoSend: (value) => set({ viewerAutoSend: value }),
+  viewerEnabled: false,
+  setViewerEnabled: (value) => set({ viewerEnabled: value }),
   summaryCollapsed: true,
   setSummaryCollapsed: (value) => set({ summaryCollapsed: value }),
   defaultMachinesRequest: null,
@@ -167,13 +172,14 @@ interface PersistedUiState {
   rateUnit: RateUnit
   bridgeUrl: string
   viewerAutoSend: boolean
+  viewerEnabled: boolean
   summaryCollapsed: boolean
 }
 
 export function saveUiState(): void {
   try {
-    const { rateUnit, bridgeUrl, viewerAutoSend, summaryCollapsed } = useUiStore.getState()
-    const persisted: PersistedUiState = { rateUnit, bridgeUrl, viewerAutoSend, summaryCollapsed }
+    const { rateUnit, bridgeUrl, viewerAutoSend, viewerEnabled, summaryCollapsed } = useUiStore.getState()
+    const persisted: PersistedUiState = { rateUnit, bridgeUrl, viewerAutoSend, viewerEnabled, summaryCollapsed }
     localStorage.setItem(UI_STATE_STORAGE_KEY, JSON.stringify(persisted))
   } catch {
     // Storage quota exceeded or unavailable — ignore.
@@ -194,6 +200,9 @@ export function loadPersistedUiState(): void {
     if (typeof parsed.viewerAutoSend === 'boolean') {
       useUiStore.setState({ viewerAutoSend: parsed.viewerAutoSend })
     }
+    if (typeof parsed.viewerEnabled === 'boolean') {
+      useUiStore.setState({ viewerEnabled: parsed.viewerEnabled })
+    }
     if (typeof parsed.summaryCollapsed === 'boolean') {
       useUiStore.setState({ summaryCollapsed: parsed.summaryCollapsed })
     }
@@ -206,7 +215,7 @@ export function initUiStatePersistence(): () => void {
   return useUiStore.subscribe((state, prevState) => {
     if (
       state.rateUnit !== prevState.rateUnit ||
-      state.bridgeUrl !== prevState.bridgeUrl || state.viewerAutoSend !== prevState.viewerAutoSend ||
+      state.bridgeUrl !== prevState.bridgeUrl || state.viewerAutoSend !== prevState.viewerAutoSend || state.viewerEnabled !== prevState.viewerEnabled ||
       state.summaryCollapsed !== prevState.summaryCollapsed
     ) {
       saveUiState()
