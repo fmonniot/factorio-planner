@@ -54,7 +54,8 @@
             {
               "id": "water",
               "type": "fluid",
-              "rate": 120
+              "rate": 120,
+              "primary": true
             }
           ]
         },
@@ -101,7 +102,8 @@
             {
               "id": "iron-gear-wheel",
               "type": "item",
-              "rate": 30
+              "rate": 30,
+              "primary": true
             }
           ]
         }

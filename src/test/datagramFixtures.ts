@@ -86,6 +86,24 @@ function needTwoWindows(name: string, t: Transfer): void {
   }
 }
 
+/** Throws unless a chunk boundary falls inside a 2-byte, a 3-byte and a 4-byte UTF-8 character. */
+function needMultibyteSplits(name: string, t: Transfer): void {
+  const seen = new Set<number>()
+  let start = 0
+  for (const chunk of t.chunks.slice(0, -1)) {
+    start += chunk.length
+    let lead = start
+    while (lead > 0 && (t.data[lead] & 0xc0) === 0x80) lead--
+    if (lead < start) {
+      const b = t.data[lead]
+      seen.add(b >= 0xf0 ? 4 : b >= 0xe0 ? 3 : 2)
+    }
+  }
+  for (const n of [2, 3, 4]) {
+    if (!seen.has(n)) throw new Error(`${name} must split a ${n}-byte character across chunks, and does not`)
+  }
+}
+
 /** A transfer cut at the given sizes, the last chunk taking whatever is left. */
 function transferFromSizes(data: Buffer, sizes: number[]): Transfer {
   const chunks: Buffer[] = []
@@ -473,13 +491,15 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
 
   // Bytes.
   {
-    const t = transferOf(bytesOf('unicode'), 43)
+    const t = transferOf(bytesOf('unicode'), 27)
+    needMultibyteSplits('multibyte-straddle', t)
     const first = range(0, 23)
-    const rest = range(24, t.count - 1)
+    const second = range(24, 47)
+    const rest = range(48, t.count - 1)
     cases.push({
       case: 'multibyte-straddle',
       summary: 'At this chunk size, chunk boundaries fall inside a 2-byte, a 3-byte and a 4-byte character. Chunks are joined byte for byte, so the names survive.',
-      snapshot: snapshotRef('unicode', t, 43),
+      snapshot: snapshotRef('unicode', t, 27),
       start: none,
       idCheck: noUnknown,
       polls: [
@@ -489,7 +509,12 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
           answer: missing(t.id, 0, '-'),
           after: state({ assembling: t.id, have: first }),
         },
-        { arrive: [...rest.map(i => chunk(t, i)), endOfWindow(t.id, 1, t.count)], answer: ack(t.id, 0), after: state({ stored: t.id }) },
+        {
+          arrive: [...second.map(i => chunk(t, i)), endOfWindow(t.id, 1, 48)],
+          answer: missing(t.id, 1, '-'),
+          after: state({ assembling: t.id, have: [...first, ...second] }),
+        },
+        { arrive: [...rest.map(i => chunk(t, i)), endOfWindow(t.id, 2, t.count)], answer: ack(t.id, 0), after: state({ stored: t.id }) },
       ],
     })
   }

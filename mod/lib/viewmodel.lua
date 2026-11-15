@@ -206,6 +206,11 @@ function M.build(snapshot, opts)
       acc.order[item.order] = item
     end
     item.balance = item.balance + sign * r.rate
+    -- An output marked as its row's product: the item counts as a product of the
+    -- group, even where another row has it as a byproduct.
+    if sign > 0 and r.primary == true then
+      item.primary = true
+    end
   end
 
   local function add_row(acc, key, r)
@@ -225,7 +230,7 @@ function M.build(snapshot, opts)
       local rate = round3(math.abs(item.balance))
       if rate >= MIN_NET_RATE then
         local list = item.balance > 0 and products or ingredients
-        list[#list + 1] = { id = item.id, type = item.type, rate = rate, order = item.order }
+        list[#list + 1] = { id = item.id, type = item.type, rate = rate, order = item.order, primary = item.primary }
       end
     end
     local function by_rate(a, b)
@@ -234,7 +239,13 @@ function M.build(snapshot, opts)
       end
       return a.order < b.order
     end
-    table.sort(products, by_rate)
+    -- Products before byproducts, then by rate: a group's icon is its first product.
+    table.sort(products, function(a, b)
+      if (a.primary == true) ~= (b.primary == true) then
+        return a.primary == true
+      end
+      return by_rate(a, b)
+    end)
     table.sort(ingredients, by_rate)
     return refs(products), refs(ingredients)
   end

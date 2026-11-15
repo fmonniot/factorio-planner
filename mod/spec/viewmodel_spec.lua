@@ -328,6 +328,8 @@ describe("viewmodel.build", function()
         "row:2:power",
         "row:1:copper-cable", -- after the nested sub-factory
         "row:0:pipe",
+        "group:0:Chemistry",
+        "row:1:bob-calcium-chloride",
       }, outline(block))
     end)
 
@@ -337,7 +339,7 @@ describe("viewmodel.build", function()
       local power = block.by_key[GROUP .. "Plates and cables" .. SEP .. "Power"]
       -- The top level: the gears row, the sub-factory as one line, the pipe row.
       assert.are.same({ "row", "group", "row" }, { block.entries[1].type, block.entries[2].type, block.entries[3].type })
-      assert.are.equal(3, #block.entries)
+      assert.are.equal(4, #block.entries)
       assert.are.equal(plates, block.entries[2])
       assert.is_nil(plates.parent)
       -- Its own lines: a row, the nested sub-factory as one line, a row.
@@ -454,6 +456,93 @@ describe("viewmodel.build", function()
       }, { { name = "P" } })
       local p = viewmodel.build(s).blocks[1].by_key[GROUP .. "P"]
       assert.are.same({ "big=5", "also-big=5", "small=1" }, ids(p.products))
+    end)
+
+    describe("products before byproducts", function()
+      local function flagged(id, r)
+        local out = rate(id, r)
+        out.primary = true
+        return out
+      end
+
+      -- A row that makes `outs` (a list of rate tables) in group 0.
+      local function making(id, outs)
+        local row = recipe_row(id, nil, nil, 0)
+        row.outputs = outs
+        return row
+      end
+
+      local function group(rows)
+        return viewmodel.build(one_block(rows, { { name = "P" } })).blocks[1].by_key[GROUP .. "P"]
+      end
+
+      it("puts a flagged product before a bigger byproduct, so the icon is the product", function()
+        local p = group({ making("a", { rate("byproduct", 10), flagged("product", 1) }) })
+        assert.are.same({ "product=1", "byproduct=10" }, ids(p.products))
+        assert.are.equal("product", p.products[1].id)
+      end)
+
+      it("sorts two flagged items by rate, then by order of appearance", function()
+        local p = group({
+          making("a", { flagged("x", 1), rate("by", 50), flagged("y", 5), flagged("z", 5) }),
+        })
+        assert.are.same({ "y=5", "z=5", "x=1", "by=50" }, ids(p.products))
+      end)
+
+      it("keeps today's order when nothing is flagged", function()
+        local p = group({ making("a", { rate("small", 1), rate("big", 5), rate("also-big", 5) }) })
+        assert.are.same({ "big=5", "also-big=5", "small=1" }, ids(p.products))
+      end)
+
+      it("lets the product win when another row has the same item as a byproduct", function()
+        local p = group({ making("a", { rate("x", 1), rate("y", 9) }), making("b", { flagged("x", 1) }) })
+        assert.are.same({ "x=2", "y=9" }, ids(p.products))
+      end)
+
+      it("sends a flagged item that is consumed more than it is made to the ingredients", function()
+        local row = recipe_row("a", { "x", 5 }, nil, 0)
+        row.outputs = { flagged("x", 2), rate("y", 1) }
+        local p = group({ row })
+        assert.are.same({ "y=1" }, ids(p.products))
+        assert.are.same({ "x=3" }, ids(p.ingredients))
+      end)
+
+      it("carries the flag from a nested sub-factory to every group around it", function()
+        local inner = making("a", { rate("by", 10), flagged("prod", 1) })
+        inner.group = 1
+        local s = one_block({ inner }, { { name = "P" }, { name = "S", parent = 0 } })
+        local block = viewmodel.build(s).blocks[1]
+        assert.are.same({ "prod=1", "by=10" }, ids(block.by_key[GROUP .. "P"].products))
+        assert.are.same({ "prod=1", "by=10" }, ids(block.by_key[GROUP .. "P" .. SEP .. "S"].products))
+      end)
+
+      it("ignores a flag on a virtual item", function()
+        local p = group({ making("a", { { id = "electricity", type = "virtual", rate = 5, primary = true }, rate("x", 1) }) })
+        assert.are.same({ "x=1" }, ids(p.products))
+      end)
+
+      it("treats a flag that is not the boolean true as no flag, without raising", function()
+        local row = making("a", { rate("small", 1), rate("big", 5) })
+        row.outputs[1].primary = "yes"
+        local p = group({ row })
+        assert.are.same({ "big=5", "small=1" }, ids(p.products))
+      end)
+
+      it("never lets an input carry the flag", function()
+        local row = recipe_row("a", nil, { "out", 1 }, 0)
+        row.inputs = { flagged("in", 9) }
+        local p = group({ row })
+        assert.are.same({ "out=1" }, ids(p.products))
+        assert.are.same({ "in=9" }, ids(p.ingredients))
+      end)
+
+      it("makes the byproduct-first fixture group show its product first", function()
+        local block = viewmodel.build(fixture("seablock-groups")).blocks[1]
+        local chem = block.by_key[GROUP .. "Chemistry"]
+        assert.are.equal("angels-solid-calcium-chloride", chem.products[1].id)
+        assert.are.equal("angels-gas-hydrogen", chem.products[2].id)
+        assert.is_true(chem.products[2].rate > chem.products[1].rate)
+      end)
     end)
 
     it("never counts the electricity item, even in a row's rates", function()

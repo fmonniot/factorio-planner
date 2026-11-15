@@ -29,6 +29,11 @@
           "id": "electricity",
           "type": "virtual",
           "rate": 600
+        },
+        {
+          "id": "angels-solid-calcium-chloride",
+          "type": "item",
+          "rate": 6
         }
       ],
       "groups": [
@@ -38,6 +43,9 @@
         {
           "name": "Power",
           "parent": 0
+        },
+        {
+          "name": "Chemistry"
         }
       ],
       "rows": [
@@ -58,7 +66,8 @@
             {
               "id": "iron-gear-wheel",
               "type": "item",
-              "rate": 60
+              "rate": 60,
+              "primary": true
             }
           ]
         },
@@ -80,7 +89,8 @@
             {
               "id": "iron-plate",
               "type": "item",
-              "rate": 150
+              "rate": 150,
+              "primary": true
             }
           ],
           "modules": [
@@ -132,7 +142,8 @@
             {
               "id": "copper-cable",
               "type": "item",
-              "rate": 120
+              "rate": 120,
+              "primary": true
             }
           ],
           "beacon": {
@@ -159,7 +170,41 @@
             {
               "id": "pipe",
               "type": "item",
-              "rate": 30
+              "rate": 30,
+              "primary": true
+            }
+          ]
+        },
+        {
+          "recipe": "bob-calcium-chloride",
+          "machine": "angels-chemical-plant-4",
+          "group": 2,
+          "machines": 0.031,
+          "machinesCeil": 1,
+          "throughput": 6,
+          "inputs": [
+            {
+              "id": "angels-gas-hydrogen-chloride",
+              "type": "fluid",
+              "rate": 150
+            },
+            {
+              "id": "angels-solid-limestone",
+              "type": "item",
+              "rate": 6
+            }
+          ],
+          "outputs": [
+            {
+              "id": "angels-solid-calcium-chloride",
+              "type": "item",
+              "rate": 6,
+              "primary": true
+            },
+            {
+              "id": "angels-gas-hydrogen",
+              "type": "fluid",
+              "rate": 60
             }
           ]
         }
@@ -174,6 +219,16 @@
           "id": "copper-plate",
           "type": "item",
           "rate": 60
+        },
+        {
+          "id": "angels-gas-hydrogen-chloride",
+          "type": "fluid",
+          "rate": 150
+        },
+        {
+          "id": "angels-solid-limestone",
+          "type": "item",
+          "rate": 6
         }
       ]
     }

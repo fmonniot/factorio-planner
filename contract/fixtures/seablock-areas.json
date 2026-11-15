@@ -54,7 +54,8 @@
             {
               "id": "copper-cable",
               "type": "item",
-              "rate": 240
+              "rate": 240,
+              "primary": true
             }
           ]
         },
@@ -76,7 +77,8 @@
             {
               "id": "copper-plate",
               "type": "item",
-              "rate": 120
+              "rate": 120,
+              "primary": true
             }
           ]
         },
@@ -98,7 +100,8 @@
             {
               "id": "iron-plate",
               "type": "item",
-              "rate": 60
+              "rate": 60,
+              "primary": true
             }
           ]
         },
@@ -132,7 +135,8 @@
             {
               "id": "iron-gear-wheel",
               "type": "item",
-              "rate": 30
+              "rate": 30,
+              "primary": true
             }
           ]
         }

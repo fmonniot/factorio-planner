@@ -51,6 +51,12 @@ export const SnapshotItemRateSchema = z.strictObject({
   rate,
 })
 
+/**
+ * An item rate in a row's `outputs`. `primary: true` marks the item the row is built for (its
+ * dedicated product); it is omitted on the other outputs, byproducts included.
+ */
+export const SnapshotOutputRateSchema = SnapshotItemRateSchema.extend({ primary: z.literal(true).optional() })
+
 /** A module (an item) and how many of it a machine holds. */
 export const SnapshotModuleSchema = z.strictObject({
   id: z.string().min(1),
@@ -84,7 +90,7 @@ const rowShape = {
   /** Items consumed per minute, from the solve; omitted when empty or when the row is unsolved. Electricity and heat are left out. */
   inputs: z.array(SnapshotItemRateSchema).optional(),
   /** Items produced per minute (gross), from the solve; same rules as `inputs`. */
-  outputs: z.array(SnapshotItemRateSchema).optional(),
+  outputs: z.array(SnapshotOutputRateSchema).optional(),
   /** The machine's own modules (slots with an empty module id are skipped); omitted when it holds none. */
   modules: z.array(SnapshotModuleSchema).optional(),
   /** The row's first beacon configuration with a beacon entity, a module and a beacon; omitted when none has. */
@@ -145,6 +151,7 @@ export const SnapshotSchema = z.strictObject({
 
 export type SnapshotItemRef = z.output<typeof SnapshotItemRefSchema>
 export type SnapshotItemRate = z.output<typeof SnapshotItemRateSchema>
+export type SnapshotOutputRate = z.output<typeof SnapshotOutputRateSchema>
 export type SnapshotModule = z.output<typeof SnapshotModuleSchema>
 export type SnapshotBeacon = z.output<typeof SnapshotBeaconSchema>
 export type SnapshotGroup = z.output<typeof SnapshotGroupSchema>
