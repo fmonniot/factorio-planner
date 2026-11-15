@@ -91,7 +91,12 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
 
   // A grey dot with the item's sentence as its name and tooltip: no letter, none of the old badge.
   const marker = markers(acidRow(page))
-  const sentence = (await control.getByTestId('sourcing-sentence').textContent())!
+  // Wait for the solve this rule triggers (the solver is debounced): until it lands, the sentence is the new rule read
+  // against the previous solve, which still has the oxygen decompression running. Reading it earlier compares a
+  // sentence that is about to change with the marker's, and fails when the solve lands in between.
+  const sentenceEl = control.getByTestId('sourcing-sentence')
+  await expect(sentenceEl).toHaveText(/^Uses what this block already makes \(Steam electrolysis [^,)]+\)\./)
+  const sentence = (await sentenceEl.textContent())!
   expect(sentence).toContain('Uses what this block already makes (')
   await expect(marker).toHaveAccessibleName(sentence)
   await expect(marker).toHaveAttribute('title', sentence)
