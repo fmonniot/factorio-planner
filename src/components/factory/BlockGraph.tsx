@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useSolverStore, selectBlockResults, selectFlows, selectLoops, selectRequestLoops } from '../../store/solverStore'
+import { useSolverStore, selectBlockResults, selectFlows, selectLoops, selectRequestLoops, selectServed } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
 import { closesLoop } from '../../solver/blockGraph'
 import { connectableItems, requestBlockerTitle } from '../../store/connections'
@@ -21,6 +21,8 @@ import { cappedTitle, cappingLimit, REQUEST_IGNORED_TITLE } from './summarySegme
 import type { Block, BlockLoop, ConnectionFlow, GameData, Item } from '../../data/types'
 import { BlockSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
+import { servedListOf } from '../../data/servedEntries'
+import { servedLines, splitServed } from './servedOrder'
 
 // ---------------------------------------------------------------------------
 // Block graph — every block and the connections between them. Connections are
@@ -239,11 +241,18 @@ interface ConnectionChipProps {
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
 }
 
+function ordinal(n: number): string {
+  const rest = n % 100
+  const suffix = rest >= 11 && rest <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'
+  return `${n}${suffix}`
+}
+
 function ConnectionChip({
   connectionId: id, edge, source, target, flow, items, gameData, ruleItems, editing, showName,
   onEdit, onStopEdit, onRemove, onSetLimit,
 }: ConnectionChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
+  const served = useSolverStore(selectServed)
   const sourceName = source?.name ?? edge.from
   const targetName = target?.name ?? edge.to
   const connection = target?.inputConnections.find(c => c.id === id)
@@ -254,6 +263,13 @@ function ConnectionChip({
   const item: Item | undefined = items[connection.itemId]
   const itemName = item?.name ?? connection.itemId
 
+  // The rank this connection's block has in the source's served list for the item; none while the source has no stored list
+  // for it, or while the list does not name the block (the chip then says nothing, as the list's divider does).
+  const stored = source ? servedListOf(source, connection.itemId) : undefined
+  const servedList = source ? served[source.id]?.[connection.itemId] : undefined
+  const ranked = stored && servedList ? splitServed(servedLines(servedList, connection.itemId, rateUnit), stored).ranked : []
+  const rank = ranked.find(l => l.blockId === target?.id)?.rank
+
   let title = `${itemName}: ${sourceName} → ${targetName}`
   const cap = cappingLimit(status === 'limited', flow?.capped, connection.maxRate)
   if (cap !== undefined) {
@@ -261,6 +277,7 @@ function ConnectionChip({
   } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}`
   else if (status === 'unused') title = `Not used: ${targetName} makes or needs none from outside`
   if (flow?.loop) title += ' — part of a loop'
+  if (rank !== undefined) title += ` — served ${ordinal(rank)} of ${ranked.length} from ${sourceName}`
   if (flow?.kind === 'request') {
     title += ` — requested: ${sourceName} makes ${fmt(flow.requested ?? 0)} for ${targetName}`
   } else if (flow?.requestIgnored) {
@@ -298,6 +315,11 @@ function ConnectionChip({
         )}
       </span>
       {showName && item?.iconPath && <span className="text-[11px] truncate max-w-[10rem]">{itemName}</span>}
+      {rank !== undefined && (
+        <span data-testid="graph-edge-rank" className="text-[9px] font-mono tabular-nums leading-none opacity-80">
+          #{rank}
+        </span>
+      )}
       {flow?.kind === 'take' && (
         <span data-testid="graph-edge-existing" className="text-[9px] uppercase tracking-wide leading-none opacity-70">
           existing

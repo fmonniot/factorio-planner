@@ -116,7 +116,7 @@ T1 reported on 2026-11-13 ([Spike report](#spike-report-t1)); the list below kee
 - [x] **T4. Solver: grants by rank, outside loops.** The two steps of [How a rank can be honoured](#how-a-rank-can-be-honoured). Synthetic cases first: two takes of one byproduct, served by rank and unchanged by a reorder of the tabs; a consumer that is solved first and ranked last; a plan with no list, unchanged (`legacyParity.test.ts`).
 - [x] **T5. Solver: loops.** Grants inside the supply rounds, credits inside the demand rounds, the memo key. A synthetic loop in which the second member in member order is ranked first.
 - [x] **T6. The list, editable.** Drag and **Move up** / **Move down**, the extra output line on a product with an extra, **Reset order**, the figures of D5, and the consumers that are not ranked: the divider and the count on the action (D4). e2e: a consumer connected after the order was set shows under the divider, is counted on the action, is served last, and joins the list when dragged into it. The UI must flag a listed take that got no credit because the request pass reached it first (see the T4 report): its line shows 0 although the list puts it above others.
-- [ ] **T7. The graph, and docs.** Ranks on the chips; `spec/solver.md`, `spec/data-model.md`, `spec/ui.md`, `spec/test-synthetic.md`.
+- [x] **T7. The graph, and docs.** Ranks on the chips; `spec/solver.md`, `spec/data-model.md`, `spec/ui.md`, `spec/test-synthetic.md`.
 
 ## Items it closes
 
@@ -184,3 +184,11 @@ Deviations and additions only. The solver tests derived by hand (`need` 20 / 10,
 - `notCredited` and `needs` travel through `RequestPlan` and are cached in `RequestLoopSolve` (not in the memo key: both are functions of what the key holds). The test of "blocked" is that the source has no estimate yet (unprocessed, or in the same cycle of requests) or a higher-ranked take has no credit yet.
 - The ranked lines follow the stored list, not `served`, so a click shows at once; figures follow the next solve.
 - `placement` takes no `entry` argument (the insertion index only needs the line it goes before).
+
+## T7 report
+
+Deviations and additions only.
+
+- The chip reads its rank from the same pieces as the popover (`servedListOf`, `servedLines`, `splitServed`), so a stale entry or a block the list does not name shows no tag. The `#N` tag sits after the item, before the `existing` tag, with the title suffix "served Nth of M from <source>".
+- The solver, data-model and test-synthetic docs were already brought up to date by T4 to T6 (each ticket maintained its own section); T7 added only the chip to `spec/ui.md` and the README, and found nothing else to change there.
+- Phase 3 ships with T7: the stored list, grants and credits by rank outside and inside loops, the editable popover and the chips. Items left over: groups, shares and areas as consumers (phase 4); the per-line `short` on take lines (see T6); takes of a source in the same cycle of requests are flagged but still uncredited.

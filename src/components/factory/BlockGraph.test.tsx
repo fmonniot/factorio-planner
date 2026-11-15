@@ -457,6 +457,46 @@ describe('BlockGraph', () => {
     })
   })
 
+  describe('served order', () => {
+    const chip = () => screen.getByTestId('graph-edge-label')
+    const ironOre: Product = { id: 'po', itemId: 'iron-ore' }
+    const consumerEntry = { kind: 'block' as const, blockId: 'consumer' }
+    const served = (consumers: string[]) => ({
+      miner: { 'iron-ore': { consumers: consumers.map(blockId => ({ blockId, connectionId: `c-${blockId}`, kind: 'take' as const, share: 0, got: 5 })) } },
+    })
+    const storeList = (order: unknown[] | undefined) => useBlockStore.setState(st => ({
+      blocks: st.blocks.map(b => (b.id === 'miner' ? { ...b, servedOrder: order ? { 'iron-ore': order } : undefined } : b)),
+    }) as never)
+
+    it('shows the rank of the consumer in the source\'s stored list', () => {
+      setup({ connected: true, minerProducts: [ironOre] })
+      storeList([{ kind: 'block', blockId: 'other' }, consumerEntry])
+      useSolverStore.setState({ served: served(['other', 'consumer']) } as never)
+      render(<BlockGraphButton />)
+      open()
+      expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
+      expect(chip().getAttribute('title')).toContain('served 2nd of 2 from Miner')
+    })
+
+    it('shows no rank without a stored list', () => {
+      setup({ connected: true, minerProducts: [ironOre] })
+      useSolverStore.setState({ served: served(['other', 'consumer']) } as never)
+      render(<BlockGraphButton />)
+      open()
+      expect(within(chip()).queryByTestId('graph-edge-rank')).toBeNull()
+      expect(chip().getAttribute('title')).not.toContain('served ')
+    })
+
+    it('shows no rank for a consumer the stored list does not name', () => {
+      setup({ connected: true, minerProducts: [ironOre] })
+      storeList([{ kind: 'block', blockId: 'other' }])
+      useSolverStore.setState({ served: served(['other', 'consumer']) } as never)
+      render(<BlockGraphButton />)
+      open()
+      expect(within(chip()).queryByTestId('graph-edge-rank')).toBeNull()
+    })
+  })
+
   describe('requests', () => {
     const chip = () => screen.getByTestId('graph-edge-label')
     const ironOre: Product = { id: 'po', itemId: 'iron-ore' }
