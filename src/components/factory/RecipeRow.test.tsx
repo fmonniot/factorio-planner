@@ -1667,6 +1667,27 @@ describe('RecipeRow in a block with areas', () => {
       expect(within(outCell).queryAllByRole('button')).toHaveLength(0)
     })
 
+    it('names the other end of each chip from the routes, and keeps the boundary text without them', () => {
+      const areaView = (areaRoutes?: { itemId: string; from?: string; to?: string; rate: number }[]) => ({
+        index: indexRecipeAreas(areaBlock()),
+        solvedMap: solvedMap(),
+        solvedAreas: [areaOf([flow('water', 60, true)], [flow('hydrogen', 30)])],
+        areaRoutes,
+      })
+      const { unmount } = renderAreaRow('h-P', {
+        solvedNode: undefined,
+        areaView: areaView([
+          { itemId: 'water', to: 'P', rate: 60 },
+          { itemId: 'hydrogen', from: 'P', to: 'root', rate: 30 },
+        ]),
+      })
+      expect(screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')!.getAttribute('title')).toContain('from outside the block')
+      expect(screen.getByTestId('area-chips-out').querySelector('[data-item-id="hydrogen"]')!.getAttribute('title')).toContain('to the rest of the block')
+      unmount()
+      renderAreaRow('h-P', { solvedNode: undefined, areaView: areaView() })
+      expect(screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')!.getAttribute('title')).toBe('Water: 60.0/m — from outside the block')
+    })
+
     it('puts the name across three columns, sends under Products and Byproducts and receives under Ingredients', () => {
       renderAreaHandle(areaOf([flow('water', 60, true)], [flow('hydrogen', 30)]))
       const row = screen.getByTestId('area-chips-out').closest('tr')!
@@ -1737,7 +1758,7 @@ describe('RecipeRow in a block with areas', () => {
       fireEvent.focus(more)
       const popup = screen.getByRole('tooltip')
       expect(popup.getAttribute('data-direction')).toBe('sends')
-      expect(popup.querySelectorAll('[data-item-id]')).toHaveLength(1)
+      expect(popup.querySelectorAll('[data-testid="area-chips-line"]')).toHaveLength(1)
       expect(popup.querySelector('[data-item-id="s8"]')).not.toBeNull()
     })
 
@@ -1778,7 +1799,7 @@ describe('RecipeRow in a block with areas', () => {
         fireEvent.focus(more)
         const popup = screen.getByRole('tooltip')
         expect(popup).toHaveTextContent('Also sends')
-        expect(Array.from(popup.querySelectorAll('[data-item-id]')).map(e => e.getAttribute('data-item-id'))).toEqual(['s2', 's3', 's4'])
+        expect(Array.from(popup.querySelectorAll('[data-testid="area-chips-line"]')).map(e => e.getAttribute('data-item-id'))).toEqual(['s2', 's3', 's4'])
       })
 
       it('keeps the caps of eight and sixteen on a wide line', () => {

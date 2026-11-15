@@ -10,8 +10,8 @@ const items = {
 } as never
 
 const FLOWS = [
-  { itemId: 'e', rate: 56, boundary: true },
-  { itemId: 'f', rate: 55, boundary: false },
+  { itemId: 'e', rate: 56, boundary: true, otherEnd: '', ends: [] },
+  { itemId: 'f', rate: 55, boundary: false, otherEnd: '', ends: [] },
 ]
 
 function renderMore(props: Partial<Parameters<typeof AreaChipsMore>[0]> = {}) {
@@ -46,8 +46,9 @@ describe('AreaChipsMore', () => {
     expect(popup()).toBeNull()
     advance(1)
     const p = screen.getByRole('tooltip')
-    const chips = p.querySelectorAll('[data-item-id]')
-    expect([...chips].map(c => c.getAttribute('data-item-id'))).toEqual(['e', 'f'])
+    const lines = p.querySelectorAll('[data-testid="area-chips-line"]')
+    expect([...lines].map(c => c.getAttribute('data-item-id'))).toEqual(['e', 'f'])
+    const chips = p.querySelectorAll('[data-boundary]')
     expect([...chips].every(c => c.getAttribute('data-direction') === 'receives')).toBe(true)
     expect([...chips].map(c => c.getAttribute('data-boundary'))).toEqual(['true', 'false'])
     expect(p.textContent).toContain('Ernie')
@@ -246,5 +247,38 @@ describe('AreaChipsMore', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+
+  it('has one line per partner, with the other end under the item name', () => {
+    renderMore({
+      flows: [{
+        itemId: 'e',
+        rate: 15,
+        boundary: false,
+        otherEnd: 'from Oil, the rest of the block',
+        ends: [
+          { partnerId: 'oil', otherEnd: 'from Oil', rate: 10 },
+          { partnerId: 'root', otherEnd: 'from the rest of the block', rate: 5 },
+        ],
+      }],
+    })
+    fireEvent.focus(trigger())
+    const lines = [...screen.getByRole('tooltip').querySelectorAll('[data-testid="area-chips-line"]')]
+    expect(lines.map(l => l.getAttribute('data-item-id'))).toEqual(['e', 'e'])
+    expect(lines.map(l => l.getAttribute('data-other-end'))).toEqual(['from Oil', 'from the rest of the block'])
+    expect(lines[0].textContent).toContain('from Oil')
+    expect(lines[0].textContent).toContain('10.0/m')
+    expect(lines[1].textContent).toContain('from the rest of the block')
+    expect(lines[1].textContent).toContain('5.00/m')
+    // +N counts items, not lines.
+    expect(trigger().textContent).toBe('+1')
+  })
+
+  it('has one line with its text for one end', () => {
+    renderMore({ flows: [{ itemId: 'f', rate: 55, boundary: true, otherEnd: 'from outside the block', ends: [{ partnerId: undefined, otherEnd: 'from outside the block', rate: 55 }] }] })
+    fireEvent.focus(trigger())
+    const lines = screen.getByRole('tooltip').querySelectorAll('[data-testid="area-chips-line"]')
+    expect(lines).toHaveLength(1)
+    expect(lines[0].textContent).toContain('from outside the block')
   })
 })

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { flowLines } from './groupFlows'
+import { flowLines, routeEnds, areaEndName } from './groupFlows'
+import type { SubPlan } from '../../../data/types'
 
 const names: Record<string, string> = { oil: 'Oil', root: 'the rest of the block' }
 const nameOf = (id: string | undefined) => (id === undefined ? 'outside the block' : (names[id] ?? id))
@@ -14,7 +15,7 @@ describe('flowLines', () => {
 
   it('names where a received item comes from', () => {
     const lines = flowLines([{ itemId: 'gas', rate: 40, boundary: false }], routes, 'a', 'receives', nameOf)
-    expect(lines).toEqual([{ itemId: 'gas', rate: 40, otherEnd: 'from Oil, the rest of the block' }])
+    expect(lines).toMatchObject([{ itemId: 'gas', rate: 40, otherEnd: 'from Oil, the rest of the block' }])
   })
 
   it('names where a sent item goes, outside the block included', () => {
@@ -24,5 +25,55 @@ describe('flowLines', () => {
 
   it('leaves the other end empty without a route', () => {
     expect(flowLines([{ itemId: 'x', rate: 1, boundary: false }], routes, 'a', 'sends', nameOf)[0].otherEnd).toBe('')
+  })
+
+  it('lists one end per partner with its own rate', () => {
+    const lines = flowLines([{ itemId: 'gas', rate: 40, boundary: false }], routes, 'a', 'receives', nameOf)
+    expect(lines[0].ends).toEqual([
+      { partnerId: 'oil', otherEnd: 'from Oil', rate: 30 },
+      { partnerId: 'root', otherEnd: 'from the rest of the block', rate: 10 },
+    ])
+  })
+
+  it('has an end for outside the block on a send', () => {
+    const lines = flowLines([{ itemId: 'plastic', rate: 25, boundary: true }], routes, 'a', 'sends', nameOf)
+    expect(lines[0].ends).toContainEqual({ partnerId: undefined, otherEnd: 'to outside the block', rate: 5 })
+  })
+
+  it('has no ends without a route and copies the boundary', () => {
+    const line = flowLines([{ itemId: 'x', rate: 1, boundary: true }], routes, 'a', 'sends', nameOf)[0]
+    expect(line.ends).toEqual([])
+    expect(line.boundary).toBe(true)
+  })
+})
+
+describe('routeEnds', () => {
+  it('merges two routes to the same partner', () => {
+    const ends = routeEnds([
+      { from: 'p', to: 'a', rate: 3 },
+      { from: 'p', to: 'a', rate: 4 },
+      { from: 'q', to: 'a', rate: 1 },
+      { from: 'a', to: 'q', rate: 9 },
+    ], 'a', 'receives')
+    expect(ends).toEqual([{ partnerId: 'p', rate: 7 }, { partnerId: 'q', rate: 1 }])
+  })
+
+  it('works on pairs that name outside with an opaque id', () => {
+    const pairs = [{ from: 'a', to: 'outside', rate: 2 }, { from: 'outside', to: 'a', rate: 5 }]
+    expect(routeEnds(pairs, 'a', 'sends')).toEqual([{ partnerId: 'outside', rate: 2 }])
+    expect(routeEnds(pairs, 'a', 'receives')).toEqual([{ partnerId: 'outside', rate: 5 }])
+  })
+})
+
+describe('areaEndName', () => {
+  const sub = { id: 'oil', name: 'Oil', nodes: [], subPlans: [] } as unknown as SubPlan
+  const root = { id: 'root', name: 'Root', nodes: [], subPlans: [sub] } as unknown as SubPlan
+  const name = areaEndName(root)
+
+  it('words the root, outside, a sub-plan and an unknown id', () => {
+    expect(name('root')).toBe('the rest of the block')
+    expect(name(undefined)).toBe('outside the block')
+    expect(name('oil')).toBe('Oil')
+    expect(name('ghost')).toBe('ghost')
   })
 })

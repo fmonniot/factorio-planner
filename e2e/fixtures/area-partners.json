@@ -1,0 +1,94 @@
+{
+  "blocks": [
+    {
+      "id": "cccc0001-0000-0000-0000-000000000001",
+      "name": "Gears",
+      "color": "#60a5fa",
+      "products": [
+        {
+          "id": "cccc0001-0000-0000-0000-0000000000p1",
+          "itemId": "nullius-iron-gear",
+          "extraRate": 60
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "cccc0002-0000-0000-0000-000000000001",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "cccc0004-0000-0000-0000-000000000001",
+            "recipeId": "nullius-iron-gear",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "cccc0006-0000-0000-0000-000000000001",
+            "recipeId": "nullius-iron-ingot",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "subplan",
+            "id": "cccc0005-0000-0000-0000-000000000001",
+            "subPlanId": "cccc0010-0000-0000-0000-000000000001"
+          },
+          {
+            "kind": "subplan",
+            "id": "cccc0005-0000-0000-0000-000000000002",
+            "subPlanId": "cccc0020-0000-0000-0000-000000000001"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "cccc0010-0000-0000-0000-000000000001",
+            "name": "Plate line",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "cccc0011-0000-0000-0000-000000000001",
+                "recipeId": "nullius-iron-plate",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "cccc0012-0000-0000-0000-000000000001",
+                "recipeId": "nullius-iron-ingot",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-11-15T00:00:00.000Z",
+            "updatedAt": "2026-11-15T00:00:00.000Z"
+          },
+          {
+            "id": "cccc0020-0000-0000-0000-000000000001",
+            "name": "Rod line",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "cccc0021-0000-0000-0000-000000000001",
+                "recipeId": "nullius-iron-rod",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-11-15T00:00:00.000Z",
+            "updatedAt": "2026-11-15T00:00:00.000Z"
+          }
+        ],
+        "createdAt": "2026-11-15T00:00:00.000Z",
+        "updatedAt": "2026-11-15T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "cccc0001-0000-0000-0000-000000000001"
+}

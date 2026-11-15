@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from 'react'
-import type { SolvedNode, SolvedArea, GameData, RecipeNode, SubPlanNode, SubPlan } from '../../data/types'
+import type { SolvedNode, GameData, RecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { isSubPlanDescendant } from '../../store/blockStore'
 import { useUiStore, type PopoverAnchor, type RateUnit } from '../../store/uiStore'
@@ -22,6 +22,7 @@ import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { FlowChip } from './AreaFlow'
 import { AreaChipsMore } from './AreaChipsMore'
+import { areaEndName, flowLines, type FlowLine } from './sidePanel/groupFlows'
 import { chipsInLines, chipsOnOneLine, useChipsPerLine } from './oneLineChips'
 import { RecipeChipsMore } from './RecipeChipsMore'
 import { useNarrowTable } from './useNarrowTable'
@@ -378,6 +379,10 @@ export function RecipeRow({
     const solvedArea = childPlan?.area === true
       ? areaView?.solvedAreas?.find(a => a.areaId === subPlanId)
       : undefined
+    const endName = areaEndName(rootPlan)
+    const routes = areaView?.areaRoutes ?? []
+    const sendLines = flowLines(solvedArea?.sends ?? [], routes, subPlanId, 'sends', endName)
+    const receiveLines = flowLines(solvedArea?.receives ?? [], routes, subPlanId, 'receives', endName)
 
     // Every cell of the area row opens the row menu, the chips included (they are display-only).
     const openAreaRowMenu = (e: React.MouseEvent) => {
@@ -511,7 +516,7 @@ export function RecipeRow({
         </td>
         <td className={`px-2 py-0.5 ${hairline}`} colSpan={2} onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
-            flows={solvedArea?.sends ?? []}
+            lines={sendLines}
             direction="sends"
             items={gameData.items}
             rateUnit={rateUnit}
@@ -520,7 +525,7 @@ export function RecipeRow({
         </td>
         <td className={`px-2 py-0.5 ${hairline}`} style={{ paddingLeft: INGREDIENTS_PADDING_LEFT }} onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
-            flows={solvedArea?.receives ?? []}
+            lines={receiveLines}
             direction="receives"
             items={gameData.items}
             rateUnit={rateUnit}
@@ -965,12 +970,12 @@ function ChipColumn({ column, entries, items, narrow, renderChip, children }: Ch
 // ---------------------------------------------------------------------------
 
 function AreaFlowCell(props: AreaFlowCellProps) {
-  if (props.flows.length === 0) return null
+  if (props.lines.length === 0) return null
   return <AreaFlowChips {...props} />
 }
 
 interface AreaFlowCellProps {
-  flows: SolvedArea['receives']
+  lines: FlowLine[]
   direction: 'receives' | 'sends'
   items: GameData['items']
   rateUnit: RateUnit
@@ -980,9 +985,9 @@ interface AreaFlowCellProps {
 // The chips on one line: what fits is shown (all of them, or one fewer than fit and the "+N"); the rest is behind the "+N",
 // so a group row is as high as a recipe row whatever it sends and receives. The sent chips also have the 28px the received
 // ones are indented by (a negative margin takes them from the next cell's padding).
-function AreaFlowChips({ flows, direction, items, rateUnit, testId }: AreaFlowCellProps) {
+function AreaFlowChips({ lines, direction, items, rateUnit, testId }: AreaFlowCellProps) {
   const { ref, perLine } = useChipsPerLine<HTMLDivElement>()
-  const shown = chipsOnOneLine(flows.length, perLine, AREA_CHIP_CAP[direction])
+  const shown = chipsOnOneLine(lines.length, perLine, AREA_CHIP_CAP[direction])
   return (
     <div
       ref={ref}
@@ -992,10 +997,10 @@ function AreaFlowChips({ flows, direction, items, rateUnit, testId }: AreaFlowCe
       className="flex flex-nowrap items-center gap-1.5 justify-start"
       style={direction === 'sends' ? { marginRight: -INGREDIENTS_INDENT_PX } : undefined}
     >
-      {flows.slice(0, shown).map(f => (
-        <FlowChip key={f.itemId} {...f} direction={direction} items={items} rateUnit={rateUnit} />
+      {lines.slice(0, shown).map(l => (
+        <FlowChip key={l.itemId} itemId={l.itemId} rate={l.rate} boundary={l.boundary} otherEnd={l.otherEnd} direction={direction} items={items} rateUnit={rateUnit} />
       ))}
-      <AreaChipsMore flows={flows.slice(shown)} direction={direction} items={items} rateUnit={rateUnit} />
+      <AreaChipsMore flows={lines.slice(shown)} direction={direction} items={items} rateUnit={rateUnit} />
     </div>
   )
 }

@@ -193,7 +193,7 @@ Three fixtures. Values derived by hand on 2026-11-15 from the rule above; the ro
 
 T1 needs nothing and can run at any time. T2 comes first among the others; T3 can run beside it. T4 needs T2 and T3, T5 needs T4, T6 needs T4, T7 needs T5 and T6, T8 is last. T4 and T5 change the same solver files and are sequential.
 
-- [ ] **T1. Routes on the area chips and in "Trades with".** No solver change. The chips of an area row (`area-chips-in`, `area-chips-out`) and the lines of their `+N` popup name the other end of each item from `SolverResult.areaRoutes`, in the words of the group panel (`groupFlows.ts`: "from Oil", "to the rest of the block", "outside the block"), with one line per partner when an item has several. The "Trades with" list of the matrix's focus panel lists, under each partner, the items exchanged with it and their rates (folded past a few lines, as the group panel's lists are). Reuse `flowLines`; no second pairing. e2e on the plan of case 7. `spec/ui.md`. Closes "Per-partner area figures elsewhere".
+- [x] **T1. Routes on the area chips and in "Trades with".** No solver change. The chips of an area row (`area-chips-in`, `area-chips-out`) and the lines of their `+N` popup name the other end of each item from `SolverResult.areaRoutes`, in the words of the group panel (`groupFlows.ts`: "from Oil", "to the rest of the block", "outside the block"), with one line per partner when an item has several. The "Trades with" list of the matrix's focus panel lists, under each partner, the items exchanged with it and their rates (folded past a few lines, as the group panel's lists are). Reuse `flowLines`; no second pairing. e2e on the plan of case 7. `spec/ui.md`. Closes "Per-partner area figures elsewhere".
 
 - [ ] **T2. Spike: the area LP with a slack and a supply per area, and flows per pair.** Prototype steps 3 to 5 of [The rule in the area LP](#the-rule-in-the-area-lp) in `areas.ts` on a branch, driven by rules passed on the solver plan's `areas` entries (no stored field, no UI). Report in this file:
   1. Equivalence: with the new shape forced on **every** area item and no rule set, which results move in `areas.test.ts`, cases 7, 11, 12 and 19 and the e2e fixtures that have areas. This decides D11 (new shape for ruled items only, or one code path for all).
@@ -218,6 +218,15 @@ T1 needs nothing and can run at any time. T2 comes first among the others; T3 ca
 - [ ] **T8. Docs and close.** What T1 to T7 left out of `spec/`. In [plan.md](plan.md): tick the four items below; correct the phase table's row 5, "Choosing the supplying area", "Scopes" and the **Custom** sentence of "Presets, named by outcome" where this phase turned out differently (D4, D6, D7, D8). Move to [backlog.md](../backlog.md) as follow-ups what was left out: an order among supplying areas, "this row serves nobody else" in one click, reserving a byproduct for the area with the rule, and the connected and imported split of the matrix's outside column for unruled items.
 
 Each ticket appends its report here (deviations and additions only), as in [phase 4](phase-4.md#t1-report).
+
+## T1 report
+
+Deviations and additions only.
+
+- `FoldedList.tsx` was extracted from the group panel's `FlowList` so the matrix's "Trades with" shares its folding (same "Show all N" / "Show fewer", `aria-expanded`, `aria-controls`); the group panel keeps six lines and "Trades with" folds after four.
+- `routeEnds` in `groupFlows.ts` is the one pairing of a route with its partner; `flowLines` and the matrix's `focusArea` both call it, so `focusArea` merges per partner before it adds up items (totals and sort are unchanged).
+- Outside sends now read "to outside the block" on a chip's title (a chip with no route keeps the old boundary text). The `+N` popup's lines carry `data-item-id` on the `<li>` as well as the chip, so tests of the popup count `area-chips-line`.
+- On the plan of case 7 the lines under "Outside the block" are ordered by rate, then name: Iron gear (60 out) comes before Iron ore (60 in).
 
 ## Running the tickets
 
