@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { ServedConsumer, ServedEntry, ServedList } from '../../data/types'
-import { blockLines, dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, insertionIndex, lineKey, moveTarget, placement, servedLines, splitServed, unrankedCount } from './servedOrder'
+import type { Block, ServedConsumer, ServedEntry, ServedList } from '../../data/types'
+import { makeEmptyBlock, makeEmptySubPlan } from '../../store/blockStore'
+import { dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, insertionIndex, isTiedLine, lineKey, lineName, moveTarget, placement, servedLines, splitServed, underIn, unrankedCount } from './servedOrder'
 
 const c = (blockId: string, kind: 'request' | 'take', share: number, got: number): ServedConsumer =>
   ({ blockId, connectionId: `c-${blockId}`, kind, share, got })
@@ -101,21 +102,21 @@ describe('splitServed', () => {
     expect(ids(none.unranked)).toEqual(['b', 'c', 'd', 'extra'])
   })
 
-  it('leaves an area entry unmatched and ranks flagged plain entries as before', () => {
+  it('skips an area entry no line carries and ranks flagged plain entries as before', () => {
     const s = splitServed(servedLines(list(), 'plate', 'min'), [{ kind: 'block', blockId: 'b', areaId: 'x' }, { kind: 'block', blockId: 'c', tied: true }, { kind: 'block', blockId: 'd', share: 4 }])
     expect(ids(s.ranked)).toEqual(['c', 'd'])
     expect(ids(s.unranked)).toEqual(['b', 'extra'])
   })
 
   it('counts a consumer named only by an area entry as unranked', () => {
-    expect(unrankedCount(list(), [{ kind: 'block', blockId: 'b', areaId: 'x' }, blk('c'), blk('d'), { kind: 'extra' }])).toBe(1)
+    expect(unrankedCount(servedLines(list(), 'plate', 'min'), [{ kind: 'block', blockId: 'b', areaId: 'x' }, blk('c'), blk('d'), { kind: 'extra' }])).toBe(1)
   })
 
   it('counts what the stored list does not rank', () => {
-    expect(unrankedCount(list(), undefined)).toBe(0)
-    expect(unrankedCount(list(), [blk('b'), blk('c'), blk('d')])).toBe(1)
-    expect(unrankedCount(list(), [blk('b'), { kind: 'extra' }])).toBe(2)
-    expect(unrankedCount({ consumers: list().consumers }, [blk('b')])).toBe(2)
+    expect(unrankedCount(servedLines(list(), 'plate', 'min'), undefined)).toBe(0)
+    expect(unrankedCount(servedLines(list(), 'plate', 'min'), [blk('b'), blk('c'), blk('d')])).toBe(1)
+    expect(unrankedCount(servedLines(list(), 'plate', 'min'), [blk('b'), { kind: 'extra' }])).toBe(2)
+    expect(unrankedCount(servedLines({ consumers: list().consumers }, 'plate', 'min'), [blk('b')])).toBe(2)
   })
 })
 
@@ -136,46 +137,6 @@ describe('placement', () => {
     expect(placement(lines, undefined, moveTarget(lines, 0, 1)).toIndex).toBe(2)
     expect(placement(lines, undefined, moveTarget(lines, 1, -1)).toIndex).toBe(0)
     expect(placement(lines, [blk('x'), blk('b'), blk('c')], lines[0]).toIndex).toBe(1)
-  })
-})
-
-describe('blockLines', () => {
-  const area = (blockId: string, areaId: string, share: number, got: number, need?: number): ServedConsumer =>
-    ({ ...c(blockId, 'request', share, got), areaId, ...(need !== undefined ? { need } : {}) })
-  const split = (place?: number): ServedList => ({
-    consumers: [area('h', 'L', 12, 12), c('s', 'request', 30, 30), area('h', 'B', 8, 3)],
-    ...(place !== undefined ? { extra: { place, asked: 4, got: 1 } } : {}),
-  })
-
-  it('returns the same array when no consumer has an area', () => {
-    const list: ServedList = { consumers: [c('b', 'request', 1, 1)], extra: { place: 1, asked: 1, got: 1 } }
-    const out = blockLines(list)
-    expect(out.consumers).toBe(list.consumers)
-    expect(out.extraPlace).toBe(1)
-    expect(blockLines({ consumers: [] }).extraPlace).toBeUndefined()
-  })
-  it('merges the lines of a block at its first position, summing share and got', () => {
-    const out = blockLines(split())
-    expect(out.consumers.map(l => [l.blockId, l.share, l.got])).toEqual([['h', 20, 15], ['s', 30, 30]])
-    expect(out.consumers[0]).not.toHaveProperty('areaId')
-  })
-  it('sums the need and keeps notCredited when any line has it', () => {
-    const list: ServedList = { consumers: [{ ...area('h', 'L', 0, 0, 12), kind: 'take', notCredited: true }, { ...area('h', 'B', 0, 0, 8), kind: 'take' }] }
-    expect(blockLines(list).consumers).toEqual([expect.objectContaining({ need: 20, notCredited: true })])
-  })
-  it('remaps the place of the extra to a count of blocks', () => {
-    expect(blockLines(split(1)).extraPlace).toBe(1)
-    expect(blockLines(split(2)).extraPlace).toBe(2)
-    expect(blockLines(split(3)).extraPlace).toBe(2)
-  })
-  it('feeds servedLines, unrankedCount and hasServedOrder one line per block', () => {
-    const lines = servedLines(split(), 'plate', 'min')
-    expect(lines.map(l => [l.blockId, l.asked, l.got])).toEqual([['h', 20, 15], ['s', 30, 30]])
-    expect(lines[0].short).toBeCloseTo(5, 6)
-    expect(unrankedCount(split(), [{ kind: 'block', blockId: 's' }])).toBe(1)
-    expect(unrankedCount(split(), [])).toBe(2)
-    expect(hasServedOrder({ consumers: [area('h', 'L', 12, 12), area('h', 'B', 8, 3)] })).toBe(false)
-    expect(hasServedOrder({ consumers: [area('h', 'L', 12, 12), area('h', 'B', 8, 3)], extra: { place: 2, asked: 1, got: 1 } })).toBe(true)
   })
 })
 
@@ -262,9 +223,164 @@ describe('groups in splitServed and dropPlace', () => {
     const s = splitServed(ls, [blk('b'), blk('c'), tied('d')])
     expect(s.ranked.map(x => x.group?.listOrder)).toEqual([undefined, true, true])
   })
+})
 
-  it('blockLines keeps groupInListOrder on a merged line', () => {
-    const area = (a: string, flag: boolean): ServedConsumer => ({ ...c('c', 'take', 0, 1), areaId: a, ...(flag ? { groupInListOrder: true as const } : {}) })
-    expect(blockLines({ consumers: [area('x', false), area('y', true)] }).consumers[0].groupInListOrder).toBe(true)
+describe('area lines', () => {
+  const ar = (blockId: string, areaId: string, share: number, got: number, kind: 'request' | 'take' = 'request'): ServedConsumer =>
+    ({ ...c(blockId, kind, share, got), areaId })
+  const rowA = (): ServedConsumer[] => [c('s', 'request', 30, 30), ar('h', 'L', 12, 12), ar('h', 'B', 8, 3)]
+  const hub = (): Block => ({
+    ...makeEmptyBlock('Hub'),
+    id: 'h',
+    rootPlan: {
+      ...makeEmptyBlock('x').rootPlan,
+      subPlans: [{ ...makeEmptySubPlan('Logistics'), id: 'L', area: true }, { ...makeEmptySubPlan('Building'), id: 'B', area: true }],
+    },
+  })
+  const blk = (blockId: string): ServedEntry => ({ kind: 'block', blockId })
+  const s = blk('s')
+  const hL: ServedEntry = { kind: 'block', blockId: 'h', areaId: 'L' }
+  const hB: ServedEntry = { kind: 'block', blockId: 'h', areaId: 'B' }
+  const lines = () => servedLines({ consumers: rowA() }, 'plate', 'min')
+  const keys = (ls: Parameters<typeof lineKey>[0][]) => ls.map(lineKey)
+
+  it('servedLines draws one line per consumer, the extra at its place among lines', () => {
+    const ls = servedLines({ consumers: rowA(), extra: { place: 2, asked: 4, got: 1 } }, 'plate', 'min')
+    expect(ls.map(l => l.kind)).toEqual(['request', 'request', 'extra', 'request'])
+    expect(ls.filter(l => l.kind !== 'extra').map(l => [l.blockId, l.areaId])).toEqual([['s', undefined], ['h', 'L'], ['h', 'B']])
+    expect(ls[0]).not.toHaveProperty('areaId')
+    expect(ls[3].short).toBeCloseTo(5, 6)
+    expect(ls[1].short).toBeUndefined()
+    expect(ls.map(l => l.rank)).toEqual([1, 2, 3, 4])
+  })
+
+  it('hasServedOrder counts lines', () => {
+    expect(hasServedOrder({ consumers: [ar('h', 'L', 12, 12), ar('h', 'B', 8, 3)] })).toBe(true)
+    expect(hasServedOrder({ consumers: [c('b', 'request', 1, 1)] })).toBe(false)
+    expect(hasServedOrder({ consumers: [c('b', 'request', 1, 1)], extra: { place: 1, asked: 1, got: 1 } })).toBe(true)
+  })
+
+  it('lineKey and entryOf carry the area', () => {
+    const [sLine, lLine] = lines()
+    expect(lineKey(lLine)).toBe('block:h:area:L')
+    expect(entryOf(lLine)).toStrictEqual({ kind: 'block', blockId: 'h', areaId: 'L' })
+    expect(entryOf(sLine)).toStrictEqual({ kind: 'block', blockId: 's' })
+    expect(lineKey(entryOf(lLine))).toBe(lineKey(lLine))
+  })
+
+  it('lineName reads Block / Area and falls back to ids', () => {
+    const [sLine, lLine] = lines()
+    expect(lineName(lLine, hub())).toBe('Hub / Logistics')
+    const h = hub()
+    expect(lineName({ ...lLine, areaId: h.rootPlan.id }, h)).toBe('Hub / Top level')
+    expect(lineName({ ...lLine, areaId: 'ghost' }, hub())).toBe('Hub / ghost')
+    expect(lineName(lLine, undefined)).toBe('h / L')
+    expect(lineName(sLine, { ...hub(), name: 'Science' })).toBe('Science')
+    expect(lineName({ kind: 'extra', rank: 1, got: 0 }, undefined)).toBe('Extra output')
+  })
+
+  it('splitServed without a list ranks area lines one by one', () => {
+    const r = splitServed(lines(), undefined).ranked
+    expect(keys(r)).toEqual(['block:s', 'block:h:area:L', 'block:h:area:B'])
+    expect(r.map(l => l.rank)).toEqual([1, 2, 3])
+    expect(r.every(l => l.group === undefined && l.span === undefined)).toBe(true)
+  })
+
+  it('a plain entry for a solo block is one place covering its lines', () => {
+    const sec = splitServed(lines(), [s, blk('h')])
+    expect(keys(sec.ranked)).toEqual(['block:s', 'block:h:area:L', 'block:h:area:B'])
+    expect(sec.ranked.map(l => l.rank)).toEqual([1, 2, 2])
+    expect(sec.ranked.map(l => l.span)).toEqual([undefined, { size: 2, index: 0 }, { size: 2, index: 1 }])
+    expect(sec.ranked.every(l => l.group === undefined)).toBe(true)
+    expect(sec.unranked).toEqual([])
+    expect(sec.ranked.map(isTiedLine)).toEqual([false, false, false])
+  })
+
+  it('a plain entry in a group shares the entry rank, group and percent', () => {
+    const sec = splitServed(lines(), [{ ...s, share: 70 }, { ...blk('h'), tied: true, share: 30 }])
+    expect(sec.ranked.map(l => l.rank)).toEqual([1, 1, 1])
+    expect(sec.ranked[0].group).toEqual({ size: 2, index: 0, percent: 70, listOrder: false })
+    expect(sec.ranked[1].group).toEqual({ size: 2, index: 1, percent: 30, listOrder: false })
+    expect(sec.ranked[2].group).toEqual({ size: 2, index: 1, percent: 30, listOrder: false })
+    expect(sec.ranked.map(isTiedLine)).toEqual([false, true, true])
+  })
+
+  it('area entries rank their own lines, in the list order', () => {
+    const grouped = splitServed(lines(), [s, hL, { ...hB, tied: true }]).ranked
+    expect(grouped.map(l => l.rank)).toEqual([1, 2, 2])
+    expect(grouped[1].group).toEqual({ size: 2, index: 0, percent: 50, listOrder: false })
+    expect(grouped[2].group).toEqual({ size: 2, index: 1, percent: 50, listOrder: false })
+    expect(grouped.every(l => l.span === undefined)).toBe(true)
+    const c3 = splitServed(lines(), [s, hB, hL]).ranked
+    expect(keys(c3)).toEqual(['block:s', 'block:h:area:B', 'block:h:area:L'])
+    expect(c3.map(l => l.rank)).toEqual([1, 2, 3])
+    expect(c3[1].got).toBe(3)
+    expect(c3[2].got).toBe(12)
+  })
+
+  it('a plain entry stands for the lines no area entry names', () => {
+    const sec = splitServed(lines(), [hB, s, blk('h')])
+    expect(keys(sec.ranked)).toEqual(['block:h:area:B', 'block:s', 'block:h:area:L'])
+    expect(sec.ranked.map(l => l.rank)).toEqual([1, 2, 3])
+    expect(sec.ranked.every(l => l.span === undefined)).toBe(true)
+    expect(sec.unranked).toEqual([])
+  })
+
+  it('skips partial, stale and repeated entries', () => {
+    const part = splitServed(lines(), [s, hL])
+    expect(keys(part.ranked)).toEqual(['block:s', 'block:h:area:L'])
+    expect(keys(part.unranked)).toEqual(['block:h:area:B'])
+    expect(part.unranked[0].rank).toBe(0)
+    expect(unrankedCount(lines(), [s, hL])).toBe(1)
+    const withExtra = [...lines(), { kind: 'extra' as const, rank: 4, got: 0 }]
+    expect(unrankedCount(withExtra, [s, hL])).toBe(2)
+    expect(unrankedCount(lines(), [s])).toBe(2)
+    expect(unrankedCount(lines(), [s, blk('h')])).toBe(0)
+
+    const ghost: ServedEntry = { kind: 'block', blockId: 'h', areaId: 'ghost' }
+    const g1 = splitServed(lines(), [s, ghost, blk('h')])
+    expect(g1.ranked.map(l => l.rank)).toEqual([1, 2, 2])
+    const g2 = splitServed(lines(), [s, ghost, { ...hL, tied: true }, { ...hB, tied: true }]).ranked
+    expect(g2.map(l => l.rank)).toEqual([1, 2, 2])
+    expect(g2[1].group).toMatchObject({ size: 2, index: 0, percent: 50 })
+    expect(g2[2].group).toMatchObject({ size: 2, index: 1, percent: 50 })
+
+    const covered = splitServed(lines(), [hL, hB, blk('h')])
+    expect(keys(covered.ranked)).toEqual(['block:h:area:L', 'block:h:area:B'])
+    expect(keys(covered.unranked)).toEqual(['block:s'])
+    expect(unrankedCount(lines(), [hL, hB, blk('h')])).toBe(1)
+
+    const rep = splitServed(lines(), [hL, hL, s])
+    expect(keys(rep.ranked)).toEqual(['block:h:area:L', 'block:s'])
+    expect(keys(rep.unranked)).toEqual(['block:h:area:B'])
+  })
+
+  it('reads listOrder per group over the lines of its entries', () => {
+    const take = (a: string): ServedConsumer => ({ ...ar('h', a, 0, 1, 'take'), groupInListOrder: true })
+    const ls = servedLines({ consumers: [take('L'), take('B')] }, 'plate', 'min')
+    expect(ls.every(l => l.groupInListOrder === true)).toBe(true)
+    const r = splitServed(ls, [blk('x'), hL, { ...hB, tied: true }]).ranked
+    expect(r.map(l => l.group?.listOrder)).toEqual([true, true])
+  })
+
+  it('placement expands a plain entry before looking for the insertion index', () => {
+    const { ranked } = splitServed(lines(), [s, blk('h')])
+    const before = moveTarget(ranked, 2, -1)
+    const out = placement(ranked, [s, blk('h')], before)
+    expect(out.toIndex).toBe(1)
+    expect(out.shown).toEqual([s, hL, hB])
+  })
+
+  it('dropPlace works on area lines', () => {
+    const { ranked } = splitServed(lines(), undefined)
+    expect(dropPlace(ranked, 1, 'middle')).toEqual({ kind: 'join', target: hL })
+    expect(dropPlace(ranked, 1, 'bottom')).toEqual({ kind: 'rank', before: hB })
+  })
+
+  it('underIn counts the lines after one in its rank', () => {
+    const { ranked } = splitServed(lines(), [{ ...s, share: 70 }, { ...blk('h'), tied: true, share: 30 }])
+    expect(underIn(ranked, ranked[1])).toBe(1)
+    expect(underIn(ranked, ranked[2])).toBe(0)
+    expect(underIn(ranked, { kind: 'request', rank: 0, blockId: 'zz', got: 0 })).toBe(0)
   })
 })

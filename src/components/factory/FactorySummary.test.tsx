@@ -3,7 +3,7 @@ import { render, screen, fireEvent, createEvent, waitFor, within, act } from '@t
 import { FactorySummary } from './FactorySummary'
 import { lineRate } from './lineChipFit'
 import type { SlotModel } from './summarySegments'
-import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
+import { useBlockStore, makeEmptyBlock, makeEmptySubPlan, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
@@ -2814,6 +2814,57 @@ describe('FactorySummary — Served order', () => {
       expect(listNow()).toEqual([blk('b'), blk('c')])
       act(() => useBlockStore.getState().undo())
       expect(listNow()).toEqual([blk('b'), { ...blk('c'), tied: true }])
+    })
+  })
+
+  describe('a consumer with two areas', () => {
+    const link = { id: 'c-x', itemId: 'iron-plate', fromBlockId: 'miner' }
+    const area = (blockId: string, areaId: string, share: number, got: number) => ({ ...entry(blockId, 'request', share, got), areaId })
+    const sEntry = { kind: 'block' as const, blockId: 's' }
+    const hEntry = (areaId?: string, tied?: true) => ({ kind: 'block' as const, blockId: 'h', ...(areaId ? { areaId } : {}), ...(tied ? { tied } : {}) })
+    const listNow = () => useBlockStore.getState().blocks[0].servedOrder?.['iron-plate']
+    const keyOf = (popover: HTMLElement, key: string) => popover.querySelector<HTMLElement>(`[data-line-key="${key}"]`)!
+    function open(stored?: unknown[]) {
+      const miner = { ...makeEmptyBlock('Miner'), id: 'miner', products: [ironGoal], ...(stored ? { servedOrder: { 'iron-plate': stored } } : {}) } as Block
+      const hub: Block = {
+        ...makeEmptyBlock('Hub'), id: 'h', inputConnections: [{ ...link, id: 'c-h' }],
+        rootPlan: { ...makeEmptyBlock('x').rootPlan, subPlans: [{ ...makeEmptySubPlan('Logistics'), id: 'L', area: true }, { ...makeEmptySubPlan('Building'), id: 'B', area: true }] },
+      }
+      const science: Block = { ...makeEmptyBlock('Science'), id: 's', inputConnections: [{ ...link, id: 'c-s' }] }
+      useBlockStore.setState({ blocks: [miner, science, hub], activeBlockId: 'miner', history: {} })
+      useSolverStore.setState({
+        lastResult: result, lastResults: { miner: result }, flows: [], _setStatus: () => {},
+        served: { miner: { 'iron-plate': { consumers: [entry('s', 'request', 30, 30), area('h', 'L', 12, 12), area('h', 'B', 8, 3)] } } },
+      })
+      render(<FactorySummary />)
+      select('Products', 'Iron Plate')
+    }
+    const openPopover = (name = 'Served order…') => {
+      fireEvent.click(served('Products').getByRole('button', { name }))
+      return screen.getByTestId('served-order-popover')
+    }
+
+    it('counts the unranked area lines in the badge', () => {
+      open([sEntry])
+      expect(served('Products').getByRole('button', { name: 'Served order… · 2 not ranked' })).toBeInTheDocument()
+    })
+
+    it('the first gesture on no list writes area entries; one undo removes them', () => {
+      open()
+      const popover = openPopover()
+      fireEvent.click(within(keyOf(popover, 'block:h:area:B')).getByTestId('served-tie'))
+      expect(listNow()).toEqual([sEntry, hEntry('L'), hEntry('B', true)])
+      act(() => useBlockStore.getState().undo())
+      expect(listNow()).toBeUndefined()
+    })
+
+    it('the first gesture on a plain entry rewrites it as area entries; one undo restores it', () => {
+      open([sEntry, hEntry()])
+      const popover = openPopover()
+      fireEvent.click(within(keyOf(popover, 'block:h:area:B')).getByTestId('served-move-up'))
+      expect(listNow()).toEqual([sEntry, hEntry('B'), hEntry('L')])
+      act(() => useBlockStore.getState().undo())
+      expect(listNow()).toEqual([sEntry, hEntry()])
     })
   })
 

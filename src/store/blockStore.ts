@@ -7,7 +7,7 @@ import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockCo
 import { useGameDataStore, selectGameData } from './gameDataStore'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, SourceRule, ServedEntry } from '../data/types'
 import { insertionTarget } from '../utils/insertionTarget'
-import { canonicalServedList, dropServedEntries, isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedEntryRanked, withServedList, withServedShare, withServedTied } from '../data/servedEntries'
+import { canonicalServedList, dropServedEntries, expandServedAreas, isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedEntryRanked, withServedList, withServedShare, withServedTied } from '../data/servedEntries'
 import type { ServedPlace } from '../data/servedEntries'
 import { cutServedEntries, lostAreaIds, restoreServedCuts, type ServedCut } from './servedCuts'
 
@@ -342,7 +342,9 @@ function servedAreaCuts(lost: () => ReadonlySet<string>, keep: (cuts: ServedCut[
 function servedBaseOf(blocks: readonly Block[], source: Block, itemId: string, shown: readonly ServedEntry[]) {
   const consumer = (e: ServedEntry) => e.kind === 'extra' || isServedConsumer(blocks, source.id, itemId, e.blockId)
   const list = servedListOf(source, itemId)
-  const base = list ?? canonicalServedList(shown.filter((e, i) => consumer(e) && shown.findIndex(o => sameServedEntry(o, e)) === i))
+  const base = list !== undefined
+    ? expandServedAreas(list, shown)
+    : canonicalServedList(shown.filter((e, i) => consumer(e) && shown.findIndex(o => sameServedEntry(o, e)) === i))
   return { consumer, list, base }
 }
 
@@ -378,6 +380,9 @@ function servedEditState(
         // The list was reset meanwhile: only the first write may start one again.
         if (!created) return b
         current = dropServedEntries(base, e => e.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, e.blockId))
+      } else {
+        // A plain block entry `shown` draws as area lines becomes those area entries, in this same step.
+        current = expandServedAreas(current, shown)
       }
       // As in moveServed: a block entry whose consumer left is not written to.
       if (entry.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, entry.blockId)) return b
@@ -582,13 +587,14 @@ export interface BlockStoreState {
   /**
    * Rank `entry` in the served list of `itemId` on block `sourceBlockId`: put it at the insertion index `toIndex` of the
    * current list (counted before the entry is removed, clamped to [0, length]; `index + 2` moves it down one place).
-   * `shown` is the order the UI displays; it becomes the list only when none is stored (a stored list is the truth and
-   * `shown` is then ignored). A no-op with no history entry when the source is unknown, `entry` is a block that does not
+   * `shown` is the order the UI displays; it becomes the list when none is stored. With a stored list (the truth) it is
+   * only read to tell which area lines a plain block entry stands for: the entry is replaced by those area entries in
+   * the same history step (`expandServedAreas`), and undo puts the plain list back. A no-op with no history entry when the source is unknown, `entry` is a block that does not
    * take the item from the source, `toIndex` is not finite, or nothing would move (a first drag dropped in place stores no
    * list). The history entry goes to the source block, so it is undone from there.
    */
   moveServed: (sourceBlockId: string, itemId: string, entry: ServedEntry, toIndex: number, shown: ServedEntry[]) => void
-  /** Ties the entry to the line above it, or unties it (`shown`: see `moveServed`). */
+  /** Ties the entry to the line above it, or unties it (`shown`: see `moveServed`; a stored list is only expanded by it). */
   setServedTied: (sourceBlockId: string, itemId: string, entry: ServedEntry, tied: boolean, shown: ServedEntry[]) => void
   /** Sets the entry's percentage of its group; the others scale to fill the rest. */
   setServedShare: (sourceBlockId: string, itemId: string, entry: ServedEntry, percent: number, shown: ServedEntry[]) => void
@@ -1310,6 +1316,8 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
             // The list was reset meanwhile: only the first write may start one again.
             if (!created) return b
             current = dropServedEntries(base, e => e.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, e.blockId))
+          } else {
+            current = expandServedAreas(current, shown)
           }
           if (entry.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, entry.blockId)) return b
           const placed = withServedEntryPlaced(current, entry, newBefore)

@@ -235,6 +235,44 @@ export function withServedTied(list: readonly ServedEntry[], entry: ServedEntry,
 }
 
 /**
+ * `list` with each plain block entry that `shown` draws as area lines replaced by those lines' area entries, in `shown` order
+ * (only the areas the list does not name already). A solo entry, or a head of a solo group, gives consecutive solo entries.
+ * An entry in a group of two or more gives entries tied into that group; every member of such a group then stores a share:
+ * the others keep their percent (`groupPercents`), the entry's percent is divided equally among its new entries. A plain entry
+ * `shown` has no area line for is left alone. The same array when nothing expands. Idempotent.
+ */
+export function expandServedAreas<L extends readonly ServedEntry[]>(list: L, shown: readonly ServedEntry[]): L | ServedEntry[] {
+  const areaOf = new Map<string, ServedEntry[]>()
+  for (const e of shown) {
+    if (e.kind === 'block' && e.areaId !== undefined) areaOf.set(e.blockId, [...(areaOf.get(e.blockId) ?? []), e])
+  }
+  const named = new Set(list.map(servedEntryKey))
+  const parts = (e: ServedEntry): ServedEntry[] =>
+    e.kind === 'block' && e.areaId === undefined ? (areaOf.get(e.blockId) ?? []).filter(a => !named.has(servedEntryKey(a))) : []
+  if (!list.some(e => parts(e).length > 0)) return list
+  const round = (x: number) => Math.max(1e-6, Math.round(x * 1e6) / 1e6)
+  const out: ServedEntry[] = []
+  for (const [start, end] of servedGroupSpans(list)) {
+    const members = list.slice(start, end)
+    const ps = members.map(parts)
+    if (ps.every(p => p.length === 0)) {
+      out.push(...members)
+      continue
+    }
+    const grouped = members.length >= 2
+    const pct = grouped ? groupPercents(members) : []
+    members.forEach((m, i) => {
+      if (ps[i].length === 0) {
+        out.push(withFlags(m, i > 0 && m.tied === true, grouped ? round(pct[i]) : m.share))
+        return
+      }
+      ps[i].forEach((a, k) => out.push(withFlags(a, k === 0 ? i > 0 && m.tied === true : grouped, grouped ? round(pct[i] / ps[i].length) : undefined)))
+    })
+  }
+  return out
+}
+
+/**
  * `list` with `entry` reading `percent` of its group; the others scale to fill the rest, and every member of the group
  * stores a share. Undefined when the entry is absent or alone in its group, `percent` is not in (0, 100), or the group
  * would read what it reads already.

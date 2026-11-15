@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react'
 import { BlockGraphButton } from './BlockGraph'
-import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
+import { useBlockStore, makeEmptyBlock, makeEmptySubPlan, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
@@ -514,6 +514,62 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(chip().getAttribute('title')).toBe("Iron Ore: Miner → Consumer — requested: Miner makes 30.0/m for Consumer — served 1st in Miner's list")
+    })
+
+    describe('a consumer drawn as areas', () => {
+      const areaEntry = (areaId: string, flags: { tied?: true } = {}) => ({ kind: 'block' as const, blockId: 'consumer', areaId, ...flags })
+      const areaServed = () => ({
+        miner: {
+          'iron-ore': {
+            consumers: [
+              { blockId: 'other', connectionId: 'c-other', kind: 'take' as const, share: 0, got: 5 },
+              { blockId: 'consumer', connectionId: 'c1', kind: 'take' as const, share: 0, got: 5, areaId: 'L' },
+              { blockId: 'consumer', connectionId: 'c1', kind: 'take' as const, share: 0, got: 5, areaId: 'B' },
+            ],
+          },
+        },
+      })
+      const areaSetup = (order: unknown[]) => {
+        setup({ connected: true, minerProducts: [ironOre] })
+        useBlockStore.setState(st => ({
+          blocks: st.blocks.map(b => {
+            if (b.id === 'consumer') {
+              return { ...b, rootPlan: { ...b.rootPlan, subPlans: [{ ...makeEmptySubPlan('Logistics'), id: 'L', area: true }, { ...makeEmptySubPlan('Building'), id: 'B', area: true }] } }
+            }
+            return b.id === 'miner' ? { ...b, servedOrder: { 'iron-ore': order } } : b
+          }),
+        }) as never)
+        useSolverStore.setState({ served: areaServed() } as never)
+        render(<BlockGraphButton />)
+        open()
+      }
+      const other = { kind: 'block' as const, blockId: 'other' }
+
+      it('shows the best rank and lists each ranked area', () => {
+        areaSetup([other, areaEntry('B'), areaEntry('L')])
+        expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
+        expect(chip().getAttribute('title')).toMatch(/ — served 2nd \(Consumer \/ Building\), 3rd \(Consumer \/ Logistics\) in Miner's list$/)
+      })
+
+      it('marks shared areas', () => {
+        areaSetup([other, areaEntry('L'), areaEntry('B', { tied: true })])
+        expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
+        expect(chip().getAttribute('title')).toMatch(/ — served 2nd shared \(Consumer \/ Logistics\), 2nd shared \(Consumer \/ Building\) in Miner's list$/)
+      })
+
+      it('lists only the ranked area', () => {
+        areaSetup([other, areaEntry('L')])
+        expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
+        expect(chip().getAttribute('title')).toMatch(/ — served 2nd \(Consumer \/ Logistics\) in Miner's list$/)
+      })
+
+      it('lists both lines of a plain block entry', () => {
+        areaSetup([other, { kind: 'block', blockId: 'consumer' }])
+        expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
+        const title = chip().getAttribute('title')!
+        expect(title).toContain('(Consumer / Logistics)')
+        expect(title).toContain('(Consumer / Building)')
+      })
     })
 
     it('shows no rank without a stored list', () => {

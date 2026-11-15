@@ -22,7 +22,7 @@ import type { Block, BlockLoop, ConnectionFlow, GameData, Item } from '../../dat
 import { BlockSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
 import { servedListOf } from '../../data/servedEntries'
-import { servedLines, splitServed } from './servedOrder'
+import { lineName, servedLines, splitServed } from './servedOrder'
 
 // ---------------------------------------------------------------------------
 // Block graph — every block and the connections between them. Connections are
@@ -268,7 +268,8 @@ function ConnectionChip({
   // for it, or while the list does not name the block (the chip then says nothing, as the list's divider does).
   const stored = source ? servedListOf(source, connection.itemId) : undefined
   const ranked = stored && servedList ? splitServed(servedLines(servedList, connection.itemId, rateUnit), stored).ranked : []
-  const line = ranked.find(l => l.blockId === target?.id)
+  const mine = ranked.filter(l => l.blockId === target?.id) // ranked order: ranks never decrease, so the first is the best
+  const line = mine[0]
   const rank = line?.rank
 
   let title = `${itemName}: ${sourceName} → ${targetName}`
@@ -283,7 +284,12 @@ function ConnectionChip({
   } else if (flow?.requestIgnored) {
     title += ` — taken as existing: ${REQUEST_IGNORED_TITLE[flow.requestIgnored]}`
   }
-  if (rank !== undefined) title += ` — served ${ordinal(rank)}${line?.group ? ' (shared)' : ''} in ${sourceName}'s list`
+  if (line) {
+    const places = mine.some(l => l.areaId !== undefined)
+      ? mine.map(l => `${ordinal(l.rank)}${l.group ? ' shared' : ''} (${lineName(l, target)})`).join(', ')
+      : `${ordinal(line.rank)}${line.group ? ' (shared)' : ''}`
+    title += ` — served ${places} in ${sourceName}'s list`
+  }
 
   return (
     <span

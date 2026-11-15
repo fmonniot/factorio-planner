@@ -23,7 +23,7 @@ import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { ConnectionLimitEditor } from './ConnectionLimitEditor'
 import { ServedOrderPopover } from './ServedOrderPopover'
-import { hasServedOrder, unrankedCount } from './servedOrder'
+import { hasServedOrder, servedLines, unrankedCount } from './servedOrder'
 import { servedListOf } from '../../data/servedEntries'
 import { SummaryPane } from './SummaryPane'
 import { SummaryLine } from './SummaryLine'
@@ -271,7 +271,7 @@ export function FactorySummary() {
   const servedAction = (itemId: string): StripAction[] => {
     const list = servedOf(itemId)
     if (!hasServedOrder(list)) return []
-    const n = unrankedCount(list!, storedOf(itemId))
+    const n = unrankedCount(servedLines(list!, itemId, rateUnit), storedOf(itemId))
     return [{
       id: 'served-order',
       label: 'Served order…',
