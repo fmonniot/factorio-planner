@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { Ref } from 'react'
 import { createPortal } from 'react-dom'
 import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
@@ -16,8 +15,8 @@ import type { SlotModel, SummaryPaneKind } from './summarySegments'
 // SummaryLine — the collapsed summary: one line per pane with its item count, as many
 // item chips (the table's) as fit and a "+N" that lists every item with its rate. A Products
 // chip shows the product's goal, with the actual in its tooltip. Informational:
-// nothing here selects an item. From `md` the three lines share one row with the Expand
-// button; below it they stack and the handle row under the strip expands.
+// nothing here selects an item. From `md` the three lines share one row; below it they stack.
+// The handle tab under the strip expands it.
 // ---------------------------------------------------------------------------
 
 export interface SummaryLinePane {
@@ -30,9 +29,6 @@ interface SummaryLineProps {
   panes: SummaryLinePane[]
   items: GameData['items']
   rateUnit: RateUnit
-  onExpand: () => void
-  /** The Expand button, so the owner can move focus to it after a collapse. */
-  expandRef?: Ref<HTMLButtonElement>
 }
 
 /** Colour of an item's rate in the list, as in the table's product, byproduct and ingredient chips. */
@@ -192,23 +188,13 @@ function LinePane({ pane, label, slots, items, rateUnit }: SummaryLinePane & { i
   )
 }
 
-export function SummaryLine({ panes, items, rateUnit, onExpand, expandRef }: SummaryLineProps) {
+export function SummaryLine({ panes, items, rateUnit }: SummaryLineProps) {
   return (
     <div
       data-testid="summary-line"
       className="flex max-md:flex-col md:items-start md:gap-2 box-border px-3 max-md:py-1 md:py-[9px] max-md:h-[123px] md:h-[58px] max-md:overflow-hidden border-b border-gray-700"
     >
       {panes.map(p => <LinePane key={p.pane} {...p} items={items} rateUnit={rateUnit} />)}
-      {/* Below md the handle row under the strip expands instead. */}
-      <button
-        ref={expandRef}
-        type="button"
-        aria-label="Expand summary"
-        onClick={onExpand}
-        className="max-md:hidden shrink-0 self-center ml-auto w-[68px] min-h-[30px] py-1 text-xs text-gray-300 bg-gray-900 border border-gray-700 hover:border-gray-600 rounded-lg"
-      >
-        Expand
-      </button>
     </div>
   )
 }
