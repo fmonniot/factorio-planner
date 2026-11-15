@@ -108,6 +108,18 @@ describe('splitServed', () => {
     expect(ids(s.unranked)).toEqual(['b', 'extra'])
   })
 
+  it('keeps an area entry the solver keeps (the area exists, it needs nothing) as an unseen member of its group', () => {
+    const entries: ServedEntry[] = [{ kind: 'block', blockId: 'b', areaId: 'z', share: 20 }, { kind: 'block', blockId: 'c', tied: true, share: 30 }, { kind: 'block', blockId: 'd', tied: true, share: 50 }]
+    const s = splitServed(servedLines(list(), 'plate', 'min'), entries, (blockId, areaId) => blockId === 'b' && areaId === 'z')
+    expect(ids(s.ranked)).toEqual(['c', 'd'])
+    expect(s.ranked.map(l => l.rank)).toEqual([1, 1])
+    expect(s.ranked.map(l => l.group)).toEqual([{ size: 2, index: 0, percent: 30, listOrder: false }, { size: 2, index: 1, percent: 50, listOrder: false }])
+    // an area that does not exist is stale: the follower is promoted
+    const stale = splitServed(servedLines(list(), 'plate', 'min'), entries, () => false)
+    expect(stale.ranked.map(l => l.group?.percent)).toEqual([37.5, 62.5])
+    expect(splitServed(servedLines(list(), 'plate', 'min'), [entries[0], { ...entries[0], tied: true }, blk('c')], () => true).ranked.map(l => l.rank)).toEqual([1])
+  })
+
   it('counts a consumer named only by an area entry as unranked', () => {
     expect(unrankedCount(servedLines(list(), 'plate', 'min'), [{ kind: 'block', blockId: 'b', areaId: 'x' }, blk('c'), blk('d'), { kind: 'extra' }])).toBe(1)
   })

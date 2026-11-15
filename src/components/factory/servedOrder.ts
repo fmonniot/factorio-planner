@@ -115,8 +115,15 @@ export interface ServedSections {
 /**
  * Split the lines into those the stored list ranks (in its order, stale entries skipped) and those it does not (in the
  * solver's order, the extra last). Without a stored list every line is ranked, in the order the solver served them.
+ * `hasArea` says whether a consumer has an area: an area entry for an area that exists but needs nothing has no line, yet the
+ * solver keeps it as a member of its group (it asks for nothing), so it stays in the group's shape and percentages here too;
+ * the lines show only the members that have one. Without `hasArea` such an entry reads as stale.
  */
-export function splitServed(lines: readonly ServedLine[], stored: readonly ServedEntry[] | undefined): ServedSections {
+export function splitServed(
+  lines: readonly ServedLine[],
+  stored: readonly ServedEntry[] | undefined,
+  hasArea?: (blockId: string, areaId: string) => boolean,
+): ServedSections {
   if (stored === undefined) return { hasList: false, ranked: lines.map((l, i) => ({ ...l, rank: i + 1 })), unranked: [] }
   const byKey = new Map(lines.map(l => [lineKey(l), l]))
   const named = new Map<string, Set<string>>() // block id -> area ids named by an area entry of the list
@@ -144,27 +151,32 @@ export function splitServed(lines: readonly ServedLine[], stored: readonly Serve
   // the solver's own stale rule: a stale or repeated entry goes, a removed head promotes its first follower
   const kept = dropServedEntries(stored, e => {
     const key = servedEntryKey(e)
-    const mine = seen.has(key) ? [] : linesOf(e)
+    const repeat = seen.has(key)
+    const mine = repeat ? [] : linesOf(e)
     seen.add(key)
-    if (mine.length === 0) return true
+    if (mine.length === 0) return repeat || !(e.kind === 'block' && e.areaId !== undefined && hasArea?.(e.blockId, e.areaId) === true)
     mine.forEach(l => used.add(lineKey(l)))
     return false
   })
   const ranked: ServedLine[] = []
-  servedGroupSpans(kept).forEach(([start, end], g) => {
+  let place = 0
+  for (const [start, end] of servedGroupSpans(kept)) {
     const members = kept.slice(start, end)
     const percents = groupPercents(members)
     const covered = members.map(linesOf)
+    const visible = covered.flatMap((ls, i) => (ls.length > 0 ? [i] : [])) // members that have a line; the rest need nothing
+    if (visible.length === 0) continue
+    place++
     const listOrder = covered.some(ls => ls.some(l => l.groupInListOrder === true))
-    members.forEach((_, i) =>
+    visible.forEach((i, v) =>
       covered[i].forEach((l, k) => {
-        const line: ServedLine = { ...l, rank: g + 1 }
-        if (members.length >= 2) line.group = { size: members.length, index: i, percent: percents[i], listOrder }
+        const line: ServedLine = { ...l, rank: place }
+        if (visible.length >= 2) line.group = { size: visible.length, index: v, percent: percents[i], listOrder }
         if (covered[i].length >= 2) line.span = { size: covered[i].length, index: k }
         ranked.push(line)
       }),
     )
-  })
+  }
   const rest = lines.filter(l => !used.has(lineKey(l)) && l.kind !== 'extra').map(l => ({ ...l, rank: 0 }))
   const extra = lines.find(l => l.kind === 'extra' && !used.has('extra'))
   return { hasList: true, ranked, unranked: extra ? [...rest, { ...extra, rank: 0 }] : rest }

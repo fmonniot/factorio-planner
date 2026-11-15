@@ -6,6 +6,7 @@ import type { RateUnit } from '../../store/uiStore'
 import { fmtItemRateText } from './ItemTile'
 import { MINI_BUTTON_CLASS } from './Switch'
 import { useDismiss, useEscapeLayer } from './sidePanel/useDismiss'
+import { blockAreas } from '../../solver/areas'
 import { dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, isTiedLine, lineKey, lineName, moveTarget, placement, servedLines, splitServed, underIn, type DropZone, type ServedLine } from './servedOrder'
 
 // ---------------------------------------------------------------------------
@@ -122,14 +123,19 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   if (!hasServedOrder(list)) return null
   const amount = (perMin: number) => fmtItemRateText(itemId, perMin / 60, rateUnit)
   const lines = servedLines(list, itemId, rateUnit)
-  const { hasList, ranked, unranked } = splitServed(lines, stored)
+  // An area that exists but needs nothing has no line; the solver still counts its entry in its group, so the lines do too.
+  const hasArea = (blockId: string, areaId: string) => {
+    const root = blocks.find(b => b.id === blockId)?.rootPlan
+    return root !== undefined && (blockAreas(root)?.some(a => a.id === areaId) ?? false)
+  }
+  const { hasList, ranked, unranked } = splitServed(lines, stored, hasArea)
   const nameOf = (line: ServedLine) => lineName(line, blocks.find(b => b.id === line.blockId))
 
   const shown = ranked.map(entryOf)
   // Every prediction runs on the list the store will edit: a plain block entry the lines draw as areas is expanded first.
   const base = stored === undefined ? shown : expandServedAreas(stored, shown)
   /** The ranked lines once the list is `next` (computed once per edit), and `line` in them. */
-  const rankedOf = (next: ServedEntry[]) => splitServed(lines, next).ranked
+  const rankedOf = (next: ServedEntry[]) => splitServed(lines, next, hasArea).ranked
   const find = (rankedAfter: readonly ServedLine[], line: ServedLine) => rankedAfter.find(l => lineKey(l) === lineKey(line))
   // The store edits the RAW stored list, the lines show it through the solver's stale rule. `view` is the list as drawn
   // (heads and tied flags as displayed): an edit the raw list would not make as shown is refused, never half done.

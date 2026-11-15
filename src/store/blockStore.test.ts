@@ -2271,6 +2271,20 @@ describe('served order', () => {
         expect(listOf('S')).toStrictEqual([e('B'), e('C')])
       })
 
+      it('redo of a served edit does not bring back an entry of an area that has since gone', () => {
+        areas([area('x'), area('y')])
+        give([e('A'), e('C')])
+        const shownXY = [e('A'), x(), e('C', { areaId: 'y' })]
+        store().setServedTied('S', 'plate', e('C', { areaId: 'y' }), true, shownXY)
+        expect(listOf('S')).toStrictEqual([e('A'), x(), e('C', { areaId: 'y', tied: true })])
+        store().setActiveBlock('S')
+        store().undo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('C')])
+        useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'C' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: [area('y')] } } : b)) }))
+        store().redo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('C', { areaId: 'y', tied: true })])
+      })
+
       it('removes the entries of every area in a deleted subtree', () => {
         areas([area('x', [area('y')])])
         give([e('C', { areaId: 'y' }), x(), e('B')])

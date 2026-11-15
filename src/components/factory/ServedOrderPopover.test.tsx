@@ -619,6 +619,17 @@ describe('ServedOrderPopover groups, shares and drops', () => {
       expect(onMove).toHaveBeenCalledWith(hL, 1, shown)
     })
 
+    it('keeps an area that needs nothing as an unseen member of its group, as the solver does', () => {
+      const { onShare } = renderH([hB, { ...s_, tied: true }, { ...hL, tied: true }], { list: { consumers: areaList.consumers.slice(0, 2) } })
+      expect(ranked().map(l => l.dataset.lineKey)).toEqual(['block:s', KL])
+      expect(ranked().map(l => l.dataset.rank)).toEqual(['1', '1'])
+      const field = within(lineOf('block:s')).getByTestId('served-share') as HTMLInputElement
+      fireEvent.change(field, { target: { value: '40' } })
+      fireEvent.keyDown(field, { key: 'Enter' })
+      expect(status()).toBe('Science now has 40 percent of place 1.')
+      expect(onShare).toHaveBeenCalledWith(s_, 40, [s_, hL])
+    })
+
     it('offers Add to list on an area the list does not rank', () => {
       const { onMove } = renderH([s_, hL])
       const b = lineOf(KB)
