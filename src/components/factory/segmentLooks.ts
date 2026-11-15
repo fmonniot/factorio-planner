@@ -3,6 +3,9 @@ import type { OverlayKind, SegmentKind } from './summarySegments'
 
 export const AMBER = '#fbbf24'
 
+/** Light diagonal stripes on the pane's dark ground: nothing connects this share, it comes from outside. */
+const IMPORT_STRIPES = 'repeating-linear-gradient(135deg, rgba(209, 213, 219, .5) 0 3px, rgba(209, 213, 219, .12) 3px 6px)'
+
 // ---------------------------------------------------------------------------
 // Segment looks — one per kind, shared by the micro-bar, the detail bar, the
 // strip's legend and the overview rows so they read as one key.
@@ -41,7 +44,7 @@ export function segmentLook(
     }
     case 'kept':
     case 'left': return { bg: '#111827', border: '#4b5563', borderStyle: 'solid', text: '#9ca3af', legend: '#9ca3af', mini: '#4b5563' }
-    case 'import': return { bg: 'transparent', border: '#9ca3af', borderStyle: 'solid', text: '#d1d5db', legend: '#d1d5db', mini: '#9ca3af' }
+    case 'import': return { bg: IMPORT_STRIPES, border: '#9ca3af', borderStyle: 'solid', text: '#e5e7eb', legend: '#d1d5db', mini: IMPORT_STRIPES }
     case 'short': return { bg: 'rgba(251, 191, 36, .08)', border: AMBER, borderStyle: 'dashed', text: AMBER, legend: AMBER, mini: 'rgba(251, 191, 36, .55)' }
     case 'locked':
       return {
