@@ -17,13 +17,12 @@ function block(id: string, opts: { from?: string[]; products?: [string, number |
   } as unknown as Block
 }
 
-const none = new Set<string>()
-const pairOf = (blocks: Block[], loop = none, source = 'A') => rankedPairs(blocks, loop).get(source)?.get('plate')
+const pairOf = (blocks: Block[], source = 'A') => rankedPairs(blocks).get(source)?.get('plate')
 const ids = (entries: RankedEntry[]) => entries.map(e => (e.kind === 'extra' ? 'extra' : e.blockId))
 
 describe('rankedPairs', () => {
   it('is empty without a servedOrder', () => {
-    expect(rankedPairs([block('A'), block('B', { from: ['A'] })], none).size).toBe(0)
+    expect(rankedPairs([block('A'), block('B', { from: ['A'] })]).size).toBe(0)
   })
 
   it('keeps the list order and puts the other consumers, in blocks order, in unlisted', () => {
@@ -56,15 +55,6 @@ describe('rankedPairs', () => {
     expect(ids(pairOf([block('A', { products: [['plate', 0], ['plate', undefined]], list }), block('B', { from: ['A'] })])!.listed)).toEqual(['B'])
   })
 
-  it('skips a pair when its source or one of its consumers is in a loop', () => {
-    const blocks = () => [block('A', { list: [blk('B')] }), block('B', { from: ['A'] }), block('C', { from: ['A'] })]
-    expect(pairOf(blocks())).toBeDefined()
-    expect(pairOf(blocks(), new Set(['A']))).toBeUndefined()
-    expect(pairOf(blocks(), new Set(['B']))).toBeUndefined()
-    expect(pairOf(blocks(), new Set(['C']))).toBeUndefined() // an unlisted consumer counts too
-    expect(pairOf(blocks(), new Set(['Z']))).toBeDefined()
-  })
-
   it('skips a pair with no entry that applies', () => {
     expect(pairOf([block('A', { list: [extra, blk('ghost')] }), block('B', { from: ['A'] })])).toBeUndefined()
   })
@@ -72,7 +62,7 @@ describe('rankedPairs', () => {
   it('ranks each item of a source on its own', () => {
     const a = block('A', { list: [blk('B')] })
     a.servedOrder = { plate: [blk('B')], gear: [blk('B')] }
-    const pairs = rankedPairs([a, block('B', { from: ['A'] })], none)
+    const pairs = rankedPairs([a, block('B', { from: ['A'] })])
     expect([...pairs.get('A')!.keys()]).toEqual(['plate'])
   })
 })
