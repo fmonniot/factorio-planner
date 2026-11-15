@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ModalPortal } from '../ModalPortal'
 import type { Block, GameData, ServedEntry, ServedList } from '../../data/types'
-import { withServedEntryPlaced, withServedEntryRanked, withServedShare, withServedTied, type ServedPlace } from '../../data/servedEntries'
+import { expandServedAreas, withServedEntryPlaced, withServedEntryRanked, withServedShare, withServedTied, type ServedPlace } from '../../data/servedEntries'
 import type { RateUnit } from '../../store/uiStore'
 import { fmtItemRateText } from './ItemTile'
 import { MINI_BUTTON_CLASS } from './Switch'
 import { useDismiss, useEscapeLayer } from './sidePanel/useDismiss'
-import { blockLines, dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, lineKey, moveTarget, placement, servedLines, splitServed, type DropZone, type ServedLine } from './servedOrder'
+import { blockAreas } from '../../solver/areas'
+import { dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, isTiedLine, lineKey, lineName, moveTarget, placement, servedLines, splitServed, underIn, type DropZone, type ServedLine } from './servedOrder'
 
 // ---------------------------------------------------------------------------
 // ServedOrderPopover — the order the solver serves an item's consumers in, and where the source's own extra output
@@ -54,7 +55,7 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   const origin = useRef<HTMLElement | null>(null)
   const [pos, setPos] = useState({ x, y })
   const itemName = items[itemId]?.name ?? itemId
-  const lineCount = blockLines(list).consumers.length + (list.extra ? 1 : 0)
+  const lineCount = list.consumers.length + (list.extra ? 1 : 0)
   // A move reorders keyed lines and the browser drops the focus of the one that moved: put it back (a selector, on `refocus`).
   const refocus = useRef<string | null>(null)
   useLayoutEffect(() => {
@@ -122,18 +123,23 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   if (!hasServedOrder(list)) return null
   const amount = (perMin: number) => fmtItemRateText(itemId, perMin / 60, rateUnit)
   const lines = servedLines(list, itemId, rateUnit)
-  const { hasList, ranked, unranked } = splitServed(lines, stored)
-  const nameOf = (line: ServedLine) =>
-    line.kind === 'extra' ? 'Extra output' : (blocks.find(b => b.id === line.blockId)?.name ?? line.blockId ?? '')
+  // An area that exists but needs nothing has no line; the solver still counts its entry in its group, so the lines do too.
+  const hasArea = (blockId: string, areaId: string) => {
+    const root = blocks.find(b => b.id === blockId)?.rootPlan
+    return root !== undefined && (blockAreas(root)?.some(a => a.id === areaId) ?? false)
+  }
+  const { hasList, ranked, unranked } = splitServed(lines, stored, hasArea)
+  const nameOf = (line: ServedLine) => lineName(line, blocks.find(b => b.id === line.blockId))
 
   const shown = ranked.map(entryOf)
-  const base = stored ?? shown
+  // Every prediction runs on the list the store will edit: a plain block entry the lines draw as areas is expanded first.
+  const base = stored === undefined ? shown : expandServedAreas(stored, shown)
   /** The ranked lines once the list is `next` (computed once per edit), and `line` in them. */
-  const rankedOf = (next: ServedEntry[]) => splitServed(lines, next).ranked
+  const rankedOf = (next: ServedEntry[]) => splitServed(lines, next, hasArea).ranked
   const find = (rankedAfter: readonly ServedLine[], line: ServedLine) => rankedAfter.find(l => lineKey(l) === lineKey(line))
   // The store edits the RAW stored list, the lines show it through the solver's stale rule. `view` is the list as drawn
   // (heads and tied flags as displayed): an edit the raw list would not make as shown is refused, never half done.
-  const view = ranked.map((l): ServedEntry => (l.group !== undefined && l.group.index > 0 ? { ...entryOf(l), tied: true } : entryOf(l)))
+  const view = ranked.map((l): ServedEntry => (isTiedLine(l) ? { ...entryOf(l), tied: true } : entryOf(l)))
   const says = (text: string) => setAnnounce(a => ({ text, n: a.n + 1 }))
   const keepFocus = (line: ServedLine, selector: string | null) => {
     refocus.current = selector ? `[data-line-key="${lineKey(line)}"] [data-testid="${selector}"]` : null
@@ -151,12 +157,15 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   function move(line: ServedLine, before: ServedLine | null, prefer: 'served-move-up' | 'served-move-down') {
     const to = placement(ranked, stored, before)
     const entry = entryOf(line)
-    const next = withServedEntryPlaced(stored ?? to.shown, entry, before && entryOf(before))
+    const next = withServedEntryPlaced(base, entry, before && entryOf(before))
     if (next === undefined) return // the store would ignore it too
     const rankedAfter = rankedOf(next)
     const me = find(rankedAfter, line)
     focusAfter(rankedAfter, line, prefer)
-    if (me) says(`${nameOf(line)} moved to place ${me.rank}${me.group ? `, shared with ${me.group.size - 1} other line${plural(me.group.size - 1)}` : ''}.`)
+    if (me) {
+      const others = rankedAfter.filter(l => l.rank === me.rank).length - 1
+      says(`${nameOf(line)} moved to place ${me.rank}${others > 0 ? `, shared with ${others} other line${plural(others)}` : ''}.`)
+    }
     onMove(entry, to.toIndex, to.shown)
   }
   /** A drop: an edge gives the line a rank of its own, the middle puts it in the group of `targetName`'s line. */
@@ -182,9 +191,9 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   function landed(rankedAfter: readonly ServedLine[], me: ServedLine, where: ServedPlace) {
     if (where.kind === 'join') {
       const t = rankedAfter.find(l => lineKey(l) === lineKey(where.target))
-      return me.group !== undefined && me.group.index > 0 && t !== undefined && t.rank === me.rank
+      return isTiedLine(me) && t !== undefined && t.rank === me.rank
     }
-    if (me.group !== undefined && me.group.index > 0) return false
+    if (isTiedLine(me)) return false
     const before = where.before
     if (before === null) return me.rank === rankedAfter[rankedAfter.length - 1].rank
     if (lineKey(before) === lineKey(me)) return true // its own top edge: a head is all it takes
@@ -194,19 +203,19 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   function tie(line: ServedLine, index: number) {
     if (index === 0) return
     const entry = entryOf(line)
-    const isTied = line.group !== undefined && line.group.index > 0
+    const isTied = isTiedLine(line)
     const next = withServedTied(base, entry, !isTied)
     const rankedAfter = next && rankedOf(next)
     const me = rankedAfter && find(rankedAfter, line)
-    if (!me || (!isTied) !== (me.group !== undefined && me.group.index > 0)) {
+    if (!me || (!isTied) !== isTiedLine(me)) {
       says(`${nameOf(line)} could not share with the line above.`)
       return
     }
     if (!isTied) {
-      const carried = line.group ? line.group.size - 1 : 0
+      const carried = underIn(rankedAfter!, me)
       says(`${nameOf(line)} now shares place ${me.rank} with ${nameOf(ranked[index - 1])}.${carried > 0 ? ` The ${carried} line${plural(carried)} under it went with it.` : ''}`)
     } else {
-      const under = line.group ? line.group.size - 1 - line.group.index : 0
+      const under = underIn(rankedAfter!, me)
       says(under === 0
         ? `${nameOf(line)} left its group and has its own place ${me.rank}.`
         : `${nameOf(line)} and the ${under} line${plural(under)} under it left the group; they share place ${me.rank}.`)
@@ -313,8 +322,11 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
     const block = line.blockId !== undefined ? blocks.find(b => b.id === line.blockId) : undefined
     const key = lineKey(line)
     const group = line.group
-    const pressed = group !== undefined && group.index > 0
-    const position = group ? (group.index === 0 ? 'first' : group.index === group.size - 1 ? 'last' : 'middle') : undefined
+    const pressed = isTiedLine(line)
+    const sameAbove = isRanked && group !== undefined && ranked[index - 1]?.rank === line.rank
+    const sameBelow = isRanked && group !== undefined && ranked[index + 1]?.rank === line.rank
+    const firstOfRank = !(isRanked && ranked[index - 1]?.rank === line.rank)
+    const position = group ? (!sameAbove ? 'first' : !sameBelow ? 'last' : 'middle') : undefined
     const bracket = group
       ? `border-l-2 border-blue-400/60 pl-1.5 ${position === 'first' ? 'border-t-2 rounded-tl-md' : ''} ${position === 'last' ? 'border-b-2 rounded-bl-md' : ''}`
       : ''
@@ -324,6 +336,9 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
         data-testid="served-line"
         data-kind={line.kind}
         data-block-id={line.blockId}
+        data-area-id={line.areaId}
+        data-span-size={line.span?.size}
+        data-span-index={line.span?.index}
         data-ranked={isRanked ? 'true' : 'false'}
         data-line-key={key}
         data-rank={isRanked ? line.rank : undefined}
@@ -344,12 +359,19 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
           <span aria-hidden="true" data-testid="served-drop-join" className="absolute inset-0 rounded ring-2 ring-blue-500 pointer-events-none" />
         )}
         <div className="flex items-center gap-2">
-          <span data-testid="served-rank" className="w-4 font-mono tabular-nums text-gray-500">{isRanked ? (pressed ? '' : line.rank) : '–'}</span>
+          <span data-testid="served-rank" className="w-4 font-mono tabular-nums text-gray-500">{isRanked ? (firstOfRank ? line.rank : '') : '–'}</span>
           {block && (
             <span aria-hidden="true" className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: block.color }} />
           )}
           <span data-testid="served-line-name" className="min-w-0 flex-1 truncate font-medium text-gray-100">{nameOf(line)}</span>
-          {group && (
+          {group && line.span?.index === 0 && (
+            <span
+              data-testid="served-share-entry"
+              title="The areas of this block share one place; move or share one of them to rank them apart."
+              className="font-mono text-[11px] tabular-nums text-gray-300"
+            >{fmtPercent(group.percent)} %</span>
+          )}
+          {group && line.span === undefined && (
             <>
               <ShareField
                 label={`Share of ${nameOf(line)} in its group (%)`}
@@ -436,6 +458,11 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
           ? 'Ranked by you. When the source is short, the lines at the bottom go without first. Lines in a bracket share a place and split what is left by their percentages. Drop a line on the middle of another to share its place, between two lines for a place of its own.'
           : "Today's order: the order the solver served them in. Move a line to rank it."}
       </div>
+      {ranked.some(l => l.span) && (
+        <div className="text-[11px] text-gray-400">
+          Lines of one place that are not in a bracket (a block's areas) are served in table order. Move or share one to rank them apart.
+        </div>
+      )}
       <ol data-testid="served-ranked" className="flex flex-col gap-1 text-xs text-gray-300">
         {ranked.map((line, i) => renderLine(line, i, true))}
       </ol>

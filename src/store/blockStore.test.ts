@@ -2134,6 +2134,68 @@ describe('served order', () => {
       })
     })
 
+    describe('area entries', () => {
+      const ar = (id: string, areaId: string, flags: { tied?: true; share?: number } = {}): ServedEntry => ({ kind: 'block', blockId: id, areaId, ...flags })
+      const sh: ServedEntry[] = [blk('A'), ar('B', 'x'), ar('B', 'y'), blk('C'), extra]
+      const rank = (before: ServedEntry | null) => ({ kind: 'rank' as const, before })
+
+      it('writes area entries from the shown order when there is no list', () => {
+        store().placeServed('S', 'plate', ar('B', 'y'), { kind: 'join', target: ar('B', 'x') }, sh)
+        expect(listOf('S')).toStrictEqual([blk('A'), ar('B', 'x'), ar('B', 'y', T), blk('C'), extra])
+        expect(depth('S')).toBe(1)
+      })
+
+      it('replaces a plain entry by its area entries before a move, in one undoable step', () => {
+        give([blk('A'), blk('B'), blk('C')])
+        store().placeServed('S', 'plate', ar('B', 'y'), rank(blk('A')), sh)
+        expect(listOf('S')).toStrictEqual([ar('B', 'y'), blk('A'), ar('B', 'x'), blk('C')])
+        expect(depth('S')).toBe(1)
+        store().undo()
+        expect(listOf('S')).toStrictEqual([blk('A'), blk('B'), blk('C')])
+        store().redo()
+        expect(listOf('S')).toStrictEqual([ar('B', 'y'), blk('A'), ar('B', 'x'), blk('C')])
+      })
+
+      it('moveServed indexes the expanded list', () => {
+        give([blk('A'), blk('B'), blk('C')])
+        store().moveServed('S', 'plate', ar('B', 'y'), 1, sh)
+        expect(listOf('S')).toStrictEqual([blk('A'), ar('B', 'y'), ar('B', 'x'), blk('C')])
+        store().undo()
+        expect(listOf('S')).toStrictEqual([blk('A'), blk('B'), blk('C')])
+      })
+
+      it('gives every member of a short group a share when a plain entry in it expands', () => {
+        give([blk('A'), e('B', T)])
+        store().setServedShare('S', 'plate', blk('A'), 70, [blk('A'), ar('B', 'x'), ar('B', 'y')])
+        expect(listOf('S')).toStrictEqual([e('A', { share: 70 }), ar('B', 'x', { tied: true, share: 15 }), ar('B', 'y', { tied: true, share: 15 })])
+        store().undo()
+        expect(listOf('S')).toStrictEqual([blk('A'), e('B', T)])
+      })
+
+      it('writes nothing for a gesture that changes nothing on the expanded list', () => {
+        give([blk('A'), blk('B')])
+        const before = store().blocks
+        store().setServedTied('S', 'plate', ar('B', 'y'), false, [blk('A'), ar('B', 'x'), ar('B', 'y')])
+        expect(store().blocks).toBe(before)
+        expect(listOf('S')).toStrictEqual([blk('A'), blk('B')])
+        expect(depth('S')).toBe(0)
+      })
+
+      it('adds an unranked area to a list that names the other', () => {
+        give([blk('A'), ar('B', 'x')])
+        store().moveServed('S', 'plate', ar('B', 'y'), 2, [blk('A'), ar('B', 'x')])
+        expect(listOf('S')).toStrictEqual([blk('A'), ar('B', 'x'), ar('B', 'y')])
+      })
+
+      it('still rejects an area entry of a block that is not a consumer', () => {
+        give([blk('A'), blk('B')])
+        const before = store().blocks
+        store().placeServed('S', 'plate', ar('ghost', 'x'), rank(blk('A')), sh)
+        store().moveServed('S', 'plate', ar('ghost', 'x'), 0, sh)
+        expect(store().blocks).toBe(before)
+      })
+    })
+
     describe('moveServed keeps the shape', () => {
       it('swaps by position', () => {
         give([e('A'), e('B', T), e('C')])
@@ -2207,6 +2269,20 @@ describe('served order', () => {
         expect(listOf('S')).toStrictEqual([x(), e('B'), e('C')])
         store().redo()
         expect(listOf('S')).toStrictEqual([e('B'), e('C')])
+      })
+
+      it('redo of a served edit does not bring back an entry of an area that has since gone', () => {
+        areas([area('x'), area('y')])
+        give([e('A'), e('C')])
+        const shownXY = [e('A'), x(), e('C', { areaId: 'y' })]
+        store().setServedTied('S', 'plate', e('C', { areaId: 'y' }), true, shownXY)
+        expect(listOf('S')).toStrictEqual([e('A'), x(), e('C', { areaId: 'y', tied: true })])
+        store().setActiveBlock('S')
+        store().undo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('C')])
+        useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'C' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: [area('y')] } } : b)) }))
+        store().redo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('C', { areaId: 'y', tied: true })])
       })
 
       it('removes the entries of every area in a deleted subtree', () => {

@@ -2,12 +2,12 @@ import { create } from 'zustand'
 import { canConnect } from './connections'
 import { findSubPlan } from '../data/subPlanTree'
 import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
-import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
+import { areaRecipeIds, blockAreas, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore, selectGameData } from './gameDataStore'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, SourceRule, ServedEntry } from '../data/types'
 import { insertionTarget } from '../utils/insertionTarget'
-import { canonicalServedList, dropServedEntries, isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedEntryRanked, withServedList, withServedShare, withServedTied } from '../data/servedEntries'
+import { canonicalServedList, dropServedEntries, expandServedAreas, isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedEntryKey, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedEntryRanked, withServedList, withServedShare, withServedTied } from '../data/servedEntries'
 import type { ServedPlace } from '../data/servedEntries'
 import { cutServedEntries, lostAreaIds, restoreServedCuts, type ServedCut } from './servedCuts'
 
@@ -335,15 +335,37 @@ function servedAreaCuts(lost: () => ReadonlySet<string>, keep: (cuts: ServedCut[
   }
 }
 
+/** Whether the consumer `blockId` has the area `areaId` in `blocks`. */
+function hasAreaIn(blocks: readonly Block[], blockId: string, areaId: string): boolean {
+  const consumer = blocks.find(b => b.id === blockId)
+  return consumer !== undefined && (blockAreas(consumer.rootPlan)?.some(a => a.id === areaId) ?? false)
+}
+
 /**
- * What a served-list command starts from: whether an entry may be in the list, the stored list, and the base to edit.
- * Without a stored list the shown order is the base (a stale one never writes an invalid entry).
+ * Where a served-list command starts from, and how it starts again when it is applied (redo) later: whether an entry may
+ * be in the list, the stored list, the base to edit, and `start`, which gives the list to edit in `b` (undefined: the
+ * list was reset meanwhile and this command did not start it). A plain block entry of a stored list is expanded into the
+ * area entries `shown` draws; with no stored list the shown order is the list (a stale entry never writes an invalid
+ * one). An area entry of `shown` whose area existed when the command was made but is gone when it is applied is left
+ * out, so a redo never brings back an entry for an area the block no longer has.
  */
 function servedBaseOf(blocks: readonly Block[], source: Block, itemId: string, shown: readonly ServedEntry[]) {
   const consumer = (e: ServedEntry) => e.kind === 'extra' || isServedConsumer(blocks, source.id, itemId, e.blockId)
   const list = servedListOf(source, itemId)
-  const base = list ?? canonicalServedList(shown.filter((e, i) => consumer(e) && shown.findIndex(o => sameServedEntry(o, e)) === i))
-  return { consumer, list, base }
+  const existed = new Set(shown.filter(e => e.kind === 'block' && e.areaId !== undefined && hasAreaIn(blocks, e.blockId, e.areaId)).map(servedEntryKey))
+  const startFrom = (now: readonly Block[], stored: ServedEntry[] | undefined): ServedEntry[] => {
+    const live = shown.filter(e => !(existed.has(servedEntryKey(e)) && e.kind === 'block' && !hasAreaIn(now, e.blockId, e.areaId!)))
+    return stored !== undefined
+      ? expandServedAreas(stored, live)
+      : canonicalServedList(live.filter((e, i) => (e.kind === 'extra' || isServedConsumer(now, source.id, itemId, e.blockId)) && live.findIndex(o => sameServedEntry(o, e)) === i))
+  }
+  const base = startFrom(blocks, list)
+  const created = list === undefined
+  const start = (b: Block, now: readonly Block[]): ServedEntry[] | undefined => {
+    const stored = servedListOf(b, itemId)
+    return stored === undefined && !created ? undefined : startFrom(now, stored)
+  }
+  return { consumer, list, base, start }
 }
 
 /**
@@ -362,23 +384,19 @@ function servedEditState(
 ): Partial<BlockStoreState> {
   const source = state.blocks.find(b => b.id === sourceBlockId)
   if (!source || itemId === '') return state
-  const { consumer, list, base } = servedBaseOf(state.blocks, source, itemId, shown)
+  const { consumer, list, base, start } = servedBaseOf(state.blocks, source, itemId, shown)
   if (!consumer(entry)) return state
   if (list === undefined && !base.some(e => sameServedEntry(e, entry))) return state
   if (edit(base) === undefined) return state
-  const created = list === undefined
   let prior: ServedEntry[] | undefined
   let written: ServedEntry[] | undefined
   const cmd: Command = {
     apply: (b, blocks) => {
-      let current = servedListOf(b, itemId)
-      prior = current
+      prior = servedListOf(b, itemId)
       written = undefined
-      if (current === undefined) {
-        // The list was reset meanwhile: only the first write may start one again.
-        if (!created) return b
-        current = dropServedEntries(base, e => e.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, e.blockId))
-      }
+      // The list was reset meanwhile: only the first write may start one again.
+      const current = start(b, blocks)
+      if (current === undefined) return b
       // As in moveServed: a block entry whose consumer left is not written to.
       if (entry.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, entry.blockId)) return b
       const next = edit(current)
@@ -582,13 +600,14 @@ export interface BlockStoreState {
   /**
    * Rank `entry` in the served list of `itemId` on block `sourceBlockId`: put it at the insertion index `toIndex` of the
    * current list (counted before the entry is removed, clamped to [0, length]; `index + 2` moves it down one place).
-   * `shown` is the order the UI displays; it becomes the list only when none is stored (a stored list is the truth and
-   * `shown` is then ignored). A no-op with no history entry when the source is unknown, `entry` is a block that does not
+   * `shown` is the order the UI displays; it becomes the list when none is stored. With a stored list (the truth) it is
+   * only read to tell which area lines a plain block entry stands for: the entry is replaced by those area entries in
+   * the same history step (`expandServedAreas`), and undo puts the plain list back. A no-op with no history entry when the source is unknown, `entry` is a block that does not
    * take the item from the source, `toIndex` is not finite, or nothing would move (a first drag dropped in place stores no
    * list). The history entry goes to the source block, so it is undone from there.
    */
   moveServed: (sourceBlockId: string, itemId: string, entry: ServedEntry, toIndex: number, shown: ServedEntry[]) => void
-  /** Ties the entry to the line above it, or unties it (`shown`: see `moveServed`). */
+  /** Ties the entry to the line above it, or unties it (`shown`: see `moveServed`; a stored list is only expanded by it). */
   setServedTied: (sourceBlockId: string, itemId: string, entry: ServedEntry, tied: boolean, shown: ServedEntry[]) => void
   /** Sets the entry's percentage of its group; the others scale to fill the rest. */
   setServedShare: (sourceBlockId: string, itemId: string, entry: ServedEntry, percent: number, shown: ServedEntry[]) => void
@@ -1278,7 +1297,7 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
     set(state => {
       const source = state.blocks.find(b => b.id === sourceBlockId)
       if (!source || itemId === '' || !Number.isFinite(toIndex)) return state
-      const { consumer, list, base } = servedBaseOf(state.blocks, source, itemId, shown)
+      const { consumer, list, base, start } = servedBaseOf(state.blocks, source, itemId, shown)
       if (!consumer(entry)) return state
       const from = base.findIndex(e => sameServedEntry(e, entry))
       const wasPresent = from >= 0
@@ -1303,14 +1322,11 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       let written: ServedEntry[] | undefined
       const cmd: Command = {
         apply: (b, blocks) => {
-          let current = servedListOf(b, itemId)
-          prior = current
+          prior = servedListOf(b, itemId)
           written = undefined
-          if (current === undefined) {
-            // The list was reset meanwhile: only the first write may start one again.
-            if (!created) return b
-            current = dropServedEntries(base, e => e.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, e.blockId))
-          }
+          // The list was reset meanwhile: only the first write may start one again.
+          const current = start(b, blocks)
+          if (current === undefined) return b
           if (entry.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, entry.blockId)) return b
           const placed = withServedEntryPlaced(current, entry, newBefore)
           if (placed !== undefined) written = placed

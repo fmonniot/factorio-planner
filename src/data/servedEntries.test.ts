@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  canonicalServedList, dropServedEntries, equalServedEntry, groupPercents, isCanonicalServedList,
+  canonicalServedList, dropServedEntries, equalServedEntry, expandServedAreas, groupPercents, isCanonicalServedList,
   isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedEntryKey, servedGroups, servedGroupSpans, servedListOf, takesFrom,
   withoutServedConsumer, withServedEntryInserted, withServedEntryPlaced, withServedEntryRanked, withServedList, withServedShare, withServedTied,
 } from './servedEntries'
@@ -452,5 +452,59 @@ describe('withServedEntryRanked', () => {
     // a tied member still leaves its group (rows 5a, 5b), and the bottom edge of a head splits it from its followers
     check(withServedEntryRanked([a, T(b), T(c)], c, rank(c)), [a, T(b), c])
     check(withServedEntryRanked([b, T(c), T(d)], b, rank(c)), [b, c, T(d)])
+  })
+})
+
+describe('expandServedAreas', () => {
+  const A = blk('a')
+  const B = blk('b')
+  const C = blk('c')
+  const bx: ServedEntry = { kind: 'block', blockId: 'b', areaId: 'x' }
+  const by: ServedEntry = { kind: 'block', blockId: 'b', areaId: 'y' }
+  const tied = (e: ServedEntry, share?: number): ServedEntry => ({ ...e, tied: true, ...(share !== undefined ? { share } : {}) })
+
+  it('gives consecutive solo entries for a solo plain entry', () => {
+    const out = expandServedAreas([A, B, C], [A, bx, by, C])
+    expect(out).toStrictEqual([A, bx, by, C])
+    expect(isCanonicalServedList(out)).toBe(true)
+  })
+
+  it('returns the same reference when nothing expands', () => {
+    const list = [A, B]
+    expect(expandServedAreas(list, [A, B])).toBe(list)
+    expect(expandServedAreas(list, [A, C])).toBe(list)
+    const noPlain = [A, bx]
+    expect(expandServedAreas(noPlain, [A, bx, by])).toBe(noPlain)
+  })
+
+  it('ties the new entries into the group of a head and divides its percent', () => {
+    const out = expandServedAreas([{ ...B, share: 60 }, tied(C, 40)], [bx, by, C])
+    expect(out).toStrictEqual([{ ...bx, share: 30 }, tied(by, 30), tied(C, 40)])
+    expect(isCanonicalServedList(out)).toBe(true)
+  })
+
+  it('divides the percent of a tied member of an equal group', () => {
+    const out = expandServedAreas([A, tied(B)], [A, bx, by])
+    expect(out).toStrictEqual([{ ...A, share: 50 }, tied(bx, 25), tied(by, 25)])
+    expect(isCanonicalServedList(out)).toBe(true)
+  })
+
+  it('adds only the areas the list does not name', () => {
+    expect(expandServedAreas([by, B], [by, bx])).toStrictEqual([by, bx])
+    const out = expandServedAreas([A, tied(by), tied(B)], [A, by, bx])
+    expect(out).toHaveLength(3)
+    expect(out[2]).toMatchObject({ kind: 'block', blockId: 'b', areaId: 'x', tied: true })
+  })
+
+  it('lets the extra carry a share in the group', () => {
+    const out = expandServedAreas([B, tied(extra)], [bx, by, extra])
+    expect(out).toStrictEqual([{ ...bx, share: 25 }, tied(by, 25), tied(extra, 50)])
+    expect(isCanonicalServedList(out)).toBe(true)
+  })
+
+  it('is idempotent', () => {
+    const shown = [A, bx, by]
+    const first = expandServedAreas([A, B], shown)
+    expect(expandServedAreas(first, shown)).toBe(first)
   })
 })

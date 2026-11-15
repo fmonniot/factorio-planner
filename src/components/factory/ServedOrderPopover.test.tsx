@@ -2,7 +2,7 @@ import { Profiler } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, createEvent, within } from '@testing-library/react'
 import { LIST_ORDER_HINT, ServedOrderPopover } from './ServedOrderPopover'
-import { makeEmptyBlock } from '../../store/blockStore'
+import { makeEmptyBlock, makeEmptySubPlan } from '../../store/blockStore'
 import type { GameData, ServedEntry, ServedList } from '../../data/types'
 
 const items = { plate: { id: 'plate', name: 'Plate', type: 'item', iconPath: '', hidden: false } } as unknown as GameData['items']
@@ -489,6 +489,159 @@ describe('ServedOrderPopover groups, shares and drops', () => {
       over('block:c', 'block:c', MIDDLE, true)
       expect(screen.queryByTestId('served-drop-join')).toBeNull()
       expect(onPlace).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('areas', () => {
+    const hub = {
+      ...makeEmptyBlock('Hub'),
+      id: 'h',
+      rootPlan: {
+        ...makeEmptyBlock('x').rootPlan,
+        subPlans: [{ ...makeEmptySubPlan('Logistics'), id: 'L', area: true }, { ...makeEmptySubPlan('Building'), id: 'B', area: true }],
+      },
+    }
+    const blocksH = [{ ...makeEmptyBlock('Science'), id: 's' }, hub]
+    const areaList: ServedList = {
+      consumers: [
+        { blockId: 's', connectionId: 'cs', kind: 'request', share: 30, got: 30 },
+        { blockId: 'h', connectionId: 'ch', kind: 'request', share: 12, got: 12, areaId: 'L' },
+        { blockId: 'h', connectionId: 'ch', kind: 'request', share: 8, got: 3, areaId: 'B' },
+      ],
+    }
+    const s_ = blk('s')
+    const hL: ServedEntry = { kind: 'block', blockId: 'h', areaId: 'L' }
+    const hB: ServedEntry = { kind: 'block', blockId: 'h', areaId: 'B' }
+    const shown = [s_, hL, hB]
+    const KL = 'block:h:area:L'
+    const KB = 'block:h:area:B'
+    const renderH = (stored?: ServedEntry[], over2: Partial<React.ComponentProps<typeof ServedOrderPopover>> = {}) =>
+      renderWith({ list: areaList, blocks: blocksH, stored, ...over2 })
+    const HINT = 'Lines of one place that are not in a bracket (a block\'s areas) are served in table order. Move or share one to rank them apart.'
+
+    it('draws one line per area with its figures', () => {
+      renderH()
+      expect(screen.getAllByTestId('served-line-name').map(n => n.textContent)).toEqual(['Science', 'Hub / Logistics', 'Hub / Building'])
+      expect(ranked().map(l => l.dataset.rank)).toEqual(['1', '2', '3'])
+      expect(ranked().map(l => l.dataset.areaId)).toEqual([undefined, 'L', 'B'])
+      const b = lineOf(KB)
+      expect(b.textContent).toContain('asked 8.0')
+      expect(b.textContent).toContain('got 3.0')
+      expect(within(b).getByTestId('served-short').textContent).toContain('short 5.0')
+      expect(screen.getAllByTestId('served-short')).toHaveLength(1)
+      expect(screen.queryByTestId('served-share')).toBeNull()
+      expect(screen.queryByTestId('served-divider')).toBeNull()
+    })
+
+    it('renders a single block with two area lines and no extra', () => {
+      renderH(undefined, { list: { consumers: areaList.consumers.slice(1) } })
+      expect(screen.getAllByTestId('served-line')).toHaveLength(2)
+    })
+
+    it('a middle drop joins the other area, writing through the shown order', () => {
+      const { onPlace } = renderH()
+      over(KB, KL, MIDDLE, true)
+      expect(onPlace).toHaveBeenCalledWith(hB, { kind: 'join', target: hL }, shown)
+      expect(status()).toBe('Hub / Building now shares place 2 with Hub / Logistics.')
+    })
+
+    it('an edge drop gives the area its own place', () => {
+      const { onPlace } = renderH()
+      over(KB, KL, TOP, true)
+      expect(onPlace).toHaveBeenCalledWith(hB, { kind: 'rank', before: hL }, shown)
+      expect(status()).toBe('Hub / Building moved to its own place 2.')
+    })
+
+    it('moves and shares an area with the buttons', () => {
+      const { onMove, onTie } = renderH()
+      fireEvent.click(button(KB, 'served-move-up'))
+      expect(onMove).toHaveBeenCalledWith(hB, 1, shown)
+      fireEvent.click(button(KB, 'served-tie'))
+      expect(onTie).toHaveBeenCalledWith(hB, true, shown)
+      expect(status()).toBe('Hub / Building now shares place 2 with Hub / Logistics.')
+    })
+
+    it('draws a stored group of areas with a field each', () => {
+      const { onShare } = renderH([s_, hL, { ...hB, tied: true }])
+      expect(field('Hub / Logistics').value).toBe('50')
+      expect(field('Hub / Building').value).toBe('50')
+      fireEvent.change(field('Hub / Logistics'), { target: { value: '70' } })
+      fireEvent.keyDown(field('Hub / Logistics'), { key: 'Enter' })
+      expect(onShare).toHaveBeenCalledWith(hL, 70, shown)
+      expect(status()).toBe('Hub / Logistics now has 70 percent of place 2.')
+      expect(field('Hub / Logistics').value).toBe('50')
+    })
+
+    it('draws a plain solo entry as one place with a hint, and writes through the expanded list', () => {
+      const { onMove, onTie } = renderH([s_, blk('h')])
+      expect(ranked().map(l => l.dataset.rank)).toEqual(['1', '2', '2'])
+      expect(screen.getAllByTestId('served-rank').map(r => r.textContent)).toEqual(['1', '2', ''])
+      expect(ranked().map(l => l.dataset.spanSize)).toEqual([undefined, '2', '2'])
+      expect(screen.queryByTestId('served-share')).toBeNull()
+      expect(screen.queryByTestId('served-share-entry')).toBeNull()
+      expect(button(KB, 'served-tie').getAttribute('aria-pressed')).toBe('false')
+      expect(screen.getByText(HINT)).toBeTruthy()
+      fireEvent.click(button(KB, 'served-move-up'))
+      expect(onMove).toHaveBeenCalledWith(hB, 1, shown)
+      fireEvent.click(button(KB, 'served-tie'))
+      expect(onTie).toHaveBeenCalledWith(hB, true, shown)
+      expect(status()).toBe('Hub / Building now shares place 2 with Hub / Logistics.')
+    })
+
+    it('has no hint without a span', () => {
+      renderH([s_, hL, hB])
+      expect(screen.queryByText(HINT)).toBeNull()
+    })
+
+    it('draws a plain entry in a group: read-only percent, tied continuation lines', () => {
+      const { onTie } = renderH([s_, { ...blk('h'), tied: true }])
+      expect(field('Science').value).toBe('50')
+      expect(within(lineOf(KL)).getByTestId('served-share-entry').textContent).toBe('50 %')
+      expect(within(lineOf(KB)).queryByTestId('served-share-entry')).toBeNull()
+      expect(within(lineOf(KL)).queryByTestId('served-share')).toBeNull()
+      expect(ranked().map(l => l.dataset.rank)).toEqual(['1', '1', '1'])
+      expect(button(KL, 'served-tie').getAttribute('aria-pressed')).toBe('true')
+      expect(button(KB, 'served-tie').getAttribute('aria-pressed')).toBe('true')
+      expect(ranked().map(l => l.dataset.groupPosition)).toEqual(['first', 'middle', 'last'])
+      fireEvent.click(button(KB, 'served-tie'))
+      expect(onTie).toHaveBeenLastCalledWith(hB, false, shown)
+      expect(status()).toBe('Hub / Building left its group and has its own place 2.')
+      fireEvent.click(button(KL, 'served-tie'))
+      expect(onTie).toHaveBeenLastCalledWith(hL, false, shown)
+      expect(status()).toBe('Hub / Logistics and the 1 line under it left the group; they share place 2.')
+    })
+
+    it('skips a stale area entry and still computes against the raw list', () => {
+      const { onMove } = renderH([{ kind: 'block', blockId: 'h', areaId: 'ghost' }, s_, hL, hB])
+      expect(ranked().map(l => l.dataset.rank)).toEqual(['1', '2', '3'])
+      expect(ranked().map(l => l.dataset.lineKey)).toEqual(['block:s', KL, KB])
+      fireEvent.click(button(KL, 'served-move-up'))
+      expect(onMove).toHaveBeenCalledWith(hL, 1, shown)
+    })
+
+    it('keeps an area that needs nothing as an unseen member of its group, as the solver does', () => {
+      const { onShare } = renderH([hB, { ...s_, tied: true }, { ...hL, tied: true }], { list: { consumers: areaList.consumers.slice(0, 2) } })
+      expect(ranked().map(l => l.dataset.lineKey)).toEqual(['block:s', KL])
+      expect(ranked().map(l => l.dataset.rank)).toEqual(['1', '1'])
+      const field = within(lineOf('block:s')).getByTestId('served-share') as HTMLInputElement
+      fireEvent.change(field, { target: { value: '40' } })
+      fireEvent.keyDown(field, { key: 'Enter' })
+      expect(status()).toBe('Science now has 40 percent of place 1.')
+      expect(onShare).toHaveBeenCalledWith(s_, 40, [s_, hL])
+    })
+
+    it('offers Add to list on an area the list does not rank', () => {
+      const { onMove } = renderH([s_, hL])
+      const b = lineOf(KB)
+      expect(b.dataset.ranked).toBe('false')
+      fireEvent.click(within(b).getByTestId('served-add'))
+      expect(onMove).toHaveBeenCalledWith(hB, 2, [s_, hL])
+    })
+
+    it('marks the area lines of a take group served in list order', () => {
+      const take = (a: string) => ({ blockId: 'h', connectionId: 'ch', kind: 'take' as const, share: 0, got: 1, need: 2, groupInListOrder: true as const, areaId: a })
+      renderH([s_, hL, { ...hB, tied: true }], { list: { consumers: [areaList.consumers[0], take('L'), take('B')] } })
+      expect(screen.getAllByTestId('served-list-order')).toHaveLength(2)
     })
   })
 

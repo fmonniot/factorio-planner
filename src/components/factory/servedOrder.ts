@@ -1,5 +1,6 @@
-import type { ServedConsumer, ServedEntry, ServedList } from '../../data/types'
-import { dropServedEntries, groupPercents, servedEntryKey, servedGroupSpans } from '../../data/servedEntries'
+import type { Block, ServedEntry, ServedList } from '../../data/types'
+import { areaName } from '../../data/subPlanTree'
+import { dropServedEntries, expandServedAreas, groupPercents, servedEntryKey, servedGroupSpans } from '../../data/servedEntries'
 import type { ServedPlace } from '../../data/servedEntries'
 import type { RateUnit } from '../../store/uiStore'
 import { isShortfall } from './summarySegments'
@@ -27,38 +28,16 @@ export interface ServedLine {
   groupInListOrder?: true
   /** only on a ranked line whose group has two lines or more */
   group?: ServedLineGroup
+  /** Set when the line is one area of a consumer block (copied from `ServedConsumer.areaId`). */
+  areaId?: string
+  /** Only on a ranked line of a plain block entry that stands for two lines or more (a stored list written before the popover drew areas, or a block entry covering several areas): how many lines the entry covers and this line's index among them. The entry's rank, group and percentage belong to all of them. */
+  span?: { size: number; index: number }
 }
 
-/**
- * One consumer per block: the lines of a block's areas merged (at the block's first line, `share`, `got` and `need` summed)
- * until the list draws areas. `extraPlace` counts blocks, not lines. A list with no area line comes back as it is.
- */
-export function blockLines(list: ServedList): { consumers: ServedConsumer[]; extraPlace: number | undefined } {
-  if (!list.consumers.some(c => c.areaId !== undefined)) return { consumers: list.consumers, extraPlace: list.extra?.place }
-  const merged = new Map<string, ServedConsumer>()
-  for (const c of list.consumers) {
-    const first = merged.get(c.blockId)
-    if (!first) {
-      const whole = { ...c }
-      delete whole.areaId
-      merged.set(c.blockId, whole)
-      continue
-    }
-    first.share += c.share
-    first.got += c.got
-    if (c.need !== undefined) first.need = (first.need ?? 0) + c.need
-    if (c.notCredited) first.notCredited = true
-    if (c.groupInListOrder) first.groupInListOrder = true
-  }
-  const extraPlace = list.extra ? new Set(list.consumers.slice(0, list.extra.place).map(c => c.blockId)).size : undefined
-  return { consumers: [...merged.values()], extraPlace }
-}
-
-/** The order is worth showing when something is ordered: two consumers, or one consumer and the extra. */
+/** The order is worth showing when something is ordered: two lines, or one line and the extra. */
 export function hasServedOrder(list: ServedList | undefined): boolean {
   if (!list) return false
-  const { consumers } = blockLines(list)
-  return consumers.length >= 2 || (consumers.length === 1 && list.extra !== undefined)
+  return list.consumers.length >= 2 || (list.consumers.length === 1 && list.extra !== undefined)
 }
 
 /**
@@ -66,9 +45,9 @@ export function hasServedOrder(list: ServedList | undefined): boolean {
  * supply), so a gap to `got` may be the consumer's own limit or another source, not this one running dry.
  */
 export function servedLines(list: ServedList, itemId: string, unit: RateUnit): ServedLine[] {
-  const { consumers, extraPlace } = blockLines(list)
-  const lines: ServedLine[] = consumers.map(c => {
+  const lines: ServedLine[] = list.consumers.map(c => {
     const line: ServedLine = { kind: c.kind, rank: 0, blockId: c.blockId, connectionId: c.connectionId, got: c.got }
+    if (c.areaId !== undefined) line.areaId = c.areaId
     if (c.kind === 'request') {
       line.asked = c.share
       if (isShortfall(c.share, c.got, unit, itemId)) line.short = c.share - c.got
@@ -83,20 +62,40 @@ export function servedLines(list: ServedList, itemId: string, unit: RateUnit): S
     const { asked, got } = list.extra
     const extra: ServedLine = { kind: 'extra', rank: 0, asked, got }
     if (isShortfall(asked, got, unit, itemId)) extra.short = asked - got
-    lines.splice(Math.min(extraPlace ?? list.extra.place, lines.length), 0, extra)
+    lines.splice(Math.min(list.extra.place, lines.length), 0, extra)
   }
   return lines.map((l, i) => ({ ...l, rank: i + 1 }))
+}
+
+/** What a line is called in the popover: the extra, the consumer block, or `Block / Area` (ids when the block or area is gone). */
+export function lineName(line: ServedLine, block: Block | undefined): string {
+  if (line.kind === 'extra') return 'Extra output'
+  const name = block?.name ?? line.blockId ?? ''
+  if (line.areaId === undefined) return name
+  return `${name} / ${block ? areaName(block.rootPlan, line.areaId) : line.areaId}`
 }
 
 /** What a line is called in a list and in the DOM: the extra, the consumer block, or one area of it (an entry only). */
 export function lineKey(x: ServedLine | ServedEntry): string {
   if (x.kind === 'extra') return 'extra'
-  return servedEntryKey('areaId' in x ? x : { kind: 'block', blockId: x.blockId! })
+  if (x.kind === 'block') return servedEntryKey(x)
+  return servedEntryKey({ kind: 'block', blockId: x.blockId!, ...(x.areaId !== undefined ? { areaId: x.areaId } : {}) })
 }
 
 /** The list entry of a line. */
 export function entryOf(line: ServedLine): ServedEntry {
-  return line.kind === 'extra' ? { kind: 'extra' } : { kind: 'block', blockId: line.blockId! }
+  return line.kind === 'extra' ? { kind: 'extra' } : { kind: 'block', blockId: line.blockId!, ...(line.areaId !== undefined ? { areaId: line.areaId } : {}) }
+}
+
+/** The line reads tied to the one above: a member of its group after the first, or a continuation line of a plain entry that is in a group. */
+export function isTiedLine(line: ServedLine): boolean {
+  return line.group !== undefined && (line.group.index > 0 || (line.span?.index ?? 0) > 0)
+}
+
+/** How many lines after `line` in `ranked` have its rank (0 when `line` is not there). */
+export function underIn(ranked: readonly ServedLine[], line: ServedLine): number {
+  const at = ranked.findIndex(l => lineKey(l) === lineKey(line))
+  return at < 0 ? 0 : ranked.slice(at + 1).filter(l => l.rank === line.rank).length
 }
 
 /** The index to insert before `before` in `order`: its place, or the end when `before` is null or not in the list. */
@@ -116,42 +115,76 @@ export interface ServedSections {
 /**
  * Split the lines into those the stored list ranks (in its order, stale entries skipped) and those it does not (in the
  * solver's order, the extra last). Without a stored list every line is ranked, in the order the solver served them.
+ * `hasArea` says whether a consumer has an area: an area entry for an area that exists but needs nothing has no line, yet the
+ * solver keeps it as a member of its group (it asks for nothing), so it stays in the group's shape and percentages here too;
+ * the lines show only the members that have one. Without `hasArea` such an entry reads as stale.
  */
-export function splitServed(lines: ServedLine[], stored: readonly ServedEntry[] | undefined): ServedSections {
+export function splitServed(
+  lines: readonly ServedLine[],
+  stored: readonly ServedEntry[] | undefined,
+  hasArea?: (blockId: string, areaId: string) => boolean,
+): ServedSections {
   if (stored === undefined) return { hasList: false, ranked: lines.map((l, i) => ({ ...l, rank: i + 1 })), unranked: [] }
   const byKey = new Map(lines.map(l => [lineKey(l), l]))
+  const named = new Map<string, Set<string>>() // block id -> area ids named by an area entry of the list
+  for (const e of stored) {
+    if (e.kind === 'block' && e.areaId !== undefined) {
+      const set = named.get(e.blockId) ?? new Set<string>()
+      set.add(e.areaId)
+      named.set(e.blockId, set)
+    }
+  }
+  const linesOf = (e: ServedEntry): ServedLine[] => {
+    if (e.kind === 'extra') {
+      const x = byKey.get('extra')
+      return x ? [x] : []
+    }
+    if (e.areaId !== undefined) {
+      const l = byKey.get(servedEntryKey(e))
+      return l ? [l] : []
+    }
+    // a plain entry stands for the lines of its block that no area entry names (table order); an unsplit block has one line
+    return lines.filter(l => l.kind !== 'extra' && l.blockId === e.blockId && (l.areaId === undefined || !named.get(e.blockId)?.has(l.areaId)))
+  }
+  const seen = new Set<string>()
   const used = new Set<string>()
   // the solver's own stale rule: a stale or repeated entry goes, a removed head promotes its first follower
   const kept = dropServedEntries(stored, e => {
-    const key = lineKey(e)
-    if (!byKey.has(key) || used.has(key)) return true
-    used.add(key)
+    const key = servedEntryKey(e)
+    const repeat = seen.has(key)
+    const mine = repeat ? [] : linesOf(e)
+    seen.add(key)
+    if (mine.length === 0) return repeat || !(e.kind === 'block' && e.areaId !== undefined && hasArea?.(e.blockId, e.areaId) === true)
+    mine.forEach(l => used.add(lineKey(l)))
     return false
   })
   const ranked: ServedLine[] = []
-  servedGroupSpans(kept).forEach(([start, end], g) => {
+  let place = 0
+  for (const [start, end] of servedGroupSpans(kept)) {
     const members = kept.slice(start, end)
     const percents = groupPercents(members)
-    const memberLines = members.flatMap(e => byKey.get(lineKey(e)) ?? [])
-    const listOrder = memberLines.some(l => l.groupInListOrder === true)
-    memberLines.forEach((l, i) => {
-      const line: ServedLine = { ...l, rank: g + 1 }
-      if (members.length >= 2) line.group = { size: members.length, index: i, percent: percents[i], listOrder }
-      ranked.push(line)
-    })
-  })
+    const covered = members.map(linesOf)
+    const visible = covered.flatMap((ls, i) => (ls.length > 0 ? [i] : [])) // members that have a line; the rest need nothing
+    if (visible.length === 0) continue
+    place++
+    const listOrder = covered.some(ls => ls.some(l => l.groupInListOrder === true))
+    visible.forEach((i, v) =>
+      covered[i].forEach((l, k) => {
+        const line: ServedLine = { ...l, rank: place }
+        if (visible.length >= 2) line.group = { size: visible.length, index: v, percent: percents[i], listOrder }
+        if (covered[i].length >= 2) line.span = { size: covered[i].length, index: k }
+        ranked.push(line)
+      }),
+    )
+  }
   const rest = lines.filter(l => !used.has(lineKey(l)) && l.kind !== 'extra').map(l => ({ ...l, rank: 0 }))
   const extra = lines.find(l => l.kind === 'extra' && !used.has('extra'))
   return { hasList: true, ranked, unranked: extra ? [...rest, { ...extra, rank: 0 }] : rest }
 }
 
-/** How many of the list's lines the stored list does not rank (0 without a stored list). */
-export function unrankedCount(list: ServedList, stored: readonly ServedEntry[] | undefined): number {
-  if (stored === undefined) return 0
-  const keys = new Set(stored.map(lineKey))
-  let n = blockLines(list).consumers.filter(c => !keys.has(lineKey({ kind: 'block', blockId: c.blockId }))).length
-  if (list.extra && !keys.has('extra')) n++
-  return n
+/** How many of the lines the stored list does not rank (0 without a stored list). */
+export function unrankedCount(lines: readonly ServedLine[], stored: readonly ServedEntry[] | undefined): number {
+  return stored === undefined ? 0 : splitServed(lines, stored).unranked.length
 }
 
 /** Where `entry` goes in the store's terms when dropped before `before` (null: last): an insertion index into the current list, and the order shown for a block with no list. */
@@ -161,7 +194,8 @@ export function placement(
   before: ServedLine | null,
 ): { toIndex: number; shown: ServedEntry[] } {
   const shown = ranked.map(entryOf)
-  return { toIndex: insertionIndex(stored ?? shown, before && entryOf(before)), shown }
+  const base = stored === undefined ? shown : expandServedAreas(stored, shown)
+  return { toIndex: insertionIndex(base, before && entryOf(before)), shown }
 }
 
 /** The line a ranked line at `index` goes before when moved by one place (`delta` -1 up, 1 down); null: the end. */
