@@ -378,6 +378,8 @@ function servedEditState(
         if (!created) return b
         current = dropServedEntries(base, e => e.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, e.blockId))
       }
+      // As in moveServed: a block entry whose consumer left is not written to.
+      if (entry.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, entry.blockId)) return b
       const next = edit(current)
       if (next === undefined) return b
       written = next
@@ -386,7 +388,8 @@ function servedEditState(
     undo: b => {
       const current = servedListOf(b, itemId)
       if (written !== undefined && current !== undefined && sameServedList(current, written)) return withServedList(b, itemId, prior)
-      const back = current && inverse?.(current)
+      // Only a command whose apply wrote something has a flag of its own to undo.
+      const back = written !== undefined && current ? inverse?.(current) : undefined
       return back ? withServedList(b, itemId, back) : b
     },
   }
@@ -584,11 +587,11 @@ export interface BlockStoreState {
    * list). The history entry goes to the source block, so it is undone from there.
    */
   moveServed: (sourceBlockId: string, itemId: string, entry: ServedEntry, toIndex: number, shown: ServedEntry[]) => void
-  /** Remove the stored list; the item is served in today's order again. No-op with no history entry when there is none. */
   /** Ties the entry to the line above it, or unties it (`shown`: see `moveServed`). */
   setServedTied: (sourceBlockId: string, itemId: string, entry: ServedEntry, tied: boolean, shown: ServedEntry[]) => void
   /** Sets the entry's percentage of its group; the others scale to fill the rest. */
   setServedShare: (sourceBlockId: string, itemId: string, entry: ServedEntry, percent: number, shown: ServedEntry[]) => void
+  /** Remove the stored list; the item is served in today's order again. No-op with no history entry when there is none. */
   resetServedOrder: (sourceBlockId: string, itemId: string) => void
 
   // Node actions (resolved against whichever subplan contains the node)

@@ -2029,6 +2029,29 @@ describe('served order', () => {
       })
     })
 
+    describe('setServedTied guards', () => {
+      it('undo of a redo that changed nothing leaves the flag another change set', () => {
+        give([e('A'), e('B'), e('C')])
+        store().setServedTied('S', 'plate', blk('B'), true, shown)
+        store().undo()
+        give([e('A'), e('B', T), e('C')])
+        store().redo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B', T), e('C')])
+        store().undo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B', T), e('C')])
+      })
+
+      it('a redo does not write onto an entry whose consumer is gone', () => {
+        give([e('A'), e('B'), e('C')])
+        store().setServedTied('S', 'plate', blk('B'), true, shown)
+        store().undo()
+        useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'B' ? { ...b, inputConnections: [] } : b)) }))
+        give([e('A'), e('B'), e('C')])
+        store().redo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B'), e('C')])
+      })
+    })
+
     describe('setServedShare', () => {
       it('sets the percentage, undo removes the shares and redo is stable', () => {
         give([e('A'), e('B', T), e('C')])

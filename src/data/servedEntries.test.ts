@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   canonicalServedList, dropServedEntries, equalServedEntry, groupPercents, isCanonicalServedList,
   isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedEntryKey, servedGroups, servedListOf, takesFrom,
-  withoutServedAreas, withoutServedConsumer, withServedEntryInserted, withServedEntryPlaced, withServedList, withServedShare, withServedTied,
+  withoutServedConsumer, withServedEntryInserted, withServedEntryPlaced, withServedList, withServedShare, withServedTied,
 } from './servedEntries'
 import type { Block, ServedEntry } from './types'
 
@@ -345,14 +345,9 @@ describe('block-level removal with areas', () => {
     const b = block('s', { servedOrder: { plate: [e('B', { areaId: 'x' }), e('B'), e('C'), xt()] } })
     expect(withoutServedConsumer(b, 'B').servedOrder).toStrictEqual({ plate: [e('C'), xt()] })
   })
-  it('withoutServedAreas removes only the named areas', () => {
-    const b = block('s', { servedOrder: { plate: [e('B', { areaId: 'x' }), e('B', { areaId: 'y' }), e('B'), e('C')] } })
-    expect(withoutServedAreas(b, 'B', new Set(['x'])).servedOrder).toStrictEqual({ plate: [e('B', { areaId: 'y' }), e('B'), e('C')] })
-  })
   it('drops an emptied list and returns the same block without a match', () => {
     const b = block('s', { servedOrder: { plate: [e('B', { areaId: 'x' })] } })
-    expect('servedOrder' in withoutServedAreas(b, 'B', new Set(['x']))).toBe(false)
-    expect(withoutServedAreas(b, 'B', new Set(['q']))).toBe(b)
+    expect('servedOrder' in withoutServedConsumer(b, 'B')).toBe(false)
     expect(withoutServedConsumer(b, 'Z')).toBe(b)
   })
 })

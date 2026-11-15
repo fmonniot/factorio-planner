@@ -1,5 +1,5 @@
 import type { Block, ServedEntry, SubPlan } from '../data/types'
-import { dropServedEntries, sameServedEntry, sameServedList, servedListOf, withServedEntryInserted, withServedList } from '../data/servedEntries'
+import { dropServedEntries, isServedConsumer, sameServedEntry, sameServedList, servedListOf, withServedEntryInserted, withServedList } from '../data/servedEntries'
 import { blockAreas } from '../solver/areas'
 
 /** What a cleanup removed from one source's list for one item, with the lists around it, so an undo can put it back. */
@@ -56,6 +56,8 @@ export function restoreServedCuts(blocks: Block[], cuts: readonly ServedCut[]): 
       list = current
       for (const { entry, index } of [...cut.cut].sort((a, b) => a.index - b.index)) {
         if (list.some(e => sameServedEntry(e, entry))) continue
+        // The consumer may have lost its connection since the cut.
+        if (entry.kind === 'block' && !isServedConsumer(out, cut.sourceId, cut.itemId, entry.blockId)) continue
         list = withServedEntryInserted(list, entry, index)
       }
     } else continue

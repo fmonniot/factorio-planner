@@ -1,4 +1,5 @@
 import type { ServedEntry, ServedList } from '../../data/types'
+import { servedEntryKey } from '../../data/servedEntries'
 import type { RateUnit } from '../../store/uiStore'
 import { isShortfall } from './summarySegments'
 
@@ -54,7 +55,7 @@ export function servedLines(list: ServedList, itemId: string, unit: RateUnit): S
 /** What a line is called in a list and in the DOM: the extra, the consumer block, or one area of it (an entry only). */
 export function lineKey(x: ServedLine | ServedEntry): string {
   if (x.kind === 'extra') return 'extra'
-  return 'areaId' in x && x.areaId !== undefined ? `block:${x.blockId}:area:${x.areaId}` : `block:${x.blockId}`
+  return servedEntryKey('areaId' in x ? x : { kind: 'block', blockId: x.blockId! })
 }
 
 /** The list entry of a line. */

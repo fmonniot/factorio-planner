@@ -2,6 +2,7 @@ import type { Block, ServedEntry } from './types'
 
 // Reads and edits of a block's `servedOrder` (itemId → the consumers and the extra output in the order they are
 // served). All pure; the edits return the same reference when nothing changes. Lowest layer: imports nothing but types.
+// schema.ts imports this file at runtime, so it must never import ./schema or ./types at runtime (a cycle); type-only imports are fine.
 
 /** Same place in a list: the same kind and, for a block entry, the same block and the same area. `tied` and `share` do not count. */
 export function sameServedEntry(a: ServedEntry, b: ServedEntry): boolean {
@@ -235,11 +236,6 @@ function withoutServedWhere(block: Block, drop: (e: ServedEntry) => boolean): Bl
 /** The block with every entry of `blockId` (plain and area) removed from its lists; emptied lists are dropped. */
 export function withoutServedConsumer(block: Block, blockId: string): Block {
   return withoutServedWhere(block, e => e.kind === 'block' && e.blockId === blockId)
-}
-
-/** The block with only the entries of `blockId` that name one of `areaIds` removed; the plain entry stays. */
-export function withoutServedAreas(block: Block, blockId: string, areaIds: ReadonlySet<string>): Block {
-  return withoutServedWhere(block, e => e.kind === 'block' && e.blockId === blockId && e.areaId !== undefined && areaIds.has(e.areaId))
 }
 
 /**

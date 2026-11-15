@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { HEX_COLOR_RE, assignMissingBlockColors } from './blockColors'
 import { reparentSubPlans } from './subPlanTree'
 import { makeHereOf } from './sourceRules'
+// Runtime import: servedEntries.ts must stay free of runtime imports from ./schema and ./types (no cycle).
 import { canonicalServedList } from './servedEntries'
 
 // ---------------------------------------------------------------------------

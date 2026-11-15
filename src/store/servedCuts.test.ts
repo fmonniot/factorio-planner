@@ -12,6 +12,9 @@ function source(servedOrder?: Record<string, ServedEntry[]>): Block {
     rootPlan: { id: 'root-s', name: 'root', nodes: [], subPlans: [] },
   } as unknown as Block
 }
+function consumer(id: string, takes = true): Block {
+  return { ...source(), id, inputConnections: takes ? [{ id: `c-${id}`, itemId: 'plate', fromBlockId: 's' }] : [] } as Block
+}
 const dropB = (_s: Block, _i: string, x: ServedEntry) => x.kind === 'block' && x.blockId === 'B'
 
 describe('cutServedEntries', () => {
@@ -38,8 +41,14 @@ describe('cutServedEntries', () => {
 
   it('reinserts bare at the old place after an intermediate change', () => {
     const { blocks: cut, cuts } = cutServedEntries([source({ plate: [e('A'), e('B', { areaId: 'x' }), e('C')] })], (_s, _i, x) => x.kind === 'block' && x.blockId === 'B')
-    const changed = cut.map(b => ({ ...b, servedOrder: { plate: [e('C'), e('A')] } }))
+    const changed = [...cut.map(b => ({ ...b, servedOrder: { plate: [e('C'), e('A')] } })), consumer('B')]
     expect(restoreServedCuts(changed, cuts)[0].servedOrder).toStrictEqual({ plate: [e('C'), e('B', { areaId: 'x' }), e('A')] })
+  })
+
+  it('does not reinsert an entry whose consumer no longer takes the item', () => {
+    const { blocks: cut, cuts } = cutServedEntries([source({ plate: [e('A'), e('B', { areaId: 'x' }), e('C')] })], dropB)
+    const changed = [...cut.map(b => ({ ...b, servedOrder: { plate: [e('C'), e('A')] } })), consumer('B', false)]
+    expect(restoreServedCuts(changed, cuts)[0].servedOrder).toStrictEqual({ plate: [e('C'), e('A')] })
   })
 
   it('skips a source that is gone and a list reset in between', () => {
