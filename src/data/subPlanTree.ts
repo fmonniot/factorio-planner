@@ -1,7 +1,7 @@
 // Sub-plan tree invariant: a sub-plan is stored in the `subPlans` of the plan that holds its
 // handle (a `SubPlanNode`). Pure; no React or store imports.
 
-import type { SubPlan } from './schema'
+import type { AreaSourceRule, SubPlan } from './schema'
 
 export function findSubPlan(plan: SubPlan, id: string): SubPlan | undefined {
   if (plan.id === id) return plan
@@ -86,4 +86,75 @@ export function reparentSubPlans(root: SubPlan): SubPlan {
     if (placed.size === byId.size) return rebuilt
     for (const id of byId.keys()) if (!placed.has(id)) home.set(id, storedUnder.get(id)!)
   }
+}
+
+/**
+ * The ids of the areas of a block: every sub-plan with `area: true`, and the root only when one is below it (the
+ * data-layer twin of `blockAreas` in the solver, which this folder must not import).
+ */
+export function areaIdsOf(root: SubPlan): Set<string> {
+  const ids = new Set<string>()
+  const walk = (plan: SubPlan): void => {
+    for (const sp of plan.subPlans) {
+      if (sp.area === true) ids.add(sp.id)
+      walk(sp)
+    }
+  }
+  walk(root)
+  if (ids.size > 0) ids.add(root.id)
+  return ids
+}
+
+/**
+ * `root` with its area rules cleaned: rules only on areas (the key goes from any other plan), an `areasOff` id kept
+ * only when it names another area of the block (repeats dropped), an emptied `areasOff` key removed while the rule
+ * stays (a keyless rule is a real rule), an emptied map removed. The same objects wherever nothing changed.
+ */
+export function cleanAreaRules(root: SubPlan): SubPlan {
+  const areas = areaIdsOf(root)
+  const clean = (plan: SubPlan): SubPlan => {
+    let out = plan
+    const subPlans = plan.subPlans.map(clean)
+    if (subPlans.some((sp, i) => sp !== plan.subPlans[i])) out = { ...out, subPlans }
+    if (plan.sourceRules !== undefined) {
+      let changed = false
+      const entries = Object.entries(plan.sourceRules).map(([itemId, rule]): [string, AreaSourceRule] => {
+        if (rule.areasOff === undefined) return [itemId, rule]
+        const kept = [...new Set(rule.areasOff)].filter(id => areas.has(id) && id !== plan.id)
+        if (kept.length === rule.areasOff.length && kept.length > 0) return [itemId, rule]
+        changed = true
+        const next: AreaSourceRule = { ...rule }
+        if (kept.length > 0) next.areasOff = kept
+        else delete next.areasOff
+        return [itemId, next]
+      })
+      if (!areas.has(plan.id) || entries.length === 0) {
+        out = { ...out }
+        delete out.sourceRules
+      } else if (changed) out = { ...out, sourceRules: Object.fromEntries(entries) }
+    }
+    return out
+  }
+  return clean(root)
+}
+
+/**
+ * `rules` with every `areasOff` id carried through `ids` (a clone's old id to new id map). An id with no copy is
+ * dropped, an emptied key removed; the rules and their order stay. Undefined when there are no rules.
+ */
+export function remapAreaRules(
+  rules: Record<string, AreaSourceRule> | undefined,
+  ids: ReadonlyMap<string, string>,
+): Record<string, AreaSourceRule> | undefined {
+  if (rules === undefined) return undefined
+  const entries = Object.entries(rules).map(([itemId, rule]): [string, AreaSourceRule] => {
+    if (rule.areasOff === undefined) return [itemId, { ...rule }]
+    const { areasOff, ...rest } = rule
+    const mapped = areasOff.flatMap(id => {
+      const copy = ids.get(id)
+      return copy === undefined ? [] : [copy]
+    })
+    return [itemId, mapped.length > 0 ? { ...rest, areasOff: mapped } : rest]
+  })
+  return entries.length === 0 ? undefined : Object.fromEntries(entries)
 }

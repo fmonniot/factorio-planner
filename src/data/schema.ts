@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { HEX_COLOR_RE, assignMissingBlockColors } from './blockColors'
-import { reparentSubPlans } from './subPlanTree'
+import { cleanAreaRules, reparentSubPlans } from './subPlanTree'
 import { makeHereOf } from './sourceRules'
 // Runtime import: servedEntries.ts must stay free of runtime imports from ./schema and ./types (no cycle).
 import { canonicalServedList } from './servedEntries'
@@ -320,6 +320,26 @@ export const RecipeNodeSchema = z.preprocess(
   z.discriminatedUnion('kind', [GameRecipeNodeSchema, SubPlanNodeSchema]),
 )
 
+/**
+ * How one area sources an item (see `SubPlan.sourceRules`). The keys of a block's `SourceRule`, plus the areas of the
+ * block this area takes nothing of the item from. Unlike a block's rule, a keyless one is kept: it says Make it here, Import on.
+ */
+export const AreaSourceRuleSchema = z
+  .object({
+    makeHere: z.enum(['after-blocks', 'off']).optional(),
+    importOff: z.literal(true).optional(),
+    areasOff: z.array(z.string()).optional(),
+  })
+  .transform(r => {
+    const out: { makeHere?: 'after-blocks' | 'off'; importOff?: true; areasOff?: string[] } = {}
+    if (r.makeHere !== undefined) out.makeHere = r.makeHere
+    if (r.importOff !== undefined) out.importOff = r.importOff
+    const areasOff = r.areasOff === undefined ? [] : [...new Set(r.areasOff)]
+    if (areasOff.length > 0) out.areasOff = areasOff
+    return out
+  })
+export type AreaSourceRule = z.output<typeof AreaSourceRuleSchema>
+
 // SubPlan is recursive, so the TypeScript type is defined manually first, then
 // the Zod schema is annotated with it so z.lazy() can reference it correctly.
 //
@@ -327,12 +347,14 @@ export const RecipeNodeSchema = z.preprocess(
 // flattens every RecipeNode in the tree into a single global LP per Block, except
 // that a SubPlan with `area: true` is a separate area in that LP: its rows serve it
 // first. Absent and `false` mean the same; turning the flag off removes the key.
+// `sourceRules` (item id -> the area's rule) sits only on areas, and the key is absent when there are none.
 type SubPlanType = {
   id: string
   name: string
   nodes: z.output<typeof RecipeNodeSchema>[]
   subPlans: SubPlanType[]
   area?: boolean
+  sourceRules?: Record<string, AreaSourceRule>
   createdAt: string
   updatedAt: string
 }
@@ -344,6 +366,7 @@ export const SubPlanSchema: z.ZodType<SubPlanType, unknown> = z.lazy(() =>
     nodes: z.array(RecipeNodeSchema),
     subPlans: z.array(SubPlanSchema),
     area: z.boolean().optional(),
+    sourceRules: z.record(z.string(), AreaSourceRuleSchema).optional(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   }),
@@ -634,7 +657,7 @@ export const BlockSchema = z.preprocess(
   }),
 ).transform(block => {
   // Sub-plans stored under a plan other than the one holding their handle (see reparentSubPlans).
-  const rootPlan = reparentSubPlans(block.rootPlan)
+  const rootPlan = cleanAreaRules(reparentSubPlans(block.rootPlan))
   // The served list is normalised here; the key stays truly absent when there is none.
   const { servedOrder, ...rest } = block
   const served = normalizeServedOrder(servedOrder)
