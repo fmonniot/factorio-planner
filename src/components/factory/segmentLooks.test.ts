@@ -6,5 +6,6 @@ describe('segmentLook', () => {
     const look = segmentLook('import', undefined)
     expect(look.bg).toContain('repeating-linear-gradient')
     expect(look.mini).toBe(look.bg)
+    expect(look.bg).not.toBe(segmentLook('locked', undefined).bg)
   })
 })
