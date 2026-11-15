@@ -219,6 +219,29 @@ T1 needs nothing and can run at any time. T2 comes first among the others; T3 ca
 
 Each ticket appends its report here (deviations and additions only), as in [phase 4](phase-4.md#t1-report).
 
+## Running the tickets
+
+For the session that orchestrates. Each ticket is one run of the `backlog-task` skill (`.claude/skills/backlog-task/SKILL.md`) with `noplan`, and one pull request. The tiers are the skill's (small, standard, hard) and are fixed here, so step 1's classification is not redone; the skill's rule that a risky diff raises the review to Opus still applies. Explore is `haiku` at `medium` wherever a plan is written.
+
+| Ticket | Tier | Plan | Implement | Review (`code-review` level) | Why |
+| --- | --- | --- | --- | --- | --- |
+| T1 | standard | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | UI only, on helpers that exist; the plan is short |
+| T2 | hard | `Plan`, `opus`, `high` | `opus`, `medium` | Opus wrapper (`low`), `high` | An experiment: no plan can be implementation-grade, and the implementer has to judge a row that disagrees. The one ticket whose implementer is not Sonnet |
+| T3 | standard | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | Wide but mechanical, on phase 4's precedent (`servedCuts.ts`) |
+| T4 | hard | `Plan`, `opus`, `high` | `sonnet`, `medium` | Opus wrapper (`low`), `high` | The LP change; the plan re-derives case 21 A and C and the reviewer re-derives them again |
+| T5 | hard | `Plan`, `opus`, `high` | `sonnet`, `medium` | Opus wrapper (`low`), `high` | The pair flows and the routes read from the LP |
+| T6 | standard | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | UI on a settled design (D9, D10) |
+| T7 | standard | `Plan`, `sonnet`, `high` | `sonnet`, `medium` | `sonnet`, `high` | UI on a settled design (D6, D12) |
+| T8 | small | none: the main session | the main session | none (docs only; `npm run lint:docs`) | No planning needed: the ticket lists the edits |
+
+Rules of the run, as agreed for phases 3 and 4:
+
+- **Order.** T1 and T3 can each start at once, from `main`. T2 runs first among the solver tickets and its report is read by the author before T4 starts: the run **stops after T2**. T4 to T7 then run in the order of [Tickets](#tickets); a ticket whose predecessor is not merged is cut from that predecessor's branch and its pull request targets it. T2's plan and report are passed to the planners of T4 and T5.
+- **Never merge.** Push each branch as soon as its implementation commit exists.
+- **Accuracy.** A synthetic row is written first and seen failing; an expected value is never edited to match the solver; the rows a ticket adds are re-derived by its planner and by its reviewer. The run halts on a derived value that disagrees with the solver, and on a ticket that fails twice.
+- **Decisions.** A product decision a ticket meets and this document does not settle is taken as the planner's recommendation and listed under "Decisions taken" in the pull request.
+- **Known noise.** A handful of e2e specs fail on the author's machine when its own dev server and Factorio are running, on `main` too; re-run a failure alone before treating it as a regression, and never kill those processes.
+
 ## Items it closes
 
 From [Items taken from the backlog](plan.md#items-taken-from-the-backlog).
