@@ -21,6 +21,8 @@ import { cappedTitle, cappingLimit, REQUEST_IGNORED_TITLE } from './summarySegme
 import type { Block, BlockLoop, ConnectionFlow, GameData, Item } from '../../data/types'
 import { BlockSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
+import { servedListOf } from '../../data/servedEntries'
+import { servedLines, splitServed } from './servedOrder'
 
 // ---------------------------------------------------------------------------
 // Block graph — every block and the connections between them. Connections are
@@ -239,20 +241,34 @@ interface ConnectionChipProps {
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
 }
 
+function ordinal(n: number): string {
+  const rest = n % 100
+  const suffix = rest >= 11 && rest <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'
+  return `${n}${suffix}`
+}
+
 function ConnectionChip({
   connectionId: id, edge, source, target, flow, items, gameData, ruleItems, editing, showName,
   onEdit, onStopEdit, onRemove, onSetLimit,
 }: ConnectionChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
+  const connection = target?.inputConnections.find(c => c.id === id)
+  // Only the (source, item) list of this chip, so a solve that changes another list does not re-render it.
+  const servedList = useSolverStore(s => (source && connection ? s.served[source.id]?.[connection.itemId] : undefined))
   const sourceName = source?.name ?? edge.from
   const targetName = target?.name ?? edge.to
-  const connection = target?.inputConnections.find(c => c.id === id)
   if (!connection) return null
   const unitOf = inputRateUnit(connection.itemId, rateUnit)
   const fmt = (perMin: number) => fmtItemRateText(connection.itemId, perMin / 60, rateUnit)
   const status = connectionStatus(flow)
   const item: Item | undefined = items[connection.itemId]
   const itemName = item?.name ?? connection.itemId
+
+  // The rank this connection's block has in the source's served list for the item; none while the source has no stored list
+  // for it, or while the list does not name the block (the chip then says nothing, as the list's divider does).
+  const stored = source ? servedListOf(source, connection.itemId) : undefined
+  const ranked = stored && servedList ? splitServed(servedLines(servedList, connection.itemId, rateUnit), stored).ranked : []
+  const rank = ranked.find(l => l.blockId === target?.id)?.rank
 
   let title = `${itemName}: ${sourceName} → ${targetName}`
   const cap = cappingLimit(status === 'limited', flow?.capped, connection.maxRate)
@@ -266,6 +282,7 @@ function ConnectionChip({
   } else if (flow?.requestIgnored) {
     title += ` — taken as existing: ${REQUEST_IGNORED_TITLE[flow.requestIgnored]}`
   }
+  if (rank !== undefined) title += ` — served ${ordinal(rank)} in ${sourceName}'s list`
 
   return (
     <span
@@ -298,6 +315,11 @@ function ConnectionChip({
         )}
       </span>
       {showName && item?.iconPath && <span className="text-[11px] truncate max-w-[10rem]">{itemName}</span>}
+      {rank !== undefined && (
+        <span data-testid="graph-edge-rank" className="text-[9px] font-mono tabular-nums leading-none opacity-80">
+          #{rank}
+        </span>
+      )}
       {flow?.kind === 'take' && (
         <span data-testid="graph-edge-existing" className="text-[9px] uppercase tracking-wide leading-none opacity-70">
           existing

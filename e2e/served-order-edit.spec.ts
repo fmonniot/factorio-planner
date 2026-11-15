@@ -145,3 +145,24 @@ test('Served order: a line joins the list when dragged into it', async ({ page }
   await expect(lineOf(page, 'Late')).toContainText('got 30.0')
   await expect(lineOf(page, 'Gears').getByTestId('served-short')).toContainText('short 30.0')
 })
+
+test('Served order: the graph chips carry the rank of the stored list', async ({ page }, testInfo) => {
+  await setup(page, testInfo)
+  const chipTo = (name: string) => page.locator(`[data-testid="graph-edge-label"][title*="→ ${name}"]`)
+
+  // No stored list yet: no chip is ranked.
+  await page.getByRole('button', { name: 'Block graph' }).click()
+  await expect(page.locator('[data-testid="graph-edge-label"]')).toHaveCount(2)
+  await expect(page.getByTestId('graph-edge-rank')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  // Belts first: its chip says #1 and Gears' says #2.
+  await openPopover(page)
+  await lineOf(page, 'Belts').getByTestId('served-move-up').click()
+  await expect.poll(() => rankedNames(page)).toEqual(['Belts', 'Gears'])
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Block graph' }).click()
+  await expect(chipTo('Belts').getByTestId('graph-edge-rank')).toHaveText('#1')
+  await expect(chipTo('Gears').getByTestId('graph-edge-rank')).toHaveText('#2')
+  await expect(chipTo('Gears')).toHaveAttribute('title', /served 2nd in Plates's list/)
+})
