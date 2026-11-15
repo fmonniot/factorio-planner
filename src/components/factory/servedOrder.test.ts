@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ServedConsumer, ServedEntry, ServedList } from '../../data/types'
-import { blockLines, hasServedOrder, insertionIndex, lineKey, moveTarget, placement, servedLines, splitServed, unrankedCount } from './servedOrder'
+import { blockLines, dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, insertionIndex, lineKey, moveTarget, placement, servedLines, splitServed, unrankedCount } from './servedOrder'
 
 const c = (blockId: string, kind: 'request' | 'take', share: number, got: number): ServedConsumer =>
   ({ blockId, connectionId: `c-${blockId}`, kind, share, got })
@@ -176,5 +176,95 @@ describe('blockLines', () => {
     expect(unrankedCount(split(), [])).toBe(2)
     expect(hasServedOrder({ consumers: [area('h', 'L', 12, 12), area('h', 'B', 8, 3)] })).toBe(false)
     expect(hasServedOrder({ consumers: [area('h', 'L', 12, 12), area('h', 'B', 8, 3)], extra: { place: 2, asked: 1, got: 1 } })).toBe(true)
+  })
+})
+
+describe('dropZone', () => {
+  it('reads the top and bottom 30 percent as edges and the rest as the middle', () => {
+    expect(dropZone(0, 40)).toBe('top')
+    expect(dropZone(11, 40)).toBe('top')
+    expect(dropZone(13, 40)).toBe('middle')
+    expect(dropZone(27, 40)).toBe('middle')
+    expect(dropZone(29, 40)).toBe('bottom')
+    expect(dropZone(39, 40)).toBe('bottom')
+    expect(dropZone(5, 0)).toBe('middle')
+  })
+})
+
+describe('fmtPercent', () => {
+  it('shows at most one decimal', () => {
+    expect(fmtPercent(50)).toBe('50')
+    expect(fmtPercent(33.333)).toBe('33.3')
+    expect(fmtPercent(66.666)).toBe('66.7')
+    expect(fmtPercent(13.33)).toBe('13.3')
+  })
+})
+
+describe('groups in splitServed and dropPlace', () => {
+  const list = (): ServedList => ({
+    consumers: [c('b', 'request', 1, 1), c('c', 'request', 1, 1), c('d', 'request', 1, 1)],
+    extra: { place: 3, asked: 1, got: 1 },
+  })
+  const blk = (blockId: string): ServedEntry => ({ kind: 'block', blockId })
+  const tied = (blockId: string, share?: number): ServedEntry => ({ kind: 'block', blockId, tied: true, ...(share !== undefined ? { share } : {}) })
+  const lines = () => servedLines(list(), 'plate', 'min')
+  const ids = (ls: { kind: string; blockId?: string }[]) => ls.map(l => l.blockId ?? l.kind)
+
+  it('dropPlace gives an edge a rank of its own and the middle a join', () => {
+    const ranked = splitServed(lines(), [blk('b'), blk('c'), blk('d')]).ranked
+    expect(dropPlace(ranked, 1, 'top')).toEqual({ kind: 'rank', before: blk('c') })
+    expect(dropPlace(ranked, 1, 'bottom')).toEqual({ kind: 'rank', before: blk('d') })
+    expect(dropPlace(ranked, 2, 'bottom')).toEqual({ kind: 'rank', before: null })
+    expect(dropPlace(ranked, 0, 'top')).toEqual({ kind: 'rank', before: blk('b') })
+    expect(dropPlace(ranked, 1, 'middle')).toEqual({ kind: 'join', target: blk('c') })
+    expect(dropPlace(ranked, 3, 'top')).toEqual({ kind: 'rank', before: null })
+    expect(dropPlace(ranked, 3, 'middle')).toEqual({ kind: 'rank', before: null })
+    expect(entryOf(ranked[1])).toEqual(blk('c'))
+  })
+
+  it('numbers a group once and reads its percentages', () => {
+    const s = splitServed(lines(), [{ ...blk('b'), share: 50 }, tied('c', 30), tied('d', 20), { kind: 'extra' }])
+    expect(s.ranked.map(l => l.rank)).toEqual([1, 1, 1, 2])
+    expect(s.ranked.slice(0, 3).map(l => l.group)).toEqual([
+      { size: 3, index: 0, percent: 50, listOrder: false },
+      { size: 3, index: 1, percent: 30, listOrder: false },
+      { size: 3, index: 2, percent: 20, listOrder: false },
+    ])
+    expect(s.ranked[3].group).toBeUndefined()
+  })
+
+  it('promotes the follower of a stale head, as the solver does', () => {
+    const s = splitServed(lines(), [blk('b'), blk('ghost'), tied('c'), tied('d')])
+    expect(ids(s.ranked)).toEqual(['b', 'c', 'd'])
+    expect(s.ranked.map(l => l.rank)).toEqual([1, 2, 2])
+    expect(s.ranked[1].group).toMatchObject({ size: 2, index: 0 })
+    expect(s.ranked[0].group).toBeUndefined()
+  })
+
+  it('keeps a group whose stale member is not the head', () => {
+    const s = splitServed(lines(), [blk('b'), tied('ghost'), tied('c')])
+    expect(s.ranked.map(l => l.rank)).toEqual([1, 1])
+    expect(s.ranked[0].group).toMatchObject({ size: 2, index: 0 })
+  })
+
+  it('reads an unedited group as an even split and no list as no groups', () => {
+    const s = splitServed(lines(), [blk('b'), blk('c'), tied('d')])
+    expect(s.ranked.map(l => l.group?.percent)).toEqual([undefined, 50, 50])
+    expect(splitServed(lines(), undefined).ranked.every(l => l.group === undefined)).toBe(true)
+  })
+
+  it('carries groupInListOrder to servedLines and to the whole group', () => {
+    const l: ServedList = {
+      consumers: [c('b', 'request', 1, 1), { ...c('c', 'take', 0, 1), groupInListOrder: true }, c('d', 'take', 0, 1)],
+    }
+    const ls = servedLines(l, 'plate', 'min')
+    expect(ls.map(x => x.groupInListOrder)).toEqual([undefined, true, undefined])
+    const s = splitServed(ls, [blk('b'), blk('c'), tied('d')])
+    expect(s.ranked.map(x => x.group?.listOrder)).toEqual([undefined, true, true])
+  })
+
+  it('blockLines keeps groupInListOrder on a merged line', () => {
+    const area = (a: string, flag: boolean): ServedConsumer => ({ ...c('c', 'take', 0, 1), areaId: a, ...(flag ? { groupInListOrder: true as const } : {}) })
+    expect(blockLines({ consumers: [area('x', false), area('y', true)] }).consumers[0].groupInListOrder).toBe(true)
   })
 })

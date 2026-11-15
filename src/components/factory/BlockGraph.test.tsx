@@ -478,6 +478,26 @@ describe('BlockGraph', () => {
       expect(chip().getAttribute('title')).toMatch(/ — served 2nd in Miner's list$/)
     })
 
+    it('shows the rank a group shares and says so in the title', () => {
+      setup({ connected: true, minerProducts: [ironOre] })
+      storeList([{ kind: 'block', blockId: 'other' }, { ...consumerEntry, tied: true }])
+      useSolverStore.setState({ served: served(['other', 'consumer']) } as never)
+      render(<BlockGraphButton />)
+      open()
+      expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#1')
+      expect(chip().getAttribute('title')).toMatch(/ — served 1st \(shared\) in Miner's list$/)
+    })
+
+    it('shows the place of a group that is not the first', () => {
+      setup({ connected: true, minerProducts: [ironOre] })
+      storeList([{ kind: 'block', blockId: 'other' }, consumerEntry, { kind: 'block', blockId: 'third', tied: true }])
+      useSolverStore.setState({ served: served(['other', 'consumer', 'third']) } as never)
+      render(<BlockGraphButton />)
+      open()
+      expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
+      expect(chip().getAttribute('title')).toMatch(/ — served 2nd \(shared\) in Miner's list$/)
+    })
+
     it('counts the extra output line as a place of the list, as the popover does', () => {
       setup({ connected: true, minerProducts: [ironOre] })
       storeList([{ kind: 'extra' }, consumerEntry])

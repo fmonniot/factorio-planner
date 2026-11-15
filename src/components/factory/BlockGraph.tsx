@@ -268,7 +268,8 @@ function ConnectionChip({
   // for it, or while the list does not name the block (the chip then says nothing, as the list's divider does).
   const stored = source ? servedListOf(source, connection.itemId) : undefined
   const ranked = stored && servedList ? splitServed(servedLines(servedList, connection.itemId, rateUnit), stored).ranked : []
-  const rank = ranked.find(l => l.blockId === target?.id)?.rank
+  const line = ranked.find(l => l.blockId === target?.id)
+  const rank = line?.rank
 
   let title = `${itemName}: ${sourceName} → ${targetName}`
   const cap = cappingLimit(status === 'limited', flow?.capped, connection.maxRate)
@@ -282,7 +283,7 @@ function ConnectionChip({
   } else if (flow?.requestIgnored) {
     title += ` — taken as existing: ${REQUEST_IGNORED_TITLE[flow.requestIgnored]}`
   }
-  if (rank !== undefined) title += ` — served ${ordinal(rank)} in ${sourceName}'s list`
+  if (rank !== undefined) title += ` — served ${ordinal(rank)}${line?.group ? ' (shared)' : ''} in ${sourceName}'s list`
 
   return (
     <span

@@ -1,6 +1,7 @@
+import { Profiler } from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
-import { ServedOrderPopover } from './ServedOrderPopover'
+import { render, screen, fireEvent, createEvent, within } from '@testing-library/react'
+import { LIST_ORDER_HINT, ServedOrderPopover } from './ServedOrderPopover'
 import { makeEmptyBlock } from '../../store/blockStore'
 import type { GameData, ServedEntry, ServedList } from '../../data/types'
 
@@ -25,13 +26,16 @@ function renderPopover(onClose = vi.fn()) {
 function renderWith(over: Partial<React.ComponentProps<typeof ServedOrderPopover>> = {}) {
   const onMove = vi.fn()
   const onReset = vi.fn()
+  const onPlace = vi.fn()
+  const onTie = vi.fn()
+  const onShare = vi.fn()
   render(
     <ServedOrderPopover
       itemId="plate" list={list} items={items} blocks={blocks} rateUnit="min" stored={undefined}
-      onMove={onMove} onReset={onReset} x={10} y={10} onClose={vi.fn()} {...over}
+      onMove={onMove} onReset={onReset} onPlace={onPlace} onTie={onTie} onShare={onShare} x={10} y={10} onClose={vi.fn()} {...over}
     />,
   )
-  return { onMove, onReset }
+  return { onMove, onReset, onPlace, onTie, onShare }
 }
 
 const lineOf = (key: string) => document.querySelector<HTMLElement>(`[data-line-key="${key}"]`)!
@@ -120,7 +124,7 @@ describe('ServedOrderPopover', () => {
       ],
     })
     const { unmount } = render(
-      <ServedOrderPopover itemId="plate" list={takes(8, true)} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} x={0} y={0} onClose={vi.fn()} />,
+      <ServedOrderPopover itemId="plate" list={takes(8, true)} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} onPlace={vi.fn()} onTie={vi.fn()} onShare={vi.fn()} x={0} y={0} onClose={vi.fn()} />,
     )
     const line = lineOf('block:b')
     expect(line.textContent).toContain('needs 8.0')
@@ -129,7 +133,7 @@ describe('ServedOrderPopover', () => {
     expect(within(line).getByTestId('served-not-credited').textContent).toBe('no credit')
     unmount()
     render(
-      <ServedOrderPopover itemId="plate" list={takes(undefined)} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} x={0} y={0} onClose={vi.fn()} />,
+      <ServedOrderPopover itemId="plate" list={takes(undefined)} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} onPlace={vi.fn()} onTie={vi.fn()} onShare={vi.fn()} x={0} y={0} onClose={vi.fn()} />,
     )
     expect(lineOf('block:b').textContent).toContain('takes what is left')
     expect(within(lineOf('block:b')).queryByTestId('served-not-credited')).toBeNull()
@@ -148,7 +152,7 @@ describe('ServedOrderPopover', () => {
     const onDragStart = vi.fn()
     render(
       <div onClick={onClick} onDragStart={onDragStart}>
-        <ServedOrderPopover itemId="plate" list={list} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} x={0} y={0} onClose={vi.fn()} />
+        <ServedOrderPopover itemId="plate" list={list} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} onPlace={vi.fn()} onTie={vi.fn()} onShare={vi.fn()} x={0} y={0} onClose={vi.fn()} />
       </div>,
     )
     fireEvent.click(screen.getByText('Served in this order'))
@@ -174,5 +178,339 @@ describe('ServedOrderPopover', () => {
     const onClose = renderPopover()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+describe('ServedOrderPopover groups, shares and drops', () => {
+  const three: ServedList = {
+    consumers: [
+      { blockId: 'b', connectionId: 'cb', kind: 'request', share: 30, got: 30 },
+      { blockId: 'c', connectionId: 'cc', kind: 'request', share: 20, got: 15 },
+      { blockId: 'd', connectionId: 'cd', kind: 'request', share: 10, got: 0 },
+    ],
+    extra: { place: 3, asked: 10, got: 0 },
+  }
+  const blocks3 = [{ ...makeEmptyBlock('Gears'), id: 'b' }, { ...makeEmptyBlock('Belts'), id: 'c' }, { ...makeEmptyBlock('Cogs'), id: 'd' }]
+  const render3 = (stored?: ServedEntry[], over: Partial<React.ComponentProps<typeof ServedOrderPopover>> = {}) =>
+    renderWith({ list: three, blocks: blocks3, stored, ...over })
+  const tied = (blockId: string, share?: number): ServedEntry => ({ kind: 'block', blockId, tied: true, ...(share !== undefined ? { share } : {}) })
+  const shared = (blockId: string, share: number): ServedEntry => ({ kind: 'block', blockId, share })
+  const status = () => screen.getByRole('status').textContent
+  const ranked = () => within(screen.getByTestId('served-ranked')).getAllByTestId('served-line')
+  const field = (name: string) => screen.getByLabelText(`Share of ${name} in its group (%)`) as HTMLInputElement
+
+  const dt = () => ({ setData: vi.fn(), getData: vi.fn(), effectAllowed: '', dropEffect: '' })
+  // happy-dom has no DragEvent, so the event is a plain one and `clientY` is set by hand.
+  const drag = (type: 'dragOver' | 'drop', target: HTMLElement, clientY: number, dataTransfer: ReturnType<typeof dt>) => {
+    const event = createEvent[type](target, { dataTransfer })
+    Object.defineProperty(event, 'clientY', { value: clientY })
+    fireEvent(target, event)
+  }
+  function over(from: string, to: string, clientY: number, finish = false) {
+    const target = lineOf(to)
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 300, 40))
+    const transfer = dt()
+    fireEvent.dragStart(lineOf(from), { dataTransfer: transfer })
+    drag('dragOver', target, clientY, transfer)
+    if (finish) drag('drop', target, clientY, transfer)
+    return target
+  }
+  const TOP = 102
+  const MIDDLE = 120
+  const BOTTOM = 138
+
+  it('draws a group: one rank, a bracket, a percent field per member, the toggle states', () => {
+    render3([blk('b'), shared('c', 80), tied('d', 20)])
+    expect(ranked().map(l => l.dataset.rank)).toEqual(['1', '2', '2'])
+    expect(screen.getAllByTestId('served-rank').slice(0, 3).map(r => r.textContent)).toEqual(['1', '2', ''])
+    expect(ranked().map(l => l.dataset.groupPosition)).toEqual([undefined, 'first', 'last'])
+    expect(field('Belts').value).toBe('80')
+    expect(field('Cogs').value).toBe('20')
+    expect(screen.queryByLabelText('Share of Gears in its group (%)')).toBeNull()
+    expect(button('block:b', 'served-tie').getAttribute('aria-disabled')).toBe('true')
+    expect(button('block:c', 'served-tie').getAttribute('aria-pressed')).toBe('false')
+    expect(button('block:d', 'served-tie').getAttribute('aria-pressed')).toBe('true')
+    expect(button('block:d', 'served-tie').textContent).toBe('Share')
+  })
+
+  it('shows an equal split that is stored nowhere', () => {
+    const { onShare, onPlace, onTie, onMove } = render3([blk('b'), blk('c'), tied('d')])
+    expect([field('Belts').value, field('Cogs').value]).toEqual(['50', '50'])
+    expect(onShare).not.toHaveBeenCalled()
+    expect(onPlace).not.toHaveBeenCalled()
+    expect(onTie).not.toHaveBeenCalled()
+    expect(onMove).not.toHaveBeenCalled()
+  })
+
+  it('shows a three-way split with one decimal', () => {
+    render3([blk('b'), tied('c'), tied('d')])
+    expect(['Gears', 'Belts', 'Cogs'].map(n => field(n).value)).toEqual(['33.3', '33.3', '33.3'])
+  })
+
+  it('toggles a line into the group above', () => {
+    const { onTie } = render3()
+    fireEvent.click(button('block:d', 'served-tie'))
+    expect(onTie).toHaveBeenCalledWith(blk('d'), true, [blk('b'), blk('c'), blk('d'), extra])
+    expect(status()).toBe('Cogs now shares place 2 with Belts.')
+  })
+
+  it('toggles a group head into the line above and says the lines under it went along', () => {
+    const { onTie } = render3([blk('b'), blk('c'), tied('d')])
+    fireEvent.click(button('block:c', 'served-tie'))
+    expect(onTie).toHaveBeenCalledWith(blk('c'), true, [blk('b'), blk('c'), blk('d')])
+    expect(status()).toBe('Belts now shares place 1 with Gears. The 1 line under it went with it.')
+  })
+
+  it('toggles the last member and a middle member out of a group', () => {
+    const { onTie } = render3([blk('b'), tied('c'), tied('d')])
+    fireEvent.click(button('block:d', 'served-tie'))
+    expect(onTie).toHaveBeenLastCalledWith(blk('d'), false, [blk('b'), blk('c'), blk('d')])
+    expect(status()).toBe('Cogs left its group and has its own place 2.')
+    fireEvent.click(button('block:c', 'served-tie'))
+    expect(onTie).toHaveBeenLastCalledWith(blk('c'), false, [blk('b'), blk('c'), blk('d')])
+    expect(status()).toBe('Belts and the 1 line under it left the group; they share place 2.')
+  })
+
+  it('ignores the toggle of the first line', () => {
+    const { onTie } = render3()
+    fireEvent.click(button('block:b', 'served-tie'))
+    expect(onTie).not.toHaveBeenCalled()
+    expect(status()).toBe('')
+  })
+
+  it('refuses to share with a stale entry directly above and says so', () => {
+    const { onTie } = render3([blk('b'), extra, blk('c')], { list: { consumers: three.consumers } })
+    fireEvent.click(button('block:c', 'served-tie'))
+    expect(onTie).not.toHaveBeenCalled()
+    expect(status()).toBe('Belts could not share with the line above.')
+  })
+
+  it('refuses a toggle the raw list would not make as shown (a stale head above a tied line)', () => {
+    // stored [b, X(extra, stale), c~, d~]: shown b, c (promoted to a head), d~: c reads unpressed. The raw c is already
+    // tied, so tying it is a raw no-op; the shown c would stay a head, so the press is refused and nothing is stored.
+    const { onTie } = render3([blk('b'), extra, tied('c'), tied('d')], { list: { consumers: three.consumers } })
+    expect(button('block:c', 'served-tie').getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(button('block:c', 'served-tie'))
+    expect(onTie).not.toHaveBeenCalled()
+    expect(status()).toBe('Belts could not share with the line above.')
+  })
+
+  it('refuses a percentage the raw group would not show (a stale member in it)', () => {
+    // stored [b, X(stale), c~, d~]; no shares: the raw group is X, c, d at a third each, c set to 70 leaves X and d at 15,
+    // so the shown group {c, d} would read 70 / 15 = 82.4 / 17.6 (or 50 / 50), never the 70 asked for.
+    const { onShare } = render3([blk('b'), extra, tied('c'), tied('d')], { list: { consumers: three.consumers } })
+    fireEvent.change(field('Belts'), { target: { value: '70' } })
+    fireEvent.keyDown(field('Belts'), { key: 'Enter' })
+    expect(onShare).not.toHaveBeenCalled()
+    expect(status()).toBe('Belts could not change its share.')
+  })
+
+  it('still places a line by an edge with a stale entry in the list', () => {
+    // stored [b, X(stale), c~, d]: shown b, c, d. d dropped on c's top edge: shown [b, d, c]; the raw list gives
+    // [b, X, d, c] (c forced to a head), so the drop lands where meant and is stored.
+    const { onPlace } = render3([blk('b'), extra, tied('c'), blk('d')], { list: { consumers: three.consumers } })
+    over('block:d', 'block:c', TOP, true)
+    expect(onPlace).toHaveBeenCalledWith(blk('d'), { kind: 'rank', before: blk('c') }, [blk('b'), blk('c'), blk('d')])
+    expect(status()).toBe('Cogs moved to its own place 2.')
+  })
+
+  it('announces an identical message again (a new status node each time)', () => {
+    render3([blk('b'), blk('c'), tied('d')])
+    const input = field('Belts')
+    const invalid = () => { fireEvent.change(input, { target: { value: '0' } }); fireEvent.keyDown(input, { key: 'Enter' }) }
+    invalid()
+    const first = screen.getByRole('status')
+    expect(first.textContent).toBe('Share must be above 0 and below 100.')
+    invalid()
+    const second = screen.getByRole('status')
+    expect(second.textContent).toBe(first.textContent)
+    expect(second).not.toBe(first)
+  })
+
+  it('does not re-render on a dragover that changes nothing', () => {
+    const renders = vi.fn()
+    render(
+      <Profiler id="p" onRender={renders}>
+        <ServedOrderPopover
+          itemId="plate" list={three} items={items} blocks={blocks3} rateUnit="min" stored={[blk('b'), blk('c'), blk('d')]}
+          onMove={vi.fn()} onReset={vi.fn()} onPlace={vi.fn()} onTie={vi.fn()} onShare={vi.fn()} x={10} y={10} onClose={vi.fn()}
+        />
+      </Profiler>,
+    )
+    const target = lineOf('block:c')
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 300, 40))
+    const transfer = dt()
+    fireEvent.dragStart(lineOf('block:d'), { dataTransfer: transfer })
+    drag('dragOver', target, MIDDLE, transfer)
+    expect(screen.getAllByTestId('served-drop-join')).toHaveLength(1)
+    const before = renders.mock.calls.length
+    drag('dragOver', target, MIDDLE, transfer)
+    drag('dragOver', target, MIDDLE + 1, transfer) // same zone: the same mark
+    expect(renders.mock.calls.length).toBe(before)
+    drag('dragOver', target, TOP, transfer) // another zone: a new mark
+    expect(renders.mock.calls.length).toBeGreaterThan(before)
+    expect(screen.getByTestId('served-drop-line')).toBeTruthy()
+  })
+
+  it('makes a line draggable again when its focused percent field goes away', () => {
+    const props = { itemId: 'plate', list: three, items, blocks: blocks3, rateUnit: 'min' as const, onMove: vi.fn(), onReset: vi.fn(), onPlace: vi.fn(), onTie: vi.fn(), onShare: vi.fn(), x: 10, y: 10, onClose: vi.fn() }
+    const { rerender } = render(<ServedOrderPopover {...props} stored={[blk('b'), blk('c'), tied('d')]} />)
+    fireEvent.focus(field('Belts'))
+    expect(lineOf('block:c').getAttribute('draggable')).toBe('false')
+    // the group dissolves (an undo): the field unmounts without a blur
+    rerender(<ServedOrderPopover {...props} stored={[blk('b'), blk('c'), blk('d')]} />)
+    expect(screen.queryByLabelText('Share of Belts in its group (%)')).toBeNull()
+    expect(lineOf('block:c').getAttribute('draggable')).toBe('true')
+  })
+
+  describe('percent field', () => {
+    const setup = () => {
+      const r = render3([blk('b'), blk('c'), tied('d')])
+      return { ...r, input: field('Belts') }
+    }
+    it('commits on Enter', () => {
+      const { onShare, input } = setup()
+      fireEvent.change(input, { target: { value: '70' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(onShare).toHaveBeenCalledTimes(1)
+      expect(onShare).toHaveBeenCalledWith(blk('c'), 70, [blk('b'), blk('c'), blk('d')])
+      expect(status()).toBe('Belts now has 70 percent of place 2.')
+    })
+    it('commits once on blur', () => {
+      const { onShare, input } = setup()
+      fireEvent.change(input, { target: { value: '70' } })
+      fireEvent.blur(input)
+      expect(onShare).toHaveBeenCalledTimes(1)
+      expect(onShare).toHaveBeenCalledWith(blk('c'), 70, [blk('b'), blk('c'), blk('d')])
+    })
+    it('stores nothing for the value it already shows', () => {
+      const { onShare, input } = setup()
+      fireEvent.change(input, { target: { value: '50' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(onShare).not.toHaveBeenCalled()
+      expect(status()).toBe('')
+    })
+    it('refuses 0, 100 and an empty field', () => {
+      const { onShare, input } = setup()
+      for (const value of ['0', '100', '']) {
+        fireEvent.change(input, { target: { value } })
+        fireEvent.keyDown(input, { key: 'Enter' })
+        expect(input.value).toBe('50')
+        expect(status()).toBe('Share must be above 0 and below 100.')
+      }
+      expect(onShare).not.toHaveBeenCalled()
+    })
+    it('reverts on the first Escape and lets the second close the popover', () => {
+      const onClose = vi.fn()
+      const { input } = (() => { const r = render3([blk('b'), blk('c'), tied('d')], { onClose }); return { ...r, input: field('Belts') } })()
+      fireEvent.change(input, { target: { value: '30' } })
+      fireEvent.keyDown(input, { key: 'Escape' })
+      expect(input.value).toBe('50')
+      expect(onClose).not.toHaveBeenCalled()
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(onClose).toHaveBeenCalled()
+    })
+  })
+
+  describe('drops', () => {
+    it('a middle drop joins the group of the target', () => {
+      const { onPlace } = render3([blk('b'), blk('c'), blk('d')])
+      const target = over('block:d', 'block:c', MIDDLE)
+      expect(screen.getAllByTestId('served-drop-join')).toHaveLength(1)
+      expect(screen.queryByTestId('served-drop-line')).toBeNull()
+      drag('drop', target, MIDDLE, dt())
+      expect(onPlace).toHaveBeenCalledWith(blk('d'), { kind: 'join', target: blk('c') }, [blk('b'), blk('c'), blk('d')])
+      expect(status()).toBe('Cogs now shares place 2 with Belts.')
+    })
+    it('a top edge gives the line its own place before the target', () => {
+      const { onPlace } = render3([blk('b'), blk('c'), blk('d')])
+      const target = over('block:d', 'block:c', TOP)
+      expect(screen.getByTestId('served-drop-line').dataset.side).toBe('before')
+      expect(screen.queryByTestId('served-drop-join')).toBeNull()
+      drag('drop', target, TOP, dt())
+      expect(onPlace).toHaveBeenCalledWith(blk('d'), { kind: 'rank', before: blk('c') }, [blk('b'), blk('c'), blk('d')])
+      expect(status()).toBe('Cogs moved to its own place 2.')
+    })
+    it('a bottom edge goes before the next line', () => {
+      const { onPlace } = render3([blk('b'), blk('c'), blk('d')])
+      const target = over('block:b', 'block:c', BOTTOM)
+      expect(screen.getByTestId('served-drop-line').dataset.side).toBe('after')
+      drag('drop', target, BOTTOM, dt())
+      expect(onPlace).toHaveBeenCalledWith(blk('b'), { kind: 'rank', before: blk('d') }, [blk('b'), blk('c'), blk('d')])
+      expect(status()).toBe('Gears moved to its own place 2.')
+    })
+    it('the bottom edge of the last line goes last', () => {
+      const { onPlace } = render3([blk('b'), blk('c'), blk('d')])
+      over('block:b', 'block:d', BOTTOM, true)
+      expect(onPlace).toHaveBeenCalledWith(blk('b'), { kind: 'rank', before: null }, [blk('b'), blk('c'), blk('d')])
+    })
+    it('a drop that changes nothing shows no mark and calls nothing', () => {
+      const { onPlace } = render3([blk('b'), blk('c'), blk('d')])
+      over('block:d', 'block:c', BOTTOM, true)
+      expect(screen.queryByTestId('served-drop-line')).toBeNull()
+      expect(screen.queryByTestId('served-drop-join')).toBeNull()
+      expect(onPlace).not.toHaveBeenCalled()
+      expect(status()).toBe('')
+    })
+    it('the divider takes a line last', () => {
+      const { onPlace } = render3([blk('b'), blk('c')])
+      const divider = screen.getByTestId('served-divider')
+      const transfer = dt()
+      fireEvent.dragStart(lineOf('block:d'), { dataTransfer: transfer })
+      fireEvent.drop(divider, { clientY: 0, dataTransfer: transfer })
+      expect(onPlace).toHaveBeenCalledWith(blk('d'), { kind: 'rank', before: null }, [blk('b'), blk('c')])
+    })
+    it('rings every line of the target group, nothing for the line itself', () => {
+      const { onPlace } = render3([blk('b'), blk('c'), tied('d')])
+      over('block:b', 'block:c', MIDDLE)
+      expect(screen.getAllByTestId('served-drop-join')).toHaveLength(2)
+      fireEvent.dragLeave(lineOf('block:c'))
+      expect(screen.queryByTestId('served-drop-join')).toBeNull()
+      // dragging a line over its own group: it is already in it, so no ring and no call
+      over('block:d', 'block:c', MIDDLE, true)
+      expect(screen.queryByTestId('served-drop-join')).toBeNull()
+      expect(onPlace).not.toHaveBeenCalled()
+    })
+    it('a head on its own top edge draws no mark and calls nothing; a tied member there does', () => {
+      // [b, c~, d~]: b already has its own rank at that edge (derived: a no-op); c is tied, dropping it there leaves the group.
+      const { onPlace } = render3([blk('b'), tied('c'), tied('d')])
+      over('block:b', 'block:b', TOP, true)
+      expect(screen.queryByTestId('served-drop-line')).toBeNull()
+      expect(screen.queryByTestId('served-drop-join')).toBeNull()
+      expect(onPlace).not.toHaveBeenCalled()
+      expect(status()).toBe('')
+      // dropped: the stored result is [b, c, d] (d forced to a head), so Belts has its own place 2
+      over('block:c', 'block:c', TOP, true)
+      expect(onPlace).toHaveBeenCalledWith(blk('c'), { kind: 'rank', before: blk('c') }, [blk('b'), blk('c'), blk('d')])
+      expect(status()).toBe('Belts moved to its own place 2.')
+    })
+    it('a line dropped on its own middle does nothing', () => {
+      const { onPlace } = render3([blk('b'), blk('c'), blk('d')])
+      over('block:c', 'block:c', MIDDLE, true)
+      expect(screen.queryByTestId('served-drop-join')).toBeNull()
+      expect(onPlace).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('list order badge', () => {
+    const takes = (flag: boolean): ServedList => ({
+      consumers: [
+        three.consumers[0],
+        { blockId: 'c', connectionId: 'cc', kind: 'take', share: 0, got: 1, need: 2, ...(flag ? { groupInListOrder: true as const } : {}) },
+        { blockId: 'd', connectionId: 'cd', kind: 'take', share: 0, got: 1, need: 2, ...(flag ? { groupInListOrder: true as const } : {}) },
+      ],
+    })
+    it('marks every member of a group served in list order and keeps the percent fields editable', () => {
+      render3([blk('b'), blk('c'), tied('d')], { list: takes(true) })
+      const badges = screen.getAllByTestId('served-list-order')
+      expect(badges).toHaveLength(2)
+      expect(badges[0].textContent).toBe('list order')
+      expect(badges[0].getAttribute('title')).toBe(LIST_ORDER_HINT)
+      expect(field('Belts').disabled).toBe(false)
+    })
+    it('draws none without the flag', () => {
+      render3([blk('b'), blk('c'), tied('d')], { list: takes(false) })
+      expect(screen.queryAllByTestId('served-list-order')).toHaveLength(0)
+    })
   })
 })

@@ -184,6 +184,46 @@ export function withServedEntryPlaced(list: readonly ServedEntry[], entry: Serve
   return sameList(next, list) ? undefined : next
 }
 
+/** Where `withServedEntryRanked` puts an entry: a rank of its own before `before` (null: last), or the group of `target`, right after it. */
+export type ServedPlace =
+  | { kind: 'rank'; before: ServedEntry | null }
+  | { kind: 'join'; target: ServedEntry }
+
+/**
+ * `list` with `entry` at `place`. A rank of its own goes before `before` (last when null or no longer in the list), is
+ * never tied, and makes the line below it a head (so an edge inside a group splits it); a join ties it right after
+ * `target`. A removed head promotes its first follower. A leaver or joiner loses its share, a group that stays whole
+ * keeps them. An entry absent from `list` joins bare. Undefined when nothing would change, `target` is unknown, or a head
+ * is dropped on its own top edge (a tied member dropped there leaves its group).
+ */
+export function withServedEntryRanked(list: readonly ServedEntry[], entry: ServedEntry, place: ServedPlace): ServedEntry[] | undefined {
+  const from = list.findIndex(e => sameServedEntry(e, entry))
+  const own = from >= 0 ? list[from] : entry
+  const headLeft = from >= 0 && (from === 0 || list[from].tied !== true)
+  const rest = list.flatMap((e, i) => (i === from ? [] : [headLeft && i === from + 1 && e.tied === true ? withFlags(e, false, e.share) : e]))
+  let at: number
+  let tied: boolean
+  if (place.kind === 'join') {
+    if (sameServedEntry(place.target, entry)) return undefined
+    const t = rest.findIndex(e => sameServedEntry(e, place.target))
+    if (t < 0) return undefined
+    at = t + 1
+    tied = true
+  } else {
+    const b = place.before
+    // A head dropped on its own top edge already has its own rank there: the natural "put it back" is a no-op, not a split of its group.
+    if (b !== null && from >= 0 && headLeft && sameServedEntry(b, entry)) return undefined
+    at = b === null ? rest.length : sameServedEntry(b, entry) && from >= 0 ? from : rest.findIndex(e => sameServedEntry(e, b))
+    if (at < 0) at = rest.length
+    tied = false
+  }
+  const placed = withFlags(own, tied, validShare(own.share) ? own.share : undefined)
+  const after = [...rest.slice(0, at), placed, ...rest.slice(at)]
+  if (!tied && at + 1 < after.length) after[at + 1] = withFlags(after[at + 1], false, after[at + 1].share)
+  const next = repairServedShape(list, after)
+  return sameList(next, list) ? undefined : next
+}
+
 /**
  * `list` with `entry` tied to the line above it, or not. Tying a head merges its whole group into the one above; untying
  * a middle member splits there. Undefined when the entry is absent, is the first line, or is already in that state.

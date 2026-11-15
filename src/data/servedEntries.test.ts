@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   canonicalServedList, dropServedEntries, equalServedEntry, groupPercents, isCanonicalServedList,
   isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedEntryKey, servedGroups, servedGroupSpans, servedListOf, takesFrom,
-  withoutServedConsumer, withServedEntryInserted, withServedEntryPlaced, withServedList, withServedShare, withServedTied,
+  withoutServedConsumer, withServedEntryInserted, withServedEntryPlaced, withServedEntryRanked, withServedList, withServedShare, withServedTied,
 } from './servedEntries'
 import type { Block, ServedEntry } from './types'
 
@@ -400,5 +400,57 @@ describe('the canonical invariant', () => {
         list = next
       }
     }
+  })
+})
+
+describe('withServedEntryRanked', () => {
+  const [a, b, c, d, z, x] = ['a', 'b', 'c', 'd', 'z', 'x'].map(blk)
+  const T = (e: ServedEntry, share?: number): ServedEntry => ({ ...e, tied: true, ...(share !== undefined ? { share } : {}) })
+  const rank = (before: ServedEntry | null) => ({ kind: 'rank' as const, before })
+  const join = (target: ServedEntry) => ({ kind: 'join' as const, target })
+  const check = (got: ServedEntry[] | undefined, want: ServedEntry[]) => {
+    expect(got).toEqual(want)
+    expect(isCanonicalServedList(got ?? []), 'canonical').toBe(true)
+  }
+
+  it('1: moves before another solo line', () => check(withServedEntryRanked([a, b, c, d, extra], a, rank(c)), [b, a, c, d, extra]))
+  it('2: moves last', () => check(withServedEntryRanked([a, b, c], b, rank(null)), [a, c, b]))
+  it('3: before itself or before its next line changes nothing', () => {
+    expect(withServedEntryRanked([a, b, c], b, rank(b))).toBeUndefined()
+    expect(withServedEntryRanked([a, b, c], a, rank(b))).toBeUndefined()
+  })
+  it('4: an edge drop makes the line below the edge a head', () => {
+    const got = withServedEntryRanked([a, T(b), T(c), d], d, rank(c))
+    check(got, [a, T(b), d, c])
+    expect(got?.[2]).not.toHaveProperty('tied')
+  })
+  it('5a: a tied last member dropped on its own top edge leaves the group', () => check(withServedEntryRanked([a, T(b)], b, rank(b)), [a, b]))
+  it('5b: a middle member on its own top edge splits the lower lines off', () => check(withServedEntryRanked([a, T(b), T(c)], b, rank(b)), [a, b, c]))
+  it('6: joins the group of a solo target', () => check(withServedEntryRanked([a, b, c], c, join(a)), [a, T(c), b]))
+  it('7: a removed head promotes its follower, not merging into the group above', () => check(withServedEntryRanked([a, b, T(c), d], b, join(d)), [a, c, d, T(b)]))
+  it('8: a reorder inside one group keeps the shares', () => check(withServedEntryRanked([a, T(b, 40), T(c, 60)], c, join(a)), [a, T(c, 60), T(b, 40)]))
+  it('9: moving into another group drops every share involved', () => check(withServedEntryRanked([{ ...a, share: 50 }, T(b, 50), c, d], b, join(c)), [a, c, T(b), d]))
+  it('10: an unranked line joins', () => {
+    check(withServedEntryRanked([a, b], z, rank(b)), [a, z, b])
+    check(withServedEntryRanked([a, T(b)], z, rank(b)), [a, z, b])
+    check(withServedEntryRanked([a, T(b)], z, join(a)), [a, T(z), T(b)])
+  })
+  it('11: moves first', () => check(withServedEntryRanked([a, b, c], c, rank(a)), [c, a, b]))
+  it('12: no-ops', () => {
+    expect(withServedEntryRanked([a, b], a, join(a))).toBeUndefined()
+    expect(withServedEntryRanked([a, b], a, join(z))).toBeUndefined()
+    expect(withServedEntryRanked([a, b], b, rank(null))).toBeUndefined()
+  })
+  it('13: a stale anchor puts the entry last', () => check(withServedEntryRanked([a, b, c], a, rank(x)), [b, c, a]))
+  it('14: leaving a group from its middle promotes the next line', () => check(withServedEntryRanked([a, b, T(c), d], b, rank(null)), [a, c, d, b]))
+  it('15: the first line is never tied', () => check(withServedEntryRanked([a, T(b)], a, rank(null)), [b, a]))
+  it('16: a head dropped on its own top edge is a no-op, whatever its group', () => {
+    // b is a head: it already has its own rank at that edge, so its followers stay with it.
+    expect(withServedEntryRanked([b, T(c), T(d)], b, rank(b))).toBeUndefined() // first line of a group of 3
+    expect(withServedEntryRanked([a, b, T(c)], b, rank(b))).toBeUndefined() // head after a solo line
+    expect(withServedEntryRanked([{ ...b, share: 60 }, T(c, 40)], b, rank(b))).toBeUndefined() // shares kept
+    // a tied member still leaves its group (rows 5a, 5b), and the bottom edge of a head splits it from its followers
+    check(withServedEntryRanked([a, T(b), T(c)], c, rank(c)), [a, T(b), c])
+    check(withServedEntryRanked([b, T(c), T(d)], b, rank(c)), [b, c, T(d)])
   })
 })
