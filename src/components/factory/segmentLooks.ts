@@ -3,9 +3,9 @@ import type { OverlayKind, SegmentKind } from './summarySegments'
 
 export const AMBER = '#fbbf24'
 
-/** Light diagonal stripes (45°, the opposite slant of the locked ones) on the pane's dark ground: nothing connects this share, it comes from outside. */
+/** Light diagonal stripes (135°, the slant of the locked ones too: lighter, so the two stay apart) on the pane's dark ground: nothing connects this share, it comes from outside. */
 const IMPORT_GREY = '#d1d5db'
-const IMPORT_STRIPES = `repeating-linear-gradient(45deg, ${withAlpha(IMPORT_GREY, 0.28)} 0 3px, ${withAlpha(IMPORT_GREY, 0.08)} 3px 6px)`
+const IMPORT_STRIPES = `repeating-linear-gradient(135deg, ${withAlpha(IMPORT_GREY, 0.28)} 0 3px, ${withAlpha(IMPORT_GREY, 0.08)} 3px 6px)`
 
 // ---------------------------------------------------------------------------
 // Segment looks — one per kind, shared by the micro-bar, the detail bar, the
