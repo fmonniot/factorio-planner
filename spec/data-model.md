@@ -864,6 +864,8 @@ interface ServedConsumer {
   kind: ConnectionKind
   share: number                 // items/min asked or credited (a request's amount, a take's credit; 0 when none); for a pair a served list ranks, not the grant the solve reserved
   got: number                   // items/min delivered
+  need?: number                 // items/min of the consumer's need still uncovered when the request pass reached this take; only for a take the pass reached
+  notCredited?: true            // a listed or takes-first take the request pass reached before it could credit it: `share` is 0 whatever the list says
 }
 
 interface ServedExtra {

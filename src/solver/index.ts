@@ -617,6 +617,10 @@ interface RequestPlan {
   credits: Map<string, number>
   /** One entry per cycle of requests: `rounds` are demand rounds, `converged` whether the demand settled. */
   loops: BlockLoop[]
+  /** take connection id → items/min of its consumer's need still uncovered when the take was reached (only takes the pass reached). */
+  needs: Map<string, number>
+  /** take connection ids the request pass reached before it could credit them (see `ServedConsumer.notCredited`). */
+  uncredited: Set<string>
 }
 
 /** Items the block connects to existing, non-self sources, each with unlimited supply (a request probe). */
@@ -684,11 +688,13 @@ function applyTakeCredits(
   estimates: Map<string, Offers>,
   credits: Map<string, number>,
   rankedRest?: (take: BlockConnection, itemId: string) => number | undefined,
+  needs?: Map<string, number>,
 ): void {
   for (const [itemId, list] of takes ?? []) {
     let need = needed.get(itemId) ?? 0
     for (const t of list) {
       if (need <= 0) break
+      needs?.set(t.id, need) // what is left to cover when this take is reached
       const r = rankedRest?.(t, itemId)
       const left = r ?? estimates.get(t.fromBlockId)?.get(itemId) ?? 0
       const cover = Math.min(left, t.maxRate ?? Infinity, need)
@@ -783,7 +789,7 @@ function computeRequests(
       else applicable.push({ consumer, connection: c })
     }
   }
-  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops }
+  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set() }
 
   const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
   for (const { consumer, connection } of applicable) {
@@ -949,11 +955,17 @@ function computeRequests(
   // `creditOf`: the credit of a higher-ranked take of `blockId`, or undefined when it is not credited yet;
   // `listed` is false for a takes-first consumer the list does not name.
   type CreditOf = (blockId: string, connectionId: string, listed: boolean) => number | undefined
-  const restOf = (t: BlockConnection, itemId: string, est: Map<string, Offers>, creditOf: CreditOf): number | undefined => {
+  // `blocked` collects the takes that get 0 because the request pass is not done with the source (or a higher take) yet.
+  const restOf = (t: BlockConnection, itemId: string, est: Map<string, Offers>, creditOf: CreditOf, blocked?: Set<string>): number | undefined => {
     const at = rankedTake.get(t.id)
     if (!at) return undefined
-    const left = est.get(at.pair.sourceId)?.get(itemId)
-    if (left === undefined) return 0 // the source is not processed yet, or has nothing left
+    const offers = est.get(at.pair.sourceId)
+    if (offers === undefined) { // the source is not processed yet, or in the same cycle of requests
+      blocked?.add(t.id)
+      return 0
+    }
+    const left = offers.get(itemId)
+    if (left === undefined) return 0 // the source has nothing left
     const { listed, extraRate, unlisted } = at.pair
     let rest = left
     const end = at.position < 0 ? listed.length : at.position
@@ -965,7 +977,10 @@ function computeRequests(
       }
       if (!rankedTake.has(e.connection.id)) continue // a request: its share is not in the leftover
       const c = creditOf(e.blockId, e.connection.id, true)
-      if (c === undefined) return 0 // a higher-ranked take is not credited yet
+      if (c === undefined) { // a higher-ranked take is not credited yet
+        blocked?.add(t.id)
+        return 0
+      }
       rest -= c
     }
     if (at.position < 0) {
@@ -976,8 +991,10 @@ function computeRequests(
     }
     return Math.max(0, rest)
   }
+  const needs = new Map<string, number>()
+  const uncredited = new Set<string>()
   const rankedRest = (t: BlockConnection, itemId: string) =>
-    restOf(t, itemId, estimates, (blockId, id) => (processed.has(blockId) ? (credits.get(id) ?? 0) : undefined))
+    restOf(t, itemId, estimates, (blockId, id) => (processed.has(blockId) ? (credits.get(id) ?? 0) : undefined), uncredited)
   const estimateTakeSource = (block: Block, probe?: { nodes: SolvedNode[] }): void => {
     if (!takeSources.has(block.id)) return
     const nodes = probe?.nodes ?? probeBlock(
@@ -1000,7 +1017,7 @@ function computeRequests(
       const probe = probeBlock(block, effectiveGoals, gameData, connectedCaps(block, byId, selfConnectionIds), cache)
       if (requests || rankedTakes) {
         const needed = new Map(probe.received) // item id → what the block would import
-        applyTakeCredits(takesOf(block.id), needed, estimates, credits, rankedRest)
+        applyTakeCredits(takesOf(block.id), needed, estimates, credits, rankedRest, needs)
         if (requests) {
           shareOut(requests, needed, (c, amount) => {
             info.set(c.id, { requested: amount })
@@ -1072,7 +1089,7 @@ function computeRequests(
           }),
           members.flatMap(m =>
             [...(takesOf(m.id) ?? [])].flatMap(([itemId, takes]) =>
-              takes.map(t => [t.fromBlockId, itemId, estimates.get(t.fromBlockId)?.get(itemId) ?? null]),
+              takes.map(t => [t.fromBlockId, itemId, estimates.has(t.fromBlockId), estimates.get(t.fromBlockId)?.get(itemId) ?? null]),
             ),
           ),
           // The lists of the ranked pairs the members take from, and what their outside takes are credited.
@@ -1098,6 +1115,8 @@ function computeRequests(
       const runRound = (input: Map<string, number>, skipBack = false) => {
         const shares = new Map<string, number>()
         const roundCredits = new Map<string, number>()
+        const roundNeeds = new Map<string, number>()
+        const roundBlocked = new Set<string>()
         const forward = new Map<string, Map<string, number>>() // member id → item id → shares from earlier members
         const est = cloneRemaining(estimates)
         const roundProcessed = new Set<string>()
@@ -1107,7 +1126,7 @@ function computeRequests(
           if (!memberSet.has(blockId)) return processed.has(blockId) ? (credits.get(id) ?? 0) : undefined
           if (roundProcessed.has(blockId)) return roundCredits.get(id) ?? 0
           return listed ? (input.get(id) ?? 0) : undefined // a back credit; an unlisted later member is credited after
-        })
+        }, roundBlocked)
         let roundFailed = false
         for (const block of members) {
           const asked = new Map(requested.get(block.id))
@@ -1122,7 +1141,7 @@ function computeRequests(
           const probe = probeBlock(block, productGoals(block.products, asked), gameData, connectedCaps(block, byId, selfConnectionIds), memo)
           roundFailed ||= probe.failed
           const needed = new Map(probe.received)
-          applyTakeCredits(takesOf(block.id), needed, est, roundCredits, roundRest)
+          applyTakeCredits(takesOf(block.id), needed, est, roundCredits, roundRest, roundNeeds)
           const requests = (requestsOf.get(block.id) ?? []).filter(c => !(skipBack && back.has(c.id)))
           shareOut(requests, needed, (c, amount) => {
             shares.set(c.id, amount)
@@ -1148,7 +1167,7 @@ function computeRequests(
           }
         }
         failed ||= roundFailed
-        return { shares, credits: roundCredits, credited, failed: roundFailed }
+        return { shares, credits: roundCredits, credited, needs: roundNeeds, blocked: roundBlocked, failed: roundFailed }
       }
 
       const maxAbs = (values: Iterable<number>): number => {
@@ -1213,7 +1232,7 @@ function computeRequests(
       const kept = converged
         ? last
         : runRound(new Map(inputIds.map(id => [id, backCredits.has(id) ? (last.credits.get(id) ?? 0) : 0])), true)
-      solved = { shares: kept.shares, credits: kept.credits, credited: kept.credited, rounds, converged }
+      solved = { shares: kept.shares, credits: kept.credits, credited: kept.credited, needs: kept.needs, uncredited: kept.blocked, rounds, converged }
       if (!failed) cache?.setRequestLoop(loop.blockIds, gameData, key, solved)
     }
 
@@ -1230,6 +1249,8 @@ function computeRequests(
       }
     }
     for (const [id, credit] of solved.credits) credits.set(id, credit)
+    for (const [id, n] of solved.needs) needs.set(id, n)
+    for (const id of solved.uncredited) uncredited.add(id)
     for (const m of members) processed.add(m.id)
     for (const m of members) {
       if (requested.has(m.id)) goals.set(m.id, productGoals(m.products, requested.get(m.id)))
@@ -1242,7 +1263,7 @@ function computeRequests(
     for (const m of members) estimateTakeSource(m)
     loops.push({ ...loop, rounds: solved.rounds, converged: solved.converged })
   }
-  return { goals, info, credits, loops }
+  return { goals, info, credits, loops, needs, uncredited }
 }
 
 /**
@@ -1458,6 +1479,7 @@ export function solveAll(
   const served = buildServed(
     flows, blocks, id => connectionShare(requestPlan.info.get(id), requestPlan.credits.get(id)), remaining,
     (sourceId, itemId) => servedRanks.get(sourceId)?.get(itemId),
+    { needs: requestPlan.needs, uncredited: requestPlan.uncredited },
   )
 
   cache?.retain(blockIds)

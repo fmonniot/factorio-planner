@@ -19,6 +19,7 @@ export function buildServed(
   shareOf: (connectionId: string) => number,
   left: ReadonlyMap<string, ReadonlyMap<string, number>>,
   rankOf?: (sourceId: string, itemId: string) => ServedRank | undefined,
+  takeInfo?: { needs: ReadonlyMap<string, number>; uncredited: ReadonlySet<string> },
 ): Record<string, Record<string, ServedList>> {
   const bySource = new Map<string, Map<string, ServedConsumer[]>>()
   for (const f of flows) {
@@ -28,7 +29,13 @@ export function buildServed(
     let consumers = items.get(f.itemId)
     if (!consumers) items.set(f.itemId, (consumers = []))
     if (consumers.some(c => c.blockId === f.toBlockId)) continue
-    consumers.push({ blockId: f.toBlockId, connectionId: f.connectionId, kind: f.kind, share: shareOf(f.connectionId), got: f.rate })
+    const consumer: ServedConsumer = { blockId: f.toBlockId, connectionId: f.connectionId, kind: f.kind, share: shareOf(f.connectionId), got: f.rate }
+    if (takeInfo && f.kind === 'take') {
+      const need = takeInfo.needs.get(f.connectionId)
+      if (need !== undefined) consumer.need = need
+      if (takeInfo.uncredited.has(f.connectionId)) consumer.notCredited = true
+    }
+    consumers.push(consumer)
   }
   const blockById = new Map(blocks.map(b => [b.id, b]))
   return Object.fromEntries([...bySource].map(([sourceId, items]) => [

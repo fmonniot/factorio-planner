@@ -171,6 +171,10 @@ export interface ServedConsumer {
   share: number
   /** items/min delivered */
   got: number
+  /** items/min of the consumer's need of the item still uncovered when the request pass reached this take (the need less what the takes before it covered); absent for a take the pass never reached (the need was already covered) or never probed. */
+  need?: number
+  /** A listed or takes-first take the request pass reached before it could credit it (its source or a higher-ranked take not processed yet, or the source in the same cycle of requests): `share` is 0 whatever the list says. */
+  notCredited?: true
 }
 
 /** The source block's own extra output of the item, and where it was served. */

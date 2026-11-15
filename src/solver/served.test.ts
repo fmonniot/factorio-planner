@@ -34,6 +34,26 @@ describe('buildServed', () => {
     expect(served.A.plate.extra).toBeUndefined()
   })
 
+  it('reports need and notCredited on takes only, from takeInfo', () => {
+    const served = buildServed(
+      [flow({ connectionId: 'c1', toBlockId: 'B', kind: 'take', rate: 0 }), flow({ connectionId: 'c2', toBlockId: 'C' }), flow({ connectionId: 'c3', toBlockId: 'D', kind: 'take' })],
+      [block('A')], shareOf, none, undefined,
+      { needs: new Map([['c1', 8], ['c2', 5]]), uncredited: new Set(['c1', 'c2']) },
+    )
+    const [b, c, d] = served.A.plate.consumers
+    expect(b).toMatchObject({ need: 8, notCredited: true })
+    expect(c.need).toBeUndefined()
+    expect(c.notCredited).toBeUndefined()
+    expect(d.need).toBeUndefined()
+    expect(d.notCredited).toBeUndefined()
+  })
+
+  it('leaves need and notCredited absent without takeInfo', () => {
+    const served = buildServed([flow({ kind: 'take' })], [block('A')], shareOf, none)
+    expect(served.A.plate.consumers[0]).not.toHaveProperty('need')
+    expect(served.A.plate.consumers[0]).not.toHaveProperty('notCredited')
+  })
+
   it('lists a consumer block once, under its first connection', () => {
     const served = buildServed([flow(), flow({ connectionId: 'c2', rate: 0 })], [block('A')], shareOf, none)
     expect(served.A.plate.consumers.map(c => c.connectionId)).toEqual(['c1'])

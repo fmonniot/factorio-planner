@@ -12,7 +12,11 @@ import type { Overlay, OverviewRow, Segment, SegmentKind, OverlayKind, SlotModel
 export type StripState = 'overview' | 'preview' | 'selected' | 'editing'
 
 export interface StripAction {
+  /** Stable React key and test handle, for an action whose label changes while it stays open (default: the label). */
+  id?: string
   label: string
+  /** A count drawn as a small chip after the label; the button's accessible name is `${label} · ${badge.count} ${badge.noun}`. */
+  badge?: { count: number; noun: string }
   onSelect: (e: React.MouseEvent<HTMLButtonElement>) => void
   danger?: boolean
   disabled?: boolean
@@ -201,14 +205,18 @@ export function SummaryDetailStrip({
         <div className="flex items-center gap-1.5 shrink-0 h-[22px]">
           {actions.map(a => (
             <button
-              key={a.label}
+              key={a.id ?? a.label}
               type="button"
               onClick={a.onSelect}
               disabled={a.disabled}
-              title={a.title}
+              title={a.title ?? (a.badge ? `${a.badge.count} ${a.badge.noun}` : undefined)}
+              aria-label={a.badge ? `${a.label} · ${a.badge.count} ${a.badge.noun}` : undefined}
               className={`bg-gray-900 border border-gray-700 rounded px-2 py-0.5 leading-4 whitespace-nowrap hover:border-gray-500 disabled:opacity-40 disabled:cursor-default disabled:hover:border-gray-700 ${a.danger ? 'text-red-400' : 'text-gray-300'}`}
             >
               {a.label}
+              {a.badge && (
+                <span aria-hidden="true" data-testid="strip-action-badge" className="ml-1 rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">{a.badge.count}</span>
+              )}
             </button>
           ))}
           {keyExtra && <span data-testid="summary-key-extra" className="inline-flex">{keyExtra}</span>}
