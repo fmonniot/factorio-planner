@@ -4,7 +4,7 @@ import { outsideResidual } from '../../solver/index'
 import { findSubPlan } from '../../data/subPlanTree'
 import { areaName } from '../../data/subPlanTree'
 import { isEnergyItem } from '../../data/electricity'
-import { routeEnds } from './sidePanel/groupFlows'
+import { routeEnds } from './areaRouteEnds'
 
 // ---------------------------------------------------------------------------
 // The balance matrix of a block's areas: items as rows, areas as columns, an outside column at each

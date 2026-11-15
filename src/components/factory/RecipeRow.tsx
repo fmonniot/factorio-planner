@@ -184,6 +184,22 @@ export function RecipeRow({
       hereId,
     )
   }, [planNode, areaView, gameData, rootPlan])
+
+  // The chips of an area row: its flows with the other end of each route, memoised (flows x routes, and naming an end
+  // walks the sub-plan tree), as a row renders often.
+  const areaLines = useMemo(() => {
+    if (planNode.kind !== 'subplan') return { sendLines: [], receiveLines: [] }
+    const id = planNode.subPlanId
+    const solvedArea = findSubPlanDeep(rootPlan, id)?.area === true
+      ? areaView?.solvedAreas?.find(a => a.areaId === id)
+      : undefined
+    const endName = areaEndName(rootPlan)
+    const routes = areaView?.areaRoutes ?? []
+    return {
+      sendLines: flowLines(solvedArea?.sends ?? [], routes, id, 'sends', endName),
+      receiveLines: flowLines(solvedArea?.receives ?? [], routes, id, 'receives', endName),
+    }
+  }, [planNode, rootPlan, areaView?.solvedAreas, areaView?.areaRoutes])
   // At most one context menu is open at a time:
   // - 'row': the row menu (recipe row or sub-factory),
   // - 'item': the menu of a byproduct chip, its single entry "Add consumer recipe…" (product chips have none),
@@ -376,20 +392,13 @@ export function RecipeRow({
       ? 'Every area already has a row of one of its recipes'
       : 'No area can take a copy of this subfactory'
 
-    const solvedArea = childPlan?.area === true
-      ? areaView?.solvedAreas?.find(a => a.areaId === subPlanId)
-      : undefined
-    const endName = areaEndName(rootPlan)
-    const routes = areaView?.areaRoutes ?? []
-    const sendLines = flowLines(solvedArea?.sends ?? [], routes, subPlanId, 'sends', endName)
-    const receiveLines = flowLines(solvedArea?.receives ?? [], routes, subPlanId, 'receives', endName)
-
     // Every cell of the area row opens the row menu, the chips included (they are display-only).
     const openAreaRowMenu = (e: React.MouseEvent) => {
       e.preventDefault()
       setOpenMenu({ kind: 'row', x: e.clientX, y: e.clientY })
     }
 
+    const { sendLines, receiveLines } = areaLines
     const recipes = childPlan ? countSubPlanContents(childPlan).recipes : 0
     const { machines, powerKw: groupPowerKw } = groupTotals
     const groupPower = groupPowerKw > 0 ? fmtPower(groupPowerKw) : null

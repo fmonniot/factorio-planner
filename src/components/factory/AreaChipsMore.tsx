@@ -54,7 +54,7 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
           onContextMenu={e => e.stopPropagation()}
           className="z-[60] w-max max-w-xs max-h-[60vh] overflow-y-auto p-2 text-xs bg-gray-900 border border-gray-700 rounded-lg shadow-2xl"
         >
-          <div className="mb-1 text-gray-400">{received ? 'Also receives' : 'Also sends'}</div>
+          <div className="mb-1 text-gray-400">{received ? 'Also receives' : 'Also sends'}{rows.length !== flows.length && ` (${rows.length} lines, one per partner)`}</div>
           <ul className="flex flex-col gap-1">
             {rows.map((r, i) => (
               <li
@@ -69,7 +69,7 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
                   <div className="truncate text-gray-200">{items[r.itemId]?.name ?? r.itemId}</div>
                   {r.otherEnd && <div className="truncate text-[11px] text-gray-400" title={r.otherEnd}>{r.otherEnd}</div>}
                 </div>
-                <span className="font-mono tabular-nums text-gray-400">{fmtItemRateText(r.itemId, r.rate / 60, rateUnit)}</span>
+                <span className="shrink-0 whitespace-nowrap font-mono tabular-nums text-gray-400">{fmtItemRateText(r.itemId, r.rate / 60, rateUnit)}</span>
               </li>
             ))}
           </ul>

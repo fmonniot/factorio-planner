@@ -56,16 +56,16 @@ test('Trades with lists the items each partner exchanges', async ({ page }) => {
   await expect(plate).toHaveCount(1)
   await expect(plate.first()).toHaveAttribute('data-item-id', 'nullius-iron-plate')
   await expect(plate.first()).toHaveAttribute('data-direction', 'in')
-  await expect(plate.first()).toContainText('60')
+  await expect(plate.first()).toHaveText(/[a-z](60\.0)\/m in$/i)
 
   const rod = panel.getByTestId(`trade-lines-${ROD_LINE}`).locator('li')
   await expect(rod).toHaveCount(2)
   await expect(rod.nth(0)).toHaveAttribute('data-item-id', 'nullius-iron-rod')
   await expect(rod.nth(0)).toHaveAttribute('data-direction', 'in')
-  await expect(rod.nth(0)).toContainText('30')
+  await expect(rod.nth(0)).toHaveText(/[a-z](30\.0)\/m in$/i)
   await expect(rod.nth(1)).toHaveAttribute('data-item-id', 'nullius-iron-ingot')
   await expect(rod.nth(1)).toHaveAttribute('data-direction', 'out')
-  await expect(rod.nth(1)).toContainText('24')
+  await expect(rod.nth(1)).toHaveText(/[a-z](24\.0)\/m out$/i)
 
   const outside = panel.getByTestId('trade-lines-outside').locator('li')
   await expect(outside).toHaveCount(3)
@@ -95,10 +95,10 @@ test('several partners are joined in the title and listed apart in Trades with',
   const panel = page.getByRole('complementary', { name: 'Compression' })
   const fromRoot = panel.getByTestId(`trade-lines-${ROOT}`).locator('[data-item-id="nullius-hydrogen"]')
   await expect(fromRoot).toHaveAttribute('data-direction', 'in')
-  await expect(fromRoot).toContainText('400')
+  await expect(fromRoot).toHaveText(/[a-z](400)\/m in$/i)
   const fromBackup = panel.getByTestId(`trade-lines-${BACKUP}`).locator('[data-item-id="nullius-hydrogen"]')
   await expect(fromBackup).toHaveAttribute('data-direction', 'in')
-  await expect(fromBackup).toContainText('560')
+  await expect(fromBackup).toHaveText(/[a-z](560)\/m in$/i)
 })
 
 test('a long list of trades folds after four lines', async ({ page }) => {

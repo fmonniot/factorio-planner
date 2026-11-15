@@ -145,6 +145,25 @@ describe('AreaChipsMore', () => {
     expect(screen.getByRole('tooltip').textContent).toContain('/s')
   })
 
+  it('says how many lines the popup has when a partner adds one', () => {
+    const flows = [
+      { itemId: 'e', rate: 56, boundary: false, otherEnd: 'from A, B', ends: [
+        { partnerId: 'a', otherEnd: 'from A', rate: 30 }, { partnerId: 'b', otherEnd: 'from B', rate: 26 }] },
+      { itemId: 'f', rate: 55, boundary: false, otherEnd: '', ends: [] },
+    ]
+    renderMore({ flows })
+    expect(trigger()).toHaveTextContent('+2')
+    fireEvent.focus(trigger())
+    expect(screen.getAllByTestId('area-chips-line')).toHaveLength(3)
+    expect(screen.getByRole('tooltip').textContent).toContain('Also receives (3 lines, one per partner)')
+  })
+
+  it('keeps the plain heading when each item has one line', () => {
+    renderMore()
+    fireEvent.focus(trigger())
+    expect(screen.getByRole('tooltip').textContent).toMatch(/Also receives(?!\s*\()/)
+  })
+
   it('words the sends direction', () => {
     renderMore({ direction: 'sends' })
     expect(trigger()).toHaveAttribute('aria-label', '2 more sent items')

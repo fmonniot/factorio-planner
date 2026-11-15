@@ -443,7 +443,6 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
               const detail = parts.join(` ${'·'} `)
               const lines = (
                 <FoldedList
-                  key={`${area.areaId}:${t.partyId}`}
                   items={t.lines}
                   cap={TRADE_LINES_CAP}
                   testId={`trade-lines-${t.partyId}`}

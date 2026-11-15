@@ -35,6 +35,17 @@ describe('flowLines', () => {
     ])
   })
 
+  it('merges partners that share a display name, so the lines agree with the title', () => {
+    const twins = [
+      { itemId: 'gas', from: 'o1', to: 'a', rate: 3 },
+      { itemId: 'gas', from: 'o2', to: 'a', rate: 4 },
+    ]
+    const same = (id: string | undefined) => (id === 'o1' || id === 'o2' ? 'Oil' : String(id))
+    const line = flowLines([{ itemId: 'gas', rate: 7, boundary: false }], twins, 'a', 'receives', same)[0]
+    expect(line.otherEnd).toBe('from Oil')
+    expect(line.ends).toEqual([{ partnerId: 'o1', otherEnd: 'from Oil', rate: 7 }])
+  })
+
   it('has an end for outside the block on a send', () => {
     const lines = flowLines([{ itemId: 'plastic', rate: 25, boundary: true }], routes, 'a', 'sends', nameOf)
     expect(lines[0].ends).toContainEqual({ partnerId: undefined, otherEnd: 'to outside the block', rate: 5 })

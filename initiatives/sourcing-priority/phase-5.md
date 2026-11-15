@@ -82,7 +82,7 @@ The first two lines are the item "Connections first vs local-first": with no rul
 - The areas matrix and its focus view (`areaMatrix.ts`, `MatrixRow.pairs`).
 - The group panel of an area (`sidePanel/GroupPanel.tsx`, `groupFlows.ts`): each received or sent item names its other end ("from Oil", "outside the block").
 
-Not yet: the chips on a collapsed area row and their `+N` popup show an icon and a rate with no partner; the "Trades with" list of the matrix's focus panel gives, per partner, an item count and total rates, not the items. That is what is left of "Per-partner area figures elsewhere" (T1).
+The chips on a collapsed area row, their `+N` popup and the "Trades with" list of the matrix's focus panel name the partner of each route and list the items per partner (T1, "Per-partner area figures elsewhere").
 
 ### What is stored, and the precedent for cleaning it up
 

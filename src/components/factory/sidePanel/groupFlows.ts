@@ -1,5 +1,8 @@
 import type { AreaFlow, AreaRoute, SubPlan } from '../../../data/types'
 import { findSubPlan } from '../../../data/subPlanTree'
+import { routeEnds } from '../areaRouteEnds'
+
+export { routeEnds, type RouteEnd } from '../areaRouteEnds'
 
 /** How the other end of a route is worded when it is outside the block, and when it is the block's top level. */
 export const OUTSIDE_END = 'outside the block'
@@ -12,31 +15,6 @@ export function areaEndName(rootPlan: SubPlan): (areaId: string | undefined) => 
     if (areaId === rootPlan.id) return ROOT_END
     return findSubPlan(rootPlan, areaId)?.name ?? areaId
   }
-}
-
-export interface RouteEnd {
-  /** The area at the other end; `undefined` (or the matrix's opaque outside id) is outside the block. */
-  partnerId: string | undefined
-  /** items/min */
-  rate: number
-}
-
-/**
- * The routes that end at (`receives`) or start from (`sends`) an area, merged per partner in route order. Generic over
- * the solver's routes and the matrix's pairs: an end is an opaque string, absent for outside.
- */
-export function routeEnds(
-  routes: readonly { from?: string; to?: string; rate: number }[],
-  areaId: string,
-  direction: 'receives' | 'sends',
-): RouteEnd[] {
-  const merged = new Map<string | undefined, number>()
-  for (const r of routes) {
-    if ((direction === 'receives' ? r.to : r.from) !== areaId) continue
-    const partnerId = direction === 'receives' ? r.from : r.to
-    merged.set(partnerId, (merged.get(partnerId) ?? 0) + r.rate)
-  }
-  return [...merged].map(([partnerId, rate]) => ({ partnerId, rate }))
 }
 
 export interface FlowEnd {
@@ -72,13 +50,19 @@ export function flowLines(
 ): FlowLine[] {
   const word = direction === 'receives' ? 'from' : 'to'
   return flows.map(f => {
-    const ends = routeEnds(routes.filter(r => r.itemId === f.itemId), areaId, direction)
-      .map(e => ({ partnerId: e.partnerId, otherEnd: `${word} ${nameOf(e.partnerId)}`, rate: e.rate }))
-    const unique = [...new Set(ends.map(e => nameOf(e.partnerId)))]
+    // Merged by displayed text, so the popup's lines and the title agree when two partners share a name.
+    const byText = new Map<string, FlowEnd>()
+    for (const e of routeEnds(routes.filter(r => r.itemId === f.itemId), areaId, direction)) {
+      const otherEnd = `${word} ${nameOf(e.partnerId)}`
+      const seen = byText.get(otherEnd)
+      if (seen) seen.rate += e.rate
+      else byText.set(otherEnd, { partnerId: e.partnerId, otherEnd, rate: e.rate })
+    }
+    const ends = [...byText.values()]
     return {
       itemId: f.itemId,
       rate: f.rate,
-      otherEnd: unique.length > 0 ? `${word} ${unique.join(', ')}` : '',
+      otherEnd: ends.length > 0 ? `${word} ${ends.map(e => e.otherEnd.slice(word.length + 1)).join(', ')}` : '',
       boundary: f.boundary,
       ends,
     }
