@@ -1,4 +1,5 @@
 import type { ServedEntry, ServedList } from '../../data/types'
+import { servedEntryKey } from '../../data/servedEntries'
 import type { RateUnit } from '../../store/uiStore'
 import { isShortfall } from './summarySegments'
 
@@ -51,9 +52,10 @@ export function servedLines(list: ServedList, itemId: string, unit: RateUnit): S
   return lines.map((l, i) => ({ ...l, rank: i + 1 }))
 }
 
-/** What a line is called in a list and in the DOM: the extra, or the consumer block. */
+/** What a line is called in a list and in the DOM: the extra, the consumer block, or one area of it (an entry only). */
 export function lineKey(x: ServedLine | ServedEntry): string {
-  return x.kind === 'extra' ? 'extra' : `block:${x.blockId}`
+  if (x.kind === 'extra') return 'extra'
+  return servedEntryKey('areaId' in x ? x : { kind: 'block', blockId: x.blockId! })
 }
 
 /** The list entry of a line. */
@@ -100,7 +102,7 @@ export function splitServed(lines: ServedLine[], stored: readonly ServedEntry[] 
 export function unrankedCount(list: ServedList, stored: readonly ServedEntry[] | undefined): number {
   if (stored === undefined) return 0
   const keys = new Set(stored.map(lineKey))
-  let n = list.consumers.filter(c => !keys.has(`block:${c.blockId}`)).length
+  let n = list.consumers.filter(c => !keys.has(lineKey({ kind: 'block', blockId: c.blockId }))).length
   if (list.extra && !keys.has('extra')) n++
   return n
 }
