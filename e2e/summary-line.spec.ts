@@ -29,7 +29,7 @@ test.describe('collapsed summary', () => {
   test.use({ viewport: { width: 1440, height: 900 }, storageState: NO_CHOICE })
 
   // 1 sumLine
-  test('starts collapsed: one 58 px line of three panes with counts, chips and a 68 px Expand button', async ({ page }) => {
+  test('starts collapsed: one 58 px line of three panes with counts, chips and the handle tab under it', async ({ page }) => {
     await setup(page)
     await expect(lines(page)).toHaveCount(3)
     await expect(page.getByTestId('summary-slot')).toHaveCount(0)
@@ -44,18 +44,43 @@ test.describe('collapsed summary', () => {
 
     const button = expandButton(page)
     await expect(button).toBeVisible()
-    expect((await button.boundingBox())!.width).toBeGreaterThanOrEqual(66)
-    expect((await button.boundingBox())!.width).toBeLessThanOrEqual(70)
     const firstChips = await Promise.all([0, 1, 2].map(async i => (await lines(page).nth(i).getByTestId('summary-line-chip').first().boundingBox())!))
     firstChips.forEach((c, i) => {
       expect(c.y, 'chip inside its line').toBeGreaterThanOrEqual(boxes[i].y)
       expect(c.y + c.height, 'chip inside its line').toBeLessThanOrEqual(boxes[i].y + boxes[i].height)
     })
-    expect(boxes[2].x + boxes[2].width, 'the lines end before the button').toBeLessThanOrEqual((await button.boundingBox())!.x)
-
-    // No handle row at this width: the button is the only way to expand.
+    // The lines have the whole width: the Expand button is the handle tab under the line, not at its right end.
+    const lineBox = (await page.getByTestId('summary-line').boundingBox())!
+    expect(boxes[2].x + boxes[2].width, 'the lines run to the strip padding').toBeGreaterThanOrEqual(lineBox.x + lineBox.width - 13)
     await expect(expandButton(page)).toHaveCount(1)
-    await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand summary' })).toHaveCount(1)
+    await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand summary' })).toHaveCount(0)
+  })
+
+  // The handle is a tab: centred under the strip, and from xl it has no row of its own but sits over the toolbar.
+  test('from xl the handle tab hangs over the toolbar, which sits right under the summary', async ({ page }) => {
+    await setup(page)
+    const line = (await page.getByTestId('summary-line').boundingBox())!
+    const toolbar = (await page.getByTestId('table-toolbar').boundingBox())!
+    const tab = (await expandButton(page).boundingBox())!
+    expect(toolbar.y, 'the toolbar starts where the summary ends').toBeCloseTo(line.y + line.height, 0)
+    expect(tab.y, 'the tab starts at the summary border').toBeCloseTo(line.y + line.height, 0)
+    expect(tab.height).toBe(18)
+    expect(tab.y + tab.height, 'and overlaps the toolbar').toBeGreaterThan(toolbar.y + 1)
+    expect(tab.x + tab.width / 2, 'centred').toBeCloseTo(line.x + line.width / 2, 0)
+    // The tab is on top: a click on it reaches it and not the toolbar.
+    await page.mouse.click(tab.x + tab.width / 2, tab.y + tab.height / 2)
+    await expect(collapseHandle(page)).toBeVisible()
+  })
+
+  test('below xl the handle tab has a row of its own under the summary', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 })
+    await setup(page)
+    const line = (await page.getByTestId('summary-line').boundingBox())!
+    const toolbar = (await page.getByTestId('table-toolbar').boundingBox())!
+    const tab = (await expandButton(page).boundingBox())!
+    expect(tab.y).toBeCloseTo(line.y + line.height, 0)
+    expect(toolbar.y, 'the toolbar is pushed down by the 18 px row').toBeCloseTo(tab.y + 18, 0)
+    expect(tab.x + tab.width / 2).toBeCloseTo(line.x + line.width / 2, 0)
   })
 
   // 1 sumLine
@@ -164,8 +189,8 @@ test.describe('collapsed summary', () => {
     await expect(lines(page)).toHaveCount(3)
   })
 
-  // Keyboard users keep their place: the control they used is gone (or hidden) after the toggle.
-  test('the keyboard focus follows the toggle to the other control', async ({ page }) => {
+  // Keyboard users keep their place: the handle tab is the same element in both states.
+  test('the keyboard focus stays on the handle tab across a toggle', async ({ page }) => {
     await setup(page)
     await expandButton(page).focus()
     await page.keyboard.press('Enter')
@@ -200,7 +225,7 @@ test.describe('collapsed summary at narrow widths', () => {
     expect(new Set(boxes.map(b => b.x)).size, 'same left edge').toBe(1)
     for (const b of boxes) expect(b.x + b.width).toBeLessThanOrEqual(390)
 
-    // The Expand button of the wide layout is gone: the handle row below the lines takes over.
+    // The handle tab below the lines expands, as in the wide layout.
     await expect(expandButton(page)).toHaveCount(1)
     await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand summary' })).toHaveCount(0)
     const handle = expandButton(page)
@@ -249,8 +274,7 @@ test.describe('collapsed summary at narrow widths', () => {
       expect(chip.y).toBeGreaterThanOrEqual(boxes[0].y)
       expect(chip.y + chip.height).toBeLessThanOrEqual(boxes[0].y + boxes[0].height)
       expect(boxes[2].x + boxes[2].width).toBeLessThanOrEqual(width)
-      await expect(expandButton(page)).toHaveCount(1)
-      await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand summary' })).toBeVisible()
+      await expect(expandButton(page)).toBeVisible()
     })
   }
 })

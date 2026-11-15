@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { importOffItems } from '../../data/sourceRules'
 import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows, selectServed } from '../../store/solverStore'
@@ -148,24 +148,12 @@ export function FactorySummary() {
   const updateProductExtra = useBlockStore(s => s.updateProductExtra)
   const [showProductPicker, setShowProductPicker] = useState(false)
 
-  // Toggling swaps which control is on screen: the line's Expand button unmounts, and from md the handle
-  // row is not drawn while collapsed. Focus follows the toggle to its counterpart so a keyboard user is
-  // not dropped on the page. Below md the handle is the one element in both states and keeps its focus
-  // (focusing the line's hidden Expand button there is a no-op).
-  const handleRef = useRef<HTMLButtonElement>(null)
-  const lineExpandRef = useRef<HTMLButtonElement>(null)
-  const focusAfterToggle = useRef(false)
+  // The handle tab is one element in both states, so it keeps its focus across a toggle.
   const toggle = (next: boolean) => {
-    focusAfterToggle.current = true
     // Collapsing unmounts the panes and their selection with them.
     if (next) setOpened(null)
     setCollapsed(next)
   }
-  useLayoutEffect(() => {
-    if (!focusAfterToggle.current) return
-    focusAfterToggle.current = false
-    ;(collapsed ? lineExpandRef.current : handleRef.current)?.focus()
-  }, [collapsed])
 
   const activeBlockId = activeBlock?.id
 
@@ -382,8 +370,6 @@ export function FactorySummary() {
           ]}
           items={gameData.items}
           rateUnit={rateUnit}
-          expandRef={lineExpandRef}
-          onExpand={() => toggle(false)}
         />
       ) : (
       /* Three-pane summary: Products, Byproducts, Ingredients. The key resets selection when the block changes. */
@@ -537,20 +523,24 @@ export function FactorySummary() {
       </div>
       )}
 
-      {/* The handle row: it collapses the expanded summary, and expands the collapsed one below md,
-          where the three lines stack and have no room for the Expand button. Its text is its accessible
-          name (the action it performs), so it carries no aria-expanded: that would state the same fact twice. */}
-      <button
-        ref={handleRef}
-        type="button"
-        onClick={() => toggle(!collapsed)}
-        className={`${collapsed ? 'md:hidden ' : ''}h-[18px] w-full flex items-center justify-center gap-1.5 border-b border-gray-700 bg-gray-900 text-[10px] tracking-[0.04em] text-gray-400 hover:text-gray-200`}
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className={collapsed ? 'rotate-180' : undefined}>
-          <path d="M2 6.5 5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        </svg>
-        {collapsed ? 'Expand summary' : 'Collapse summary'}
-      </button>
+      {/* The handle tab: it collapses the expanded summary and expands the collapsed one, from md and below alike. It
+          hangs off the summary's bottom border like a tab (its border continues the strip's). Below xl it has a row of
+          its own, 18px high; from xl the row has no height and the tab overlaps the top of the table toolbar, whose
+          middle is empty, so the toolbar sits right under the summary. Its text is its accessible name (the action it
+          performs), so it carries no aria-expanded: that would state the same fact twice. */}
+      <div className="relative z-10 flex h-[18px] justify-center xl:h-0">
+        <button
+          type="button"
+          data-testid="summary-handle"
+          onClick={() => toggle(!collapsed)}
+          className="h-[18px] flex items-center justify-center gap-1.5 px-4 rounded-b-lg border border-t-0 border-gray-700 bg-gray-900 text-[10px] tracking-[0.04em] text-gray-400 hover:text-gray-200"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className={collapsed ? 'rotate-180' : undefined}>
+            <path d="M2 6.5 5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+          {collapsed ? 'Expand summary' : 'Collapse summary'}
+        </button>
+      </div>
 
       <ComesFromPopover hasSlot={itemId => ingredientRowList.some(r => r.itemId === itemId)} />
 

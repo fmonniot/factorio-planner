@@ -2184,8 +2184,8 @@ describe('FactorySummary — collapsed summary', () => {
   /** The room of a line pane; happy-dom has no layout, so without this every pane has none. */
   const withRoom = (px: number) => Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => px })
   const collapse = () => useUiStore.setState({ summaryCollapsed: true })
-  // Both the Expand button and the handle row expand: CSS shows one of them (happy-dom applies no CSS).
-  const expandButtons = () => screen.getAllByRole('button', { name: 'Expand summary' })
+  // The handle tab is the one control that expands, in every layout.
+  const expandButton = () => screen.getByRole('button', { name: 'Expand summary' })
 
   it('is the default: one line per pane with its count, and no slots', () => {
     useUiStore.setState({ summaryCollapsed: useUiStore.getInitialState().summaryCollapsed })
@@ -2336,15 +2336,15 @@ describe('FactorySummary — collapsed summary', () => {
   it('expands to the full panes and collapses back; the choice is the store\'s, so it spans block switches', () => {
     collapse()
     render(<FactorySummary />)
-    expect(expandButtons()).toHaveLength(2)
-    // The names are the visible texts (the button's own says "Expand"), so no aria-expanded repeats them.
-    expect(expandButtons().map(b => b.hasAttribute('aria-expanded'))).toEqual([false, false])
-    fireEvent.click(expandButtons()[0])
+    // The name is the visible text, so no aria-expanded repeats it.
+    expect(expandButton()).toHaveTextContent('Expand summary')
+    expect(expandButton()).not.toHaveAttribute('aria-expanded')
+    fireEvent.click(expandButton())
     expect(useUiStore.getState().summaryCollapsed).toBe(false)
     expect(screen.queryByTestId('summary-line')).toBeNull()
     expect(slot('Products', 'Iron Plate')).toBeInTheDocument()
 
-    // The handle row is the only toggle now.
+    // The same tab is the toggle in this state too.
     const handle = screen.getByRole('button', { name: 'Collapse summary' })
     expect(handle).not.toHaveAttribute('aria-expanded')
     expect(handle).toHaveTextContent('Collapse summary')
@@ -2360,21 +2360,20 @@ describe('FactorySummary — collapsed summary', () => {
     expect(screen.getAllByTestId('summary-line-pane')).toHaveLength(3)
   })
 
-  it('moves focus to the counterpart control when the summary toggles, so the keyboard is not dropped', () => {
+  it('keeps the focus on the handle tab across a toggle, as it is one element in both states', () => {
     collapse()
     render(<FactorySummary />)
-    const line = screen.getByTestId('summary-line')
-    const lineExpand = within(line).getByRole('button', { name: 'Expand summary' })
-    lineExpand.focus()
-    fireEvent.click(lineExpand)
-    // The line (and its button) is gone: the handle row, the only toggle now, has the focus.
-    expect(screen.queryByTestId('summary-line')).toBeNull()
-    const handle = screen.getByRole('button', { name: 'Collapse summary' })
+    const handle = screen.getByTestId('summary-handle')
+    handle.focus()
+    fireEvent.click(handle)
+    expect(screen.getByTestId('summary-handle')).toBe(handle)
+    expect(handle).toHaveTextContent('Collapse summary')
     expect(handle).toHaveFocus()
 
     fireEvent.click(handle)
-    // From md the handle is not drawn once collapsed: the line's Expand button takes the focus.
-    expect(within(screen.getByTestId('summary-line')).getByRole('button', { name: 'Expand summary' })).toHaveFocus()
+    expect(screen.getByTestId('summary-handle')).toBe(handle)
+    expect(handle).toHaveTextContent('Expand summary')
+    expect(handle).toHaveFocus()
   })
 
   it('does not take the focus when the collapsed state changes without a toggle', () => {
@@ -2384,16 +2383,17 @@ describe('FactorySummary — collapsed summary', () => {
     expect(document.body).toHaveFocus()
   })
 
-  it('sizes the strip: a 58 px row of three lines with a 68 px Expand button, a 123 px stack below md', () => {
+  it('sizes the strip: a 58 px row of three lines, a 123 px stack below md, and an 18 px handle tab below it', () => {
     collapse()
     render(<FactorySummary />)
     const line = screen.getByTestId('summary-line')
     expect(line).toHaveClass('md:h-[58px]', 'max-md:h-[123px]')
     expect(screen.getAllByTestId('summary-line-pane')[0]).toHaveClass('md:h-10', 'h-[38px]')
-    expect(within(line).getByRole('button', { name: 'Expand summary' })).toHaveClass('w-[68px]', 'max-md:hidden')
-    // The handle row (18 px) expands below md, where the button is gone, and is not drawn from md.
-    const handle = expandButtons().find(b => !line.contains(b))!
-    expect(handle).toHaveClass('h-[18px]', 'md:hidden')
+    // No Expand button inside the line: the handle tab is outside it, with an 18 px row that has no height from xl.
+    expect(within(line).queryByRole('button', { name: /summary/ })).toBeNull()
+    const handle = expandButton()
+    expect(handle).toHaveClass('h-[18px]', 'rounded-b-lg', 'border-t-0')
+    expect(handle.parentElement).toHaveClass('h-[18px]', 'xl:h-0')
   })
 })
 
