@@ -1961,6 +1961,119 @@ describe('solver synthetic cases', () => {
       }
     })
 
+    describe('g: a readiness edge never refuses a rank edge of another list', () => {
+      // T lists {H1, H2} on X (case 20 a8's fixture: R requests plate from H2, so the group wants the edge R -> H1). S also makes X, in
+      // short supply (6), and lists [H1, R] on it with no tie: the rank edge H1 -> R must stand, so R reads what H1 leaves of S.
+      // Hand values: R is not processed when H1 is reached (the edge R -> H1 is refused), so the group of T is served in list order:
+      // H1 takes its whole need 20 from T, H2 the 10 left (needs 25, imports 15). H1 then needs nothing of S, so S's 6 X go to R,
+      // which needs 4 (other 4): credit min(6 - 0, 4) = 4, R imports 0, no flag on R's line of S (without the rank edge R is credited
+      // before H1 and its line says notCredited).
+      const S = (): Block => mk('S', [['case11-goal', 6]], [planNode('case11-make-goal')], [], [ent('H1'), ent('R')], X)
+      const H1 = (): Block => mk('H1', [['case11-other', 20]], [planNode('case11-use-x')], [{ id: 'c-H1', itemId: X, fromBlockId: 'T' }, { id: 'c-H1S', itemId: X, fromBlockId: 'S' }])
+      const H2 = (): Block =>
+        mk('H2', [['case11-other', 25], [P, 0]], [planNode('case11-use-x'), planNode('case13-make-plate')], [{ id: 'c-H2', itemId: X, fromBlockId: 'T' }])
+      const R = (): Block =>
+        mk('R', [['case11-other', 4], ['case13-gear', 5]], [planNode('case11-use-x'), planNode('case13-use-plate')], [
+          { id: 'c-RH2', itemId: P, fromBlockId: 'H2' },
+          { id: 'c-RS', itemId: X, fromBlockId: 'S' },
+        ])
+      for (const tabs of [['T', 'S', 'H1', 'R', 'H2'], ['T', 'S', 'H2', 'R', 'H1']]) {
+        it(`tabs ${tabs.join(' ')}`, () => {
+          const all = solveAll(tabsOf(tabs, { T: T([ent('H1'), tied('H2')]), S: S(), H1: H1(), R: R(), H2: H2() }), makeGameData())
+          expectFlow(all, 'H1', [20, 'ok', 0])
+          expect(flowIn(all, 'c-H1S').rate, 'c-H1S').toBeCloseTo(0, 6)
+          expectFlow(all, 'H2', [10, 'limited', 15])
+          expect(flowIn(all, 'c-RS').rate, 'c-RS').toBeCloseTo(4, 6)
+          expect(unsatisfiedRate(all.results.R, X) ?? 0, 'R imports').toBeCloseTo(0, 6)
+          expect(flowIn(all, 'c-RH2').rate, 'plate').toBeCloseTo(5, 6)
+          const r = linesOf(all, 'S').find(c => c.blockId === 'R')!
+          expect(r.share, 'R share of S').toBeCloseTo(4, 6)
+          expect(r, 'R line of S').not.toHaveProperty('notCredited')
+          expect(linesOf(all).every(c => c.groupInListOrder === true), 'the group of T is in list order').toBe(true)
+        })
+      }
+    })
+
+    describe('h: a member with entries below its group: the group is served in list order', () => {
+      // a7's fixture with the list [J, H3/L tied], [H3/B]: J needs 25, H3 20 (areas L 12, B 8), T leaves 30. H3 has an entry below the
+      // group, so its demand (the whole 20) would be credited inside the group for B too: the group is served in list order instead.
+      // Hand values: J is credited min(30, 25) = 25; H3, at its first entry, min(30 - 25, 20) = 5, split by area need 12:8 into L 3 and B 2.
+      // Grants in list order: J 25, L 3, B 2. J imports 0, H3 imports 15. Every line of J and H3 carries groupInListOrder.
+      const J = (): Block => mk('J', [['case11-other', 25]], [planNode('case11-use-x')], [{ id: 'c-J', itemId: X, fromBlockId: 'T' }])
+      const pinnedUse = (where: string, rate: number): GameRecipeNode => ({ ...rowIn('case11-use-x', where), pinnedRate: rate })
+      const H3 = (): Block => ({
+        ...mk('H3', [['case11-other', 20]], [], [{ id: 'c-H3', itemId: X, fromBlockId: 'T' }]),
+        rootPlan: subPlan('root-H3', [], [subPlan('L', [pinnedUse('L', 12)], [], true), subPlan('B', [pinnedUse('B', 8)], [], true)]),
+      })
+      for (const tabs of [['T', 'J', 'H3'], ['T', 'H3', 'J']]) {
+        it(`tabs ${tabs.join(' ')}`, () => {
+          const list: ServedEntry[] = [ent('J'), ent('H3', { tied: true, areaId: 'L' }), ent('H3', { areaId: 'B' })]
+          const all = solveAll(tabsOf(tabs, { T: T(list), J: J(), H3: H3() }), makeGameData())
+          expect(flowIn(all, 'c-J').rate, 'c-J').toBeCloseTo(25, 6)
+          expect(unsatisfiedRate(all.results.J, X) ?? 0, 'J imports').toBeCloseTo(0, 6)
+          expect(flowIn(all, 'c-H3').rate, 'c-H3').toBeCloseTo(5, 6)
+          expect(unsatisfiedRate(all.results.H3, X) ?? 0, 'H3 imports').toBeCloseTo(15, 6)
+          expectLine(all, 'J', 25, 25)
+          expectLine(all, 'H3', 3, undefined, 'L')
+          expectLine(all, 'H3', 2, undefined, 'B')
+          for (const c of linesOf(all)) expect(c.groupInListOrder, `${c.blockId}/${c.areaId} flag`).toBe(true)
+        })
+      }
+    })
+
+    it('i: a member that takes the item from another source first is served in list order (F2)', () => {
+      // A makes 8 X as a byproduct and H1 takes it before T's. List {H1, H2} on T's 30. Hand values: H1 takes 8 of A and needs 12 of T's, so the group
+      // (served in list order) credits H1 min(30, 12) = 12 and H2 the 18 left (needs 25, imports 7); both lines carry the flag.
+      // Shared by need instead, H1 would ask 20 and H2 would get 15.
+      const A = mk('A', [['case11-goal', 8]], [planNode('case11-make-goal')])
+      const H1 = mk('H1', [['case11-other', 20]], [planNode('case11-use-x')], [{ id: 'c-H1A', itemId: X, fromBlockId: 'A' }, { id: 'c-H1', itemId: X, fromBlockId: 'T' }])
+      const all = solveAll([T([ent('H1'), tied('H2')]), A, H1, H('H2', 25)], makeGameData())
+      expect(flowIn(all, 'c-H1A').rate, 'c-H1A').toBeCloseTo(8, 6)
+      expect(flowIn(all, 'c-H1').rate, 'c-H1').toBeCloseTo(12, 6)
+      expectFlow(all, 'H2', [18, 'limited', 7])
+      expect(unsatisfiedRate(all.results.H1, X) ?? 0, 'H1 imports').toBeCloseTo(0, 6)
+      for (const c of linesOf(all)) {
+        expect(c.groupInListOrder, `${c.blockId} flag`).toBe(true)
+        expect(c).not.toHaveProperty('notCredited')
+      }
+    })
+
+    describe('j: a take ranked below a group shared by need', () => {
+      // List [{H1, H2}, H3] on X. H1 needs 10, H2 25, H3 20.
+      // T leaves 30: waterFill(30, [10, 25]) = 10, 20; the group holds 30, H3 is left 30 - 30 = 0: credit 0, imports 20, no flag.
+      // T leaves 40: waterFill(40, [10, 25]) = 10, 25; the group holds 35, H3 is left 40 - 35 = 5: credit 5, imports 15.
+      const rows: Array<[number, Want, Want, Want]> = [
+        [30, [10, 'ok', 0], [20, 'limited', 5], [0, 'limited', 20]],
+        [40, [10, 'ok', 0], [25, 'ok', 0], [5, 'limited', 15]],
+      ]
+      for (const [leaves, h1, h2, h3] of rows) {
+        it(`T leaves ${leaves}`, () => {
+          const t = mk('T', [['case11-goal', leaves]], [planNode('case11-make-goal')], [], [ent('H1'), tied('H2'), ent('H3')], X)
+          const all = solveAll([t, H('H1', 10), H('H2', 25), H('H3', 20)], makeGameData())
+          expectFlow(all, 'H1', h1)
+          expectFlow(all, 'H2', h2)
+          expectFlow(all, 'H3', h3)
+          expectLine(all, 'H3', h3[0], 20)
+          noFlags(all)
+        })
+      }
+    })
+
+    it('k: a member is solved once, whatever the number of groups it is in, without a cache entry to read', () => {
+      // A cache that never hits and counts its sets sees every solve. Row b1's blocks: each is probed once by the request pass (B ahead of
+      // its turn, reused at its turn) and solved once by the supply pass, so 2 each.
+      const gd = makeGameData()
+      const base = createSolveCache()
+      const solves = new Map<string, number>()
+      const counting = { ...base, get: () => undefined, set: (id: string) => void solves.set(id, (solves.get(id) ?? 0) + 1) }
+      solveAll([
+        T([ent('H'), tied('B')]), mk('A', [[X, 0]], [planNode('case11-make-x')]), H('H', 20),
+        mk('B', [['case11-other', 25]], [planNode('case11-use-x')], [{ id: 'c-BT', itemId: X, fromBlockId: 'T' }, { id: 'c-BA', itemId: X, fromBlockId: 'A' }]),
+      ], gd, counting as typeof base)
+      expect(solves.get('B'), 'B').toBe(2)
+      expect(solves.get('H'), 'H').toBe(2)
+    })
+
     it('f: a warm solve of row b1 sets no cache entry and reports what a cold solve reports', () => {
       const gd = makeGameData()
       const blocks = (): Block[] => [

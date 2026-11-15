@@ -980,20 +980,15 @@ function computeRequests(
       const consumers = [...g.pair.listed.flatMap(e => (e.kind === 'block' ? [e.blockId] : [])), ...g.pair.unlisted.map(u => u.blockId)]
       // F1: a consumer of the pair is in a cycle of requests (the demand rounds read the list in order).
       // F2: a member's group take is not its first take of the item, so its need depends on the credits of its other sources.
+      // F4: a member's connection has entries below the group (another group, or alone): its demand is the whole connection's need, so the
+      // group would credit it for the areas ranked below it too.
+      const below = (m: TakeGroup['members'][number]): boolean =>
+        g.pair.listed.some((e, i) => e.kind === 'block' && e.connection.id === m.connection.id && (i < g.start || i >= g.end))
       if (
         consumers.some(id => inCycle.has(id)) ||
-        g.members.some(m => takesOf(m.blockId)?.get(g.pair.itemId)?.[0]?.id !== m.connection.id)
+        g.members.some(m => takesOf(m.blockId)?.get(g.pair.itemId)?.[0]?.id !== m.connection.id || below(m))
       ) toListOrder(g)
       else for (const m of g.members) groupsOfBlock.set(m.blockId, [...(groupsOfBlock.get(m.blockId) ?? []), g])
-    }
-    // Readiness: a member's need is known once the blocks that request of it are processed, so those go before the other members.
-    for (const g of takeGroups) {
-      if (g.status !== 'pending') continue
-      for (const mj of g.members) {
-        for (const r of requestersOf.get(mj.blockId) ?? []) {
-          for (const mi of g.members) if (mi.blockId !== mj.blockId) orderEdge(r, mi.blockId, g.pair.itemId, `group\0${r}\0${mi.connection.id}`)
-        }
-      }
     }
   }
   for (const [sourceId, items] of ranked) {
@@ -1008,6 +1003,18 @@ function computeRequests(
         for (const later of listedTakes.slice(i + 1)) orderEdge(h.blockId, later.blockId, pair.itemId, `rank\0${h.connection.id}\0${later.connection.id}`)
         for (const u of unlistedTakes) orderEdge(h.blockId, u.blockId, pair.itemId, `rank\0${h.connection.id}\0${u.connection.id}`)
       })
+    }
+  }
+  if (takeGroups.length > 0) {
+    // Readiness: a member's need is known once the blocks that request of it are processed, so those go before the other members. After all
+    // the rank edges, so an edge refused here (it falls back to list order, see `creditGroups`) never takes a place from a list's own edge.
+    for (const g of takeGroups) {
+      if (g.status !== 'pending') continue
+      for (const mj of g.members) {
+        for (const r of requestersOf.get(mj.blockId) ?? []) {
+          for (const mi of g.members) if (mi.blockId !== mj.blockId) orderEdge(r, mi.blockId, g.pair.itemId, `group\0${r}\0${mi.connection.id}`)
+        }
+      }
     }
   }
   const { components } = orderBlocks(depBlocks)
@@ -1092,7 +1099,8 @@ function computeRequests(
     if (!at) return undefined
     const g = groupOfTake.get(t.id)
     if (g?.status === 'shared') return g.credit!.get(t.id) ?? 0
-    if (g?.status === 'pending') toListOrder(g) // reached outside `creditGroups`
+    // A pending group is never read here: `creditGroups` settles every group of a block before the block reads a take, and a group a cycle
+    // reads is served in list order from the start. Should it happen, `restAt` reads the group as not credited yet (blocked), changing no state.
     const r = restAt(at.pair, itemId, at.position < 0 ? at.pair.listed.length : at.position, at.position < 0, t.id, est, creditOf)
     if (r === undefined) {
       blocked?.add(t.id)
@@ -1102,8 +1110,8 @@ function computeRequests(
   }
   const needs = new Map<string, number>()
   const uncredited = new Set<string>()
-  const rankedRest = (t: BlockConnection, itemId: string) =>
-    restOf(t, itemId, estimates, (blockId, id) => (processed.has(blockId) ? (credits.get(id) ?? 0) : undefined), uncredited)
+  const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) ? (credits.get(id) ?? 0) : undefined)
+  const rankedRest = (t: BlockConnection, itemId: string) => restOf(t, itemId, estimates, outerCreditOf, uncredited)
   const estimateTakeSource = (block: Block, probe?: { nodes: SolvedNode[] }): void => {
     if (!takeSources.has(block.id)) return
     const nodes = probe?.nodes ?? probeBlock(
@@ -1121,11 +1129,12 @@ function computeRequests(
   const aheadProbe = (id: string): Probe => {
     const b = byId.get(id)!
     const aheadGoals = productGoals(b.products, requested.get(id))
+    const kept = ahead.get(id)
+    if (kept !== undefined && kept.goals === exactKey(aheadGoals)) return kept.probe // a block in several groups is solved once
     const probe = probeBlock(b, aheadGoals, gameData, connectedCaps(b, byId, selfConnectionIds), cache)
     ahead.set(id, { goals: exactKey(aheadGoals), probe })
     return probe
   }
-  const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) ? (credits.get(id) ?? 0) : undefined)
   // Credit the groups of takes `block` belongs to that are still pending, once, when the first member is reached: every member's
   // credit is then known before any member shares its need out. A group whose members' needs are not all final (a requester of a
   // member, or the source, or the takes above it, are not processed yet) is served in list order instead.

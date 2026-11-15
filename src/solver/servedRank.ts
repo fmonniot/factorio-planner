@@ -153,8 +153,8 @@ export function grantByRank(
   }
   for (const [start, end] of servedGroupSpans(order)) {
     const group = order.slice(start, end)
-    const holdsTake = inListOrder !== undefined && group.some(e => e.kind === 'block' && inListOrder(e.connection.id))
-    if (group.length === 1 || holdsTake) {
+    const listOrder = inListOrder !== undefined && group.some(e => e.kind === 'block' && inListOrder(e.connection.id))
+    if (group.length === 1 || listOrder) {
       group.forEach((e, m) => {
         const amount = Math.min(askOf(e), rest)
         give(e, start + m, amount)

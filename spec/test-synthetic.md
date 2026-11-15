@@ -882,7 +882,7 @@ With the list K1/A2, K1/A1, K2 on T, the grants read the cycle memo's needs: T l
 
 ## Case 20 — Groups of takes
 
-**Exercises:** a `tied` group of takes on a ranked pair is credited by need, not in list order: the water-fill on the members' needs (`min(need, maxRate)`, by weight, a covered member's spare going round again), a block with areas as one member, a readiness edge that lets the group share, a member that takes first and requests the rest from another source, and the fallback to list order (flagged `groupInListOrder`) when the request pass cannot know every need in time, when a consumer of the pair is in a cycle of requests, or when a member does not take the item first; a list with no `tied` staying as it was; a group of takes in a loop of blocks; a warm solve; and the cycle memo reading the lists' flags, weights and areas.
+**Exercises:** a `tied` group of takes on a ranked pair is credited by need, not in list order: the water-fill on the members' needs (`min(need, maxRate)`, by weight, a covered member's spare going round again), a block with areas as one member, a readiness edge that lets the group share, a member that takes first and requests the rest from another source, and the fallback to list order (flagged `groupInListOrder`) when the request pass cannot know every need in time, when a consumer of the pair is in a cycle of requests, when a member does not take the item first, or when a member has an entry below the group; a list with no `tied` staying as it was; a group of takes in a loop of blocks; a warm solve; and the cycle memo reading the lists' flags, weights and areas.
 
 **Recipes:** case 11's (`case11-make-goal`, `case11-use-x`, `case11-make-x`), case 13's for a8 and c, case 16's for e, case 17's for c2 and c3.
 
@@ -915,7 +915,7 @@ a6: demands 20 and min(25, 12) = 12; offers 15 and 15; H2 is covered at 12 and p
 
 **a7 — areas.** On case 19 j's fixture: J needs 25; H3 has areas L (pinned 12) and B (pinned 8) and takes X from T. List `[J, H3/L tied, H3/B tied]`, tabs T, J, H3 and T, H3, J. `c-J` 10 `limited` (J imports 15), `c-H3` 20 `ok` (imports 0). Lines J 10 / 10 (need 25), H3/L 12 / 12, H3/B 8 / 8. Members J (weight 1) and H3 (first entry H3/L, two entries: weight 2): `waterFill(30, [25, 20], [1, 2])` offers 10 and 20, J is short, H3 is covered at exactly 20. Grants: the credit of H3 is split by the needs of its areas (0.6 and 0.4), and `waterFill(30, [10, 12, 8])` gives J 10, L 12, B 8. (An area member's weight is the sum of its entries' weights: the alternative, per entry on the areas' needs, would give J 11 and H3 19.)
 
-**a8 — a readiness edge makes the group share.** T's list `{H1, H2}`, H1 = H(H1, 20); H2 makes 25 `case11-other` and an extra-0 `case13-plate` (rows `case11-use-x` and `case13-make-plate`), takes X (`c-H2`); R makes 5 `case13-gear` (`case13-use-plate`) and requests plate from H2 (`c-RH2`). Tabs T, H1, R, H2 and T, H2, R, H1. H1 15 `limited` (imp 5), H2 15 `limited` (imp 10), `c-RH2` requested 5, rate 5, `ok`, no `groupInListOrder`. H2 has a requester (R), so the pass adds the readiness edge R -> H1 (H1 reaches nothing), then the rank edge H1 -> H2: the request order is T, R, H1, H2. R asks H2 for 5 plate; at H1 R is processed, the probe of H2 ahead of its turn gives X 25, the group is credited 15 and 15. (Without the edge the order could put H1 before R and the group would fall back to H1 20, H2 10.)
+**a8 — a readiness edge makes the group share.** T's list `{H1, H2}`, H1 = H(H1, 20); H2 makes 25 `case11-other` and an extra-0 `case13-plate` (rows `case11-use-x` and `case13-make-plate`), takes X (`c-H2`); R makes 5 `case13-gear` (`case13-use-plate`) and requests plate from H2 (`c-RH2`). Tabs T, H1, R, H2 and T, H2, R, H1. H1 15 `limited` (imp 5), H2 15 `limited` (imp 10), `c-RH2` requested 5, rate 5, `ok`, no `groupInListOrder`. H2 has a requester (R), so the pass adds the readiness edge R -> H1 (H1 reaches nothing), (the readiness edges follow all the rank edges, including H1 -> H2): the request order is T, R, H1, H2. R asks H2 for 5 plate; at H1 R is processed, the probe of H2 ahead of its turn gives X 25, the group is credited 15 and 15. (Without the edge the order could put H1 before R and the group would fall back to H1 20, H2 10.)
 
 ### b — a takes-first member asks its other source for the rest
 
@@ -945,7 +945,7 @@ b3: offers 6 and 24 (exact), both short; B asks A for 25 - 24 = 1; make-x runs 0
 
 **c1b — the same fixture, list `{H2, H1}`.** H2 25 `ok` (imp 0); `c-H1` 0 `unused`; `c-H1R` requested 20, rate 20, `ok`; R `make-x` 10; H1 imports 0. Lines H2 (share 25, need 25, `groupInListOrder`) and H1 (share 0, need 20, `notCredited` and `groupInListOrder`). H1 is reached first, the group falls back; H1's higher take (H2) is not processed, so H1 is credited 0 (`notCredited`) and asks R for its whole need 20; H2 `min(30, 25) = 25`; grants in list order 25 and 0.
 
-**c2 — a group whose source feeds a cycle of requests.** Case 17's fixture, T's list `[K2, K1 tied]`, tabs T, V, K1, K2 and T, V, K2, K1. Flows and `requestLoops` as case 17's rows b: `c-K1T` 5; `c-K1V` requested 5, rate 5; `c-K2T` 10; `c-K2V` 0 `unused`; two rounds, converged. Lines K2 (share 10) and K1 (share 5), both `groupInListOrder`, no `notCredited`. The group's consumers are members of a cycle of requests (the demand rounds read the list in order), so the computation is phase 3's.
+**c2 — a group whose source feeds a cycle of requests.** Case 17's fixture, T's list `[K2, K1 tied]`, tabs T, V, K1, K2 and T, V, K2, K1. Flows and `requestLoops` as case 17's rows b: `c-K1T` 5; `c-K1V` requested 5, rate 5; `c-K2T` 10; `c-K2V` 0 `unused`; two rounds, converged. Lines K2 (share 10) and K1 (share 5), both `groupInListOrder`, no `notCredited`. The group's consumers are members of a cycle of requests (the demand rounds read the list in order), so each take is credited in turn, as for a list with no group.
 
 **c3 — the per-pair scope.** Case 17's fixture plus **H** = H(H, 10) and **G** = H(G, 10) taking X from T. T's list `[H, G tied, K2, K1]`, tabs T, V, K1, K2, H, G and T, V, K2, K1, H, G. H 10 `ok` (imp 0); G 5 `limited` (imp 5); `c-K1T` and `c-K2T` 0; `c-K1V` and `c-K2V` requested 10, rate 10; V `make-x` 10; two rounds, converged. H and G lines `groupInListOrder`; K1 and K2 lines neither flag. K1 and K2 are consumers of the pair, so the group {H, G} falls back although none of its members is in the cycle; H `min(15, 10) = 10`, G `min(5, 10) = 5`, K2 and K1 below see nothing left, so each K needs its 10 X from V: 20 X, `make-x` 10.
 
@@ -960,6 +960,26 @@ Case 16's fixture (tabs and loop member orders as case 16), list `{C1, C2}` on S
 ### f — a warm solve
 
 Row b1 solved twice through one `SolveCache`: the second solve stores no block (no `cache.set`) and `served` equals a cold solve's.
+
+### g — a readiness edge never refuses another list's rank edge
+
+a8's fixture plus **S**, which makes 6 `case11-goal` and so 6 X, with the list `[H1, R]` on X (no tie); H1 also takes X from S (`c-H1S`, after `c-H1`); R makes 4 `case11-other` and 5 `case13-gear` (`case11-use-x`, `case13-use-plate`), requests plate from H2 and takes X from S (`c-RS`). Tabs T, S, H1, R, H2 and T, S, H2, R, H1. The rank edge H1 -> R of S's list stands, so the readiness edge R -> H1 is the one refused: when H1 is reached R is not processed and T's group falls back to list order (flagged): H1 `min(30, 20) = 20` (`c-H1` 20 `ok`, `c-H1S` 0), H2 the 10 left (10 `limited`, imp 15). H1 needs nothing of S, so R is credited `min(6, 4) = 4` (`c-RS` 4, R imports 0, plate 5) and its line of S carries no `notCredited`. (With the readiness edge first, the rank edge H1 -> R was refused and R's take was credited before H1's, `notCredited`.)
+
+### h — entries below the group
+
+a7's fixture, list `[J, H3/L tied, H3/B]` (B is not in the group), tabs T, J, H3 and T, H3, J. H3's connection has an entry below the group, so the group is served in list order (flagged): J `min(30, 25) = 25`, H3 at its first entry `min(30 - 25, 20) = 5`, split by the areas' needs 12:8 into L 3 and B 2. `c-J` 25 (imp 0), `c-H3` 5 (imp 15); lines J 25, H3/L 3, H3/B 2, all `groupInListOrder`. (Shared by need, J would be credited 15 and H3 15, so J would be short while B, ranked below J, is credited.)
+
+### i — a member that does not take the item first
+
+T's list `{H1, H2}`; **A** makes 8 `case11-goal` and so 8 X (a byproduct); H1 (20) takes X from A (`c-H1A`) before T (`c-H1`); H2 = H(H2, 25). `c-H1A` 8, `c-H1` `min(30, 20 - 8) = 12`, H2 the 18 left (`limited`, imp 7); both lines `groupInListOrder`. (Shared by need, H1 would ask T for 20 and H2 would get 15.)
+
+### j — a take ranked below a group shared by need
+
+T's list `[{H1, H2}, H3]`, H1 needs 10, H2 25, H3 20. T leaves 30: `waterFill(30, [10, 25])` is 10 and 20, the group holds 30 once, H3 is left 0 (credit 0, `limited`, imp 20). T leaves 40: 10 and 25, the group holds 35, H3 is left 5 (`c-H3` 5 `limited`, imp 15). No flag on any line.
+
+### k — a member is probed once
+
+Row b1's blocks solved through a cache that never hits and counts its `set` calls: B and H are each solved twice (once by the request pass, B ahead of its turn and reused at it, once by the supply pass).
 
 ### The cycle memo
 
