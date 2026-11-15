@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useSolverStore, selectBlockResults, selectFlows, selectLoops, selectRequestLoops, selectServed } from '../../store/solverStore'
+import { useSolverStore, selectBlockResults, selectFlows, selectLoops, selectRequestLoops } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
 import { closesLoop } from '../../solver/blockGraph'
 import { connectableItems, requestBlockerTitle } from '../../store/connections'
@@ -252,10 +252,11 @@ function ConnectionChip({
   onEdit, onStopEdit, onRemove, onSetLimit,
 }: ConnectionChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
-  const served = useSolverStore(selectServed)
+  const connection = target?.inputConnections.find(c => c.id === id)
+  // Only the (source, item) list of this chip, so a solve that changes another list does not re-render it.
+  const servedList = useSolverStore(s => (source && connection ? s.served[source.id]?.[connection.itemId] : undefined))
   const sourceName = source?.name ?? edge.from
   const targetName = target?.name ?? edge.to
-  const connection = target?.inputConnections.find(c => c.id === id)
   if (!connection) return null
   const unitOf = inputRateUnit(connection.itemId, rateUnit)
   const fmt = (perMin: number) => fmtItemRateText(connection.itemId, perMin / 60, rateUnit)
@@ -266,7 +267,6 @@ function ConnectionChip({
   // The rank this connection's block has in the source's served list for the item; none while the source has no stored list
   // for it, or while the list does not name the block (the chip then says nothing, as the list's divider does).
   const stored = source ? servedListOf(source, connection.itemId) : undefined
-  const servedList = source ? served[source.id]?.[connection.itemId] : undefined
   const ranked = stored && servedList ? splitServed(servedLines(servedList, connection.itemId, rateUnit), stored).ranked : []
   const rank = ranked.find(l => l.blockId === target?.id)?.rank
 
@@ -277,12 +277,12 @@ function ConnectionChip({
   } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}`
   else if (status === 'unused') title = `Not used: ${targetName} makes or needs none from outside`
   if (flow?.loop) title += ' — part of a loop'
-  if (rank !== undefined) title += ` — served ${ordinal(rank)} of ${ranked.length} from ${sourceName}`
   if (flow?.kind === 'request') {
     title += ` — requested: ${sourceName} makes ${fmt(flow.requested ?? 0)} for ${targetName}`
   } else if (flow?.requestIgnored) {
     title += ` — taken as existing: ${REQUEST_IGNORED_TITLE[flow.requestIgnored]}`
   }
+  if (rank !== undefined) title += ` — served ${ordinal(rank)} in ${sourceName}'s list`
 
   return (
     <span

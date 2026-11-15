@@ -475,7 +475,25 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
-      expect(chip().getAttribute('title')).toContain('served 2nd of 2 from Miner')
+      expect(chip().getAttribute('title')).toMatch(/ — served 2nd in Miner's list$/)
+    })
+
+    it('counts the extra output line as a place of the list, as the popover does', () => {
+      setup({ connected: true, minerProducts: [ironOre] })
+      storeList([{ kind: 'extra' }, consumerEntry])
+      useSolverStore.setState({ served: { miner: { 'iron-ore': { ...served(['consumer'])['miner']['iron-ore'], extra: { place: 0, asked: 5, got: 5 } } } } } as never)
+      render(<BlockGraphButton />)
+      open()
+      expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
+    })
+
+    it('puts the served text after a request\'s own title text', () => {
+      setup({ connected: true, minerProducts: [ironOre], flow: { kind: 'request', requested: 30 } })
+      storeList([consumerEntry, { kind: 'block', blockId: 'other' }])
+      useSolverStore.setState({ served: served(['consumer', 'other']) } as never)
+      render(<BlockGraphButton />)
+      open()
+      expect(chip().getAttribute('title')).toBe("Iron Ore: Miner → Consumer — requested: Miner makes 30.0/m for Consumer — served 1st in Miner's list")
     })
 
     it('shows no rank without a stored list', () => {

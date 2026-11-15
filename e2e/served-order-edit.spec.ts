@@ -164,5 +164,5 @@ test('Served order: the graph chips carry the rank of the stored list', async ({
   await page.getByRole('button', { name: 'Block graph' }).click()
   await expect(chipTo('Belts').getByTestId('graph-edge-rank')).toHaveText('#1')
   await expect(chipTo('Gears').getByTestId('graph-edge-rank')).toHaveText('#2')
-  await expect(chipTo('Gears')).toHaveAttribute('title', /served 2nd of 2 from Plates/)
+  await expect(chipTo('Gears')).toHaveAttribute('title', /served 2nd in Plates's list/)
 })
