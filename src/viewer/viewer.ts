@@ -13,7 +13,7 @@ import { MAX_SNAPSHOT_BYTES, snapshotBytes, snapshotId } from './protocol'
 // ---------------------------------------------------------------------------
 // The app's single connection to the in-game viewer's bridge. Creating it opens nothing: the
 // socket is opened only after the player switches the connection on (`viewer.dispatch({type:
-// 'enable'})`), and the solver subscription below does no work while the connection is off.
+// 'enable'})`) or, on a later page load, once `wireViewer` restores the remembered switch, and the solver subscription below does no work while the connection is off.
 // ---------------------------------------------------------------------------
 
 export const viewer = createController(
@@ -104,10 +104,14 @@ export function wireViewer(): () => void {
     // A build still running was started for a connection that is gone: its result is stale.
     if (!wasOff && isOff) generation++
     wasOff = isOff
+    // Remember the switch (only the player's `enable` and `disable` move the phase to or from off).
+    useUiStore.getState().setViewerEnabled(!isOff)
   })
+  // Reconnect when the switch was left on.
+  if (useUiStore.getState().viewerEnabled) viewer.dispatch({ type: 'enable' })
   return () => {
     unsubSolver()
-    unsubViewer()
+    unsubViewer() // before the disable below, so a hot reload does not forget the switch
     generation++
     viewer.dispatch({ type: 'disable' })
   }

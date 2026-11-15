@@ -197,17 +197,29 @@ test.describe('In-game viewer connection', () => {
     expect(JSON.parse(sent.bytes.toString('utf8')).blocks).toHaveLength(2)
   })
 
-  test('the address and auto-send persist, the connection does not', async ({ page }) => {
+  test('the address, auto-send and the switch persist: a reload reconnects', async ({ page }) => {
     await openApp(page)
     await switchOn(page, bridge)
     await viewerDialog(page).getByLabel('Send after every change').check()
     await expect.poll(() => bridge.connections).toBe(1)
     await page.reload()
     await expect(page.getByTestId('block-tab').first()).toBeVisible()
-    await expectViewerOff(page)
+    await expect.poll(() => bridge.connections).toBe(2)
     const dialog = await openViewer(page)
+    await expect(dialog.getByLabel('Connect to the bridge')).toBeChecked()
     await expect(dialog.getByTestId('viewer-address')).toHaveText(bridge.url)
     await expect(dialog.getByLabel('Send after every change')).toBeChecked()
+  })
+
+  test('switching off is remembered: a reload stays off', async ({ page }) => {
+    await openApp(page)
+    await switchOn(page, bridge)
+    await expect.poll(() => bridge.connections).toBe(1)
+    await viewerDialog(page).getByLabel('Connect to the bridge').uncheck()
+    await expectViewerOff(page)
+    await page.reload()
+    await expect(page.getByTestId('block-tab').first()).toBeVisible()
+    await expectViewerOff(page)
     await page.waitForTimeout(300)
     expect(bridge.connections).toBe(1)
   })
