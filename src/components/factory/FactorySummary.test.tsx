@@ -2716,6 +2716,24 @@ describe('FactorySummary — Served order', () => {
     expect(within(screen.getByTestId('served-order-popover')).getAllByText('takes what is left')).toHaveLength(2)
   })
 
+  it('counts the lines a stored list does not rank, and Add to list ranks one', () => {
+    const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', products: [ironGoal], servedOrder: { 'iron-plate': [{ kind: 'block', blockId: 'b' }] } }
+    const wired = (id: string, name: string): Block => ({ ...consumer(id, name), inputConnections: [{ id: `c-${id}`, itemId: 'iron-plate', fromBlockId: 'miner' }] })
+    useBlockStore.setState({ blocks: [miner, wired('b', 'Gears'), wired('c', 'Belts')], activeBlockId: 'miner', history: {} })
+    useSolverStore.setState({
+      lastResult: result, lastResults: { miner: result }, flows: [], _setStatus: () => {},
+      served: { miner: { 'iron-plate': { consumers: [entry('b', 'request', 30, 30), entry('c', 'request', 20, 20)] } } },
+    })
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    fireEvent.click(served('Products').getByRole('button', { name: 'Served order… · 1 not ranked' }))
+    const popover = screen.getByTestId('served-order-popover')
+    fireEvent.click(within(within(popover).getByTestId('served-unranked')).getByTestId('served-add'))
+    expect(useBlockStore.getState().blocks[0].servedOrder?.['iron-plate']).toEqual([{ kind: 'block', blockId: 'b' }, { kind: 'block', blockId: 'c' }])
+    expect(within(popover).queryByTestId('served-divider')).toBeNull()
+    expect(served('Products').getByRole('button', { name: 'Served order…' })).toBeInTheDocument()
+  })
+
   it('closes when another block becomes active', () => {
     setupServed({ miner: { 'iron-plate': { consumers: [entry('b', 'request', 30, 30), entry('c', 'request', 20, 20)] } } })
     render(<FactorySummary />)

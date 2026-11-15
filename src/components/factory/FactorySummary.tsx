@@ -23,7 +23,8 @@ import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { ConnectionLimitEditor } from './ConnectionLimitEditor'
 import { ServedOrderPopover } from './ServedOrderPopover'
-import { hasServedOrder } from './servedOrder'
+import { hasServedOrder, unrankedCount } from './servedOrder'
+import { servedListOf } from '../../data/servedEntries'
 import { SummaryPane } from './SummaryPane'
 import { SummaryLine } from './SummaryLine'
 import type { StripAction } from './SummaryDetailStrip'
@@ -199,6 +200,8 @@ export function FactorySummary() {
   const ruleItems = useSourceRuleItems(activeBlock, gameData)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
+  const moveServed = useBlockStore(s => s.moveServed)
+  const resetServedOrder = useBlockStore(s => s.resetServedOrder)
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
   const allFlows = useSolverStore(selectFlows)
   const addNode = useBlockStore(s => s.addNode)
@@ -273,9 +276,12 @@ export function FactorySummary() {
   const servedOf = (itemId: string) => (activeBlockId ? served[activeBlockId]?.[itemId] : undefined)
   // The popover is tied to one item of one block: close it when either goes away or the order stops being worth showing.
   if (servedPopover && (servedPopover.blockId !== activeBlockId || !hasServedOrder(servedOf(servedPopover.itemId)))) setServedPopover(null)
+  const storedOf = (itemId: string) => (activeBlock ? servedListOf(activeBlock, itemId) : undefined)
   const servedAction = (itemId: string): StripAction[] => hasServedOrder(servedOf(itemId))
     ? [{
-        label: 'Served order…',
+        label: unrankedCount(servedOf(itemId)!, storedOf(itemId)) > 0
+          ? `Served order… · ${unrankedCount(servedOf(itemId)!, storedOf(itemId))} not ranked`
+          : 'Served order…',
         onSelect: e => {
           const r = e.currentTarget.getBoundingClientRect()
           setServedPopover({ blockId: activeBlockId!, itemId, x: r.left, y: r.bottom })
@@ -620,6 +626,9 @@ export function FactorySummary() {
           items={gameData.items}
           blocks={blocks}
           rateUnit={rateUnit}
+          stored={storedOf(servedPopover.itemId)}
+          onMove={(entry, to, shown) => moveServed(servedPopover.blockId, servedPopover.itemId, entry, to, shown)}
+          onReset={() => resetServedOrder(servedPopover.blockId, servedPopover.itemId)}
           x={servedPopover.x}
           y={servedPopover.y}
           onClose={() => setServedPopover(null)}

@@ -2708,6 +2708,11 @@ describe('solveAll — served lists', () => {
       expect(t.consumers[0].got).toBeCloseTo(20, 4)
       expect(t.consumers[1].share).toBeCloseTo(0, 4)
       expect(t.consumers[1].got).toBeCloseTo(5, 4)
+      // Hi needs 20 plate for the 10 gear Hj requests; Hj needs 10 for its kits. Hj is reached before Hi's credit exists.
+      expect(t.consumers[0].need).toBeCloseTo(20, 4)
+      expect(t.consumers[0].notCredited).toBeUndefined()
+      expect(t.consumers[1].need).toBeCloseTo(10, 4)
+      expect(t.consumers[1].notCredited).toBe(true)
       expect(flowOf(all, 'cj').status).toBe('limited')
       expect(rate(all.results.Hj.unsatisfied, 'plate')).toBeCloseTo(5, 4)
       expect(flowOf(all, 'cg').rate).toBeCloseTo(10, 4)
@@ -2723,6 +2728,9 @@ describe('solveAll — served lists', () => {
       expect(t.consumers.map(c => c.blockId)).toEqual(['Hj', 'Hi'])
       expect(t.consumers[0].share).toBeCloseTo(10, 4)
       expect(t.consumers[1].share).toBeCloseTo(15, 4)
+      expect(t.consumers[0].need).toBeCloseTo(10, 4)
+      expect(t.consumers[1].need).toBeCloseTo(20, 4)
+      expect(t.consumers.some(c => c.notCredited)).toBe(false)
       const plain = solveAll(plan(), listData())
       expect(flowOf(plain, 'ci').rate).toBeCloseTo(20, 4)
       expect(flowOf(plain, 'cj').rate).toBeCloseTo(5, 4)
@@ -2921,6 +2929,9 @@ describe('solveAll — served lists', () => {
       expect(plate.consumers.map(c => c.blockId)).toEqual(['H', 'H2'])
       expect(plate.consumers[0].share).toBeCloseTo(0, 4)
       expect(plate.consumers[1].share).toBeCloseTo(10, 4)
+      expect(plate.consumers[0].notCredited).toBe(true)
+      expect(plate.consumers[0].need).toBeCloseTo(10, 4)
+      expect(plate.consumers[1].notCredited).toBeUndefined()
     })
 
     // Same limitation, seen from a takes-first consumer the list does not name. T leaves 25 plate (twin 25). H takes
@@ -2937,6 +2948,40 @@ describe('solveAll — served lists', () => {
       expect(flowOf(all, 'cv').requested).toBeCloseTo(10, 4)
       expect(flowOf(all, 'cut').rate).toBeCloseTo(0, 4)
       expect(all.served.T.plate.consumers.find(c => c.blockId === 'U')?.share).toBeCloseTo(0, 4)
+      const uLine = all.served.T.plate.consumers.find(c => c.blockId === 'U')
+      expect(uLine?.notCredited).toBe(true)
+      expect(uLine?.need).toBeCloseTo(10, 4)
+      expect(all.served.T.plate.consumers.find(c => c.blockId === 'H')?.notCredited).toBeUndefined()
+    })
+
+    // A processed source with nothing left is not "blocked": T makes nothing, so H's listed take is credited 0
+    // and the request pass still probed H's need (10 gear need 20 plate).
+    it('a listed take of a source with nothing left is not flagged', () => {
+      const t = withList(block('T', [prod('slag')], [planNode('t', 'twin')]), 'plate', listOf('H'))
+      const h = block('H', [prod('gear', 10)], [planNode('g', 'gear')], [link('ch', 'T')])
+      const all = solveAll([t, h], dataWith())
+      const line = all.served.T.plate.consumers[0]
+      expect(line.need).toBeCloseTo(20, 4)
+      expect(line.notCredited).toBeUndefined()
+      expect(line.got).toBeCloseTo(0, 4)
+    })
+
+    // A take of a source in the same cycle of requests (the T5 gap): A and B request each other's x and y; A's twin-like
+    // recipe also makes plate, B takes plate from A and A's list ranks B. B is reached before A is processed.
+    // B runs fy 40 times (the cycle of the 'cycles of requests' test), so it needs 0.1 * 40 = 4 plate.
+    it('a take of a source in the same cycle of requests is flagged', () => {
+      const data = connectionGameData()
+      const need = (itemId: string, amount: number) => [{ itemId, type: 'item' as const, amount }]
+      data.recipes.fxz = recipe('fxz', 1, need('y', 0.5), [product('x', 1), product('plate', 1)])
+      data.recipes.fyz = recipe('fyz', 1, [...need('x', 0.5), ...need('plate', 0.1)], [product('y', 1)])
+      const a = withList(block('A', [prod('x', 60)], [planNode('n', 'fxz')], [link('ca', 'B', 'y')]), 'plate', listOf('B'))
+      const b = block('B', [prod('y')], [planNode('n', 'fyz')], [link('cb', 'A', 'x'), link('cz', 'A', 'plate')])
+      const all = solveAll([a, b], data)
+      expect(all.requestLoops).toHaveLength(1)
+      const line = all.served.A.plate.consumers[0]
+      expect(line.blockId).toBe('B')
+      expect(line.notCredited).toBe(true)
+      expect(line.need).toBeCloseTo(4, 3)
     })
 
     // A take-only consumer takes the item from two sources: U (not ranked, 20 plate left) first, then T (listed).
