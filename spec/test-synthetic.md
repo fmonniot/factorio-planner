@@ -1,11 +1,11 @@
 # Solver Synthetic Test Cases
 
-Seventeen recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Eighteen recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 17 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 18 use plain made-up item ids.
 
-Cases 11 to 17 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
+Cases 11 to 18 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -691,6 +691,16 @@ In every row S runs make at 30 and imports nothing, `c-S1` is 20 `ok` and `c-S2`
 
 **d (a round limit of 1):** add **C3** (other 25, `c-3` takes X from S; `c-S3` takes Y from C3), tabs C1, C2, C3, S, list (C3, C2, C1), `loopRoundLimit: 1`. The loop is C1, S, C2, C3 (not converged, 1 round). C1 reads S over a back connection, so round 1 has no previous offer and the credits stay reserved: C3 min(30, 25) = 25, C2 min(30 − 25, 25) = 5, C1 0. C2 is solved before C3 and is offered its reserve 5 plus what nobody reserves (30 − 25 − 5 = 0): `c-2` 5, then `c-3` 25. (With no reservation in round 1, C2 would take 25 and C3 get 5.)
 
+**e (requests in one group, S pinned):** S also has product X (extra 0), so C1 and C2 request X from S (`c-1`, `c-2`, requested 20 and 25), and S's row is pinned at 30: the source is short and S carries `infeasible-pins`. Tabs and loop members as in the table; the list on S's X is a group.
+
+| List on S's X | C1 gets | C2 gets |
+|---|---|---|
+| e1: {C1, C2} | 15 `limited`, 5 imported | 15 `limited`, 10 imported |
+| e2: {C1 80, C2 20} | 20 `ok` | 10 `limited`, 15 imported |
+| e3: {C1 20, C2 80} | 6 `limited`, 14 imported | 24 `limited`, 1 imported |
+
+Same in the three tab orders, `rounds: 2`, `converged: true`, S makes 30, `c-S1` 20 `ok` and `c-S2` 10 `ok` (C1 and C2 make 20 and 25 Y for their goals whatever X they get, so S's 30 Y come 20 from C1 then 10 from C2). e1: 30 left, 15 each, both lack more. e2: offers 24 and 6; C1 lacks 20 and is covered; C2 takes 6; 4 is left and goes to C2: 10. e3: offers 6 and 24, both short, nothing left. `served.S['case16-x']` is C1 {request, share 20}, C2 {request, share 25}, no extra.
+
 ### Derivation
 
 ```
@@ -769,4 +779,38 @@ d: K3 asks 5. Round 1 does not settle (out 10, in 0), so it is kept with c-K2p t
    of K3's share. K2's grant is 0, and connectionOffer(5, 5, 0) = 0.
 e: a list never changes member order: the list's edge W → K1 would make K1 an entry (tab order puts it first), giving K1, K2.
    The shape is taken before the list's edges.
+```
+
+## Case 18 — Shares on a short product
+
+**Exercises:** `tied` groups and shares on a ranked pair: the water-fill inside a group, a covered member's spare going round again, the extra as a member, the tab order never mattering.
+
+**Recipes:** case 13's (`case13-make-plate`, `case13-use-plate`; plate = `case13-plate`).
+
+### Blocks
+
+Case 15's: **A** makes plate, extra 10, its row pinned at 45 (so it carries `infeasible-pins`), a list on plate; **B**, **C**, **D** make 30, 20 and 10 `case13-gear` with `case13-use-plate` and request plate from A (`c-B`, `c-C`, `c-D`).
+
+### Expected solver output
+
+Braces are a group, equal unless a percentage is given. Each row is checked with tabs A, B, C, D and A, D, C, B.
+
+| Row | List on A's plate | B | C | D | Extra got / place | Served order |
+|---|---|---|---|---|---|---|
+| a | B, {C, D} | 30 `ok` | 7.5 `limited`, 12.5 imported | 7.5 `limited`, 2.5 imported | 0 / 3 | B, C, D |
+| b | B, {C 80, D 20} | 30 `ok` | 12 `limited`, 8 imported | 3 `limited`, 7 imported | 0 / 3 | B, C, D |
+| c | {B, D}, C | 30 `ok` | 5 `limited`, 15 imported | 10 `ok` | 0 / 3 | B, D, C |
+| d | {B, C, D} | 17.5 `limited`, 12.5 imported | 17.5 `limited`, 2.5 imported | 10 `ok` | 0 / 3 | B, C, D |
+| e | B, {C, extra} | 30 `ok` | 7.5 `limited`, 12.5 imported | 0 `limited`, 10 imported | 7.5 / 2 | B, C, D |
+
+A runs at 45 in every row. Each `served.A` consumer is a request with `share` the amount asked (30, 20, 10) and `got` its rate; `extra.asked` is 10. A stale head or middle entry in row a's list (`B, ghost, C, {D}` and `B, {C, ghost, D}`) gives row a's numbers. A group of takes stays in list order (case 14's fixture with the list `H2, {H1}` gives case 14 b).
+
+### Derivation
+
+```
+a: B 30, 15 left; the group {C, D} is offered 7.5 each and both lack more.
+b: 15 left; weights 80 and 20: C 12, D 3.
+c: R = 45; the group {B, D} is offered 22.5 each; D takes 10 and passes 12.5; B lacks 7.5 and takes it; 5 is left for C.
+d: 15 each; D takes 10 and passes 5; B and C get 2.5 more each.
+e: B 30, 15 left; {C, extra} offered 7.5 each: C 7.5, the extra holds 7.5; D (not listed) gets 0; extra got min(10, 45 - 30 - 7.5) = 7.5.
 ```

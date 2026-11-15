@@ -1280,7 +1280,7 @@ function computeRequests(
  * their own (see `computeRequests`); that amount, like a take's credit,
  * is reserved for the consumer while others are served; when the source is short, the
  * extra gives way first, then the shares served last. A source with a stored served list for an item
- * (see `rankedPairs`) hands its offer down the list when it is solved: the
+ * (see `rankedPairs`) hands its offer down the list when it is solved (groups split what is left by weight): the
  * list's order, not the solve order, then decides who is short, and a listed extra holds its place. With a `cache`, a block whose
  * flattened plan, game data and caps are unchanged reuses its previous result
  * (same object) instead of solving again. `served` lists, per source and item, the consumers in the
@@ -1320,6 +1320,7 @@ export function solveAll(
     const given = grantByRank(
       offer, entriesOf.get(pair)!, pair.extraRate,
       id => connectionShare(requestPlan.info.get(id), requestPlan.credits.get(id)),
+      id => { const info = requestPlan.info.get(id); return !(info && 'requested' in info) }, // a take (or an ignored request) keeps its group in list order
     )
     for (const [id, amount] of given.grants) grants.set(id, amount)
     const items = pend.get(pair.sourceId) ?? new Map<string, number>()

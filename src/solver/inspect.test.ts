@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { applyWhatIf, findBlock, formatReport, inspectPlan } from './inspect'
+import { applyWhatIf, findBlock, formatReport, inspectPlan, servedReportOf, type InspectReport } from './inspect'
+import type { Block, MultiBlockSolve, ServedEntry } from '../data/types'
 import { loadAppStateFromJson, loadGameDataFromJson } from '../data/loader'
 
 // Runs on the committed Seablock export and the Extra Sulfur block saved with the
@@ -77,5 +78,69 @@ describe('inspectPlan', () => {
     expect(text).toContain('sulfur [product]')
     expect(text).toContain('Imports')
     expect(text).toContain('coproduct-driven')
+  })
+})
+
+describe('servedReportOf', () => {
+  const blk = (id: string, opts: { from?: string; list?: ServedEntry[]; extra?: number } = {}): Block =>
+    ({
+      id, name: `Block ${id}`, color: '#60a5fa',
+      products: opts.extra !== undefined ? [{ id: 'p0', itemId: 'plate', extraRate: opts.extra }] : [],
+      sourceRules: {},
+      inputConnections: opts.from ? [{ id: `c-${id}`, itemId: 'plate', fromBlockId: opts.from }] : [],
+      ...(opts.list ? { servedOrder: { plate: opts.list } } : {}),
+      rootPlan: { id: `root-${id}`, name: 'root', nodes: [], subPlans: [] },
+    }) as unknown as Block
+  const consumer = (id: string, share: number, got: number) => ({ blockId: id, connectionId: `c-${id}`, kind: 'request' as const, share, got })
+  const served = (consumers: ReturnType<typeof consumer>[], extra?: { place: number; asked: number; got: number }): MultiBlockSolve['served'] => ({
+    A: { plate: { consumers, ...(extra ? { extra } : {}) } },
+  })
+
+  it('ranks the lines, groups the tied ones and marks what the list does not name', () => {
+    const list: ServedEntry[] = [{ kind: 'block', blockId: 'B' }, { kind: 'block', blockId: 'C', share: 80 }, { kind: 'block', blockId: 'D', tied: true, share: 20 }]
+    const blocks = [blk('A', { list, extra: 10 }), blk('B', { from: 'A' }), blk('C', { from: 'A' }), blk('D', { from: 'A' }), blk('E', { from: 'A' })]
+    const [item] = servedReportOf(blocks, 'A', served(
+      [consumer('B', 30, 30), consumer('C', 20, 12), consumer('D', 10, 3), consumer('E', 5, 0)],
+      { place: 3, asked: 10, got: 0 },
+    ))
+    expect(item.ranked).toBe(true)
+    expect(item.lines.map(l => [l.name, l.rank, l.listed])).toEqual([
+      ['Block B', 1, true], ['Block C', 2, true], ['Block D', 2, true], ['extra output', 3, false], ['Block E', 4, false],
+    ])
+    expect(item.lines[0].group).toBeUndefined()
+    expect(item.lines[1].group).toEqual({ size: 2, percent: 80 })
+    expect(item.lines[2].group).toEqual({ size: 2, percent: 20 })
+    expect(item.lines[3]).toMatchObject({ kind: 'extra', share: 10, got: 0 })
+    expect(item.lines[3]).not.toHaveProperty('blockId')
+  })
+
+  it('ranks an item with no list from 1 and says so', () => {
+    const blocks = [blk('A'), blk('B', { from: 'A' }), blk('C', { from: 'A' })]
+    const [item] = servedReportOf(blocks, 'A', served([consumer('B', 30, 30), consumer('C', 20, 15)]))
+    expect(item.ranked).toBe(false)
+    expect(item.lines.map(l => [l.rank, l.listed])).toEqual([[1, false], [2, false]])
+  })
+})
+
+describe('formatReport served lists', () => {
+  it('prints groups, lines the list does not name and the unranked header', () => {
+    const report: InspectReport = {
+      block: { id: 'A', name: 'A' }, rows: [], items: [], unsatisfied: [], warnings: [], flows: [], areaRoutes: [],
+      totals: { executions: 0, machineCountExact: 0, machineCountCeil: 0, powerKw: 0 },
+      served: [
+        { itemId: 'plate', ranked: true, lines: [
+          { rank: 1, name: 'B', blockId: 'B', kind: 'request', listed: true, share: 30, got: 30 },
+          { rank: 2, name: 'C', blockId: 'C', kind: 'request', group: { size: 2, percent: 80 }, listed: true, share: 20, got: 12 },
+          { rank: 3, name: 'E', blockId: 'E', kind: 'request', listed: false, share: 5, got: 0 },
+        ] },
+        { itemId: 'gear', ranked: false, lines: [{ rank: 1, name: 'B', blockId: 'B', kind: 'take', listed: false, share: 4, got: 4 }] },
+      ],
+    }
+    const text = formatReport(report)
+    expect(text).toContain('Served lists')
+    expect(text).toContain('[group of 2, 80.00%]')
+    expect(text).toContain('(not in the list)')
+    expect(text).toContain('(no list: solve order)')
+    expect(text).toContain('plate  (list)')
   })
 })

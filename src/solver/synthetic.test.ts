@@ -934,6 +934,64 @@ describe('solver synthetic cases', () => {
       const second = solveAll(blocksOf(['C1', 'C2', 'S'], ['C2', 'C1']), gd, cache)
       for (const id of ['S', 'C1', 'C2']) expect(second.results[id], id).toBe(first.results[id])
     })
+
+    describe('e: its two takes replaced by requests in one group, S pinned at 30', () => {
+      // S also has X as a product (so C1 and C2 request it) and its row is pinned at 30: the source is short.
+      // C1 and C2 make Y per the goal they run for (20 and 25), whatever X they get; S needs 30 Y (its pin),
+      // taken in connection order from c-S1 (20) then c-S2 (10), as in the cases above. No request cycle.
+      const SP = (list: ServedEntry[]): Block => ({
+        ...mk('S', [['case16-goal', 30], [X, 0]], [{ ...planNode('case16-make'), pinnedRate: 30 }], [
+          { id: 'c-S1', itemId: Y, fromBlockId: 'C1' },
+          { id: 'c-S2', itemId: Y, fromBlockId: 'C2' },
+        ]),
+        servedOrder: { [X]: list },
+      })
+      const group = (a: { share?: number }, b: { share?: number }): ServedEntry[] => [
+        { kind: 'block', blockId: 'C1', ...a },
+        { kind: 'block', blockId: 'C2', tied: true, ...b },
+      ]
+      const cases: Array<[string, ServedEntry[], Want, Want]> = [
+        // name, list, C1, C2
+        ['e1: C1, C2 tied: 15 each', group({}, {}), [15, 'limited', 5], [15, 'limited', 10]],
+        ['e2: shares 80, 20: C1 covered at 20, C2 gets the rest', group({ share: 80 }, { share: 20 }), [20, 'ok', 0], [10, 'limited', 15]],
+        ['e3: shares 20, 80', group({ share: 20 }, { share: 80 }), [6, 'limited', 14], [24, 'limited', 1]],
+      ]
+      const tabOrders: Array<[string[], string[]]> = [
+        [['S', 'C1', 'C2'], ['S', 'C1', 'C2']],
+        [['C1', 'C2', 'S'], ['C1', 'S', 'C2']],
+        [['C2', 'C1', 'S'], ['C2', 'S', 'C1']],
+      ]
+      for (const [name, list, c1, c2] of cases) {
+        for (const [tabs, members] of tabOrders) {
+          it(`${name} in tabs ${tabs.join(' ')}`, () => {
+            const byId: Record<string, Block> = { S: SP(list), C1: C('C1', 20), C2: C('C2', 25) }
+            const all = solveAll(tabs.map(t => byId[t]), makeGameData())
+            expect(all.loops[0].blockIds).toEqual(members)
+            expect(all.loops[0]).toMatchObject({ rounds: 2, converged: true })
+            for (const [id, [rate, status, imported]] of [['C1', c1], ['C2', c2]] as Array<[string, Want]>) {
+              const f = flowIn(all, `c-${id.slice(1)}`)
+              expect(f.rate, `${id} rate`).toBeCloseTo(rate, 6)
+              expect(f.status, `${id} status`).toBe(status)
+              expect(unsatisfiedRate(all.results[id], X) ?? 0, `${id} imports`).toBeCloseTo(imported, 6)
+              expect(all.results[id].warnings, `${id} warnings`).toEqual([])
+            }
+            expect(nodeOf(all.results.S, 'case16-make').throughput).toBeCloseTo(30, 6)
+            expect(unsatisfiedRate(all.results.S, Y) ?? 0).toBeCloseTo(0, 6)
+            expect(all.results.S.warnings).toContainEqual({ type: 'infeasible-pins', recipeIds: ['case16-make'] })
+            expect(flowIn(all, 'c-S1').rate).toBeCloseTo(20, 6)
+            expect(flowIn(all, 'c-S1').status).toBe('ok')
+            expect(flowIn(all, 'c-S2').rate).toBeCloseTo(10, 6)
+            expect(flowIn(all, 'c-S2').status).toBe('ok')
+            const got = all.served.S[X]
+            expect(got.consumers.map(c => c.blockId)).toEqual(['C1', 'C2'])
+            expect(got.consumers.map(c => c.kind)).toEqual(['request', 'request'])
+            expect(got.consumers.map(c => c.share)).toEqual([20, 25])
+            got.consumers.forEach((c, i) => expect(c.got, `${c.blockId} got`).toBeCloseTo([c1, c2][i][0], 6))
+            expect(got.extra).toBeUndefined()
+          })
+        }
+      }
+    })
   })
 
   describe('case 17: served order inside a cycle of requests', () => {
@@ -1086,6 +1144,91 @@ describe('solver synthetic cases', () => {
         expect(flowIn(warm, 'c-K2V').requested).toBeCloseTo(5, 6)
         expect(flowIn(warm, 'c-K1V').requested).toBeCloseTo(10, 6)
       })
+    })
+  })
+
+  describe('case 18: shares on a short product', () => {
+    // Case 15's fixture: A is pinned at 45 plate/min and makes an extra of 10 on top; B, C, D ask 30, 20, 10.
+    const P = 'case13-plate'
+    const A = (list?: ServedEntry[]): Block =>
+      mk('A', [[P, 10]], [{ ...rowIn('case13-make-plate', 'root'), pinnedRate: 45 }], [], list, P)
+    const C = (id: string, gears: number): Block =>
+      mk(id, [['case13-gear', gears]], [planNode('case13-use-plate')], [{ id: `c-${id}`, itemId: P, fromBlockId: 'A' }])
+    const asked: Record<string, number> = { B: 30, C: 20, D: 10 }
+    const groupOf = (spec: Array<[name: string, opts?: { tied?: true; share?: number }]>): ServedEntry[] =>
+      spec.map(([name, opts]): ServedEntry => (name === 'extra' ? { kind: 'extra', ...opts } : { kind: 'block', blockId: name, ...opts }))
+    type Want = [number, string, number] // rate, status, imported
+    const T: { tied: true } = { tied: true }
+    const cases: Array<[string, ServedEntry[], Record<string, Want>, string[], number, number]> = [
+      // a: B 30, rest 15; the group {C, D} is offered 7.5 each and both lack more.
+      ['a: B, {C, D}', groupOf([['B'], ['C'], ['D', T]]), { B: [30, 'ok', 0], C: [7.5, 'limited', 12.5], D: [7.5, 'limited', 2.5] }, ['B', 'C', 'D'], 0, 3],
+      // b: rest 15; C weight 80 gets 12, D weight 20 gets 3.
+      ['b: B, {C 80, D 20}', groupOf([['B'], ['C', { share: 80 }], ['D', { tied: true, share: 20 }]]), { B: [30, 'ok', 0], C: [12, 'limited', 8], D: [3, 'limited', 7] }, ['B', 'C', 'D'], 0, 3],
+      // c: R = 45, the group {B, D} is offered 22.5 each; D takes 10, B takes 22.5, rest 12.5; only B is short (7.5), takes it, rest 5; C takes min(20, 5) = 5.
+      ['c: {B, D}, C', groupOf([['B'], ['D', T], ['C']]), { B: [30, 'ok', 0], C: [5, 'limited', 15], D: [10, 'ok', 0] }, ['B', 'D', 'C'], 0, 3],
+      // d: one group of three: 15 each; D takes 10 and passes 5; B and C get 2.5 more each.
+      ['d: {B, C, D}', groupOf([['B'], ['C', T], ['D', T]]), { B: [17.5, 'limited', 12.5], C: [17.5, 'limited', 2.5], D: [10, 'ok', 0] }, ['B', 'C', 'D'], 0, 3],
+      // e: B 30, rest 15; {C, extra} offered 7.5 each: C 7.5, the extra holds 7.5; D (unlisted) gets 0; extra got min(10, 45 - 30 - 7.5) = 7.5.
+      ['e: B, {C, extra}', groupOf([['B'], ['C'], ['extra', T]]), { B: [30, 'ok', 0], C: [7.5, 'limited', 12.5], D: [0, 'limited', 10] }, ['B', 'C', 'D'], 7.5, 2],
+    ]
+    const tabOrders = [['A', 'B', 'C', 'D'], ['A', 'D', 'C', 'B']]
+    const check = (all: ReturnType<typeof solveAll>, want: Record<string, Want>, order: string[], extraGot: number, place: number) => {
+      expect(nodeOf(all.results.A, 'case13-make-plate@root').throughput, 'A runs at its pin').toBeCloseTo(45, 6)
+      expect(all.results.A.warnings).toContainEqual({ type: 'infeasible-pins', recipeIds: ['case13-make-plate'] })
+      for (const [id, [rate, status, imported]] of Object.entries(want)) {
+        const f = flowIn(all, `c-${id}`)
+        expect(f.rate, `${id} rate`).toBeCloseTo(rate, 6)
+        expect(f.status, `${id} status`).toBe(status)
+        expect(f.requested, `${id} requested`).toBeCloseTo(asked[id], 6)
+        expect(unsatisfiedRate(all.results[id], P) ?? 0, `${id} imports`).toBeCloseTo(imported, 6)
+      }
+      const served = all.served.A[P]
+      expect(served.consumers.map(c => c.blockId)).toEqual(order)
+      for (const c of served.consumers) {
+        expect(c.kind, `${c.blockId} kind`).toBe('request')
+        expect(c.share, `${c.blockId} share`).toBeCloseTo(asked[c.blockId], 6)
+        expect(c.got, `${c.blockId} got`).toBeCloseTo(want[c.blockId][0], 6)
+      }
+      expect(served.extra?.asked, 'extra asked').toBeCloseTo(10, 6)
+      expect(served.extra?.place, 'extra place').toBe(place)
+      expect(served.extra?.got, 'extra got').toBeCloseTo(extraGot, 6)
+    }
+    const run18 = (tabs: string[], list: ServedEntry[]) => {
+      const byId: Record<string, Block> = { A: A(list), B: C('B', 30), C: C('C', 20), D: C('D', 10) }
+      return solveAll(tabs.map(t => byId[t]), makeGameData())
+    }
+    for (const [name, list, want, order, extraGot, place] of cases) {
+      for (const tabs of tabOrders) {
+        it(`${name} in tab order ${tabs.join(' ')}`, () => check(run18(tabs, list), want, order, extraGot, place))
+      }
+    }
+
+    // A stale head or middle entry never merges or splits groups: the numbers are row a's.
+    const rowA = cases[0][2]
+    it('g: a stale head promotes its first follower', () => {
+      const list: ServedEntry[] = [{ kind: 'block', blockId: 'B' }, { kind: 'block', blockId: 'ghost' }, { kind: 'block', blockId: 'C' }, { kind: 'block', blockId: 'D', tied: true }]
+      check(run18(['A', 'B', 'C', 'D'], list), rowA, ['B', 'C', 'D'], 0, 3)
+    })
+    it('h: a stale middle entry leaves the group as it was', () => {
+      const list: ServedEntry[] = [{ kind: 'block', blockId: 'B' }, { kind: 'block', blockId: 'C' }, { kind: 'block', blockId: 'ghost', tied: true }, { kind: 'block', blockId: 'D', tied: true }]
+      check(run18(['A', 'B', 'C', 'D'], list), rowA, ['B', 'C', 'D'], 0, 3)
+    })
+
+    it('i: a group of takes stays in list order', () => {
+      const X = 'case11-x'
+      const Tk = (list: ServedEntry[]) => mk('T', [['case11-goal', 30]], [planNode('case11-make-goal')], [], list, X)
+      const H = (id: string, other: number) =>
+        mk(id, [['case11-other', other]], [planNode('case11-use-x')], [{ id: `c-${id}`, itemId: X, fromBlockId: 'T' }])
+      const list: ServedEntry[] = [{ kind: 'block', blockId: 'H2' }, { kind: 'block', blockId: 'H1', tied: true }]
+      for (const tabs of [['T', 'H1', 'H2'], ['T', 'H2', 'H1']]) {
+        const byId: Record<string, Block> = { T: Tk(list), H1: H('H1', 20), H2: H('H2', 25) }
+        const all = solveAll(tabs.map(t => byId[t]), makeGameData())
+        expect(flowIn(all, 'c-H2').rate, 'H2').toBeCloseTo(25, 6)
+        expect(flowIn(all, 'c-H2').status).toBe('ok')
+        expect(flowIn(all, 'c-H1').rate, 'H1').toBeCloseTo(5, 6)
+        expect(flowIn(all, 'c-H1').status).toBe('limited')
+        expect(unsatisfiedRate(all.results.H1, X) ?? 0).toBeCloseTo(15, 6)
+      }
     })
   })
 })
