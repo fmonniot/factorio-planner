@@ -10,6 +10,7 @@
  * and `retain` drops the ones the solve since the last `retain` did not use.
  */
 import type { GameData, SolverGoal, RecipeNode, SolverResult, SourceRule } from '../data/types'
+import type { AreaNeeds } from './servedAreas'
 
 export interface BlockSolve {
   result: SolverResult
@@ -31,6 +32,8 @@ export interface RequestLoopSolve {
   needs: Map<string, number>
   /** take connection ids reached before they could be credited. */
   uncredited: Set<string>
+  /** member id → item id → the member's areas that need the item (its request probe in the last round); only members with areas. Optional so a hand-built outcome stays valid. */
+  areaNeeds?: Map<string, AreaNeeds>
   rounds: number
   converged: boolean
 }

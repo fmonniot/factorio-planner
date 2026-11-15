@@ -57,6 +57,8 @@ export interface ServedLineReport {
   name: string
   /** Absent for the extra. */
   blockId?: string
+  /** The area of the consumer this line is, when the block shows as areas (see `ServedConsumer.areaId`). */
+  areaId?: string
   kind: 'request' | 'take' | 'extra'
   /** Only for a member of a group of two or more. `percent` is its weight in the group (equal when none is stored); a group that holds a take has `listOrder` instead and no percent, because it is served in list order. */
   group?: { size: number; percent?: number; listOrder?: true }
@@ -151,6 +153,14 @@ export function servedReportOf(blocks: readonly Block[], sourceId: string, serve
   const pairs = rankedPairs(blocks).get(sourceId)
   const names = new Map(blocks.map(b => [b.id, b.name]))
   const nameOf = (id: string) => names.get(id) ?? id
+  const byId = new Map(blocks.map(b => [b.id, b]))
+  const areaName = (blockId: string, areaId: string): string => {
+    const find = (plan: SubPlan): string | undefined => (plan.id === areaId ? plan.name : plan.subPlans.map(find).find(n => n !== undefined))
+    const root = byId.get(blockId)?.rootPlan
+    return (root && find(root)) ?? areaId
+  }
+  // A group is keyed by its entry: an area entry by block and area, a block entry by block.
+  const entryKey = (blockId: string, areaId?: string): string => (areaId === undefined ? blockId : `${blockId}\0${areaId}`)
   return Object.entries(served[sourceId] ?? {}).map(([itemId, list]) => {
     const pair = pairs?.get(itemId)
     const ranked = pair !== undefined
@@ -168,16 +178,18 @@ export function servedReportOf(blocks: readonly Block[], sourceId: string, serve
         const inListOrder = members.some(e => e.kind === 'block' && takes.has(e.blockId))
         for (const e of members) {
           const group = inListOrder ? { size: members.length, listOrder: true as const } : { size: members.length, percent: e.weight ?? 100 / members.length }
-          groupOf.set(e.kind === 'extra' ? 'extra' : e.blockId, { g, group })
+          groupOf.set(e.kind === 'extra' ? 'extra' : entryKey(e.blockId, e.areaId), { g, group })
         }
       })
     }
     type Line = Omit<ServedLineReport, 'rank'>
+    const infoOf = (blockId: string, areaId?: string) => (areaId !== undefined && groupOf.get(entryKey(blockId, areaId))) || groupOf.get(blockId)
     const lines: Line[] = list.consumers.map(c => {
-      const info = groupOf.get(c.blockId)
+      const info = infoOf(c.blockId, c.areaId)
       return {
-        name: nameOf(c.blockId),
+        name: c.areaId !== undefined ? `${nameOf(c.blockId)} / ${areaName(c.blockId, c.areaId)}` : nameOf(c.blockId),
         blockId: c.blockId,
+        ...(c.areaId !== undefined ? { areaId: c.areaId } : {}),
         kind: c.kind === 'request' ? 'request' : 'take',
         ...(info && info.group.size >= 2 ? { group: info.group } : {}),
         listed: info !== undefined,
@@ -200,7 +212,7 @@ export function servedReportOf(blocks: readonly Block[], sourceId: string, serve
     let rank = 0
     const rankOfGroup = new Map<number, number>()
     const out = lines.map((l): ServedLineReport => {
-      const info = groupOf.get(l.kind === 'extra' ? 'extra' : l.blockId ?? '')
+      const info = l.kind === 'extra' ? groupOf.get('extra') : infoOf(l.blockId ?? '', l.areaId)
       if (info) {
         let r = rankOfGroup.get(info.g)
         if (r === undefined) rankOfGroup.set(info.g, (r = ++rank))

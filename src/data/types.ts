@@ -167,10 +167,12 @@ export interface ServedConsumer {
   /** its counting connection from the source (the first, if hand-edited JSON repeats the pair) */
   connectionId: string
   kind: ConnectionKind
-  /** items/min asked or credited: a request's amount, a take's credit; 0 when none. For a pair a served list ranks this is not the grant the solve reserved. */
+  /** items/min asked or credited: a request's amount, a take's credit; 0 when none. For a pair a served list ranks this is not the grant the solve reserved. For a split consumer (see `areaId`), the line's part of the connection's share. */
   share: number
   /** items/min delivered */
   got: number
+  /** Set when this line is one area of the consumer block (the block's areas that need the item, ≥ 2, or an area entry of the list); then `share`, `got` and `need` are this area's part. Absent: the line is the whole block. */
+  areaId?: string
   /** items/min of the consumer's need of the item still uncovered when the request pass reached this take (the need less what the takes before it covered); absent for a take the pass never reached (the need was already covered) or never probed. */
   need?: number
   /** A listed or takes-first take the request pass reached before it could credit it (its source or a higher-ranked take not processed yet, or the source in the same cycle of requests): `share` is 0 whatever the list says. */

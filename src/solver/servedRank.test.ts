@@ -154,6 +154,52 @@ describe('rankedPairs', () => {
     })
   })
 
+  describe('area entries', () => {
+    /** `b` with sub-factories `areas` (each an area) under its root, whose id is `root-<id>`. */
+    const withAreas = (b: Block, areas: string[]): Block => ({
+      ...b,
+      rootPlan: { ...b.rootPlan, subPlans: areas.map(id => ({ id, name: id, nodes: [], subPlans: [], area: true })) },
+    } as unknown as Block)
+    const area = (blockId: string, areaId: string, over: Partial<ServedEntry> = {}): ServedEntry => ({ kind: 'block', blockId, areaId, ...over })
+    const areaIds = (entries: RankedEntry[]) => entries.map(e => (e.kind === 'block' ? e.areaId : undefined))
+    const setup = (list: ServedEntry[], areas: string[] | null = ['L', 'B']) => [
+      block('A', { list }),
+      areas ? withAreas(block('H', { from: ['A'] }), areas) : block('H', { from: ['A'] }),
+      block('S', { from: ['A'] }),
+    ]
+
+    it('applies when the consumer has that area', () => {
+      const pair = pairOf(setup([blk('S'), area('H', 'B'), area('H', 'L')]))!
+      expect(ids(pair.listed)).toEqual(['S', 'H', 'H'])
+      expect(areaIds(pair.listed)).toEqual([undefined, 'B', 'L'])
+      const h = pair.listed[1]
+      expect(h.kind === 'block' && h.connection.id).toBe('H-c0')
+    })
+    it('does not apply for an unknown area id', () => {
+      expect(ids(pairOf(setup([blk('S'), area('H', 'ghost')]))!.listed)).toEqual(['S'])
+    })
+    it('does not apply when the consumer has no areas', () => {
+      expect(ids(pairOf(setup([blk('S'), area('H', 'L')], null))!.listed)).toEqual(['S'])
+    })
+    it('takes the root id as an area when the block has areas', () => {
+      expect(areaIds(pairOf(setup([blk('S'), area('H', 'root-H')]))!.listed)).toEqual([undefined, 'root-H'])
+    })
+    it('lists a consumer named only by area entries and keeps its block entry unlisted, flagged areaNamed', () => {
+      const pair = pairOf(setup([area('H', 'L'), area('H', 'B')]))!
+      expect(ids(pair.listed)).toEqual(['H', 'H'])
+      expect(pair.unlisted.map(u => [u.blockId, u.areaNamed])).toEqual([['H', true], ['S', undefined]])
+    })
+    it('keeps an area entry and a block entry of one block, and drops a repeated area entry', () => {
+      const pair = pairOf(setup([area('H', 'B'), blk('H'), area('H', 'B'), blk('H')]))!
+      expect(areaIds(pair.listed)).toEqual(['B', undefined])
+      expect(pair.unlisted.map(u => [u.blockId, u.areaNamed])).toEqual([['S', undefined]])
+    })
+    it('keeps the flag and the weight of a tied area entry in a group', () => {
+      const pair = pairOf(setup([blk('S'), area('H', 'L', { share: 25 }), area('H', 'B', { tied: true, share: 75 })]))!
+      expect(pair.listed.map(e => [e.kind === 'block' && e.areaId, e.tied === true, e.weight])).toEqual([[undefined, false, undefined], ['L', false, 25], ['B', true, 75]])
+    })
+  })
+
   it('ranks each item of a source on its own', () => {
     const a = block('A', { list: [blk('B')] })
     a.servedOrder = { plate: [blk('B')], gear: [blk('B')] }
@@ -302,7 +348,52 @@ describe('grantByRank groups', () => {
   })
 })
 
+describe('grantByRank with areas', () => {
+  const conn = (id: string) => ({ id: `c-${id}`, itemId: 'plate', fromBlockId: 'A' })
+  const part = (id: string, p: number, extra: Partial<Extract<RankedEntry, { kind: 'block' }>> = {}): RankedEntry =>
+    ({ kind: 'block', blockId: id, connection: conn(id), areaId: id === 'H' ? undefined : id, part: p, ...extra })
+  const shareOf = (id: string) => (id === 'c-H' ? 20 : id === 'c-S' ? 30 : 0)
+  const H1 = part('H', 0.4, { areaId: 'B' }), H2 = part('H', 0.6, { areaId: 'L' })
+
+  it('asks the share times the part, and sums the grants of one connection', () => {
+    const rich = grantByRank(100, [H1, H2], 0, shareOf)
+    expect(rich.entryGrants).toEqual([8, 12])
+    expect(rich.grants.get('c-H')).toBe(20)
+    const poor = grantByRank(10, [H1, H2], 0, shareOf)
+    expect(poor.entryGrants).toEqual([8, 2])
+    expect(poor.grants.get('c-H')).toBe(10)
+    expect([...poor.grants.keys()]).toEqual(['c-H'])
+    expect(poor.held).toBe(10)
+  })
+  it('asks the share times the part of two connections', () => {
+    const shares: Record<string, number> = { 'c-B': 20, 'c-L': 20 }
+    const { entryGrants } = grantByRank(100, [part('B', 0.4), part('L', 0.6)], 0, id => shares[id] ?? 0)
+    expect(entryGrants).toEqual([8, 12])
+  })
+  it('lists the grant of each entry in order, the extra included', () => {
+    const { entryGrants, grants } = grantByRank(100, [H1, { kind: 'extra' }, H2], 5, shareOf)
+    expect(entryGrants).toEqual([8, 5, 12])
+    expect(grants.get('c-H')).toBe(20)
+  })
+  it('lists the grants of a group and of a group that holds a take', () => {
+    const group = [H1, { ...H2, tied: true as const }]
+    expect(grantByRank(10, group, 0, shareOf).entryGrants).toEqual([5, 5])
+    expect(grantByRank(10, group, 0, shareOf, () => true).entryGrants).toEqual([8, 2])
+    expect(grantByRank(10, group, 0, shareOf, () => true).grants.get('c-H')).toBe(10)
+  })
+  it('gives entryGrants parallel to the order when no entry has a part', () => {
+    const e = (id: string): RankedEntry => ({ kind: 'block', blockId: id, connection: conn(id) })
+    const { grants, entryGrants } = grantByRank(40, [e('S'), e('H')], 0, shareOf)
+    expect(entryGrants).toEqual([30, 10])
+    expect([...grants.values()]).toEqual(entryGrants)
+  })
+})
+
 describe('servedRankOf', () => {
+  it('lists a block once when several entries name it', () => {
+    const b = (id: string, areaId?: string): RankedEntry => ({ kind: 'block', blockId: id, connection: { id: `c-${id}`, itemId: 'plate', fromBlockId: 'A' }, ...(areaId ? { areaId } : {}) })
+    expect(servedRankOf([b('H', 'B'), b('S'), b('H', 'L')])).toEqual({ blockIds: ['H', 'S'], extraPlace: 2 })
+  })
   it('places the extra among the blocks', () => {
     const b = (id: string): RankedEntry => ({ kind: 'block', blockId: id, connection: { id: `c-${id}`, itemId: 'plate', fromBlockId: 'A' } })
     expect(servedRankOf([b('B'), { kind: 'extra' }, b('C')])).toEqual({ blockIds: ['B', 'C'], extraPlace: 1 })
