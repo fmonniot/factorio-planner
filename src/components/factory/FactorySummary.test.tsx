@@ -2779,6 +2779,42 @@ describe('FactorySummary — Served order', () => {
       }
       expect(listNow()).toEqual([blk('c'), blk('b')])
     })
+
+    it('a middle drop joins the group and an edge drop inside a group leaves it, each undone by one undo', () => {
+      const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', products: [ironGoal], servedOrder: { 'iron-plate': [blk('b'), blk('c')] } }
+      useBlockStore.setState({ blocks: [miner, wired('b', 'Gears'), wired('c', 'Belts')], activeBlockId: 'miner', history: {} })
+      useSolverStore.setState({
+        lastResult: result, lastResults: { miner: result }, flows: [], _setStatus: () => {},
+        served: { miner: { 'iron-plate': { consumers: [entry('b', 'request', 30, 30), entry('c', 'request', 20, 20)] } } },
+      })
+      render(<FactorySummary />)
+      select('Products', 'Iron Plate')
+      fireEvent.click(served('Products').getByRole('button', { name: 'Served order…' }))
+      const popover = screen.getByTestId('served-order-popover')
+      const dropOn = (from: string, to: string, clientY: number) => {
+        const target = popover.querySelector<HTMLElement>(`[data-line-key="${to}"]`)!
+        vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 300, 40))
+        const dataTransfer = { setData: vi.fn(), getData: vi.fn(), effectAllowed: '', dropEffect: '' }
+        fireEvent.dragStart(popover.querySelector<HTMLElement>(`[data-line-key="${from}"]`)!, { dataTransfer })
+        for (const type of ['dragOver', 'drop'] as const) {
+          const event = createEvent[type](target, { dataTransfer })
+          Object.defineProperty(event, 'clientY', { value: clientY })
+          fireEvent(target, event)
+        }
+      }
+      // Belts on the middle of Gears: it joins Gears' group (a move would give [b, c] with no tie, i.e. no change at all)
+      dropOn('block:c', 'block:b', 120)
+      expect(listNow()).toEqual([blk('b'), { ...blk('c'), tied: true }])
+      act(() => useBlockStore.getState().undo())
+      expect(listNow()).toEqual([blk('b'), blk('c')])
+      // redo the join, then drop Belts on its own top edge: it leaves the group (the edge between the two lines)
+      dropOn('block:c', 'block:b', 120)
+      expect(listNow()).toEqual([blk('b'), { ...blk('c'), tied: true }])
+      dropOn('block:c', 'block:c', 102)
+      expect(listNow()).toEqual([blk('b'), blk('c')])
+      act(() => useBlockStore.getState().undo())
+      expect(listNow()).toEqual([blk('b'), { ...blk('c'), tied: true }])
+    })
   })
 
   it('closes when another block becomes active', () => {

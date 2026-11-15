@@ -193,7 +193,8 @@ export type ServedPlace =
  * `list` with `entry` at `place`. A rank of its own goes before `before` (last when null or no longer in the list), is
  * never tied, and makes the line below it a head (so an edge inside a group splits it); a join ties it right after
  * `target`. A removed head promotes its first follower. A leaver or joiner loses its share, a group that stays whole
- * keeps them. An entry absent from `list` joins bare. Undefined when nothing would change or `target` is unknown.
+ * keeps them. An entry absent from `list` joins bare. Undefined when nothing would change, `target` is unknown, or a head
+ * is dropped on its own top edge (a tied member dropped there leaves its group).
  */
 export function withServedEntryRanked(list: readonly ServedEntry[], entry: ServedEntry, place: ServedPlace): ServedEntry[] | undefined {
   const from = list.findIndex(e => sameServedEntry(e, entry))
@@ -210,6 +211,8 @@ export function withServedEntryRanked(list: readonly ServedEntry[], entry: Serve
     tied = true
   } else {
     const b = place.before
+    // A head dropped on its own top edge already has its own rank there: the natural "put it back" is a no-op, not a split of its group.
+    if (b !== null && from >= 0 && headLeft && sameServedEntry(b, entry)) return undefined
     at = b === null ? rest.length : sameServedEntry(b, entry) && from >= 0 ? from : rest.findIndex(e => sameServedEntry(e, b))
     if (at < 0) at = rest.length
     tied = false

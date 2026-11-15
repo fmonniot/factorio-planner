@@ -215,12 +215,23 @@ test('Served order groups: an edge drop leaves a group', async ({ page }, testIn
     { kind: 'extra' },
   ])
 
-  // Belts under Cogs, then its own bottom edge: it leaves again.
+  // Belts under Cogs, then the bottom edge of the line below (the extra, last): it leaves the group and goes last.
   await tie(page, 'Belts').click()
   await expect.poll(() => attrs(page, 'data-rank')).toEqual(['1', '2', '2', '3'])
-  await dragTo(page, 'Belts', 'Belts', 'bottom')
+  await dragTo(page, 'Belts', 'Extra output', 'bottom')
+  await expect.poll(() => names(page)).toEqual(['Gears', 'Cogs', 'Extra output', 'Belts'])
   await expect.poll(() => attrs(page, 'data-rank')).toEqual(['1', '2', '3', '4'])
   await expect(popover(page).getByTestId('served-share')).toHaveCount(0)
+  // 45 plate/min: Gears 30, Cogs 10 (5 left), the extra asks 10 and gets 5, Belts is left with nothing.
+  await expect(lineOf(page, 'Cogs')).toContainText('got 10.0')
+  await expect(lineOf(page, 'Extra output')).toContainText('got 5.0')
+  await expect(lineOf(page, 'Belts').getByTestId('served-short')).toContainText('short 20.0')
+  await storedList(page).toEqual([
+    { kind: 'block', blockId: G },
+    { kind: 'block', blockId: COGS },
+    { kind: 'extra' },
+    { kind: 'block', blockId: BELTS },
+  ])
 })
 
 test('Served order groups: the graph chips carry the rank of a group', async ({ page }, testInfo) => {

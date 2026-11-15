@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ModalPortal } from '../ModalPortal'
 import type { Block, GameData, ServedEntry, ServedList } from '../../data/types'
 import { withServedEntryPlaced, withServedEntryRanked, withServedShare, withServedTied, type ServedPlace } from '../../data/servedEntries'
@@ -66,7 +66,7 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   // What is dragged (a line key), as a ref for the handlers and as state for the faded look; the drop line.
   const dragRef = useRef<string | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
-  const [drop, setDrop] = useState<{ key: string; zone: DropZone | 'divider'; place: ServedPlace; rank?: number } | null>(null)
+  const [drop, setDrop] = useState<Drop | null>(null)
   // The key of the line whose percent field has the focus: such a line is not draggable, so its text can be selected.
   const [fieldKey, setFieldKey] = useState<string | null>(null)
 
@@ -128,18 +128,20 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
 
   const shown = ranked.map(entryOf)
   const base = stored ?? shown
-  const after = (next: ServedEntry[], line: ServedLine) => splitServed(lines, next).ranked.find(l => lineKey(l) === lineKey(line))
+  /** The ranked lines once the list is `next` (computed once per edit), and `line` in them. */
+  const rankedOf = (next: ServedEntry[]) => splitServed(lines, next).ranked
+  const find = (rankedAfter: readonly ServedLine[], line: ServedLine) => rankedAfter.find(l => lineKey(l) === lineKey(line))
+  // The store edits the RAW stored list, the lines show it through the solver's stale rule. `view` is the list as drawn
+  // (heads and tied flags as displayed): an edit the raw list would not make as shown is refused, never half done.
+  const view = ranked.map((l): ServedEntry => (l.group !== undefined && l.group.index > 0 ? { ...entryOf(l), tied: true } : entryOf(l)))
   const says = (text: string) => setAnnounce(a => ({ text, n: a.n + 1 }))
   const keepFocus = (line: ServedLine, selector: string | null) => {
     refocus.current = selector ? `[data-line-key="${lineKey(line)}"] [data-testid="${selector}"]` : null
   }
   /** Where `line` ends up in the ranked lines once the list is `next`: its index and how many lines there are. */
-  const slot = (next: ServedEntry[], line: ServedLine) => {
-    const rankedAfter = splitServed(lines, next).ranked
-    return { at: rankedAfter.findIndex(l => lineKey(l) === lineKey(line)), count: rankedAfter.length }
-  }
-  const focusAfter = (next: ServedEntry[], line: ServedLine, prefer: 'served-move-up' | 'served-move-down') => {
-    const { at, count } = slot(next, line)
+  const focusAfter = (rankedAfter: readonly ServedLine[], line: ServedLine, prefer: 'served-move-up' | 'served-move-down') => {
+    const at = rankedAfter.findIndex(l => lineKey(l) === lineKey(line))
+    const count = rankedAfter.length
     const canUp = at > 0
     const canDown = at < count - 1
     keepFocus(line, prefer === 'served-move-down' ? (canDown ? 'served-move-down' : canUp ? 'served-move-up' : null) : (canUp ? 'served-move-up' : canDown ? 'served-move-down' : null))
@@ -151,8 +153,9 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
     const entry = entryOf(line)
     const next = withServedEntryPlaced(stored ?? to.shown, entry, before && entryOf(before))
     if (next === undefined) return // the store would ignore it too
-    const me = after(next, line)
-    focusAfter(next, line, prefer)
+    const rankedAfter = rankedOf(next)
+    const me = find(rankedAfter, line)
+    focusAfter(rankedAfter, line, prefer)
     if (me) says(`${nameOf(line)} moved to place ${me.rank}${me.group ? `, shared with ${me.group.size - 1} other line${plural(me.group.size - 1)}` : ''}.`)
     onMove(entry, to.toIndex, to.shown)
   }
@@ -160,20 +163,41 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   function place(line: ServedLine, where: ServedPlace, kind: 'edge' | 'join', targetName: string) {
     const entry = entryOf(line)
     const next = withServedEntryRanked(base, entry, where)
-    if (next === undefined) return
-    const me = after(next, line)
-    if (!me) return
-    focusAfter(next, line, 'served-move-up')
+    if (next === undefined) {
+      // The lines say it moves, the raw list says it is done (a stale entry in the way): nothing the store could do.
+      says(`${nameOf(line)} could not be moved.`)
+      return
+    }
+    const rankedAfter = rankedOf(next)
+    const me = find(rankedAfter, line)
+    if (!me || !landed(rankedAfter, me, where)) {
+      says(`${nameOf(line)} could not be moved.`)
+      return
+    }
+    focusAfter(rankedAfter, line, 'served-move-up')
     says(kind === 'join' ? `${nameOf(line)} now shares place ${me.rank} with ${targetName}.` : `${nameOf(line)} moved to its own place ${me.rank}.`)
     onPlace(entry, where, shown)
+  }
+  /** The line ended up where the drop meant: in its target's group, or at a rank of its own right before `before`. */
+  function landed(rankedAfter: readonly ServedLine[], me: ServedLine, where: ServedPlace) {
+    if (where.kind === 'join') {
+      const t = rankedAfter.find(l => lineKey(l) === lineKey(where.target))
+      return me.group !== undefined && me.group.index > 0 && t !== undefined && t.rank === me.rank
+    }
+    if (me.group !== undefined && me.group.index > 0) return false
+    const before = where.before
+    if (before === null) return me.rank === rankedAfter[rankedAfter.length - 1].rank
+    if (lineKey(before) === lineKey(me)) return true // its own top edge: a head is all it takes
+    const b = rankedAfter.find(l => lineKey(l) === lineKey(before))
+    return b === undefined || b.rank === me.rank + 1
   }
   function tie(line: ServedLine, index: number) {
     if (index === 0) return
     const entry = entryOf(line)
     const isTied = line.group !== undefined && line.group.index > 0
     const next = withServedTied(base, entry, !isTied)
-    if (next === undefined) return // already in that state
-    const me = after(next, line)
+    const rankedAfter = next && rankedOf(next)
+    const me = rankedAfter && find(rankedAfter, line)
     if (!me || (!isTied) !== (me.group !== undefined && me.group.index > 0)) {
       says(`${nameOf(line)} could not share with the line above.`)
       return
@@ -193,9 +217,13 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   function share(line: ServedLine, percent: number) {
     const entry = entryOf(line)
     const next = withServedShare(base, entry, percent)
-    if (next === undefined) return
-    const me = after(next, line)
-    says(`${nameOf(line)} now has ${fmtPercent(me?.group?.percent ?? percent)} percent of place ${me?.rank ?? line.rank}.`)
+    const me = next && find(rankedOf(next), line)
+    // The raw group may hold a stale entry the lines skip: its percentages are then not the ones asked for.
+    if (!me?.group || Math.abs(me.group.percent - percent) > 1e-4) {
+      says(`${nameOf(line)} could not change its share.`)
+      return
+    }
+    says(`${nameOf(line)} now has ${fmtPercent(me.group.percent)} percent of place ${me.rank}.`)
     onShare(entry, percent, shown)
   }
   const step = (line: ServedLine, index: number, delta: -1 | 1) => {
@@ -224,15 +252,17 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
     const zone: DropZone = index >= ranked.length ? 'top' : dropZone(e.clientY - r.top, r.height)
     return { zone, place: dropPlace(ranked, index, zone) }
   }
-  /** Dropping where it already is moves nothing. */
-  const moves = (line: ServedLine, where: ServedPlace) => withServedEntryRanked(base, entryOf(line), where) !== undefined
+  /** Dropping where it already is, as the lines show it, moves nothing (and draws no mark). */
+  const moves = (line: ServedLine, where: ServedPlace) => withServedEntryRanked(view, entryOf(line), where) !== undefined
   const onDropOver = (e: React.DragEvent<HTMLElement>, index: number, key: string) => {
     const line = lines.find(l => lineKey(l) === dragRef.current)
     if (!line) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     const t = target(e, index)
-    setDrop(moves(line, t.place) ? { key, zone: index >= ranked.length ? 'divider' : t.zone, place: t.place, rank: ranked[index]?.rank } : null)
+    const next = moves(line, t.place) ? { key, zone: index >= ranked.length ? 'divider' as const : t.zone, place: t.place, rank: ranked[index]?.rank } : null
+    // dragover fires every ~50 ms: the same mark keeps the same state, so nothing re-renders.
+    setDrop(prev => (sameDrop(prev, next) ? prev : next))
   }
   const onDropLeave = (e: React.DragEvent<HTMLElement>) => {
     if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDrop(null)
@@ -326,7 +356,7 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
                 percent={group.percent}
                 onCommit={p => share(line, p)}
                 onInvalid={() => says(INVALID_SHARE)}
-                onFocusChange={f => setFieldKey(f ? key : null)}
+                onFocusChange={f => setFieldKey(cur => (f ? key : cur === key ? null : cur))}
               />
               <span aria-hidden="true" className="-ml-1.5 text-gray-500">%</span>
             </>
@@ -427,10 +457,19 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
           </ol>
         </>
       )}
-      <div role="status" className="sr-only">{announce.text}</div>
+      {/* Keyed on the message count: an identical message is a new node, so it is announced again. */}
+      <div key={announce.n} role="status" className="sr-only">{announce.text}</div>
     </div>
     </ModalPortal>
   )
+}
+
+type Drop = { key: string; zone: DropZone | 'divider'; place: ServedPlace; rank?: number }
+const sameEntry = (a: ServedEntry | null, b: ServedEntry | null) => a === b || (a !== null && b !== null && lineKey(a) === lineKey(b))
+function sameDrop(a: Drop | null, b: Drop | null) {
+  if (a === null || b === null) return a === b
+  if (a.key !== b.key || a.zone !== b.zone || a.rank !== b.rank || a.place.kind !== b.place.kind) return false
+  return a.place.kind === 'rank' ? sameEntry(a.place.before, (b.place as typeof a.place).before) : sameEntry(a.place.target, (b.place as typeof a.place).target)
 }
 
 /** The percent field of a grouped line: a draft while it is edited, committed on Enter or blur; Escape or an invalid value reverts. */
@@ -445,6 +484,10 @@ function ShareField({ label, percent, onCommit, onInvalid, onFocusChange }: {
   const [draft, setDraft] = useState<string | null>(null)
   // The first Esc reverts the draft, the next one reaches the popover.
   useEscapeLayer(draft !== null, () => setDraft(null))
+  // A field that goes away while focused (its group dissolves) fires no blur: tell the line it is gone.
+  const focusChange = useRef(onFocusChange)
+  useLayoutEffect(() => { focusChange.current = onFocusChange })
+  useEffect(() => () => focusChange.current(false), [])
   function commit() {
     if (draft === null) return
     const text = draft.trim()

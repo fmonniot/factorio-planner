@@ -444,4 +444,13 @@ describe('withServedEntryRanked', () => {
   it('13: a stale anchor puts the entry last', () => check(withServedEntryRanked([a, b, c], a, rank(x)), [b, c, a]))
   it('14: leaving a group from its middle promotes the next line', () => check(withServedEntryRanked([a, b, T(c), d], b, rank(null)), [a, c, d, b]))
   it('15: the first line is never tied', () => check(withServedEntryRanked([a, T(b)], a, rank(null)), [b, a]))
+  it('16: a head dropped on its own top edge is a no-op, whatever its group', () => {
+    // b is a head: it already has its own rank at that edge, so its followers stay with it.
+    expect(withServedEntryRanked([b, T(c), T(d)], b, rank(b))).toBeUndefined() // first line of a group of 3
+    expect(withServedEntryRanked([a, b, T(c)], b, rank(b))).toBeUndefined() // head after a solo line
+    expect(withServedEntryRanked([{ ...b, share: 60 }, T(c, 40)], b, rank(b))).toBeUndefined() // shares kept
+    // a tied member still leaves its group (rows 5a, 5b), and the bottom edge of a head splits it from its followers
+    check(withServedEntryRanked([a, T(b), T(c)], c, rank(c)), [a, T(b), c])
+    check(withServedEntryRanked([b, T(c), T(d)], b, rank(c)), [b, c, T(d)])
+  })
 })
