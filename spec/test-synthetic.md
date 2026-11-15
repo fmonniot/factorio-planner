@@ -1,11 +1,11 @@
 # Solver Synthetic Test Cases
 
-Eighteen recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Nineteen recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 18 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 19 use plain made-up item ids.
 
-Cases 11 to 18 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
+Cases 11 to 19 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -814,3 +814,68 @@ c: R = 45; the group {B, D} is offered 22.5 each; D takes 10 and passes 12.5; B 
 d: 15 each; D takes 10 and passes 5; B and C get 2.5 more each.
 e: B 30, 15 left; {C, extra} offered 7.5 each: C 7.5, the extra holds 7.5; D (not listed) gets 0; extra got min(10, 45 - 30 - 7.5) = 7.5.
 ```
+
+## Case 19 — Areas of a consumer
+
+**Exercises:** a ranked source that ranks the areas of a consumer block: an area entry, a block entry standing for the areas no entry names, a group of two areas, one area in a group with another consumer; a pair with no list; areas that trade the item among themselves; a take into a block with areas; a member of a cycle of requests with areas; a block with one needy area staying one line; a stale area entry.
+
+**Recipes:** case 13's (`case13-make-plate`, `case13-use-plate`; plate = `case13-plate`), and case 11's and case 17's for the sub-cases j and k.
+
+### Blocks
+
+**A** makes plate, its row pinned at 45 (36 in row f), no extra output; **S** makes 30 `case13-gear` with `case13-use-plate` and requests plate from A (`c-S`); **H** makes 20 `case13-gear` in two areas, **L** (a `case13-use-plate` row pinned at 12) and **B** (pinned at 8, below L in the table), and requests plate from A (`c-H`). H's request probe gives plate: outside to L 12, outside to B 8. Entries are written `H/L` (the area L of H) and braces make a group.
+
+### Expected solver output
+
+Each row is checked with tabs A, S, H and A, H, S (row a with the first only).
+
+| Row | A's list for plate | `c-S` | `c-H` | Lines (share / got) |
+|---|---|---|---|---|
+| a | none | 30 | 15 | S 30 / 30; H/L 12 / 12; H/B 8 / 3 |
+| b | S, H | 30 | 15 | S 30 / 30; H/L 12 / 12; H/B 8 / 3 |
+| c | S, H/B, H/L | 30 | 15 | S 30 / 30; H/B 8 / 8; H/L 12 / 7 |
+| d | S, {H/L, H/B} | 30 | 15 | S 30 / 30; H/L 12 / 7.5; H/B 8 / 7.5 |
+| e | H/L, S, H/B | 30 | 15 | H/L 12 / 12; S 30 / 30; H/B 8 / 3 |
+| f | {S, H/L}, H/B, A pinned at 36 | 24 | 12 | S 30 / 24; H/L 12 / 12; H/B 8 / 0 |
+| g | H/B, S, H | 30 | 15 | H/B 8 / 8; S 30 / 30; H/L 12 / 7 |
+| h | H/L, H/B, S | 25 | 20 | H/L 12 / 12; H/B 8 / 8; S 30 / 25 |
+
+In every row A runs at its pin with `infeasible-pins`, H's rows run at 12 and 8, H imports 20 less `c-H`, and S has no `areaId`. Further checks: a second solve through the solve cache reports the same lists as a cold one (row c); with one needy area (H with only L, A pinned at 36, list S, H) the lists and flows equal those of the same plan without the area flag, and both lines are whole-block lines; an area entry naming an area H does not have gives row b with no extra line; an area entry for an area that no longer needs plate leaves one line for H.
+
+### Derivation
+
+Requests: S 30, H 20; the parts of H are L 12/20 = 0.6 and B 8/20 = 0.4.
+
+```
+a: no list, tabs A S H: S is solved first: connectionOffer(45, pending 50, 30) = max(min(30, 45), 45 - (50 - 30)) = 30; H gets 15 of its 20.
+   No list, two needy areas: one block entry covering [L 12, B 8], share 20, grant 0; handOut(15, [[0], [20], [20]]) = 15; areas handOut(15, [[12, 8], [12, 8]]) = L 12, B 3.
+b: S 30; H min(20, 15) = 15, handed to its areas in table order: L 12, B 3.
+c: S 30, 15 left; H/B min(8, 15) = 8, 7 left; H/L min(12, 7) = 7; H's block entry (among the unlisted) covers no area: no line.
+d: S 30; the group {H/L 12, H/B 8} is offered 15, 7.5 each, both short.
+e: H/L 12, 33 left; S 30, 3 left; H/B 3.
+f: A pinned at 36; the group {S 30, H/L 12} is offered 36, 18 each; H/L takes 12 and passes 6; S 18 + 6 = 24; nothing is left for H/B.
+g: H/B 8, 37 left; S 30, 7 left; the block entry H covers the area no entry names, L, share 20 x 0.6 = 12: min(12, 7) = 7, labelled H/L.
+h: H/L 12, H/B 8, 25 left; S min(30, 25) = 25.
+```
+
+### Sub-case i — a consumer whose areas trade the item
+
+**H2** has areas P (a `case13-make-plate` row pinned at 5), Q (`case13-use-plate` pinned at 12) and R (`case13-use-plate` pinned at 8), a product of 20 `case13-gear` and a request of plate from A (pinned at 10, a list on plate). Plate in H2: P makes 5, Q and R use 20, so the block imports 15. `itemRoutes` sends P's 5 to Q first (table order) and Q takes 7 and R 8 from outside, not Q 12: the needs are Q 7 and R 8, and the block asks 15. A offers 10: with the list R, Q, the lines are R 8 / 8 and Q 7 / 2; with Q, R they are Q 7 / 7 and R 8 / 3; with no list, handOut(10, [[7, 8], [7, 8]]) gives Q 7 / 7 and R 8 / 3. `c-H2` is 10 and `limited`; area P has no line. The figures per area follow the fixed pairing of `itemRoutes`, so they are right in total and arbitrary in detail where areas trade the item.
+
+### Sub-case j — a take into a block with areas
+
+**T** makes 30 `case11-goal` with `case11-x` on the side (30 leftover, so every connection is a take); **J** uses 25 X (`case11-use-x`, `c-J`); **H3** has areas L (`case11-use-x` pinned at 12) and B (pinned at 8), a product of 20 `case11-other` and a take of X from T (`c-H3`). Each is checked with tabs T, J, H3 and T, H3, J.
+
+- j1, list J, H3/B, H3/L: J is credited min(30, 25) = 25; H3, at its first entry, 5 of its need of 20. Shares: H3/B 5 x 8/20 = 2, H3/L 3. Grants J 25, H3/B 2, H3/L 3, all 30 held. `c-J` 25 `ok`; `c-H3` 5 `limited`, H3 imports 15. Lines: J 25 / 25 (need 25), H3/B 2 / 2 (need 8), H3/L 3 / 3 (need 12), all takes, none `notCredited`.
+- j2, list H3/B, J, H3 (a known limitation): H3's credit is computed at its first entry, min(30, 20) = 20; J, below it, is credited 10. Shares: H3/B 8, J 10, H3 (the block entry, covering L) 12. Grants 8, 10, 12. `c-H3` 20 `ok`, `c-J` 10 `limited`. A rank-faithful solve would give J 22.
+- j3, no list and H3 an unlisted take-only consumer with two needy areas: two H3 lines, L then B, whose `got` add up to `c-H3`'s rate (the needs come from the final solve), and a second solve through the solve cache solves no block again.
+- j3, list J only (H3 unlisted, take-only): J 25; H3 has no credit, so share 0, and gets the 5 left; its areas come from the final solve (L 12, B 8): lines H3/L 0 / 5 and H3/B 0 / 0.
+- j4, a known limitation. T leaves 10 X; the list is C/A, J, C where C has an empty area A and area B (`case11-use-x` pinned at 10) and J needs 10. C's credit sits at its first entry (C/A): min(10, 10) = 10, so J is credited 0 (a rank-faithful solve would give J 10 and C 0): `c-C` 10, `c-J` 0.
+- j5, list H3/B, H3/L, J: H3's credit is taken once, at H3/B: 20; J is credited 10. Shares 8, 12, 10; `c-H3` 20, `c-J` 10 `limited`.
+- j6, list C/B, J with C taking X from T and requesting it from V (areas L 12, B 8), J needing 5 and an unnamed U needing 10 that takes and requests the same way: T leaves 30. C 20 (once), J 5, U 5 and U asks V for 5; C asks V nothing: `c-C` 20, `c-J` 5, `c-U` 5, `c-UV` 5, `c-CV` 0.
+
+### Sub-case k — a member of a cycle of requests with areas
+
+Case 17's cycle (T, V, K1, K2) with K1 in two areas: A1 (`case17-make-p`) and A2 (`case11-use-x`, a product of 6 `case11-other`). K1's request probe needs X 10 in A1 (the p that K2 requests) and 6 in A2. Only invariants are asserted: the cycle settles in its members' order, `served.T[case11-x]` has K1 lines A1 and A2 with shares in the ratio 10 : 6 and `got` adding up to `c-K1T`'s rate; a second solve through the solve cache reads the memo of the cycle and reports the same lists and flows.
+
+With the list K1/A2, K1/A1, K2 on T, the grants read the cycle memo's needs: T leaves 15, K1 needs 16 (A1 10, A2 6) and is credited 15 at its first entry, K2 0. Shares of `c-K1T`: A2 15 x 6/16 = 5.625, A1 15 x 10/16 = 9.375; lines A2 5.625 / 5.625 and A1 9.375 / 9.375, `c-K2T` 0; a second solve through the cache reports the same.

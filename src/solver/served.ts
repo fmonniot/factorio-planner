@@ -1,5 +1,6 @@
 import type { Block, ConnectionFlow, ServedConsumer, ServedExtra, ServedList } from '../data/types'
 import { FLOW_TOLERANCE } from './blockResult'
+import { areaLines, type AreaReport } from './servedAreas'
 import type { ServedRank } from './servedRank'
 
 /**
@@ -12,6 +13,7 @@ import type { ServedRank } from './servedRank'
  * A pair the solver served by the source's stored list (`rankOf` gives its rank) is reported in that
  * order, the consumers the list does not name after the named ones in flow order, and the extra at the
  * place the list gives it. Members of a group keep the list's order; `share` is what was asked, not the group's grant.
+ * A consumer block shown as areas (see `areaLines`) has one line per entry, with its `areaId`; `areaReport` gives it the areas' needs and the entries of a ranked pair.
  */
 export function buildServed(
   flows: ConnectionFlow[],
@@ -20,6 +22,7 @@ export function buildServed(
   left: ReadonlyMap<string, ReadonlyMap<string, number>>,
   rankOf?: (sourceId: string, itemId: string) => ServedRank | undefined,
   takeInfo?: { needs: ReadonlyMap<string, number>; uncredited: ReadonlySet<string> },
+  areaReport?: AreaReport,
 ): Record<string, Record<string, ServedList>> {
   const bySource = new Map<string, Map<string, ServedConsumer[]>>()
   for (const f of flows) {
@@ -43,7 +46,12 @@ export function buildServed(
     Object.fromEntries([...items].map(([itemId, flowOrder]): [string, ServedList] => {
       const rank = rankOf?.(sourceId, itemId)
       let consumers = flowOrder
-      if (rank) {
+      let place: number | undefined
+      const split = areaReport && areaLines(sourceId, itemId, flowOrder, areaReport.entriesOf(sourceId, itemId), b => areaReport.needsOf(b, itemId))
+      if (split) {
+        consumers = split.consumers
+        place = split.extraPlace
+      } else if (rank) {
         const at = (c: ServedConsumer): number => {
           const i = rank.blockIds.indexOf(c.blockId)
           return i < 0 ? rank.blockIds.length : i
@@ -54,7 +62,7 @@ export function buildServed(
       for (const p of blockById.get(sourceId)?.products ?? []) if (p.itemId === itemId) asked += p.extraRate ?? 0
       if (!(asked > FLOW_TOLERANCE)) return [itemId, { consumers }]
       const extra: ServedExtra = {
-        place: rank ? Math.min(rank.extraPlace, consumers.length) : consumers.length,
+        place: place ?? (rank ? Math.min(rank.extraPlace, consumers.length) : consumers.length),
         asked,
         got: Math.min(asked, left.get(sourceId)?.get(itemId) ?? 0),
       }

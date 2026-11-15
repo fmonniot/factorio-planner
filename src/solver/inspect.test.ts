@@ -92,7 +92,7 @@ describe('servedReportOf', () => {
       rootPlan: { id: `root-${id}`, name: 'root', nodes: [], subPlans: [] },
     }) as unknown as Block
   const consumer = (id: string, share: number, got: number, kind: 'request' | 'take' = 'request') => ({ blockId: id, connectionId: `c-${id}`, kind, share, got })
-  const served = (consumers: ReturnType<typeof consumer>[], extra?: { place: number; asked: number; got: number }): MultiBlockSolve['served'] => ({
+  const served = (consumers: Array<ReturnType<typeof consumer> & { areaId?: string }>, extra?: { place: number; asked: number; got: number }): MultiBlockSolve['served'] => ({
     A: { plate: { consumers, ...(extra ? { extra } : {}) } },
   })
 
@@ -133,6 +133,17 @@ describe('servedReportOf', () => {
     const [item] = servedReportOf(blocks, 'A', served([consumer('B', 30, 30), consumer('C', 20, 15)]))
     expect(item.ranked).toBe(false)
     expect(item.lines.map(l => [l.rank, l.listed])).toEqual([[1, false], [2, false]])
+  })
+
+  it('names an area line like the Areas pane: the root is "Top level", a sub-factory has its own name, a gone one its id', () => {
+    const B = {
+      ...blk('B', { from: 'A' }),
+      rootPlan: { id: 'root-B', name: 'root', nodes: [], subPlans: [{ id: 'L', name: 'Line', nodes: [], subPlans: [] }] },
+    } as unknown as Block
+    const [item] = servedReportOf([blk('A'), B], 'A', served([
+      { ...consumer('B', 4, 4), areaId: 'root-B' }, { ...consumer('B', 3, 3), areaId: 'L' }, { ...consumer('B', 1, 1), areaId: 'gone' },
+    ]))
+    expect(item.lines.map(l => l.name)).toEqual(['Block B / Top level', 'Block B / Line', 'Block B / gone'])
   })
 })
 

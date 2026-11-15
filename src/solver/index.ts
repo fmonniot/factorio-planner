@@ -25,6 +25,7 @@ import {
   FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, sourcingSets, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { buildServed } from './served'
+import { areaNeedsOf, splitByArea, type AreaNeed, type AreaNeeds, type AreaReport } from './servedAreas'
 import { grantByRank, rankedPairs, servedRankOf, type RankedEntry, type RankedPair, type RankedPairs, type ServedRank } from './servedRank'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
@@ -621,6 +622,8 @@ interface RequestPlan {
   needs: Map<string, number>
   /** take connection ids the request pass reached before it could credit them (see `ServedConsumer.notCredited`). */
   uncredited: Set<string>
+  /** block id → item id → the block's areas that need the item from outside (its request probe, table order); only for probed blocks with areas. */
+  areaNeeds: Map<string, AreaNeeds>
 }
 
 /** Items the block connects to existing, non-self sources, each with unlimited supply (a request probe). */
@@ -658,11 +661,11 @@ function probeBlock(
     return probe
   }
   const hit = cache?.get(block.id, gameData, key, caps)
-  if (hit) return { received: hit.received, nodes: hit.result.nodes, failed: false }
+  if (hit) return { received: hit.received, nodes: hit.result.nodes, failed: false, areaNeeds: areaNeedsOf(hit.result.areaRoutes) }
   try {
     const solved = solveBlock(plan, gameData, caps)
     cache?.set(block.id, gameData, key, caps, solved)
-    return { received: solved.received, nodes: solved.result.nodes, failed: false }
+    return { received: solved.received, nodes: solved.result.nodes, failed: false, areaNeeds: areaNeedsOf(solved.result.areaRoutes) }
   } catch {
     cache?.delete(block.id)
     return { received: new Map(), nodes: [], failed: true }
@@ -673,6 +676,8 @@ interface Probe {
   received: Map<string, number>
   nodes: SolvedNode[]
   failed: boolean
+  /** The block's areas that need each item from outside; defined iff the block has areas (see `areaNeedsOf`). */
+  areaNeeds?: AreaNeeds
 }
 
 /**
@@ -789,7 +794,7 @@ function computeRequests(
       else applicable.push({ consumer, connection: c })
     }
   }
-  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set() }
+  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), areaNeeds: new Map() }
 
   const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
   for (const { consumer, connection } of applicable) {
@@ -828,6 +833,7 @@ function computeRequests(
     for (const pair of items.values()) {
       pair.listed.forEach((e, position) => {
         if (e.kind !== 'block' || applicableIds.has(e.connection.id)) return
+        if (rankedTake.has(e.connection.id)) return // a consumer with several entries: the first, best-ranked one keeps the position
         rankedTake.set(e.connection.id, { pair, position })
         if (takeOf.get(e.blockId)?.has(pair.itemId)) return
         const byItem = rankedTakeOf.get(e.blockId) ?? new Map<string, BlockConnection[]>()
@@ -847,7 +853,7 @@ function computeRequests(
         rankedTakeOf.set(e.blockId, byItem)
       })
       for (const u of pair.unlisted) {
-        if (applicableIds.has(u.connection.id) || !takeOf.get(u.blockId)?.has(pair.itemId)) continue
+        if (u.areaNamed || applicableIds.has(u.connection.id) || !takeOf.get(u.blockId)?.has(pair.itemId)) continue
         rankedTake.set(u.connection.id, { pair, position: -1 })
       }
     }
@@ -908,7 +914,9 @@ function computeRequests(
   }
   for (const [sourceId, items] of ranked) {
     for (const pair of items.values()) {
-      const listedTakes = pair.listed.flatMap(e => (e.kind === 'block' && rankedTake.has(e.connection.id) ? [e] : []))
+      // A consumer with several entries gets several edges: the later ones are skipped by `orderEdge` (it never links a block to itself,
+      // and an edge already present makes `reaches` true).
+      const listedTakes = pair.listed.filter((e): e is Extract<RankedEntry, { kind: 'block' }> => e.kind === 'block' && rankedTake.has(e.connection.id))
       const unlistedTakes = pair.unlisted.filter(u => rankedTake.has(u.connection.id))
       if (listedTakes.length + unlistedTakes.length > 0) takeSources.add(sourceId)
       listedTakes.forEach((h, i) => {
@@ -969,13 +977,15 @@ function computeRequests(
     const { listed, extraRate, unlisted } = at.pair
     let rest = left
     const end = at.position < 0 ? listed.length : at.position
+    const counted = new Set<string>() // a consumer with several entries is credited once
     for (let i = 0; i < end; i++) {
       const e = listed[i]
       if (e.kind === 'extra') {
         rest -= Math.min(extraRate, Math.max(0, rest))
         continue
       }
-      if (!rankedTake.has(e.connection.id)) continue // a request: its share is not in the leftover
+      if (!rankedTake.has(e.connection.id) || counted.has(e.connection.id)) continue // a request: its share is not in the leftover
+      counted.add(e.connection.id)
       const c = creditOf(e.blockId, e.connection.id, true)
       if (c === undefined) { // a higher-ranked take is not credited yet
         blocked?.add(t.id)
@@ -985,7 +995,7 @@ function computeRequests(
     }
     if (at.position < 0) {
       for (const u of unlisted) {
-        if (u.connection.id === t.id || !rankedTake.has(u.connection.id)) continue
+        if (u.areaNamed || u.connection.id === t.id || !rankedTake.has(u.connection.id)) continue
         rest -= creditOf(u.blockId, u.connection.id, false) ?? 0
       }
     }
@@ -1004,6 +1014,8 @@ function computeRequests(
     estimates.set(block.id, leftoverEstimate(nodes, requested.get(block.id)))
   }
 
+  const areaNeeds = new Map<string, AreaNeeds>()
+
   for (const component of components) {
     const loop = component.loop && shapeOf(component.loop)
     if (!loop) {
@@ -1015,6 +1027,7 @@ function computeRequests(
       const rankedTakes = rankedTakeOf.get(block.id)
       if (!requests && !rankedTakes && !takeSources.has(block.id)) continue
       const probe = probeBlock(block, effectiveGoals, gameData, connectedCaps(block, byId, selfConnectionIds), cache)
+      if (probe.areaNeeds) areaNeeds.set(block.id, probe.areaNeeds)
       if (requests || rankedTakes) {
         const needed = new Map(probe.received) // item id → what the block would import
         applyTakeCredits(takesOf(block.id), needed, estimates, credits, rankedRest, needs)
@@ -1116,6 +1129,7 @@ function computeRequests(
         const shares = new Map<string, number>()
         const roundCredits = new Map<string, number>()
         const roundNeeds = new Map<string, number>()
+        const roundAreaNeeds = new Map<string, AreaNeeds>()
         const roundBlocked = new Set<string>()
         const forward = new Map<string, Map<string, number>>() // member id → item id → shares from earlier members
         const est = cloneRemaining(estimates)
@@ -1140,6 +1154,7 @@ function computeRequests(
           }
           const probe = probeBlock(block, productGoals(block.products, asked), gameData, connectedCaps(block, byId, selfConnectionIds), memo)
           roundFailed ||= probe.failed
+          if (probe.areaNeeds) roundAreaNeeds.set(block.id, probe.areaNeeds)
           const needed = new Map(probe.received)
           applyTakeCredits(takesOf(block.id), needed, est, roundCredits, roundRest, roundNeeds)
           const requests = (requestsOf.get(block.id) ?? []).filter(c => !(skipBack && back.has(c.id)))
@@ -1167,7 +1182,7 @@ function computeRequests(
           }
         }
         failed ||= roundFailed
-        return { shares, credits: roundCredits, credited, needs: roundNeeds, blocked: roundBlocked, failed: roundFailed }
+        return { shares, credits: roundCredits, credited, needs: roundNeeds, areaNeeds: roundAreaNeeds, blocked: roundBlocked, failed: roundFailed }
       }
 
       const maxAbs = (values: Iterable<number>): number => {
@@ -1232,7 +1247,7 @@ function computeRequests(
       const kept = converged
         ? last
         : runRound(new Map(inputIds.map(id => [id, backCredits.has(id) ? (last.credits.get(id) ?? 0) : 0])), true)
-      solved = { shares: kept.shares, credits: kept.credits, credited: kept.credited, needs: kept.needs, uncredited: kept.blocked, rounds, converged }
+      solved = { shares: kept.shares, credits: kept.credits, credited: kept.credited, needs: kept.needs, areaNeeds: kept.areaNeeds, uncredited: kept.blocked, rounds, converged }
       if (!failed) cache?.setRequestLoop(loop.blockIds, gameData, key, solved)
     }
 
@@ -1250,6 +1265,7 @@ function computeRequests(
     }
     for (const [id, credit] of solved.credits) credits.set(id, credit)
     for (const [id, n] of solved.needs) needs.set(id, n)
+    for (const [id, n] of solved.areaNeeds ?? []) areaNeeds.set(id, n) // not in the memo key: the key holds every plan, and a member's probe follows from its plan and goals
     for (const id of solved.uncredited) uncredited.add(id)
     for (const m of members) processed.add(m.id)
     for (const m of members) {
@@ -1263,7 +1279,7 @@ function computeRequests(
     for (const m of members) estimateTakeSource(m)
     loops.push({ ...loop, rounds: solved.rounds, converged: solved.converged })
   }
-  return { goals, info, credits, loops, needs, uncredited }
+  return { goals, info, credits, loops, needs, uncredited, areaNeeds }
 }
 
 /**
@@ -1300,15 +1316,16 @@ export function solveAll(
   const grants = new Map<string, number>()               // connection id → what a ranked source's list grants it
   const servedRanks = new Map<string, Map<string, ServedRank>>() // source id → item id → rank, for the report
   // Each ranked pair's entries (the listed ones, then the unlisted consumers in solve order) and its place in the report.
+  // Grant time reads the areas' needs of the request pass only (see `reportNeedsOf` for the report).
+  const grantNeedsOf = (blockId: string, itemId: string): readonly AreaNeed[] => requestPlan.areaNeeds.get(blockId)?.get(itemId) ?? []
   const entriesOf = new Map<RankedPair, RankedEntry[]>()
+  const granted = new Map<RankedPair, readonly number[]>() // what the last grant gave each entry of the pair
   for (const items of ranked.values()) {
     for (const pair of items.values()) {
-      const entries: RankedEntry[] = [
-        ...pair.listed,
-        ...pair.unlisted
-          .map(u => ({ kind: 'block' as const, blockId: u.blockId, connection: u.connection }))
-          .sort((a, b) => solvePos.get(a.blockId)! - solvePos.get(b.blockId)!),
-      ]
+      const unlistedSorted = pair.unlisted
+        .map(u => ({ kind: 'block' as const, blockId: u.blockId, connection: u.connection }))
+        .sort((a, b) => solvePos.get(a.blockId)! - solvePos.get(b.blockId)!)
+      const entries = splitByArea([...pair.listed, ...unlistedSorted], id => grantNeedsOf(id, pair.itemId))
       entriesOf.set(pair, entries)
       const byItem = servedRanks.get(pair.sourceId) ?? new Map<string, ServedRank>()
       byItem.set(pair.itemId, servedRankOf(entries))
@@ -1323,6 +1340,7 @@ export function solveAll(
       id => { const info = requestPlan.info.get(id); return !(info && 'requested' in info) }, // a take (or an ignored request) keeps its group in list order
     )
     for (const [id, amount] of given.grants) grants.set(id, amount)
+    granted.set(pair, given.entryGrants) // last call wins, as `grants` does
     const items = pend.get(pair.sourceId) ?? new Map<string, number>()
     items.set(pair.itemId, given.held) // set, not added: the grants replace the shares
     pend.set(pair.sourceId, items)
@@ -1477,10 +1495,31 @@ export function solveAll(
     }
   }
 
+  // The report reads the request pass, else the final solve (a consumer of a pair the pass never probed).
+  const finalNeeds = new Map<string, AreaNeeds | undefined>()
+  const reportNeedsOf = (blockId: string, itemId: string): readonly AreaNeed[] => {
+    const probed = requestPlan.areaNeeds.get(blockId)
+    if (probed) return probed.get(itemId) ?? []
+    if (!finalNeeds.has(blockId)) finalNeeds.set(blockId, areaNeedsOf(results[blockId]?.areaRoutes))
+    return finalNeeds.get(blockId)?.get(itemId) ?? []
+  }
+  const areaReport: AreaReport = {
+    needsOf: reportNeedsOf,
+    entriesOf: (sourceId, itemId) => {
+      const pair = ranked.get(sourceId)?.get(itemId)
+      if (!pair) return undefined
+      // A consumer the list does not name takes none of the pair's leftover at grant time (a take nobody requested has no
+      // credit, so no share), so the request pass never probed it: its areas come from the final solve, like an unranked pair's.
+      const listedEnd = pair.listed.length
+      const entries = entriesOf.get(pair)!.map((e, i) => (i < listedEnd || e.kind === 'extra' || e.areas !== undefined ? e : splitByArea([e], id => reportNeedsOf(id, itemId))[0]))
+      return { entries, granted: granted.get(pair) ?? entries.map(() => 0) }
+    },
+  }
   const served = buildServed(
     flows, blocks, id => connectionShare(requestPlan.info.get(id), requestPlan.credits.get(id)), remaining,
     (sourceId, itemId) => servedRanks.get(sourceId)?.get(itemId),
     { needs: requestPlan.needs, uncredited: requestPlan.uncredited },
+    areaReport,
   )
 
   cache?.retain(blockIds)

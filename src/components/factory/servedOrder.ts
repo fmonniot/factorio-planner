@@ -1,4 +1,4 @@
-import type { ServedEntry, ServedList } from '../../data/types'
+import type { ServedConsumer, ServedEntry, ServedList } from '../../data/types'
 import { servedEntryKey } from '../../data/servedEntries'
 import type { RateUnit } from '../../store/uiStore'
 import { isShortfall } from './summarySegments'
@@ -21,10 +21,35 @@ export interface ServedLine {
   notCredited?: true
 }
 
+/**
+ * One consumer per block: the lines of a block's areas merged (at the block's first line, `share`, `got` and `need` summed)
+ * until the list draws areas. `extraPlace` counts blocks, not lines. A list with no area line comes back as it is.
+ */
+export function blockLines(list: ServedList): { consumers: ServedConsumer[]; extraPlace: number | undefined } {
+  if (!list.consumers.some(c => c.areaId !== undefined)) return { consumers: list.consumers, extraPlace: list.extra?.place }
+  const merged = new Map<string, ServedConsumer>()
+  for (const c of list.consumers) {
+    const first = merged.get(c.blockId)
+    if (!first) {
+      const whole = { ...c }
+      delete whole.areaId
+      merged.set(c.blockId, whole)
+      continue
+    }
+    first.share += c.share
+    first.got += c.got
+    if (c.need !== undefined) first.need = (first.need ?? 0) + c.need
+    if (c.notCredited) first.notCredited = true
+  }
+  const extraPlace = list.extra ? new Set(list.consumers.slice(0, list.extra.place).map(c => c.blockId)).size : undefined
+  return { consumers: [...merged.values()], extraPlace }
+}
+
 /** The order is worth showing when something is ordered: two consumers, or one consumer and the extra. */
 export function hasServedOrder(list: ServedList | undefined): boolean {
   if (!list) return false
-  return list.consumers.length >= 2 || (list.consumers.length === 1 && list.extra !== undefined)
+  const { consumers } = blockLines(list)
+  return consumers.length >= 2 || (consumers.length === 1 && list.extra !== undefined)
 }
 
 /**
@@ -32,7 +57,8 @@ export function hasServedOrder(list: ServedList | undefined): boolean {
  * supply), so a gap to `got` may be the consumer's own limit or another source, not this one running dry.
  */
 export function servedLines(list: ServedList, itemId: string, unit: RateUnit): ServedLine[] {
-  const lines: ServedLine[] = list.consumers.map(c => {
+  const { consumers, extraPlace } = blockLines(list)
+  const lines: ServedLine[] = consumers.map(c => {
     const line: ServedLine = { kind: c.kind, rank: 0, blockId: c.blockId, connectionId: c.connectionId, got: c.got }
     if (c.kind === 'request') {
       line.asked = c.share
@@ -47,7 +73,7 @@ export function servedLines(list: ServedList, itemId: string, unit: RateUnit): S
     const { asked, got } = list.extra
     const extra: ServedLine = { kind: 'extra', rank: 0, asked, got }
     if (isShortfall(asked, got, unit, itemId)) extra.short = asked - got
-    lines.splice(Math.min(list.extra.place, lines.length), 0, extra)
+    lines.splice(Math.min(extraPlace ?? list.extra.place, lines.length), 0, extra)
   }
   return lines.map((l, i) => ({ ...l, rank: i + 1 }))
 }
@@ -102,7 +128,7 @@ export function splitServed(lines: ServedLine[], stored: readonly ServedEntry[] 
 export function unrankedCount(list: ServedList, stored: readonly ServedEntry[] | undefined): number {
   if (stored === undefined) return 0
   const keys = new Set(stored.map(lineKey))
-  let n = list.consumers.filter(c => !keys.has(lineKey({ kind: 'block', blockId: c.blockId }))).length
+  let n = blockLines(list).consumers.filter(c => !keys.has(lineKey({ kind: 'block', blockId: c.blockId }))).length
   if (list.extra && !keys.has('extra')) n++
   return n
 }

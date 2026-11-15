@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Block, ConnectionFlow } from '../data/types'
 import { buildServed } from './served'
+import type { AreaReport } from './servedAreas'
+import type { RankedEntry } from './servedRank'
 
 function flow(over: Partial<ConnectionFlow> = {}): ConnectionFlow {
   return {
@@ -110,5 +112,37 @@ describe('buildServed', () => {
     expect(buildServed([], [block('A')], shareOf, none)).toEqual({})
     const served = buildServed([flow({ itemId: 'constructor' })], [block('A')], shareOf, none)
     expect(Object.entries(served.A).map(([item, list]) => [item, list.consumers.length])).toEqual([['constructor', 1]])
+  })
+
+  describe('with an area report', () => {
+    const conn = (id: string) => ({ id, itemId: 'plate', fromBlockId: 'A' })
+    const entry = (blockId: string, id: string, extra: Partial<Extract<RankedEntry, { kind: 'block' }>> = {}): RankedEntry =>
+      ({ kind: 'block', blockId, connection: conn(id), ...extra })
+    const flows = () => [flow({ rate: 15 }), flow({ connectionId: 'c2', toBlockId: 'C', rate: 4 })]
+    const share = (id: string) => (id === 'c1' ? 20 : 7)
+    const a = () => block('A', [['plate', 5]])
+    const left = new Map([['A', new Map([['plate', 4]])]])
+    const rankOf = () => ({ blockIds: ['B', 'C'], extraPlace: 1 })
+    const report = (entries: RankedEntry[], granted: number[], needs: Record<string, { areaId: string; need: number }[]> = {}): AreaReport => ({
+      needsOf: id => needs[id] ?? [],
+      entriesOf: () => ({ entries, granted }),
+    })
+    const HB = entry('B', 'c1', { areaId: 'B', areas: [{ areaId: 'B', need: 8 }], total: 20, part: 0.4 })
+    const Hrest = entry('B', 'c1', { areas: [{ areaId: 'L', need: 12 }], total: 20, part: 0.6 })
+
+    it('reports one line per entry, in entry order, with the area and the place of the extra among the lines', () => {
+      const entries = [HB, { kind: 'extra' } as RankedEntry, entry('C', 'c2'), Hrest]
+      const served = buildServed(flows(), [a()], share, left, rankOf, undefined, report(entries, [8, 3, 4, 7]))
+      const list = served.A.plate
+      expect(list.consumers.map(c => [c.blockId, c.areaId, c.share, c.got])).toEqual([['B', 'B', 8, 8], ['C', undefined, 7, 4], ['B', 'L', 12, 7]])
+      expect(list.consumers[1]).not.toHaveProperty('areaId')
+      expect(list.extra).toEqual({ place: 1, asked: 5, got: 4 })
+    })
+    it('gives the old output when there is no report, or the entries split nothing', () => {
+      const plain = buildServed(flows(), [a()], share, left, rankOf)
+      const unsplit = report([entry('B', 'c1'), entry('C', 'c2'), { kind: 'extra' }], [15, 4, 0])
+      expect(buildServed(flows(), [a()], share, left, rankOf, undefined, unsplit)).toEqual(plain)
+      expect(buildServed(flows(), [a()], share, left, rankOf, undefined, { needsOf: () => [], entriesOf: () => undefined })).toEqual(plain)
+    })
   })
 })

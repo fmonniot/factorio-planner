@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ServedConsumer, ServedEntry, ServedList } from '../../data/types'
-import { hasServedOrder, insertionIndex, lineKey, moveTarget, placement, servedLines, splitServed, unrankedCount } from './servedOrder'
+import { blockLines, hasServedOrder, insertionIndex, lineKey, moveTarget, placement, servedLines, splitServed, unrankedCount } from './servedOrder'
 
 const c = (blockId: string, kind: 'request' | 'take', share: number, got: number): ServedConsumer =>
   ({ blockId, connectionId: `c-${blockId}`, kind, share, got })
@@ -136,5 +136,45 @@ describe('placement', () => {
     expect(placement(lines, undefined, moveTarget(lines, 0, 1)).toIndex).toBe(2)
     expect(placement(lines, undefined, moveTarget(lines, 1, -1)).toIndex).toBe(0)
     expect(placement(lines, [blk('x'), blk('b'), blk('c')], lines[0]).toIndex).toBe(1)
+  })
+})
+
+describe('blockLines', () => {
+  const area = (blockId: string, areaId: string, share: number, got: number, need?: number): ServedConsumer =>
+    ({ ...c(blockId, 'request', share, got), areaId, ...(need !== undefined ? { need } : {}) })
+  const split = (place?: number): ServedList => ({
+    consumers: [area('h', 'L', 12, 12), c('s', 'request', 30, 30), area('h', 'B', 8, 3)],
+    ...(place !== undefined ? { extra: { place, asked: 4, got: 1 } } : {}),
+  })
+
+  it('returns the same array when no consumer has an area', () => {
+    const list: ServedList = { consumers: [c('b', 'request', 1, 1)], extra: { place: 1, asked: 1, got: 1 } }
+    const out = blockLines(list)
+    expect(out.consumers).toBe(list.consumers)
+    expect(out.extraPlace).toBe(1)
+    expect(blockLines({ consumers: [] }).extraPlace).toBeUndefined()
+  })
+  it('merges the lines of a block at its first position, summing share and got', () => {
+    const out = blockLines(split())
+    expect(out.consumers.map(l => [l.blockId, l.share, l.got])).toEqual([['h', 20, 15], ['s', 30, 30]])
+    expect(out.consumers[0]).not.toHaveProperty('areaId')
+  })
+  it('sums the need and keeps notCredited when any line has it', () => {
+    const list: ServedList = { consumers: [{ ...area('h', 'L', 0, 0, 12), kind: 'take', notCredited: true }, { ...area('h', 'B', 0, 0, 8), kind: 'take' }] }
+    expect(blockLines(list).consumers).toEqual([expect.objectContaining({ need: 20, notCredited: true })])
+  })
+  it('remaps the place of the extra to a count of blocks', () => {
+    expect(blockLines(split(1)).extraPlace).toBe(1)
+    expect(blockLines(split(2)).extraPlace).toBe(2)
+    expect(blockLines(split(3)).extraPlace).toBe(2)
+  })
+  it('feeds servedLines, unrankedCount and hasServedOrder one line per block', () => {
+    const lines = servedLines(split(), 'plate', 'min')
+    expect(lines.map(l => [l.blockId, l.asked, l.got])).toEqual([['h', 20, 15], ['s', 30, 30]])
+    expect(lines[0].short).toBeCloseTo(5, 6)
+    expect(unrankedCount(split(), [{ kind: 'block', blockId: 's' }])).toBe(1)
+    expect(unrankedCount(split(), [])).toBe(2)
+    expect(hasServedOrder({ consumers: [area('h', 'L', 12, 12), area('h', 'B', 8, 3)] })).toBe(false)
+    expect(hasServedOrder({ consumers: [area('h', 'L', 12, 12), area('h', 'B', 8, 3)], extra: { place: 2, asked: 1, got: 1 } })).toBe(true)
   })
 })

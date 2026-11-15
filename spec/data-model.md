@@ -860,7 +860,7 @@ interface MultiBlockSolve {
 }
 
 interface ServedList {
-  consumers: ServedConsumer[]   // one per consumer block, in the order served
+  consumers: ServedConsumer[]   // one per consumer block (one per entry for a block shown as areas), in the order served
   extra?: ServedExtra           // the source's own extra output of the item, when it has one
 }
 
@@ -870,6 +870,7 @@ interface ServedConsumer {
   kind: ConnectionKind
   share: number                 // items/min asked or credited (a request's amount, a take's credit; 0 when none); for a pair a served list ranks, not the grant the solve reserved
   got: number                   // items/min delivered
+  areaId?: string               // set when this line is one area of the consumer block (the block's areas that need the item, ≥ 2, or an area entry of the list); then share, got and need are this area's part. Absent: the line is the whole block
   need?: number                 // items/min of the consumer's need still uncovered when the request pass reached this take; only for a take the pass reached
   notCredited?: true            // a listed or takes-first take the request pass reached before it could credit it: `share` is 0 whatever the list says
 }

@@ -6,7 +6,7 @@ import type { RateUnit } from '../../store/uiStore'
 import { fmtItemRateText } from './ItemTile'
 import { MINI_BUTTON_CLASS } from './Switch'
 import { useDismiss } from './sidePanel/useDismiss'
-import { entryOf, hasServedOrder, lineKey, moveTarget, placement, servedLines, splitServed, type ServedLine } from './servedOrder'
+import { blockLines, entryOf, hasServedOrder, lineKey, moveTarget, placement, servedLines, splitServed, type ServedLine } from './servedOrder'
 
 // ---------------------------------------------------------------------------
 // ServedOrderPopover — the order the solver serves an item's consumers in, and where the source's own extra output
@@ -42,7 +42,7 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   const origin = useRef<HTMLElement | null>(null)
   const [pos, setPos] = useState({ x, y })
   const itemName = items[itemId]?.name ?? itemId
-  const lineCount = list.consumers.length + (list.extra ? 1 : 0)
+  const lineCount = blockLines(list).consumers.length + (list.extra ? 1 : 0)
   // A move reorders keyed lines and the browser drops the focus of the one that moved: put it back (a selector, on `refocus`).
   const refocus = useRef<string | null>(null)
   useLayoutEffect(() => {

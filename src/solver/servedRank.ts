@@ -1,6 +1,8 @@
 import type { Block, BlockConnection } from '../data/types'
-import { dropServedEntries, groupPercents, servedGroups, validShare } from '../data/servedEntries'
+import { dropServedEntries, groupPercents, servedEntryKey, servedGroups, validShare } from '../data/servedEntries'
+import { blockAreas } from './areas'
 import { FLOW_TOLERANCE } from './blockResult'
+import type { AreaNeed } from './servedAreas'
 
 /** Group flags of a listed entry; absent on a list without `tied`. */
 interface RankedFlags {
@@ -11,7 +13,20 @@ interface RankedFlags {
 }
 
 /** One entry of a served list that applies: the source's own extra output, or a consumer block with a connection for the item. */
-export type RankedEntry = ({ kind: 'extra' } | { kind: 'block'; blockId: string; connection: BlockConnection }) & RankedFlags
+export type RankedEntry = (
+  | { kind: 'extra' }
+  | {
+      kind: 'block'
+      blockId: string
+      connection: BlockConnection
+      /** The area of the consumer this entry names; absent: the block entry, standing for the areas no area entry names. */
+      areaId?: string
+      /** Set by `splitByArea`: the areas this entry covers (table order), the block's total need and this entry's part of it. */
+      areas?: readonly AreaNeed[]
+      total?: number
+      part?: number
+    }
+) & RankedFlags
 
 /** A (source, item) pair whose stored served list the solver honours. */
 export interface RankedPair {
@@ -22,7 +37,12 @@ export interface RankedPair {
   /** The entries that apply, in list order. */
   listed: RankedEntry[]
   /** Consumers the list does not name, in blocks order. */
-  unlisted: { blockId: string; connection: BlockConnection }[]
+  unlisted: {
+    blockId: string
+    connection: BlockConnection
+    /** The consumer is named by an area entry of `listed`; its block entry sits here, among the consumers the list does not name. */
+    areaNamed?: true
+  }[]
 }
 
 /** source id → item id → pair. */
@@ -31,12 +51,16 @@ export type RankedPairs = Map<string, Map<string, RankedPair>>
 /**
  * The (source, item) pairs whose served list the solver honours: the source has a list for the item and
  * at least one entry applies, whatever loops (of blocks or of requests) the blocks are in. Entries that do not apply (repeats, the source itself, unknown blocks,
- * blocks with no connection for the item, the extra when the source has none, entries naming an area) are removed with `dropServedEntries`, so the
+ * blocks with no connection for the item, the extra when the source has none, entries naming an area the consumer does not have) are removed with `dropServedEntries`, so the
  * `tied` groups are formed among the entries that apply (a removed entry never merges or splits groups) and a group's `share`s become `weight`s.
- * A consumer is counted under its first connection for the (source, item) pair.
+ * A consumer is counted under its first connection for the (source, item) pair. An entry naming an area applies when its
+ * consumer counts and the area is one of its areas (the root's id included, once the block has areas); entries of one block
+ * (its block entry and its area entries) are distinct, a repeat of one is dropped. A consumer named only by area entries
+ * stays in `unlisted` too, flagged `areaNamed`: its block entry stands for the areas no entry names.
  */
 export function rankedPairs(blocks: readonly Block[]): RankedPairs {
   const pairs: RankedPairs = new Map()
+  const blockById = new Map(blocks.map(b => [b.id, b]))
   for (const source of blocks) {
     if (!source.servedOrder) continue
     for (const [itemId, list] of Object.entries(source.servedOrder)) {
@@ -49,11 +73,18 @@ export function rankedPairs(blocks: readonly Block[]): RankedPairs {
       let extraRate = 0
       for (const p of source.products) if (p.itemId === itemId) extraRate += p.extraRate ?? 0
       const seen = new Set<string>()
+      const areasOf = new Map<string, Set<string> | undefined>() // consumer id → its area ids, looked up once
+      const hasArea = (blockId: string, areaId: string): boolean => {
+        if (!areasOf.has(blockId)) {
+          const areas = blockById.get(blockId) ? blockAreas(blockById.get(blockId)!.rootPlan) : undefined
+          areasOf.set(blockId, areas && new Set(areas.map(a => a.id)))
+        }
+        return areasOf.get(blockId)?.has(areaId) ?? false
+      }
+      const areaNamedIds = new Set<string>()
       const hit: Array<RankedEntry | undefined> = [] // by list index: the entry when it applies
       for (const entry of list) {
-        // An entry naming one area of a consumer does not apply here: the solver ranks whole consumers.
-        if (entry.kind === 'block' && entry.areaId !== undefined) { hit.push(undefined); continue }
-        const key = entry.kind === 'extra' ? 'extra' : `block:${entry.blockId}`
+        const key = servedEntryKey(entry)
         if (seen.has(key)) { hit.push(undefined); continue }
         seen.add(key)
         if (entry.kind === 'extra') {
@@ -61,7 +92,12 @@ export function rankedPairs(blocks: readonly Block[]): RankedPairs {
           continue
         }
         const found = counting.get(entry.blockId)
-        hit.push(found ? { kind: 'block', blockId: found.blockId, connection: found.connection } : undefined)
+        if (found && entry.areaId !== undefined && !hasArea(entry.blockId, entry.areaId)) {
+          hit.push(undefined)
+          continue
+        }
+        if (found && entry.areaId !== undefined) areaNamedIds.add(entry.blockId)
+        hit.push(found ? { kind: 'block', blockId: found.blockId, connection: found.connection, ...(entry.areaId !== undefined ? { areaId: entry.areaId } : {}) } : undefined)
       }
       const kept = dropServedEntries(list, (_e, i) => hit[i] === undefined)
       const survivors = hit.flatMap(h => (h ? [h] : [])) // parallel to `kept`
@@ -74,7 +110,9 @@ export function rankedPairs(blocks: readonly Block[]): RankedPairs {
         })
       }
       if (listed.length === 0) continue
-      const unlisted = [...counting.values()].filter(c => !seen.has(`block:${c.blockId}`))
+      const unlisted = [...counting.values()]
+        .filter(c => !seen.has(`block:${c.blockId}`))
+        .map(c => (areaNamedIds.has(c.blockId) ? { ...c, areaNamed: true as const } : c))
       let items = pairs.get(source.id)
       if (!items) pairs.set(source.id, (items = new Map()))
       items.set(itemId, { sourceId: source.id, itemId, extraRate, listed, unlisted })
@@ -89,7 +127,8 @@ export function rankedPairs(blocks: readonly Block[]): RankedPairs {
  * each member still short is offered `left * weight / sum of the weights` and takes `min(what it lacks, that)`, again and
  * again while something is left and somebody is short. The extra is a member like any block (its share is `extraRate`)
  * but has no grant entry. A group that holds a take (`isTake`) is served in list order, member by member. `held` is what the
- * order holds in all (never above the offer).
+ * order holds in all (never above the offer). An entry of a split consumer (see `splitByArea`) asks its connection's share times
+ * its `part`; a connection's grant is the sum over its entries, and `entryGrants` lists each entry's own grant, parallel to `order`.
  */
 export function grantByRank(
   offer: number,
@@ -97,36 +136,44 @@ export function grantByRank(
   extraRate: number,
   shareOf: (connectionId: string) => number,
   isTake?: (connectionId: string) => boolean,
-): { grants: Map<string, number>; held: number } {
+): { grants: Map<string, number>; held: number; entryGrants: number[] } {
   const total = Math.max(0, offer)
   let rest = total
   const grants = new Map<string, number>()
-  const askOf = (e: RankedEntry): number => (e.kind === 'extra' ? extraRate : Math.max(0, shareOf(e.connection.id)))
+  const entryGrants = order.map(() => 0)
+  const askOf = (e: RankedEntry): number => {
+    if (e.kind === 'extra') return extraRate
+    const share = Math.max(0, shareOf(e.connection.id))
+    return e.part === undefined ? share : share * e.part
+  }
+  const give = (e: RankedEntry, at: number, amount: number): void => {
+    entryGrants[at] = amount
+    if (e.kind === 'block') grants.set(e.connection.id, (grants.get(e.connection.id) ?? 0) + amount)
+  }
   let i = 0
   while (i < order.length) {
     let j = i + 1
     while (j < order.length && order[j].tied === true) j++
     const group = order.slice(i, j)
+    const start = i
     i = j
     const holdsTake = isTake !== undefined && group.some(e => e.kind === 'block' && isTake(e.connection.id))
     if (group.length === 1 || holdsTake) {
-      for (const e of group) {
+      group.forEach((e, m) => {
         const amount = Math.min(askOf(e), rest)
-        if (e.kind === 'block') grants.set(e.connection.id, amount)
+        give(e, start + m, amount)
         rest -= amount
-      }
+      })
       continue
     }
     const shares = group.map(askOf)
     // `rankedPairs` gives every member a valid weight or none; a hand-built group with some missing or invalid reads as equal.
     const given = group.map(e => e.weight)
     const taken = waterFill(rest, shares, given.every(validShare) ? given : undefined)
-    group.forEach((e, m) => {
-      if (e.kind === 'block') grants.set(e.connection.id, taken[m])
-    })
+    group.forEach((e, m) => give(e, start + m, taken[m]))
     rest = Math.max(0, rest - taken.reduce((a, t) => a + t, 0))
   }
-  return { grants, held: total - rest }
+  return { grants, held: total - rest, entryGrants }
 }
 
 /**
@@ -170,7 +217,7 @@ export function servedRankOf(order: readonly RankedEntry[]): ServedRank {
   let extraPlace: number | undefined
   for (const e of order) {
     if (e.kind === 'extra') extraPlace ??= blockIds.length
-    else blockIds.push(e.blockId)
+    else if (!blockIds.includes(e.blockId)) blockIds.push(e.blockId)
   }
   return { blockIds, extraPlace: extraPlace ?? blockIds.length }
 }
