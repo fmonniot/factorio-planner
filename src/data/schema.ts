@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { HEX_COLOR_RE, assignMissingBlockColors } from './blockColors'
 import { reparentSubPlans } from './subPlanTree'
 import { makeHereOf } from './sourceRules'
+import { canonicalServedList } from './servedEntries'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -575,27 +576,33 @@ export const SourceRuleSchema = z
  * carry other kinds. A malformed entry rejects the plan load.
  */
 export const ServedEntrySchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('block'), blockId: z.string().min(1) }),
-  z.object({ kind: z.literal('extra') }),
+  z.object({
+    kind: z.literal('block'),
+    blockId: z.string().min(1),
+    /** One area of the consumer (a sub-plan id). Absent: the entry stands for the areas no entry names. */
+    areaId: z.string().min(1).optional(),
+    /** Shares the rank of the line above it. */
+    tied: z.literal(true).optional(),
+    /** A weight, read as a percentage of its group. Not positive: dropped on load. */
+    share: z.number().optional(),
+  }),
+  z.object({ kind: z.literal('extra'), tied: z.literal(true).optional(), share: z.number().optional() }),
 ])
 
 /** itemId → the entries in the order the item is served. Absent key = today's order; a list is never stored empty. */
 export const ServedOrderSchema = z.record(z.string(), z.array(ServedEntrySchema))
 
-/** `servedOrder` with duplicate entries dropped (first kept) and emptied lists removed; undefined when nothing is left. Entries for unknown blocks stay (the solver ignores them). */
+/**
+ * `servedOrder` in canonical form (see `canonicalServedList`: repeats, a tied first line, non-positive and lone-line
+ * shares dropped) with emptied lists removed; undefined when nothing is left. Entries for unknown blocks stay (the solver ignores them).
+ */
 function normalizeServedOrder(order: z.output<typeof ServedOrderSchema> | undefined): z.output<typeof ServedOrderSchema> | undefined {
   if (order === undefined) return undefined
   const out: z.output<typeof ServedOrderSchema> = {}
   let changed = Object.keys(order).length === 0
   for (const [itemId, list] of Object.entries(order)) {
-    const seen = new Set<string>()
-    const kept = list.filter(e => {
-      const key = e.kind === 'block' ? `block:${e.blockId}` : 'extra'
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-    if (kept.length !== list.length || kept.length === 0) changed = true
+    const kept = canonicalServedList(list)
+    if (kept !== list || kept.length === 0) changed = true
     if (kept.length > 0) Object.defineProperty(out, itemId, { value: kept, enumerable: true, writable: true, configurable: true })
   }
   // The same object when nothing needed normalising.

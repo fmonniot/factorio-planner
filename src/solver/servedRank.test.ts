@@ -59,6 +59,27 @@ describe('rankedPairs', () => {
     expect(pairOf([block('A', { list: [extra, blk('ghost')] }), block('B', { from: ['A'] })])).toBeUndefined()
   })
 
+  it('skips an entry naming an area: the consumer stays unlisted', () => {
+    const blocks = [block('A', { list: [{ kind: 'block', blockId: 'B', areaId: 'x' }, blk('C')] }), block('B', { from: ['A'] }), block('C', { from: ['A'] })]
+    const pair = pairOf(blocks)!
+    expect(ids(pair.listed)).toEqual(['C'])
+    expect(pair.unlisted.map(u => u.blockId)).toEqual(['B'])
+  })
+
+  it('gives no pair for a list of area entries only', () => {
+    expect(pairOf([block('A', { list: [{ kind: 'block', blockId: 'B', areaId: 'x' }] }), block('B', { from: ['A'] })])).toBeUndefined()
+  })
+
+  it('does not read tied or share', () => {
+    const plain = [block('A', { products: [['plate', 5]], list: [blk('B'), blk('C'), extra] }), block('B', { from: ['A'] }), block('C', { from: ['A'] })]
+    const flagged = [
+      block('A', { products: [['plate', 5]], list: [{ ...blk('B'), share: 3 }, { ...blk('C'), tied: true, share: 1 }, { kind: 'extra', tied: true, share: 5 }] }),
+      block('B', { from: ['A'] }),
+      block('C', { from: ['A'] }),
+    ]
+    expect(ids(pairOf(flagged)!.listed)).toEqual(ids(pairOf(plain)!.listed))
+  })
+
   it('ranks each item of a source on its own', () => {
     const a = block('A', { list: [blk('B')] })
     a.servedOrder = { plate: [blk('B')], gear: [blk('B')] }

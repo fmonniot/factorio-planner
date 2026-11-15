@@ -238,6 +238,25 @@ describe('switching data sets', () => {
     expect(JSON.parse(store[KEY()]).blocks[0]).not.toHaveProperty('servedOrder')
   })
 
+  it('round-trips a served list with area, tied and share keys, and saves what the group commands write', () => {
+    const source = { ...makeEmptyBlock('S'), id: 's' }
+    const consumer = { ...makeEmptyBlock('C'), id: 'c', inputConnections: [{ id: 'c1', itemId: 'plate', fromBlockId: 's' }] }
+    const other = { ...makeEmptyBlock('D'), id: 'd', inputConnections: [{ id: 'c2', itemId: 'plate', fromBlockId: 's' }] }
+    const list = [
+      { kind: 'block' as const, blockId: 'c', areaId: 'x' },
+      { kind: 'block' as const, blockId: 'c', share: 30 },
+      { kind: 'block' as const, blockId: 'd', tied: true as const, share: 70 },
+    ]
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    useBlockStore.setState({ blocks: [{ ...source, servedOrder: { plate: list } }, consumer, other], activeBlockId: 's', history: {} })
+    useBlockStore.getState().toggleImportOff('benzene') // any change triggers a save
+    const saved = JSON.parse(store[KEY()])
+    expect(saved.blocks[0].servedOrder).toStrictEqual({ plate: list })
+    expect(parseAppState(saved).blocks[0].servedOrder).toStrictEqual({ plate: list })
+    useBlockStore.getState().setServedTied('s', 'plate', { kind: 'block', blockId: 'c' }, true, [])
+    expect(JSON.parse(store[KEY()]).blocks[0].servedOrder.plate[1]).toStrictEqual({ kind: 'block', blockId: 'c', tied: true, share: 30 })
+  })
+
   it('loads a stored plan with the old sourcing keys as rules and saves it with sourceRules only', () => {
     const { sourceRules: _rules, ...rest } = makeEmptyBlock('Old')
     void _rules

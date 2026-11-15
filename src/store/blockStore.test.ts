@@ -1986,6 +1986,253 @@ describe('served order', () => {
     })
   })
 
+  describe('the group shape and the two group commands', () => {
+    type Flags = { areaId?: string; tied?: true; share?: number }
+    const e = (id: string, flags: Flags = {}): ServedEntry => ({ kind: 'block', blockId: id, ...flags })
+    const T = { tied: true } as const
+    const give = (list: ServedEntry[], source = 'S', itemId = 'plate') =>
+      useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === source ? { ...b, servedOrder: { ...b.servedOrder, [itemId]: list } } : b)) }))
+
+    describe('setServedTied', () => {
+      it('writes the shown order with the entry tied when there is no list', () => {
+        store().setServedTied('S', 'plate', blk('B'), true, shown)
+        expect(listOf('S')).toStrictEqual([e('A'), e('B', T), e('C'), extra])
+        expect(depth('S')).toBe(1)
+      })
+
+      it('does nothing for the first line', () => {
+        const before = store().blocks
+        store().setServedTied('S', 'plate', blk('A'), true, shown)
+        expect(store().blocks).toBe(before)
+        expect(depth('S')).toBe(0)
+      })
+
+      it('unties, dropping the shares, and undo restores them exactly', () => {
+        const list = [e('A', { share: 60 }), e('B', { ...T, share: 40 }), e('C')]
+        give(list)
+        store().setServedTied('S', 'plate', blk('B'), false, shown)
+        expect(listOf('S')).toStrictEqual([e('A'), e('B'), e('C')])
+        store().undo()
+        expect(listOf('S')).toStrictEqual(list)
+        store().redo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B'), e('C')])
+      })
+
+      it('undoes by the inverse after a cleanup changed the list', () => {
+        give([e('A'), e('B'), e('C')])
+        store().setServedTied('S', 'plate', blk('B'), true, shown)
+        store().removeInputConnection('c-C', 'C')
+        expect(listOf('S')).toStrictEqual([e('A'), e('B', T)])
+        store().setActiveBlock('S')
+        store().undo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B')])
+      })
+    })
+
+    describe('setServedShare', () => {
+      it('sets the percentage, undo removes the shares and redo is stable', () => {
+        give([e('A'), e('B', T), e('C')])
+        store().setServedShare('S', 'plate', blk('A'), 70, shown)
+        expect(listOf('S')).toStrictEqual([e('A', { share: 70 }), e('B', { ...T, share: 30 }), e('C')])
+        store().undo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B', T), e('C')])
+        store().redo()
+        expect(listOf('S')).toStrictEqual([e('A', { share: 70 }), e('B', { ...T, share: 30 }), e('C')])
+      })
+
+      it('does nothing for the percentage the group already reads', () => {
+        give([e('A'), e('B', T), e('C')])
+        const before = store().blocks
+        store().setServedShare('S', 'plate', blk('A'), 50, shown)
+        expect(store().blocks).toBe(before)
+        expect(depth('S')).toBe(0)
+      })
+
+      it('creates the list from the shown order', () => {
+        const tiedShown = [e('A'), e('B', T), e('C'), extra]
+        store().setServedShare('S', 'plate', blk('A'), 25, tiedShown)
+        expect(listOf('S')).toStrictEqual([e('A', { share: 25 }), e('B', { ...T, share: 75 }), e('C'), extra])
+        store().undo()
+        expect('servedOrder' in get('S')).toBe(false)
+      })
+    })
+
+    describe('moveServed keeps the shape', () => {
+      it('swaps by position', () => {
+        give([e('A'), e('B', T), e('C')])
+        store().moveServed('S', 'plate', blk('C'), 1, shown)
+        expect(listOf('S')).toStrictEqual([e('A'), e('C', T), e('B')])
+        store().undo()
+        expect(listOf('S')).toStrictEqual([e('A'), e('B', T), e('C')])
+      })
+
+      it('drops the shares of a group that falls apart and undo restores them', () => {
+        const list = [e('A', { share: 60 }), e('B', { ...T, share: 40 }), e('C')]
+        give(list)
+        store().moveServed('S', 'plate', blk('A'), 99, shown)
+        expect(listOf('S')).toStrictEqual([e('B'), e('C', T), e('A')])
+        store().undo()
+        expect(listOf('S')).toStrictEqual(list)
+        store().redo()
+        expect(listOf('S')).toStrictEqual([e('B'), e('C', T), e('A')])
+      })
+
+      it('moves the extra inside a group', () => {
+        give([e('A'), e('B', T), e('C'), extra])
+        store().moveServed('S', 'plate', extra, 1, shown)
+        expect(listOf('S')).toStrictEqual([e('A'), { kind: 'extra', tied: true }, e('B'), e('C')])
+      })
+    })
+
+    describe('cleanups on grouped lists', () => {
+      it('promotes the follower of a removed head and undo restores flags and shares', () => {
+        const list = [e('A', { share: 60 }), e('B', { ...T, share: 40 }), e('C')]
+        give(list)
+        store().removeInputConnection('c-A', 'A')
+        expect(listOf('S')).toStrictEqual([e('B'), e('C')])
+        store().setActiveBlock('A')
+        store().undo()
+        expect(listOf('S')).toStrictEqual(list)
+      })
+
+      it('removes every entry of the consumer, plain and area, and undo restores them in order', () => {
+        const list = [e('B', { areaId: 'x' }), e('A'), e('B'), e('B', { areaId: 'y' }), e('C')]
+        give(list)
+        store().removeInputConnection('c-B', 'B')
+        expect(listOf('S')).toStrictEqual([e('A'), e('C')])
+        store().setActiveBlock('B')
+        store().undo()
+        expect(listOf('S')).toStrictEqual(list)
+      })
+
+      it('repairs the shape when a consumer block is removed', () => {
+        give([e('A'), e('B', T), e('C', T)])
+        store().removeBlock('A')
+        expect(listOf('S')).toStrictEqual([e('B'), e('C', T)])
+      })
+    })
+
+    describe('area entries follow the consumer areas', () => {
+      const area = (id: string, subPlans: SubPlan[] = [], on = true): SubPlan => ({ ...makeEmptySubPlan(id), id, subPlans, ...(on ? { area: true } : {}) })
+      const x = (id = 'C'): ServedEntry => e(id, { areaId: 'x' })
+      function areas(subPlans: SubPlan[], consumer = 'C') {
+        useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === consumer ? { ...b, rootPlan: { ...b.rootPlan, subPlans } } : b)), history: {} }))
+      }
+      beforeEach(() => seed(['A', 'B', 'C'], 'C'))
+
+      it('removing the area sub-factory removes its entries from the source, in the consumer history', () => {
+        areas([area('x')])
+        give([x(), e('B'), e('C')])
+        store().removeSubPlan('x')
+        expect(listOf('S')).toStrictEqual([e('B'), e('C')])
+        expect(depth('S')).toBe(0)
+        store().undo()
+        expect(listOf('S')).toStrictEqual([x(), e('B'), e('C')])
+        store().redo()
+        expect(listOf('S')).toStrictEqual([e('B'), e('C')])
+      })
+
+      it('removes the entries of every area in a deleted subtree', () => {
+        areas([area('x', [area('y')])])
+        give([e('C', { areaId: 'y' }), x(), e('B')])
+        store().removeSubPlan('x')
+        expect(listOf('S')).toStrictEqual([e('B')])
+      })
+
+      it('turning an area off removes its entries, turning one on removes nothing', () => {
+        areas([area('x', [area('y')])])
+        give([x(), e('C', { areaId: 'y' }), e('B')])
+        store().setSubPlanArea('x', false)
+        expect(listOf('S')).toStrictEqual([e('C', { areaId: 'y' }), e('B')])
+        store().undo()
+        expect(listOf('S')).toStrictEqual([x(), e('C', { areaId: 'y' }), e('B')])
+        areas([area('z', [], false)])
+        give([e('C', { areaId: 'z' })])
+        store().setSubPlanArea('z', true)
+        expect(listOf('S')).toStrictEqual([e('C', { areaId: 'z' })])
+      })
+
+      it('the last area going off also removes the entries of the root', () => {
+        areas([area('x')])
+        const rootId = get('C').rootPlan.id
+        give([e('C', { areaId: rootId }), x(), e('B')])
+        store().setSubPlanArea('x', false)
+        expect(listOf('S')).toStrictEqual([e('B')])
+      })
+
+      it('keeps the entries of the root while another area is left', () => {
+        areas([area('x'), area('y')])
+        const rootId = get('C').rootPlan.id
+        give([e('C', { areaId: rootId }), x()])
+        store().setSubPlanArea('x', false)
+        expect(listOf('S')).toStrictEqual([e('C', { areaId: rootId })])
+      })
+
+      it('cleans two sources in one command', () => {
+        areas([area('x')])
+        const second = { ...makeEmptyBlock('S2'), id: 'S2', products: [{ id: 'p2', itemId: 'plate' }] }
+        useBlockStore.setState(st => ({
+          blocks: [...st.blocks.map(b => (b.id === 'C' ? { ...b, inputConnections: [...b.inputConnections, link('C2', 'S2')] } : b)), second],
+        }))
+        give([x(), e('B')])
+        give([x()], 'S2')
+        store().removeSubPlan('x')
+        expect(listOf('S')).toStrictEqual([e('B')])
+        expect('servedOrder' in get('S2')).toBe(false)
+        store().undo()
+        expect(listOf('S')).toStrictEqual([x(), e('B')])
+        expect(listOf('S2')).toStrictEqual([x()])
+      })
+
+      it('promotes a tied member after a removed head', () => {
+        areas([area('x')])
+        give([x(), e('B', T), e('A')])
+        store().removeSubPlan('x')
+        expect(listOf('S')).toStrictEqual([e('B'), e('A')])
+      })
+
+      it('undo after the list was reordered reinserts the entry bare at its clamped place', () => {
+        areas([area('x')])
+        give([x(), e('B'), e('C')])
+        store().removeSubPlan('x')
+        give([e('C'), e('B')])
+        store().undo()
+        expect(listOf('S')).toStrictEqual([x(), e('C'), e('B')])
+      })
+
+      it('leaves an entry naming a sub-plan that was never an area', () => {
+        areas([area('x'), area('z', [], false)])
+        give([e('C', { areaId: 'z' }), e('B')])
+        store().removeSubPlan('x')
+        expect(listOf('S')).toStrictEqual([e('C', { areaId: 'z' }), e('B')])
+      })
+    })
+
+    describe('clonePlan with area entries', () => {
+      it('remaps the block, the area and the flags, dropping what has no mapping', () => {
+        const [s0, a, c0] = store().blocks.slice(0, 3)
+        const sub: SubPlan = { ...makeEmptySubPlan('Area'), id: 'x', area: true }
+        const c = { ...c0, rootPlan: { ...c0.rootPlan, subPlans: [sub] } }
+        const list: ServedEntry[] = [e(c.id, { areaId: 'x' }), e(c.id), extra, e(a.id, T), e(c.id, { areaId: 'ghost' }), e(c.id, { areaId: c.rootPlan.id })]
+        const plan: AppState = {
+          blocks: [{ ...s0, servedOrder: { plate: list } }, a, c],
+          activeBlockId: s0.id, horizonTechnologyIds: [], defaultMachineOverrides: {},
+        }
+        const before = structuredClone(plan)
+        const copy = clonePlan(plan)
+        const [, ca, cc] = copy.blocks
+        const newArea = cc.rootPlan.subPlans[0].id
+        expect(newArea).not.toBe('x')
+        expect(copy.blocks[0].servedOrder).toStrictEqual({
+          plate: [e(cc.id, { areaId: newArea }), e(cc.id), extra, e(ca.id, T), e(cc.id, { areaId: cc.rootPlan.id })],
+        })
+        expect(plan).toEqual(before)
+        const ids = [...copy.blocks.flatMap(b => [b.id, b.rootPlan.id, ...b.rootPlan.subPlans.map(sp => sp.id)])]
+        expect(new Set(ids).size).toBe(ids.length)
+      })
+    })
+  })
+
   describe('copies', () => {
     it('cloneBlock drops the list', () => {
       store().moveServed('S', 'plate', blk('C'), 0, shown)

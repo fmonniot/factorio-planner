@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ServedConsumer, ServedEntry, ServedList } from '../../data/types'
-import { hasServedOrder, insertionIndex, moveTarget, placement, servedLines, splitServed, unrankedCount } from './servedOrder'
+import { hasServedOrder, insertionIndex, lineKey, moveTarget, placement, servedLines, splitServed, unrankedCount } from './servedOrder'
 
 const c = (blockId: string, kind: 'request' | 'take', share: number, got: number): ServedConsumer =>
   ({ blockId, connectionId: `c-${blockId}`, kind, share, got })
@@ -55,6 +55,14 @@ describe('servedLines of takes', () => {
   })
 })
 
+describe('lineKey', () => {
+  it('names the extra, a block and a block area', () => {
+    expect(lineKey({ kind: 'extra' })).toBe('extra')
+    expect(lineKey({ kind: 'block', blockId: 'b' })).toBe('block:b')
+    expect(lineKey({ kind: 'block', blockId: 'b', areaId: 'x' })).toBe('block:b:area:x')
+  })
+})
+
 describe('splitServed', () => {
   const list = (): ServedList => ({
     consumers: [c('b', 'request', 1, 1), c('c', 'request', 1, 1), c('d', 'request', 1, 1)],
@@ -91,6 +99,16 @@ describe('splitServed', () => {
     const none = splitServed(servedLines(list(), 'plate', 'min'), [blk('x')])
     expect(none.ranked).toEqual([])
     expect(ids(none.unranked)).toEqual(['b', 'c', 'd', 'extra'])
+  })
+
+  it('leaves an area entry unmatched and ranks flagged plain entries as before', () => {
+    const s = splitServed(servedLines(list(), 'plate', 'min'), [{ kind: 'block', blockId: 'b', areaId: 'x' }, { kind: 'block', blockId: 'c', tied: true }, { kind: 'block', blockId: 'd', share: 4 }])
+    expect(ids(s.ranked)).toEqual(['c', 'd'])
+    expect(ids(s.unranked)).toEqual(['b', 'extra'])
+  })
+
+  it('counts a consumer named only by an area entry as unranked', () => {
+    expect(unrankedCount(list(), [{ kind: 'block', blockId: 'b', areaId: 'x' }, blk('c'), blk('d'), { kind: 'extra' }])).toBe(1)
   })
 
   it('counts what the stored list does not rank', () => {

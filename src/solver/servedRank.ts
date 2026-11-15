@@ -22,7 +22,7 @@ export type RankedPairs = Map<string, Map<string, RankedPair>>
 /**
  * The (source, item) pairs whose served list the solver honours: the source has a list for the item and
  * at least one entry applies, whatever loops (of blocks or of requests) the blocks are in. Entries that do not apply (repeats, the source itself, unknown blocks,
- * blocks with no connection for the item, the extra when the source has none) are dropped.
+ * blocks with no connection for the item, the extra when the source has none, entries naming an area) are dropped; `tied` and `share` are not read.
  * A consumer is counted under its first connection for the (source, item) pair.
  */
 export function rankedPairs(blocks: readonly Block[]): RankedPairs {
@@ -41,6 +41,8 @@ export function rankedPairs(blocks: readonly Block[]): RankedPairs {
       const listed: RankedEntry[] = []
       const seen = new Set<string>()
       for (const entry of list) {
+        // An entry naming one area of a consumer does not apply here: the solver ranks whole consumers.
+        if (entry.kind === 'block' && entry.areaId !== undefined) continue
         const key = entry.kind === 'extra' ? 'extra' : `block:${entry.blockId}`
         if (seen.has(key)) continue
         seen.add(key)

@@ -734,6 +734,46 @@ describe('parseAppState — inputConnections', () => {
       expect(load({ servedOrder: { plate: [{ kind: 'extra', blockId: 'b2' }] } }).servedOrder).toEqual({ plate: [{ kind: 'extra' }] })
     })
 
+    it('round-trips area, tied and share keys', () => {
+      const list = [
+        { kind: 'block', blockId: 'b2', areaId: 'x', share: 60 },
+        { kind: 'block', blockId: 'b2', tied: true, share: 40 },
+        { kind: 'extra', tied: true, share: 5 },
+      ]
+      expect(load({ servedOrder: { plate: list } }).servedOrder).toStrictEqual({ plate: list })
+    })
+
+    it('drops a tied flag on the first line', () => {
+      expect(load({ servedOrder: { plate: [{ ...blockEntry('b2'), tied: true }, blockEntry('b3')] } }).servedOrder).toStrictEqual({ plate: [blockEntry('b2'), blockEntry('b3')] })
+    })
+
+    it('drops a share that is not positive and keeps tied', () => {
+      const list = [blockEntry('b2'), { ...blockEntry('b3'), tied: true, share: 0 }, { ...blockEntry('b4'), tied: true, share: -3 }]
+      expect(load({ servedOrder: { plate: list } }).servedOrder).toStrictEqual({ plate: [blockEntry('b2'), { ...blockEntry('b3'), tied: true }, { ...blockEntry('b4'), tied: true }] })
+    })
+
+    it('drops a share on a line alone in its group', () => {
+      expect(load({ servedOrder: { plate: [{ ...blockEntry('b2'), share: 5 }, blockEntry('b3')] } }).servedOrder).toStrictEqual({ plate: [blockEntry('b2'), blockEntry('b3')] })
+    })
+
+    it('keeps one entry per block and area', () => {
+      const x = { ...blockEntry('b2'), areaId: 'x' }
+      const y = { ...blockEntry('b2'), areaId: 'y' }
+      expect(load({ servedOrder: { plate: [x, y, blockEntry('b2'), x] } }).servedOrder).toStrictEqual({ plate: [x, y, blockEntry('b2')] })
+    })
+
+    it.each([
+      ['tied false', { plate: [blockEntry('b2'), { ...blockEntry('b3'), tied: false }] }],
+      ['an empty areaId', { plate: [{ ...blockEntry('b2'), areaId: '' }] }],
+      ['a share that is not a number', { plate: [{ ...blockEntry('b2'), share: 'x' }] }],
+    ])('rejects %s', (_name, servedOrder) => {
+      expect(() => load({ servedOrder })).toThrow()
+    })
+
+    it('strips an areaId from an extra entry', () => {
+      expect(load({ servedOrder: { plate: [{ kind: 'extra', areaId: 'x' }] } }).servedOrder).toStrictEqual({ plate: [{ kind: 'extra' }] })
+    })
+
     it('handles an item id that is an Object.prototype name', () => {
       expect(load({ servedOrder: { constructor: [blockEntry('b2')] } }).servedOrder).toEqual({ constructor: [blockEntry('b2')] })
     })
