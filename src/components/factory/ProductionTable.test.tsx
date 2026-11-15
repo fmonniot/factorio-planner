@@ -449,13 +449,12 @@ describe('ProductionTable — filter', () => {
     load([structuredClone(existingNode), structuredClone(copperNode), handle], [group])
   }
 
-  it('hides non-matching rows, keeps matching ones and reports the count', () => {
+  it('hides non-matching rows, keeps matching ones', () => {
     load([structuredClone(existingNode), structuredClone(copperNode)])
     render(<ProductionTable />)
     fireEvent.change(field(), { target: { value: 'copper' } })
     expect(rowEl('node-1')).toBeNull()
     expect(rowEl('node-2')).not.toBeNull()
-    expect(screen.getByTestId('table-filter-status')).toHaveTextContent('1 of 2 rows hidden')
   })
 
   it('opens a collapsed group holding a match, and restores it when cleared', () => {

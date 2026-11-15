@@ -42,8 +42,6 @@ describe('filterPlan', () => {
   it('matches a recipe name case-insensitively', () => {
     const f = filterPlan(flat(), gameData(), ' GEAR ')!
     expect([...f.visible]).toEqual(['r-gear'])
-    expect(f.hidden).toBe(1)
-    expect(f.total).toBe(2)
   })
 
   it('matches a recipe by its id alone', () => {
@@ -103,16 +101,6 @@ describe('filterPlan', () => {
     const f = filterPlan(flat(), gameData(), 'nothing-like-this')!
     expect(f.visible.size).toBe(0)
     expect(f.open.size).toBe(0)
-    expect(f.hidden).toBe(f.total)
-  })
-
-  it('counts rows at every depth, collapsed or not, and ignores a sub-plan without a handle', () => {
-    const inner = plan('I', 'Inner', [row('i-1', 'gear')])
-    const outer = plan('O', 'Outer', [row('o-1', 'gear'), handle('h-i', 'I')], [inner])
-    const stranded = plan('S', 'Stranded', [row('s-1', 'gear')])
-    const root = plan('root', 'Root', [row('r-1', 'gear'), handle('h-o', 'O')], [outer, stranded])
-    // r-1, h-o, o-1, h-i, i-1
-    expect(filterPlan(root, gameData(), 'zzz')!.total).toBe(5)
   })
 
   it('falls back to the id for a recipe missing from the game data', () => {

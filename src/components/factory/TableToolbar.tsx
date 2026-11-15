@@ -25,8 +25,8 @@ interface TableToolbarProps {
   /** Every solved row of the block, at every depth. */
   solvedNodes: SolvedNode[]
   onAddRecipe: () => void
-  /** The table filter: the query is owned by the table; `hidden` of `total` rows are out while it is non-blank. */
-  filter: { query: string; onQueryChange: (query: string) => void; hidden: number; total: number }
+  /** The table filter: the query is owned by the table. */
+  filter: { query: string; onQueryChange: (query: string) => void }
 }
 
 const RATE_UNITS: { unit: RateUnit; label: string }[] = [
@@ -54,6 +54,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
         + Recipe
       </button>
 
+      <span className="relative inline-flex items-center">
       <label className="relative hidden md:inline-flex items-center">
         <span className="sr-only">Filter recipes or items</span>
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="absolute left-2 pointer-events-none">
@@ -71,25 +72,25 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
               filter.onQueryChange('')
             }
           }}
-          className="w-[260px] h-[26px] box-border pl-6 pr-2 rounded-md bg-gray-950 border border-gray-700 text-gray-100 placeholder:text-gray-400"
+          className="w-[260px] h-[26px] box-border pl-6 pr-7 rounded-md bg-gray-950 border border-gray-700 text-gray-100 placeholder:text-gray-400 [&::-webkit-search-cancel-button]:appearance-none"
         />
       </label>
 
       {filter.query.trim() !== '' && (
-        <span role="status" data-testid="table-filter-status" className="inline-flex items-center gap-1 md:gap-1.5 text-[11px] text-gray-400 whitespace-nowrap shrink-0">
-          {/* Below md the words shrink to "N hidden" so the toolbar fits a phone; the full text stays for assistive technology. */}
-          <span aria-hidden className="md:hidden">{filter.hidden} hidden</span>
-          <span className="max-md:sr-only">{filter.hidden} of {filter.total} rows hidden</span>
-          <button
-            type="button"
-            aria-label="Clear filter"
-            onClick={() => filter.onQueryChange('')}
-            className="text-teal-400 hover:text-teal-300 underline"
-          >
-            Clear
-          </button>
-        </span>
+        // Inside the field's right edge from md; the field is hidden below md, where the button stands alone.
+        <button
+          type="button"
+          aria-label="Clear filter"
+          title="Clear filter"
+          onClick={() => filter.onQueryChange('')}
+          className="inline-flex items-center justify-center size-6 rounded text-gray-400 hover:text-gray-100 shrink-0 md:absolute md:right-0.5 md:top-1/2 md:-translate-y-1/2"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+          </svg>
+        </button>
       )}
+      </span>
 
       <span role="group" aria-label="Rate unit" className="inline-flex max-md:shrink-0 max-md:whitespace-nowrap rounded-md border border-gray-700 overflow-hidden text-[11px]">
         {RATE_UNITS.map(({ unit, label }) => (
@@ -107,8 +108,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
 
       <span className="ml-auto flex max-md:shrink-0 items-center gap-2 md:gap-4 text-[11px] text-gray-400 max-md:whitespace-nowrap">
         <WarningsPopover />
-        {/* While a filter is active the phone-width toolbar is full: the status chip stands in for the recipe count. */}
-        <span data-testid="block-recipe-count" className={filter.query.trim() !== '' ? 'max-md:hidden' : undefined}>
+        <span data-testid="block-recipe-count">
           <span className="font-mono tabular-nums text-gray-100">{recipes}</span> {recipes === 1 ? 'recipe' : 'recipes'}
         </span>
         <span data-testid="block-machine-count" className="hidden md:inline">

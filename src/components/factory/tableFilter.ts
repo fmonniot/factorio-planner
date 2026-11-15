@@ -10,9 +10,6 @@ export interface TableFilter {
   visible: ReadonlySet<string>
   /** Group handle ids rendered open: those with a visible descendant, and visible groups that are empty. */
   open: ReadonlySet<string>
-  /** Every row reachable through group handles, at every depth. */
-  total: number
-  hidden: number
 }
 
 function recipeMatches(query: string, node: RecipeNode, gameData: GameData): boolean {
@@ -31,7 +28,6 @@ export function filterPlan(rootPlan: SubPlan, gameData: GameData, query: string)
 
   const visible = new Set<string>()
   const open = new Set<string>()
-  let total = 0
   const path = new Set<string>()
 
   // Returns whether anything under `plan` is visible. A name-matching group shows its whole subtree.
@@ -40,7 +36,6 @@ export function filterPlan(rootPlan: SubPlan, gameData: GameData, query: string)
     if (path.has(plan.id)) return false
     path.add(plan.id)
     for (const node of plan.nodes) {
-      total++
       if (node.kind === 'game-recipe') {
         if (inheritedMatch || recipeMatches(q, node, gameData)) {
           visible.add(node.id)
@@ -63,5 +58,5 @@ export function filterPlan(rootPlan: SubPlan, gameData: GameData, query: string)
   }
   walk(rootPlan, false)
 
-  return { visible, open, total, hidden: total - visible.size }
+  return { visible, open }
 }
