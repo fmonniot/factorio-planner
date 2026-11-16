@@ -1,11 +1,11 @@
 # Solver Synthetic Test Cases
 
-Twenty recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Twenty-one recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 20 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 21 use plain made-up item ids.
 
-Cases 11 to 20 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
+Cases 11 to 21 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -984,3 +984,68 @@ Row b1's blocks solved through a cache that never hits and counts its `set` call
 ### The cycle memo
 
 M1: T's list `[K2, K1]` -> `[K2, K1 tied]` (case 17): the cycle is solved again, the warm solve equals a cold one and both lines carry `groupInListOrder`. M2: `[K2 60, K1 tied 40]` -> `[K2 40, K1 tied 60]`: solved again. M3: a list on V's X (the cycle only requests from V) changing weights: the memo is hit. M4 (case 19 k): `[K1/A2, K1/A1, K2]` -> `[K1/A1, K1/A2, K2]`: solved again.
+
+---
+
+## Case 21 — Area rules
+
+**Exercises:** an area's own rule for an item (`SubPlan.sourceRules`) in the area LP: Receive it first, Don't make more here and Import off set on one area while the block's rule and the other areas keep theirs; a keyless `{}` rule that overrides the block's; the outside leg into an area and its connected part (`AreaRoute.supplied`); the split of that leg into received, imported and missing (`outsideLegParts`); a second item that no rule names and that two areas trade (the one-path pin); the rule as a request, in a served list's needs and in a cycle of requests; and the byproduct that goes where it saves the most runs.
+
+**Recipes:** case 13's (`case13-make-plate`: 1 ore makes 1 plate; `case13-use-plate`: 1 plate makes 1 gear) and case 11's (`case11-make-goal`, `case11-use-x`, `case11-make-x`), plus `case21-make-y` (1 `case21-ore` makes 1 Y), `case21-use-y` (1 Y makes 1 `case21-z`), `case21-make-coin` and `case21-use-coin` (1 `case21-ore` makes 1 coin; 1 coin makes 1 token). The values were derived by hand before the solver change; no row was edited to match the solver. Rows marked *measured* are what the solver gave before area rules.
+
+### A — a central block and an area with its own row
+
+Block H, product 20 gears; area L has a gear row pinned at 12 and a plate row, area B a gear row pinned at 8 and a plate row; one connection for plate. Both gear rows always run at 12 and 8. The area rules sit on the sub-plans' `sourceRules`; "first" is *Receive it first*, "off" is *Don't make more here*.
+
+| Row | Block rule | Area rules | Offer | Received | L's plate row | B's plate row | Plate imported or missing | Legs into areas (to, rate, supplied) | Parts (received / imported / missing) |
+|---|---|---|---|---|---|---|---|---|---|
+| a | none (*measured*) | none | 100 | 0 | 12 | 8 | 0 | none | |
+| b | first (*measured*) | none | 100 | 20 | 0 | 0 | 0 | (L 12 12), (B 8 8) | L 12/0/0, B 8/0/0 |
+| c | none | L first | 100 | 12 | 0 | 8 | 0 | (L 12 12) | 12/0/0 |
+| d | first | B `{}` | 100 | 12 | 0 | 8 | 0 | (L 12 12) | 12/0/0 |
+| e | none | L first | 5 | 5 | 7 | 8 | 0 | (L 5 5) | 5/0/0 |
+| f | none | L first | unlimited (the probe) | 12 | 0 | 8 | 0 | (L 12 12) | 12/0/0 |
+| g | none | L off | none | 0 | 0 | 8 | 12 imported | (L 12, no supplied) | 0/12/0 |
+| h | none | L off | 100 | 12 | 0 | 8 | 0 | (L 12 12) | 12/0/0 |
+| i | none | L off | 5 | 5 | 0 | 8 | 7 imported | (L 12 5) | 5/7/0 |
+| j | none | L off, Import off | none | 0 | 0 | 8 | 12 missing | (L 12, no supplied) | 0/0/12 |
+| k | off | L `{}` | none | 0 | 12 | 0 | 8 imported | (B 8, no supplied) | 0/8/0 |
+
+```
+a: no rule, nothing connected is wanted: each area makes its own plate (12 and 8), nothing is received. (measured)
+b: the block's Receive it first reaches every area: both plate rows stop, u_L = 12 and u_B = 8 (each area's supply is bounded by its own use); received 20.
+c: only L receives first. u_L takes 12 of the offer; B has no supply in pass 1 and keeps its own row (8). A rule on one area does not move the other: this is the case the block-wide rule could not state.
+d: B's {} is a rule (Make it here, Import on): it replaces the block's. B keeps its row, L receives 12.
+e: the offer 5 is below L's use: u_L = 5, L's plate row makes the other 7; B makes 8.
+f: the request probe has unlimited supply: u_L covers all of L's use, 12.
+g: L's plate row would cost 1 per unit and an import costs 1e-5, so L imports; B's plate row runs for B only (8), it does not run for L: other areas give L only what they already make, which is nothing. The leg into L is all imported.
+h, i: as c and e with the offer in pass 2: the supply is capped at L's pass-1 residual (12); with 5 on offer, 5 is received and 7 imported.
+j: Import off on L with off: L's slack is the cheap one and stays; what it takes is missing, not imported (outsideLegParts).
+k: the block's off applies to B; L's {} overrides it, so L makes its own plate (12) and B imports 8.
+```
+
+Each row's second item: with the product 6 `case21-z`, B (A) or T (C) also has `case21-make-y` and L or C1 has `case21-use-y`. No rule names Y, two areas trade it, and the figures do not move: `make-y` 6, `use-y` 6, one route Y from B to L (T to C1) of 6 with no `supplied`, `case21-ore` imported 6, and Y in the areas' `receives` and `sends` (6, not a boundary). The plate figures with Y equal those without it.
+
+**f as a request.** H takes plate from a source S that makes it (S: `case13-make-plate` in its root, product plate 0), the connection `c-H`; tabs S, H and H, S. With L receiving first: `c-H` is a request of 12, rate 12, `ok`; S makes 12; L's plate row 0, B's 8; the leg (L 12 12). With no rule nothing is asked: `c-H` requested 0, rate 0, `unused`, L's plate row 12.
+
+**A served list.** S lists `[H/B, H/L]` on plate. Row c: the lines of H are exactly [H / L, share 12, got 12] (B makes its own plate and needs nothing; an area's need follows its rule). Row a: no H line has a share or a grant. The request probe of H (unlimited supply) reads `[{ L, need 12 }]` in row c and no area need in row a.
+
+**A cycle of requests.** H also makes 1 `case21-coin` (a root row `case21-make-coin`, product coin 0); S also makes 1 `case21-token` from `case21-use-coin` and takes the coin from H (`c-S`). Row c (L receives first): `c-H` requested 12, rate 12, `ok`; `c-S` requested 1, rate 1, `ok`; H's coin row 1, L's plate row 0, B's 8; S's plate row 12; one loop {H, S}, converged. Row a: `c-H` 0, `unused`, L's plate row 12.
+
+### C — one consumer takes the byproduct
+
+Case 11's recipes. Block H, products 30 `case11-goal` and 90 `case11-other`. Area T has `case11-make-goal` (30 goal and 30 X on the side); area C1 has `case11-use-x` pinned at 40; area C2 has `case11-use-x` pinned at 50 and `case11-make-x` (R: 1 ore makes 2 X).
+
+| Row | Block rule | Area rules | R runs | X imported or missing | Legs |
+|---|---|---|---|---|---|
+| a | none | none | 30 | 0 | no leg has `supplied` |
+| b | off | none | 0 | 60 imported | T to C1 30, outside to C1 10, outside to C2 50 (below) |
+| c | none | C1 off | 10 | 40 imported | T to C2 30, outside to C1 40 (no supplied), parts 0/40/0 |
+
+```
+a: 90 used, 30 made on the side, R makes 60 / 2 = 30. (measured)
+b: no row runs for X: T's 30 are used, the other 60 are imported. Which receiver takes the byproduct is not decided by the LP (the nets and the total import are the same); the per-area imports go to the receivers lower in the table, so T goes to C1 (30) and the imports are C1 10 and C2 50. (Before area rules the pairing gave T to C2 30, outside to C1 40, outside to C2 20.)
+c: C1 does not make X, but the byproduct still goes where it saves the most runs: C2 takes T's 30 and R makes (50 - 30) / 2 = 10; C1 imports its 40.
+```
+
+The second item Y (T makes it, C1 uses it) is the same pin as in A: the plate (X) figures with Y equal those without it.

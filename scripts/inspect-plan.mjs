@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Solves an exported plan (the JSON from the workspace menu's "Export plan") with the app's own
 // solver and prints what one block came out as: rows, left-over items, imports, warnings and
-// connection flows and the served lists. Optional what-if edits (pin, drop, sourcing, import-off, no-area) answer "what would it
+// connection flows, the served lists and, for a block with areas, each area's rules and what each receives, imports and misses.
+// Optional what-if edits (pin, drop, sourcing, import-off, area-sourcing, area-import-off, no-area) answer "what would it
 // do if...?" without touching the file. The logic is src/solver/inspect.ts; this file only reads
 // the files and loads that module through Vite so TypeScript needs no build step.
 // Usage: node scripts/inspect-plan.mjs --help
@@ -23,6 +24,12 @@ const HELP = `Usage: node scripts/inspect-plan.mjs <plan.json> [options]
   --drop <recipe>          remove every row of a recipe (repeatable)
   --sourcing <item=mode>   byproducts-first | connections-first for an item (repeatable)
   --import-off <item>      turn Import off for an item (repeatable)
+  --area-sourcing <area>:<item>=<first|off|here>
+                           an area's own rule for an item: Receive it first, Don't make more
+                           here or Make it here, from the block's rule (repeatable)
+  --area-import-off <area>:<item>
+                           turn Import off in an area's own rule for an item (repeatable);
+                           <area> is a sub-factory name or id, or "Top level" for the root
   --no-area                clear the area flag of the block's sub-factories
   --all-rows               also list rows that solved to zero
   --all-items              also list balanced items and idle connections
@@ -40,6 +47,8 @@ const { values, positionals } = parseArgs({
     drop: { type: 'string', multiple: true },
     sourcing: { type: 'string', multiple: true },
     'import-off': { type: 'string', multiple: true },
+    'area-sourcing': { type: 'string', multiple: true },
+    'area-import-off': { type: 'string', multiple: true },
     'no-area': { type: 'boolean' },
     'all-rows': { type: 'boolean' },
     'all-items': { type: 'boolean' },
@@ -91,7 +100,7 @@ const server = await createServer({
 })
 try {
   const { loadAppStateFromJson, loadGameDataFromJson } = await server.ssrLoadModule('/src/data/loader.ts')
-  const { inspectPlan, formatReport, findBlock } = await server.ssrLoadModule('/src/solver/inspect.ts')
+  const { inspectPlan, formatReport, findBlock, parseAreaSourcing, parseAreaImportOff } = await server.ssrLoadModule('/src/solver/inspect.ts')
   const appState = loadAppStateFromJson(planJson)
 
   if (values.list) {
@@ -108,6 +117,8 @@ try {
     drop: values.drop,
     sourcing: pairs(values.sourcing, '--sourcing'),
     importOff: values['import-off'],
+    areaSourcing: parseAreaSourcing(values['area-sourcing'] ?? []),
+    areaImportOff: parseAreaImportOff(values['area-import-off'] ?? []),
     noArea: values['no-area'],
   })
   console.log(

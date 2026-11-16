@@ -15,7 +15,7 @@ import type {
   SolverWarning,
   SubPlan,
 } from '../data/types'
-import { blockAreas, explicitMainProduct, solveAreaBlock } from './areas'
+import { blockAreas, explicitMainProduct, solveAreaBlock, withAreaRules } from './areas'
 import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount } from './build'
 import { solveLP } from './solve'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
@@ -34,7 +34,8 @@ import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache 
  * Flatten a Block into a SolverPlan: walk the rootPlan tree, collect every
  * node, and surface the block's products as goals and its source rules. SubPlanNode handles
  * are pure UI grouping; solve() skips them by filtering on kind. When a sub-factory is a
- * separate area the plan also lists the areas (see areas.ts); otherwise it has no `areas` key.
+ * separate area the plan also lists the areas, each with its own rules when its sub-plan has some
+ * (see areas.ts); otherwise it has no `areas` key.
  */
 export function flattenBlock(block: Block): SolverPlan {
   const nodes: RecipeNode[] = []
@@ -49,7 +50,7 @@ export function flattenBlock(block: Block): SolverPlan {
     sourceRules: block.sourceRules,
   }
   const areas = blockAreas(block.rootPlan)
-  return areas ? { ...plan, areas } : plan
+  return areas ? { ...plan, areas: withAreaRules(block.rootPlan, areas) } : plan
 }
 
 /**

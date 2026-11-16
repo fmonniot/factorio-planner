@@ -108,6 +108,8 @@ export interface AreaRoute {
   from?: string
   to?: string
   rate: number
+  /** On an outside leg into an area of an intermediate two areas or more touch: the part of `rate` that is connected supply, present only above FLOW_TOLERANCE (absent = 0). The rest is imported, or missing where the area's rule has Import off (see `outsideLegParts`). */
+  supplied?: number
 }
 
 export interface SolverResult {

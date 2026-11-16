@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { solveAll } from './index'
+import { solveAll, solveBlock, flattenBlock } from './index'
 import { HEAT_ITEM_ID } from '../data/electricity'
 import { temperatureWarnings } from './temperature'
 import { createSolveCache } from './solveCache'
-import type { Block, ConnectionFlow, GameData, GameRecipeNode, Product, RecipeNode, SolverResult, SolverWarning } from '../data/types'
+import type { AreaSourceRule, Block, ConnectionFlow, GameData, GameRecipeNode, Product, RecipeNode, SolverResult, SolverWarning } from '../data/types'
 
 type GameRecipe = GameData['recipes'][string]
 
@@ -310,5 +310,76 @@ describe('temperature-mismatch warning (more)', () => {
     expect(mismatches(first.results.Bad.warnings)).toHaveLength(1)
     expect(second.results.Bad, 'warned block keeps identity').toBe(first.results.Bad)
     expect(second.results.Good, 'clean block keeps identity').toBe(first.results.Good)
+  })
+})
+
+describe('temperature rows of a fluid two areas touch', () => {
+  // L runs the boiler, B the turbine; steam is traded by both areas, and the turbine takes steam of 465 or more. The tests of T1 to T3 are the
+  // values the model gave before area rules (they pass on that model and must stay); T4 and the rule test are new with it.
+  const now = new Date().toISOString()
+  type Rules = Record<string, Record<string, AreaSourceRule>>
+  function twoAreas(boilerId: string, pin?: number, rules: Rules = {}, blockRules: Block['sourceRules'] = {}): Block {
+    const area = (id: string, nodes: RecipeNode[]) => ({
+      id, name: id, nodes, subPlans: [], area: true as const, createdAt: now, updatedAt: now,
+      ...(rules[id] ? { sourceRules: rules[id] } : {}),
+    })
+    return {
+      id: 'A', name: 'A', color: '#60a5fa',
+      products: [{ id: 'g', itemId: 'electricity', extraRate: 60 }],
+      sourceRules: blockRules, inputConnections: [],
+      rootPlan: { id: 'root-A', name: 'root-A', nodes: [], createdAt: now, updatedAt: now,
+        subPlans: [area('L', [node('b', boilerId, pin)]), area('B', [node('t', 'turbine')])] },
+    }
+  }
+  const data = () => gameData([boiler('b165', 165), boiler('b465', 465), generator('turbine', 465)], STEAM_ITEMS())
+  const steam = (r: SolverResult) => r.unsatisfied.find(u => u.itemId === 'steam')?.rate ?? 0
+  const rate = (r: SolverResult, id: string) => r.nodes.find(n => n.recipeNodeId === id)!.throughput
+  const legs = (r: SolverResult) => (r.areaRoutes ?? []).filter(l => l.itemId === 'steam')
+
+  it('T1, no rule: the cold boiler is not run, the turbine imports its steam and the warning says why', () => {
+    const r = solveAll([twoAreas('b165')], data()).results.A
+    expect(steam(r)).toBeCloseTo(60, 6)
+    expect(rate(r, 'b')).toBeCloseTo(0, 6)
+    expect(rate(r, 't')).toBeCloseTo(60, 6)
+    expect(legs(r)).toEqual([{ itemId: 'steam', to: 'B', rate: expect.closeTo(60, 6) }])
+    expect(mismatches(r.warnings)).toHaveLength(1)
+    expect(mismatches(r.warnings)[0].imported).toBeCloseTo(60, 6)
+  })
+
+  it('T2, Import off on the block (the fluid is locked): the cold boiler runs and the warning has no import', () => {
+    const r = solveAll([twoAreas('b165', undefined, {}, { steam: { importOff: true } })], data()).results.A
+    expect(rate(r, 'b')).toBeCloseTo(60, 6)
+    expect(rate(r, 't')).toBeCloseTo(60, 6)
+    expect(steam(r)).toBeCloseTo(0, 6)
+    expect(legs(r)).toEqual([{ itemId: 'steam', from: 'L', to: 'B', rate: expect.closeTo(60, 6) }])
+    const w = mismatches(r.warnings)
+    expect(w).toHaveLength(1)
+    expect(w[0]).toMatchObject({ recipeId: 'turbine', supplied: [165], minimum: 465 })
+    expect(w[0].imported).toBeUndefined()
+  })
+
+  it('T3, a fitting boiler pinned at 10: the rest of the turbine steam is imported, with no warning', () => {
+    const r = solveAll([twoAreas('b465', 10)], data()).results.A
+    expect(steam(r)).toBeCloseTo(50, 6)
+    expect(legs(r)).toEqual([
+      { itemId: 'steam', from: 'L', to: 'B', rate: expect.closeTo(10, 6) },
+      { itemId: 'steam', to: 'B', rate: expect.closeTo(50, 6) },
+    ])
+    expect(mismatches(r.warnings)).toHaveLength(0)
+  })
+
+  it('T4, a connection offers 30: the 60 of the outside leg name 30 as connected supply', () => {
+    const { result, received } = solveBlock(flattenBlock(twoAreas('b165')), data(), new Map([['steam', 30]]))
+    expect(received.get('steam')).toBeCloseTo(30, 6)
+    expect(steam(result)).toBeCloseTo(30, 6)
+    const leg = legs(result).find(l => l.from === undefined && l.to === 'B')!
+    expect(leg.rate).toBeCloseTo(60, 6)
+    expect(leg.supplied, 'the connected part').toBeCloseTo(30, 6)
+  })
+
+  it('a rule on each area reads like the block-wide Import off', () => {
+    const wide = solveAll([twoAreas('b165', undefined, {}, { steam: { importOff: true } })], data()).results
+    const perArea = solveAll([twoAreas('b165', undefined, { L: { steam: { importOff: true, makeHere: 'after-blocks' } }, B: { steam: { importOff: true } } })], data()).results
+    expect(perArea).toEqual(wide)
   })
 })

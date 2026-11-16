@@ -3,6 +3,7 @@
 // from whom; this fixed rule pairs the rest (see spec/solver.md, "Areas"). Pure, no LP.
 // ---------------------------------------------------------------------------
 
+import type { AreaRoute, SourceRule } from '../data/types'
 import { outsideResidual } from './blockResult'
 
 /**
@@ -83,4 +84,11 @@ export function itemRoutes(senders: RouteSender[], receivers: RouteReceiver[]): 
   return [...legs.values()]
     .filter(l => l.rate > tol)
     .sort((a, b) => rank(a.from) - rank(b.from) || rank(a.to) - rank(b.to))
+}
+
+/** What an outside leg into an area is made of: connected supply, then missing when the area's rule has Import off, else imported. Meant for intermediates two areas or more touch (`areaLPItems`), whose legs the area LP sets. */
+export function outsideLegParts(leg: AreaRoute, rule: SourceRule): { received: number; imported: number; missing: number } {
+  const received = Math.min(leg.supplied ?? 0, leg.rate)
+  const rest = Math.max(0, leg.rate - received)
+  return rule.importOff === true ? { received, imported: 0, missing: rest } : { received, imported: rest, missing: 0 }
 }

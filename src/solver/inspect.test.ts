@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { applyWhatIf, findBlock, formatReport, inspectPlan, servedReportOf, type InspectReport } from './inspect'
-import type { Block, MultiBlockSolve, ServedEntry } from '../data/types'
+import {
+  applyWhatIf, findArea, findBlock, formatReport, inspectPlan, parseAreaImportOff, parseAreaSourcing, servedReportOf, type InspectReport,
+} from './inspect'
+import type { AppState, Block, GameData, GameRecipeNode, MultiBlockSolve, ServedEntry, SubPlan } from '../data/types'
 import { loadAppStateFromJson, loadGameDataFromJson } from '../data/loader'
 
 // Runs on the committed Seablock export and the Extra Sulfur block saved with the
@@ -156,7 +158,7 @@ describe('servedReportOf', () => {
 describe('formatReport served lists', () => {
   it('prints groups, lines the list does not name and the unranked header', () => {
     const report: InspectReport = {
-      block: { id: 'A', name: 'A' }, rows: [], items: [], unsatisfied: [], warnings: [], flows: [], areaRoutes: [],
+      block: { id: 'A', name: 'A' }, rows: [], items: [], unsatisfied: [], warnings: [], flows: [], areaRoutes: [], areas: [], areaItems: [],
       totals: { executions: 0, machineCountExact: 0, machineCountCeil: 0, powerKw: 0 },
       served: [
         { itemId: 'plate', ranked: true, lines: [
@@ -179,5 +181,151 @@ describe('formatReport served lists', () => {
     expect(text).toContain('(not in the list)')
     expect(text).toContain('(no list: solve order)')
     expect(text).toContain('plate  (list)')
+  })
+})
+
+describe('area what-ifs', () => {
+  // Case 13's recipes on a local data set: area L uses 12 plate and B uses 8 (both pinned), each has a plate row.
+  const recipe = (id: string, from: string, to: string): GameData['recipes'][string] => ({
+    id, name: id, category: 'crafting', craftingTime: 1,
+    ingredients: [{ itemId: from, type: 'item', amount: 1 }], products: [{ itemId: to, type: 'item', amount: 1 }],
+    madeIn: [], allowProductivity: false, mainProduct: undefined, hidden: false, subgroup: '', order: '',
+  })
+  const data = (): GameData => ({
+    factorioVersion: '2.0.0', modSet: {}, items: {},
+    recipes: { 'case13-make-plate': recipe('case13-make-plate', 'case13-ore', 'case13-plate'), 'case13-use-plate': recipe('case13-use-plate', 'case13-plate', 'case13-gear') },
+    machines: {}, modules: {}, beacons: {}, defaultMachines: {}, itemGroups: {}, itemSubgroups: {}, technologies: {}, startingRecipes: [],
+  })
+  const PLATE = 'case13-plate'
+  const now = new Date().toISOString()
+  const row = (recipeId: string, where: string, pinnedRate?: number): GameRecipeNode =>
+    ({ kind: 'game-recipe', id: `${recipeId}@${where}`, recipeId, modules: [], byproductPolicy: {}, ...(pinnedRate === undefined ? {} : { pinnedRate }) })
+  const area = (id: string, name: string, nodes: GameRecipeNode[]): SubPlan => ({ id, name, nodes, subPlans: [], area: true, createdAt: now, updatedAt: now })
+  const stateOf = (ids: [string, string] = ['L', 'B'], names: [string, string] = ['L', 'B'], blockRules: Block['sourceRules'] = {}): AppState => ({
+    blocks: [{
+      id: 'H', name: 'H', color: '#60a5fa',
+      products: [{ id: 'p0', itemId: 'case13-gear', extraRate: 20 }],
+      sourceRules: blockRules, inputConnections: [],
+      rootPlan: {
+        id: 'root-H', name: 'root', nodes: [], createdAt: now, updatedAt: now,
+        subPlans: [
+          area(ids[0], names[0], [row('case13-use-plate', ids[0], 12), row('case13-make-plate', ids[0])]),
+          area(ids[1], names[1], [row('case13-use-plate', ids[1], 8), row('case13-make-plate', ids[1])]),
+        ],
+      },
+    }],
+    activeBlockId: 'H', horizonTechnologyIds: [], defaultMachineOverrides: {},
+  })
+  const rulesOf = (state: AppState, areaId: string) => state.blocks[0].rootPlan.subPlans.find(p => p.id === areaId)!.sourceRules
+
+  describe('parsing', () => {
+    it('reads <area>:<item>=<mode>, splitting on the last = and then the first :', () => {
+      expect(parseAreaSourcing(['L:case13-plate=off', 'Top level:power:heat=first', 'B:x=here'])).toEqual([
+        { area: 'L', itemId: 'case13-plate', mode: 'off' },
+        { area: 'Top level', itemId: 'power:heat', mode: 'first' },
+        { area: 'B', itemId: 'x', mode: 'here' },
+      ])
+      expect(parseAreaSourcing(['Top level:power:heat=off'])).toEqual([{ area: 'Top level', itemId: 'power:heat', mode: 'off' }])
+    })
+    it('rejects an entry that is not <area>:<item>=<mode>', () => {
+      for (const bad of ['L:plate', 'plate=off', ':plate=off', 'L:=off', '=off']) {
+        expect(() => parseAreaSourcing([bad]), bad).toThrow(`--area-sourcing expects <area>:<item>=<first|off|here>, got "${bad}"`)
+      }
+      expect(() => parseAreaSourcing(['L:plate=maybe'])).toThrow('--area-sourcing L:plate=maybe: expected first, off or here')
+    })
+    it('reads <area>:<item> for Import off', () => {
+      expect(parseAreaImportOff(['L:plate', 'Top level:power:heat'])).toEqual([{ area: 'L', itemId: 'plate' }, { area: 'Top level', itemId: 'power:heat' }])
+      for (const bad of ['plate', ':plate', 'L:']) {
+        expect(() => parseAreaImportOff([bad]), bad).toThrow(`--area-import-off expects <area>:<item>, got "${bad}"`)
+      }
+    })
+  })
+
+  describe('findArea', () => {
+    it('finds an area by id, by name, by name ignoring case, and the root as "Top level"', () => {
+      const block = stateOf(['sp-l', 'sp-b'], ['Line', 'Bay']).blocks[0]
+      expect(findArea(block, 'sp-l')).toBe('sp-l')
+      expect(findArea(block, 'Line')).toBe('sp-l')
+      expect(findArea(block, 'bay')).toBe('sp-b')
+      expect(findArea(block, 'Top level')).toBe('root-H')
+      expect(findArea(block, 'TOP LEVEL')).toBe('root-H')
+    })
+    it('names the areas when it finds none, and asks for an id when a name is ambiguous', () => {
+      const block = stateOf(['sp-l', 'sp-b'], ['Line', 'Bay']).blocks[0]
+      expect(() => findArea(block, 'zz')).toThrow('No area "zz" in block "H". Areas: Top level, Line, Bay')
+      const twins = stateOf(['sp-l', 'sp-b'], ['Same', 'Same']).blocks[0]
+      expect(() => findArea(twins, 'Same')).toThrow('Area name "Same" is ambiguous in block "H": use an id (sp-l, sp-b)')
+    })
+    it('says so when the block has no areas', () => {
+      const block = { ...stateOf().blocks[0], rootPlan: { ...stateOf().blocks[0].rootPlan, subPlans: [] } }
+      expect(() => findArea(block, 'L')).toThrow('Block "H" has no areas')
+    })
+  })
+
+  describe('applyWhatIf', () => {
+    it("builds the area's rule from the block's: first adds makeHere, here removes it", () => {
+      const state = stateOf(['L', 'B'], ['L', 'B'], { [PLATE]: { importOff: true } })
+      const first = applyWhatIf(state, 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'first' }] })
+      expect(rulesOf(first, 'L')).toEqual({ [PLATE]: { importOff: true, makeHere: 'after-blocks' } })
+      expect(rulesOf(first, 'B')).toBeUndefined()
+      const here = applyWhatIf(state, 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'here' }] })
+      expect(rulesOf(here, 'L')).toEqual({ [PLATE]: { importOff: true } })
+      const bare = applyWhatIf(stateOf(), 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'here' }] })
+      expect(rulesOf(bare, 'L'), 'a rule is written even when it equals the block\'s').toEqual({ [PLATE]: {} })
+    })
+    it('turns Import off in an area, keeping the rest of its rule', () => {
+      const state = applyWhatIf(stateOf(), 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'off' }], areaImportOff: [{ area: 'L', itemId: PLATE }] })
+      expect(rulesOf(state, 'L')).toEqual({ [PLATE]: { makeHere: 'off', importOff: true } })
+      const keep = stateOf()
+      keep.blocks[0].rootPlan.subPlans[0].sourceRules = { [PLATE]: { makeHere: 'off', areasOff: ['B'] } }
+      expect(rulesOf(applyWhatIf(keep, 'H', { areaImportOff: [{ area: 'L', itemId: PLATE }] }), 'L')).toEqual({ [PLATE]: { makeHere: 'off', areasOff: ['B'], importOff: true } })
+    })
+    it('resolves the area by id, name, "Top level" and case', () => {
+      const state = stateOf(['sp-l', 'sp-b'], ['Line', 'Bay'])
+      for (const [wanted, id] of [['sp-l', 'sp-l'], ['Line', 'sp-l'], ['bay', 'sp-b']] as const) {
+        expect(rulesOf(applyWhatIf(state, 'H', { areaImportOff: [{ area: wanted, itemId: PLATE }] }), id), wanted).toEqual({ [PLATE]: { importOff: true } })
+      }
+      expect(state.blocks[0].rootPlan.sourceRules).toBeUndefined()
+      expect(applyWhatIf(state, 'H', { areaImportOff: [{ area: 'top level', itemId: PLATE }] }).blocks[0].rootPlan.sourceRules).toEqual({ [PLATE]: { importOff: true } })
+    })
+    it('throws for an unknown area, a block with no areas, a bad mode and --no-area together with an area edit', () => {
+      const state = stateOf()
+      expect(() => applyWhatIf(state, 'H', { areaImportOff: [{ area: 'zz', itemId: PLATE }] })).toThrow('No area "zz"')
+      const flat = { ...state, blocks: [{ ...state.blocks[0], rootPlan: { ...state.blocks[0].rootPlan, subPlans: [] } }] }
+      expect(() => applyWhatIf(flat, 'H', { areaImportOff: [{ area: 'L', itemId: PLATE }] })).toThrow('Block "H" has no areas')
+      expect(() => applyWhatIf(state, 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'maybe' as never }] })).toThrow('--area-sourcing L:case13-plate=maybe: expected first, off or here')
+      expect(() => applyWhatIf(state, 'H', { noArea: true, areaImportOff: [{ area: 'L', itemId: PLATE }] })).toThrow('--no-area cannot be combined with --area-sourcing or --area-import-off')
+    })
+    it('does not modify the plan it is given', () => {
+      const state = stateOf()
+      const before = JSON.stringify(state)
+      applyWhatIf(state, 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'off' }], areaImportOff: [{ area: 'B', itemId: PLATE }] })
+      expect(JSON.stringify(state)).toBe(before)
+    })
+  })
+
+  describe('inspectPlan', () => {
+    it("lists each area's rules and, per area item, what each area receives, imports and misses", () => {
+      const report = inspectPlan(stateOf(), data(), 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'off' }] })
+      expect(report.areas.map(a => [a.id, a.name, a.rules])).toEqual([
+        ['root-H', 'Top level', {}], ['L', 'L', { [PLATE]: { makeHere: 'off' } }], ['B', 'B', {}],
+      ])
+      expect(report.areaItems).toEqual([{ itemId: PLATE, areas: [{ areaId: 'L', name: 'L', received: 0, imported: 12, missing: 0 }] }])
+      const text = formatReport(report)
+      expect(text).toContain('L  case13-plate  off  Import on')
+      expect(text).toContain('case13-plate  L  0  12.00  0')
+    })
+    it('reads what Import off makes of the leg: missing instead of imported', () => {
+      const report = inspectPlan(stateOf(), data(), 'H', {
+        areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'off' }], areaImportOff: [{ area: 'L', itemId: PLATE }],
+      })
+      expect(report.areaItems).toEqual([{ itemId: PLATE, areas: [{ areaId: 'L', name: 'L', received: 0, imported: 0, missing: 12 }] }])
+      expect(formatReport(report)).toContain('L  case13-plate  off  Import off')
+    })
+    it('prints an area with no rule as following the block, and no area item when no leg comes from outside', () => {
+      const text = formatReport(inspectPlan(stateOf(), data(), 'H'))
+      expect(text).toContain('Top level  follows the block')
+      expect(text).not.toContain('Area items from outside')
+    })
   })
 })
