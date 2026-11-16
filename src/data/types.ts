@@ -78,6 +78,7 @@ export type SolverWarning =
    */
   | { type: 'coproduct-driven'; drivers: { recipeId: string; itemIds: string[]; throughput: number; needed: number }[] }
   | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }
+  | { type: 'area-cut-off'; cutOffs: { areaId: string; itemId: string }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
   | {

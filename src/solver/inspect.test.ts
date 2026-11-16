@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import {
-  applyWhatIf, findArea, findBlock, formatReport, inspectPlan, parseAreaImportOff, parseAreaSourcing, servedReportOf, type InspectReport,
+  applyWhatIf, findArea, findBlock, formatReport, inspectPlan, parseAreaImportOff, parseAreaOff, parseAreaSourcing, servedReportOf, type InspectReport,
 } from './inspect'
 import type { AppState, Block, GameData, GameRecipeNode, MultiBlockSolve, ServedEntry, SubPlan } from '../data/types'
 import { loadAppStateFromJson, loadGameDataFromJson } from '../data/loader'
@@ -241,6 +241,20 @@ describe('area what-ifs', () => {
     })
   })
 
+  describe('parseAreaOff', () => {
+    it('reads <area>:<item>=<other area>, splitting on the last = and then the first :', () => {
+      expect(parseAreaOff(['L:case13-plate=M1', 'Top level:power:heat=Line'])).toEqual([
+        { area: 'L', itemId: 'case13-plate', other: 'M1' },
+        { area: 'Top level', itemId: 'power:heat', other: 'Line' },
+      ])
+    })
+    it('rejects an entry that is not <area>:<item>=<other area>', () => {
+      for (const bad of ['plate', ':plate=M1', 'L:=M1', 'L:plate=', 'L:plate']) {
+        expect(() => parseAreaOff([bad]), bad).toThrow(`--area-off expects <area>:<item>=<other area>, got "${bad}"`)
+      }
+    })
+  })
+
   describe('findArea', () => {
     it('finds an area by id, by name, by name ignoring case, and the root as "Top level"', () => {
       const block = stateOf(['sp-l', 'sp-b'], ['Line', 'Bay']).blocks[0]
@@ -294,7 +308,20 @@ describe('area what-ifs', () => {
       const flat = { ...state, blocks: [{ ...state.blocks[0], rootPlan: { ...state.blocks[0].rootPlan, subPlans: [] } }] }
       expect(() => applyWhatIf(flat, 'H', { areaImportOff: [{ area: 'L', itemId: PLATE }] })).toThrow('Block "H" has no areas')
       expect(() => applyWhatIf(state, 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'maybe' as never }] })).toThrow('--area-sourcing L:case13-plate=maybe: expected first, off or here')
-      expect(() => applyWhatIf(state, 'H', { noArea: true, areaImportOff: [{ area: 'L', itemId: PLATE }] })).toThrow('--no-area cannot be combined with --area-sourcing or --area-import-off')
+      expect(() => applyWhatIf(state, 'H', { noArea: true, areaImportOff: [{ area: 'L', itemId: PLATE }] })).toThrow('--no-area cannot be combined with --area-sourcing, --area-import-off or --area-off')
+    })
+    it('--area-off writes areasOff, resolving the other area by id, name, case and "Top level", merging without duplicates', () => {
+      const state = stateOf(['sp-l', 'sp-b'], ['Line', 'Bay'])
+      const done = applyWhatIf(state, 'H', { areaOff: [
+        { area: 'Line', itemId: PLATE, other: 'sp-b' }, { area: 'sp-l', itemId: PLATE, other: 'bay' }, { area: 'sp-l', itemId: PLATE, other: 'TOP LEVEL' },
+      ] })
+      expect(rulesOf(done, 'sp-l')).toEqual({ [PLATE]: { areasOff: ['sp-b', 'root-H'] } })
+      expect(rulesOf(state, 'sp-l')).toBeUndefined()
+    })
+    it('--area-off throws for a self-switch and an unknown other area', () => {
+      const state = stateOf()
+      expect(() => applyWhatIf(state, 'H', { areaOff: [{ area: 'L', itemId: PLATE, other: 'L' }] })).toThrow('--area-off L:case13-plate=L: an area cannot switch itself off')
+      expect(() => applyWhatIf(state, 'H', { areaOff: [{ area: 'L', itemId: PLATE, other: 'zz' }] })).toThrow('No area "zz"')
     })
     it('does not modify the plan it is given', () => {
       const state = stateOf()
@@ -314,6 +341,23 @@ describe('area what-ifs', () => {
       const text = formatReport(report)
       expect(text).toContain('L  case13-plate  off  Import on')
       expect(text).toContain('case13-plate  L  0  12.00  0')
+    })
+    it('--area-off: the solve reads the switch, and the report says so', () => {
+      const state = stateOf(['L', 'M1'], ['L', 'M1'])
+      const m2 = area('M2', 'M2', [row('case13-make-plate', 'M2')])
+      const rootPlan = state.blocks[0].rootPlan
+      const plan: SubPlan = {
+        ...rootPlan,
+        subPlans: [
+          area('L', 'L', [row('case13-use-plate', 'L', 12)]), area('M1', 'M1', [row('case13-make-plate', 'M1')]), m2,
+        ],
+      }
+      const three: AppState = { ...state, blocks: [{ ...state.blocks[0], products: [{ id: 'p0', itemId: 'case13-gear', extraRate: 12 }], rootPlan: plan }] }
+      const report = inspectPlan(three, data(), 'H', { areaOff: [{ area: 'L', itemId: PLATE, other: 'M1' }] })
+      expect(report.areaRoutes.filter(r => r.itemId === PLATE).map(r => [r.from, r.to, Math.round(r.rate * 1e6) / 1e6])).toEqual([['M2', 'L', 12]])
+      const text = formatReport(report)
+      expect(text).toContain('takes nothing from M1')
+      expect(text).not.toContain('not read by the solver')
     })
     it('reads what Import off makes of the leg: missing instead of imported', () => {
       const report = inspectPlan(stateOf(), data(), 'H', {

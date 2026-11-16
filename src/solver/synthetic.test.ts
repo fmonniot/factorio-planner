@@ -2130,6 +2130,13 @@ describe('solver synthetic cases', () => {
       return house('H', subPlan('root', [], [t, c1, c2]), [['case11-goal', 30], ['case11-other', 90], ...(withY ? [['case21-z', 6] as [string, number]] : [])],
         blockRule ? { [X]: blockRule } : {}, [])
     }
+    // B: L uses 12 plate (pinned) and has no plate row; M1 and M2, in that order, each have a plate row.
+    const blockB = (rules: AreaRules): Block => {
+      const l = sp('L', [pin('case13-use-plate', 'L', 12)], rules.L)
+      const m1 = sp('M1', [rowIn('case13-make-plate', 'M1')], rules.M1)
+      const m2 = sp('M2', [rowIn('case13-make-plate', 'M2')], rules.M2)
+      return house('H', subPlan('root', [], [l, m1, m2]), [['case13-gear', 12]], {}, [])
+    }
     const solveA = (b: Block, offer?: number) =>
       solveBlock(flattenBlock(b), makeGameData(), new Map(offer === undefined ? [] : [[PLATE, offer]]))
     const rateOf = (result: SolverResult, nodeId: string) => nodeOf(result, nodeId).throughput
@@ -2233,6 +2240,35 @@ describe('solver synthetic cases', () => {
       }
     })
 
+    describe('B: choosing the supplying area', () => {
+      type Row = {
+        name: string; rules: AreaRules; offer?: number
+        m1: number; m2: number; plateUnsat: number; received: number
+        legs: Leg[]; parts?: Array<[string, number, number, number]>
+      }
+      const rows: Row[] = [
+        { name: 'a: no switch', rules: {}, m1: 12, m2: 0, plateUnsat: 0, received: 0, legs: [['M1', 'L', 12]] },
+        { name: 'b: L switches M1 off', rules: { L: { [PLATE]: { areasOff: ['M1'] } } }, m1: 0, m2: 12, plateUnsat: 0, received: 0, legs: [['M2', 'L', 12]] },
+        { name: 'c: L switches M1 and M2 off', rules: { L: { [PLATE]: { areasOff: ['M1', 'M2'] } } }, m1: 0, m2: 0, plateUnsat: 12, received: 0,
+          legs: [[undefined, 'L', 12]], parts: [['L', 0, 12, 0]] },
+        { name: 'd: L switches M1 and M2 off, offer 100', rules: { L: { [PLATE]: { areasOff: ['M1', 'M2'] } } }, offer: 100, m1: 0, m2: 0, plateUnsat: 0, received: 12,
+          legs: [[undefined, 'L', 12, 12]], parts: [['L', 12, 0, 0]] },
+      ]
+      for (const row of rows) {
+        it(row.name, () => {
+          const b = blockB(row.rules)
+          const { result, received } = solveA(b, row.offer)
+          expect(received.get(PLATE) ?? 0, 'received').toBeCloseTo(row.received, 6)
+          expect(rateOf(result, 'case13-make-plate@M1'), "M1's plate row").toBeCloseTo(row.m1, 6)
+          expect(rateOf(result, 'case13-make-plate@M2'), "M2's plate row").toBeCloseTo(row.m2, 6)
+          expect(unsat(result, PLATE), 'plate imported or missing').toBeCloseTo(row.plateUnsat, 6)
+          expect(rateOf(result, 'case13-use-plate@L')).toBeCloseTo(12, 6)
+          expectLegs(result, PLATE, row.legs)
+          if (row.parts) expectParts(b, result, PLATE, row.parts)
+        })
+      }
+    })
+
     describe('C: one consumer takes the byproduct', () => {
       type Row = { name: string; blockRule?: SourceRule; rules: AreaRules; r: number; xUnsat: number; legs?: Leg[]; parts?: Array<[string, number, number, number]> }
       const rows: Row[] = [
@@ -2240,6 +2276,10 @@ describe('solver synthetic cases', () => {
         { name: "b: block Don't make more here", blockRule: { makeHere: 'off' }, rules: {}, r: 0, xUnsat: 60 },
         { name: "c: C1 Don't make more here", rules: { C1: { [X]: { makeHere: 'off' } } }, r: 10, xUnsat: 40,
           legs: [['T', 'C2', 30], [undefined, 'C1', 40]], parts: [['C1', 0, 40, 0]] },
+        { name: "d: C1 Don't make more here, C2 switches T off", rules: { C1: { [X]: { makeHere: 'off' } }, C2: { [X]: { areasOff: ['T'] } } }, r: 25, xUnsat: 10,
+          legs: [['T', 'C1', 30], [undefined, 'C1', 10]], parts: [['C1', 0, 10, 0]] },
+        { name: "e: C1 Don't make more here and Import off, C2 switches T off", rules: { C1: { [X]: { makeHere: 'off', importOff: true } }, C2: { [X]: { areasOff: ['T'] } } }, r: 25, xUnsat: 10,
+          legs: [['T', 'C1', 30], [undefined, 'C1', 10]], parts: [['C1', 0, 0, 10]] },
       ]
       for (const row of rows) {
         it(row.name, () => {

@@ -2,7 +2,7 @@
 // Solves an exported plan (the JSON from the workspace menu's "Export plan") with the app's own
 // solver and prints what one block came out as: rows, left-over items, imports, warnings and
 // connection flows, the served lists and, for a block with areas, each area's rules and what each receives, imports and misses.
-// Optional what-if edits (pin, drop, sourcing, import-off, area-sourcing, area-import-off, no-area) answer "what would it
+// Optional what-if edits (pin, drop, sourcing, import-off, area-sourcing, area-import-off, area-off, no-area) answer "what would it
 // do if...?" without touching the file. The logic is src/solver/inspect.ts; this file only reads
 // the files and loads that module through Vite so TypeScript needs no build step.
 // Usage: node scripts/inspect-plan.mjs --help
@@ -30,6 +30,8 @@ const HELP = `Usage: node scripts/inspect-plan.mjs <plan.json> [options]
   --area-import-off <area>:<item>
                            turn Import off in an area's own rule for an item (repeatable);
                            <area> is a sub-factory name or id, or "Top level" for the root
+  --area-off <area>:<item>=<other area>
+                           an area takes nothing of an item from another area (repeatable)
   --no-area                clear the area flag of the block's sub-factories
   --all-rows               also list rows that solved to zero
   --all-items              also list balanced items and idle connections
@@ -49,6 +51,7 @@ const { values, positionals } = parseArgs({
     'import-off': { type: 'string', multiple: true },
     'area-sourcing': { type: 'string', multiple: true },
     'area-import-off': { type: 'string', multiple: true },
+    'area-off': { type: 'string', multiple: true },
     'no-area': { type: 'boolean' },
     'all-rows': { type: 'boolean' },
     'all-items': { type: 'boolean' },
@@ -100,7 +103,7 @@ const server = await createServer({
 })
 try {
   const { loadAppStateFromJson, loadGameDataFromJson } = await server.ssrLoadModule('/src/data/loader.ts')
-  const { inspectPlan, formatReport, findBlock, parseAreaSourcing, parseAreaImportOff } = await server.ssrLoadModule('/src/solver/inspect.ts')
+  const { inspectPlan, formatReport, findBlock, parseAreaSourcing, parseAreaImportOff, parseAreaOff } = await server.ssrLoadModule('/src/solver/inspect.ts')
   const appState = loadAppStateFromJson(planJson)
 
   if (values.list) {
@@ -119,6 +122,7 @@ try {
     importOff: values['import-off'],
     areaSourcing: parseAreaSourcing(values['area-sourcing'] ?? []),
     areaImportOff: parseAreaImportOff(values['area-import-off'] ?? []),
+    areaOff: parseAreaOff(values['area-off'] ?? []),
     noArea: values['no-area'],
   })
   console.log(

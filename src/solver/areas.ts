@@ -281,6 +281,8 @@ export interface AreaItemArea {
   supplyCap?: number
   /** `u_a` covers at most what the area's own non-byproduct-consumer columns use (connections first) */
   supUse: boolean
+  /** the areas this one takes nothing from (read only when the item is a pair item: `AreaItemSpec.pairs`) */
+  off: Set<number>
 }
 
 /** An item that two areas or more touch, solved with a slack and a supply per area. */
@@ -289,16 +291,23 @@ export interface AreaItemSpec {
   /** the item's offer, shared by the areas' supplies (Infinity: unlimited, 0: none) */
   offer: number
   areas: AreaItemArea[]
+  /** a pair item: flows per ordered pair of areas in place of the two pools, so a switched-off pair has no flow */
+  pairs: boolean
 }
 
 /** What the LP gives per area for an area item: the slack (import or missing) and the supply. */
 export interface AreaOutside { itemId: string; area: number; slack: number; supply: number }
+
+/** What a pair item sends from one area, in the LP's solution: to another area, or (`to` absent) out of the block. */
+export interface AreaPair { itemId: string; from: number; to?: number; rate: number }
 
 export type AreaLPResult = LPResult & {
   /** what areas with their own row for an item still take from other areas' dedicated rows */
   dedicatedIn: { area: number; itemId: string; rate: number }[]
   /** per area item and area: the slack and the supply */
   outside: AreaOutside[]
+  /** per pair item: the flow of each ordered pair of areas and each area's sink; empty when the LP is infeasible */
+  pairs: AreaPair[]
 }
 
 /**
@@ -307,7 +316,9 @@ export type AreaLPResult = LPResult & {
  *   Σ S x + din + oin − dout − oout (+ s_a + u_a, for an intermediate) = 0
  * where `d…` flows come from or go to dedicated rows (made for that item) and `o…` flows from
  * other rows. Pools bound what is taken by what is sent. An intermediate has its own slack `s_a` and
- * supply `u_a` in each area's row (`areaItems`), which carry that area's rule.
+ * supply `u_a` in each area's row (`areaItems`), which carry that area's rule. An item with a supplier switched off
+ * (`AreaItemSpec.pairs`) has flows per ordered pair of areas in place of the pools, none for a switched-off pair, and a
+ * free sink per producing area for what leaves the block.
  *
  * Two LP calls: stage 1 minimises imports, then dedicated imports (an area with its own row for an
  * item takes nothing from others when it can help it); stage 2 keeps those at their optimum and
@@ -378,6 +389,7 @@ function solveAreaLPOnce(
   // An area item. Each area gets its own slack `s_a` and supply `u_a` in its balance row, in place of the item's one
   // slack and supply in the other pool; the pools carry only the flows between areas.
   const areaNames: { itemId: string; area: number; slack?: string; supply?: string }[] = []
+  const pairNames: { itemId: string; from: number; to?: number; names: string[] }[] = []
   function addAreaItem(spec: AreaItemSpec, byArea: Map<number, { col: Column; coeff: number }[]>): void {
     const { itemId } = spec
     const tmplName = base.itemToSlack.get(itemId)
@@ -438,7 +450,7 @@ function solveAreaLPOnce(
     }
     // `buildLPModel` builds no temperature row for an item with neither an import nor a supply: an area item that gets
     // neither in any area (locked) has none either.
-    if (created === 0) for (const r of base.itemToTemperatureRows.get(itemId) ?? []) delete constraints[r]
+    if (tmplName !== undefined && created === 0) for (const r of base.itemToTemperatureRows.get(itemId) ?? []) delete constraints[r]
 
     const capRows = (x: (typeof info)[number]) => {
       const cols = byArea.get(x.area)!
@@ -454,6 +466,43 @@ function solveAreaLPOnce(
           if (col.dedicated !== itemId && coeff > 0) variables[colVar.get(col.id)!][`ocap${x.i}`] = -coeff
         }
       }
+    }
+
+    if (spec.pairs) {
+      j++
+      for (const x of info) capRows(x)
+      // μ·b·(n − a) is a Monge cost increasing with the receiver's rank: the cheapest transport is the north-west
+      // corner (senders in table order fill receivers in table order), and what is imported goes to the last
+      // receivers. μ·n stays below half a rank step of the sender, so the sender's rank still decides first.
+      const tie = (a: number, b: number) => receiverTieUnit(n) * b * (n - a)
+      for (const from of info) {
+        // What leaves the block from this area (a goal, a surplus): free: shipping costs more than leaving, and costing the sink like a shipped unit sank the first sender's surplus (the pools price leaving at the sender's rank, `dout`/`oout`; a pair item's surplus is not priced, so the two paths agree only where a surplus is pinned or consumed).
+        if (from.hasDedicated || from.hasOther) {
+          const sink = `sk${from.i}`
+          variables[sink] = { __s2: 0, [from.row]: -1 }
+          pairNames.push({ itemId, from: from.area, names: [sink] })
+        }
+        for (const to of info) {
+          if (to === from || areaSpec.get(to.area)?.off.has(from.area)) continue
+          const names: string[] = []
+          if (from.hasDedicated) {
+            const name = `dp${from.i}_${to.i}`
+            variables[name] = { __s2: rankOf(from.area) + tie(from.area, to.area), [from.row]: -1, [to.row]: 1, [`dcap${from.i}`]: 1 }
+            if (to.hasDedicated) {
+              variables[name].__s1 = 1
+              penalised.push({ name, area: to.area, itemId })
+            }
+            names.push(name)
+          }
+          if (from.hasOther) {
+            const name = `op${from.i}_${to.i}`
+            variables[name] = { __s2: rankOf(from.area) + tie(from.area, to.area), [from.row]: -1, [to.row]: 1, [`ocap${from.i}`]: 1 }
+            names.push(name)
+          }
+          if (names.length > 0) pairNames.push({ itemId, from: from.area, to: to.area, names })
+        }
+      }
+      return
     }
 
     const dpool = `dpool${j}`
@@ -555,11 +604,17 @@ function solveAreaLPOnce(
     const value = (name: string | undefined) =>
       name !== undefined && typeof result[name] === 'number' ? Math.max(0, result[name] as number) : 0
     // A failed solve still reports variable values; they say nothing about imports.
-    const dedicatedIn = result.feasible !== true ? [] : penalised.map(p => ({
-      area: p.area,
-      itemId: p.itemId,
-      rate: value(p.name),
-    }))
+    // Summed per area and item: a pair item has one penalised flow per sender.
+    const dedicatedInOf = new Map<string, { area: number; itemId: string; rate: number }>()
+    if (result.feasible === true) {
+      for (const p of penalised) {
+        const key = `${p.area}\u0000${p.itemId}`
+        const d = dedicatedInOf.get(key) ?? { area: p.area, itemId: p.itemId, rate: 0 }
+        d.rate += value(p.name)
+        dedicatedInOf.set(key, d)
+      }
+    }
+    const dedicatedIn = [...dedicatedInOf.values()]
 
     // Area items: the block's slack and supply are the sums over the areas.
     const outside = areaNames.map(n => ({ itemId: n.itemId, area: n.area, slack: value(n.slack), supply: value(n.supply) }))
@@ -579,7 +634,13 @@ function solveAreaLPOnce(
       if (t.s > SLACK_TOLERANCE) slack.set(itemId, t.s)
       if (t.u > SLACK_TOLERANCE) supply.set(itemId, t.u)
     }
-    return { ...lp, slack, supply, warnings, dedicatedIn, outside }
+    const pairs: AreaPair[] = result.feasible !== true ? [] : pairNames.map(p => ({
+      itemId: p.itemId,
+      from: p.from,
+      ...(p.to !== undefined ? { to: p.to } : {}),
+      rate: p.names.reduce((t, name) => t + value(name), 0),
+    }))
+    return { ...lp, slack, supply, warnings, dedicatedIn, outside, pairs }
   }
 
   // Elastic: the least total shortfall comes first, before stage 1 (pools included, so a goal another
@@ -612,23 +673,38 @@ function solveAreaLPOnce(
 
 /**
  * The rule the block-wide sets read for an item one area touches (its own rule, else the block's), without
- * `areasOff`; and the items two areas or more touch, which the LP gives a slack and a supply per area.
+ * `areasOff`; the items two areas or more touch, which the LP gives a slack and a supply per area; and the pair items,
+ * touched by two areas or more where one area switches off another that also touches the item (goals included).
+ * `offOf` is the set of areas an area takes nothing from for an item (a switch naming the area itself or an unknown id is dropped).
  * With no area rule `effective` is `plan.sourceRules` itself.
  */
 function resolveAreaRules(plan: SolverPlan, areas: SolverArea[], columns: Column[], system: ClassifiedSystem): {
   areaItems: Set<string>
+  pairItems: Set<string>
   effective: SolverPlan['sourceRules']
   ruleOf: (area: number, itemId: string) => AreaSourceRule
+  offOf: (area: number, itemId: string) => Set<number>
   touching: Map<string, number[]>
 } {
   const touching = touchingAreas(system, columns)
   const ruleOf = (a: number, itemId: string): AreaSourceRule => areaRuleOf(areas[a], plan.sourceRules, itemId)
+  const indexOf = new Map(areas.map((a, i) => [a.id, i]))
+  const offOf = (a: number, itemId: string): Set<number> => {
+    const off = new Set<number>()
+    for (const id of ruleOf(a, itemId).areasOff ?? []) {
+      const b = indexOf.get(id)
+      if (b !== undefined && b !== a) off.add(b)
+    }
+    return off
+  }
   const areaItems = new Set<string>()
+  const pairItems = new Set<string>()
   const effective: Record<string, SourceRule> = { ...plan.sourceRules }
   let changed = false
   for (const [itemId, as] of touching) {
     if (as.length >= 2) {
       if (system.classification.intermediates.has(itemId)) areaItems.add(itemId)
+      if (as.some(a => [...offOf(a, itemId)].some(b => as.includes(b)))) pairItems.add(itemId)
       continue
     }
     if (as.length === 0) continue
@@ -642,7 +718,23 @@ function resolveAreaRules(plan: SolverPlan, areas: SolverArea[], columns: Column
     effective[itemId] = core
     changed = true
   }
-  return { areaItems, effective: changed ? effective : plan.sourceRules, ruleOf, touching }
+  return { areaItems, pairItems, effective: changed ? effective : plan.sourceRules, ruleOf, offOf, touching }
+}
+
+/**
+ * One area's outside leg: its slack plus its supply, at most what it takes (`supplied` the supply's part). `excess` is what
+ * it brings beyond that, `passing` the supply's part of it (what passes through the area to the others).
+ */
+function outsideLeg(o: AreaOutside, receivers: RouteReceiver[], tol: number) {
+  const full = o.slack + o.supply
+  const takes = receivers.find(r => r.area === o.area)?.rate ?? 0
+  const rate = Math.min(full, takes)
+  return {
+    rate,
+    supplied: Math.min(o.supply, rate),
+    excess: full - takes,
+    passing: full - takes > tol ? Math.max(0, o.supply - takes) : 0,
+  }
 }
 
 /**
@@ -650,7 +742,7 @@ function resolveAreaRules(plan: SolverPlan, areas: SolverArea[], columns: Column
  * receives (`supplied` the supply's part). What an area takes beyond that (a supply bounded by its use, while its rows
  * make as much) passes through it to the others: it is outside supply to them, so the routes keep agreeing with the nets.
  * The area-to-area legs, and the outside legs left over, are paired by `itemRoutes`, on what each receiver still takes
- * once its own outside leg is counted.
+ * once its own outside leg is counted. A pair item (`pairs` given) reads its area-to-area legs from the LP too (`pairItemRoutes`).
  */
 function areaItemRoutes(
   itemId: string,
@@ -658,19 +750,19 @@ function areaItemRoutes(
   outside: AreaOutside[],
   senders: RouteSender[],
   receivers: RouteReceiver[],
+  pairs?: AreaPair[],
 ): AreaRoute[] {
+  if (pairs !== undefined) return pairItemRoutes(itemId, areas, outside, senders, receivers, pairs)
   const tol = Math.min(...senders.map(x => x.tol), ...receivers.map(x => x.tol))
   const into = new Map<number, { rate: number; supplied: number }>()
   const outsideIn = new Map<number, number>()
   let passing = 0
   for (const o of outside) {
-    const full = o.slack + o.supply
-    const takes = receivers.find(r => r.area === o.area)?.rate ?? 0
-    if (full - takes > tol) passing += Math.max(0, o.supply - takes)
-    const rate = Math.min(full, takes)
-    if (rate <= tol) continue
-    outsideIn.set(o.area, rate)
-    into.set(o.area, { rate, supplied: Math.min(o.supply, rate) })
+    const leg = outsideLeg(o, receivers, tol)
+    passing += leg.passing
+    if (leg.rate <= tol) continue
+    outsideIn.set(o.area, leg.rate)
+    into.set(o.area, { rate: leg.rate, supplied: leg.supplied })
   }
   const rest = receivers
     .map(r => ({ ...r, rate: r.rate - (outsideIn.get(r.area) ?? 0) }))
@@ -688,6 +780,16 @@ function areaItemRoutes(
     into.set(l.to, { rate: (own?.rate ?? 0) + l.rate, supplied: (own?.supplied ?? 0) + part })
   }
   for (const [to, v] of into) legs.push({ to, rate: v.rate })
+  return legRoutes(itemId, areas, legs, into)
+}
+
+/** Sorts the legs and gives each outside leg into an area its `supplied`. */
+function legRoutes(
+  itemId: string,
+  areas: SolverArea[],
+  legs: ItemRoute[],
+  into: Map<number, { rate: number; supplied: number }>,
+): AreaRoute[] {
   const rank = (a: number | undefined) => (a === undefined ? Infinity : a)
   return legs
     .sort((a, b) => rank(a.from) - rank(b.from) || rank(a.to) - rank(b.to))
@@ -704,9 +806,67 @@ function areaItemRoutes(
 }
 
 /**
+ * The routes of a pair item: the LP's flow of each ordered pair of areas and each area's sink are the legs. Outside supply
+ * (the slack and the supply of an area) is a leg into the area, at most what the area takes; what it brings beyond that
+ * passes through the area, so it is taken back from the area's own outgoing legs (the sink first, then the receivers lowest
+ * in the table first) and moved to an outside leg into the receiver, `supplied` for the supply's part. A relay (c to a,
+ * a to b) stays as two legs.
+ */
+function pairItemRoutes(
+  itemId: string,
+  areas: SolverArea[],
+  outside: AreaOutside[],
+  senders: RouteSender[],
+  receivers: RouteReceiver[],
+  pairs: AreaPair[],
+): AreaRoute[] {
+  const tol = Math.min(...senders.map(x => x.tol), ...receivers.map(x => x.tol))
+  const legs: ItemRoute[] = pairs
+    .filter(p => p.rate > tol)
+    .map(p => ({ from: p.from, ...(p.to !== undefined ? { to: p.to } : {}), rate: p.rate }))
+  const into = new Map<number, { rate: number; supplied: number }>()
+  for (const o of outside) {
+    const { rate, supplied: inSupplied, excess: out, passing: pass } = outsideLeg(o, receivers, tol)
+    if (rate > tol) {
+      // An earlier area's pass-through may already have put a leg here.
+      const v = into.get(o.area) ?? { rate: 0, supplied: 0 }
+      into.set(o.area, { rate: v.rate + rate, supplied: v.supplied + inSupplied })
+    }
+    let excess = out
+    if (excess <= tol) continue
+    let passing = pass
+    const own = legs
+      .filter(l => l.from === o.area)
+      .sort((a, b) => (a.to === undefined ? -1 : b.to === undefined ? 1 : b.to - a.to))
+    for (const leg of own) {
+      if (excess <= tol) break
+      const part = Math.min(excess, leg.rate)
+      leg.rate -= part
+      excess -= part
+      // Outside, through the area, back outside: nothing to add.
+      if (leg.to === undefined) continue
+      const supplied = Math.min(passing, part)
+      passing -= supplied
+      const v = into.get(leg.to) ?? { rate: 0, supplied: 0 }
+      into.set(leg.to, { rate: v.rate + part, supplied: v.supplied + supplied })
+    }
+    // Outside supply that never entered the area's legs (rounding, or a surplus the LP kept in its balance): it stays an
+    // outside leg into the area, so the routes still add up.
+    if (excess > tol) {
+      const supplied = Math.min(passing, excess)
+      const v = into.get(o.area) ?? { rate: 0, supplied: 0 }
+      into.set(o.area, { rate: v.rate + excess, supplied: v.supplied + supplied })
+    }
+  }
+  const all: ItemRoute[] = legs.filter(l => l.rate > tol)
+  for (const [to, v] of into) all.push({ to, rate: v.rate })
+  return legRoutes(itemId, areas, all, into)
+}
+
+/**
  * Items/min each area receives and sends, from the net production of its rows, and the routes
  * between areas (`itemRoutes`; `dedicatedIn` is the final pass's allowed shortfall per restricted area;
- * an area item's routes come from the LP, see `areaItemRoutes`).
+ * an area item's routes come from the LP, see `areaItemRoutes`; a pair item's area-to-area legs too, `pairItems` with the LP's `pairs`).
  */
 function areaFlows(
   system: ClassifiedSystem,
@@ -716,6 +876,8 @@ function areaFlows(
   dedicatedIn: { area: number; itemId: string; rate: number }[],
   outside: AreaOutside[],
   areaItems: ReadonlySet<string>,
+  pairItems: ReadonlySet<string>,
+  pairs: AreaPair[],
 ): { areas: SolvedArea[]; routes: AreaRoute[] } {
   const colById = new Map(columns.map(c => [c.id, c]))
   const dedicatedInOf = new Map(dedicatedIn.map(d => [`${d.area}\u0000${d.itemId}`, d.rate]))
@@ -767,8 +929,11 @@ function areaFlows(
         })
       }
     }
-    if (areaItems.has(itemId)) {
-      routes.push(...areaItemRoutes(itemId, areas, outsideOf.get(itemId) ?? [], senders, receivers))
+    if (areaItems.has(itemId) || pairItems.has(itemId)) {
+      routes.push(...areaItemRoutes(
+        itemId, areas, outsideOf.get(itemId) ?? [], senders, receivers,
+        pairItems.has(itemId) ? pairs.filter(p => p.itemId === itemId) : undefined,
+      ))
       continue
     }
     for (const r of itemRoutes(senders, receivers)) {
@@ -910,7 +1075,7 @@ export function solveAreaBlock(
   }
 
   // Which items get a slack and a supply per area, and the rule the block-wide sets read for the others.
-  const { areaItems, effective, ruleOf, touching } = resolveAreaRules(plan, areas, columns, system)
+  const { areaItems, pairItems, effective, ruleOf, offOf, touching } = resolveAreaRules(plan, areas, columns, system)
   const effPlan: SolverPlan = effective === plan.sourceRules ? plan : { ...plan, sourceRules: effective }
 
   // The LP's locked set, its byproducts-first set and the set `coproductDrivenWarning` reads (see `sourcingSets`).
@@ -946,7 +1111,13 @@ export function solveAreaBlock(
   // (connections first: when its own residual is left).
   const isFirst = (a: number, itemId: string) =>
     totalCaps.has(itemId) && ruleOf(a, itemId).makeHere === 'after-blocks' && system.classification.intermediates.has(itemId)
-  const areaItemSpecs = (residual?: Map<string, Map<number, number>>): AreaItemSpec[] => [...areaItems].map(itemId => {
+  const isLocked = (a: number, itemId: string) => {
+    const rule = ruleOf(a, itemId)
+    return consumerIngredients.has(itemId) || (rule.importOff === true && rule.makeHere !== 'off')
+  }
+  // A goal that is a pair item gets a spec too (no slack, no supply: only the flows between areas).
+  const specItems = [...areaItems, ...[...pairItems].filter(id => !areaItems.has(id))]
+  const areaItemSpecs = (residual?: Map<string, Map<number, number>>): AreaItemSpec[] => specItems.map(itemId => {
     const cap = totalCaps.get(itemId)
     const res = residual?.get(itemId) ?? new Map<number, number>()
     let resTotal = 0
@@ -957,7 +1128,7 @@ export function solveAreaBlock(
       areas: touching.get(itemId)!.map((a): AreaItemArea => {
         const rule = ruleOf(a, itemId)
         const bcIngredient = consumerIngredients.has(itemId)
-        const lockedA = bcIngredient || (rule.importOff === true && rule.makeHere !== 'off')
+        const lockedA = isLocked(a, itemId)
         const first = isFirst(a, itemId)
         const r = res.get(a) ?? 0
         let slack: boolean
@@ -972,8 +1143,10 @@ export function solveAreaBlock(
           ...(slack ? { slackCost: rule.makeHere === 'off' && !bcIngredient ? BYPRODUCTS_FIRST_SLACK_COST : BIG_M } : {}),
           ...(supplyCap !== undefined ? { supplyCap } : {}),
           supUse: first,
+          off: pairItems.has(itemId) ? offOf(a, itemId) : new Set(),
         }
       }),
+      pairs: pairItems.has(itemId),
     }
   })
 
@@ -1040,7 +1213,51 @@ export function solveAreaBlock(
     .map(d => ({ areaId: areas[d.area].id, itemId: d.itemId, rate: d.rate }))
   if (shortfalls.length > 0) warnings.push({ type: 'area-shortfall', shortfalls })
 
-  const flows = areaFlows(system, columns, throughput, areas, lp.dedicatedIn, lp.outside, areaItems)
+  // An area with no supplier left for an item that cannot be imported and has no row that makes it: its rows that use the
+  // item cannot run. Only said when the plan is feasible and a goal falls short; infeasible pins name their own conflict.
+  const cutOffAreas = (): { areaId: string; itemId: string }[] => {
+    // Items the short goals need: the goals, then the ingredients of every row that makes a needed item. An area is cut off
+    // only when one of its rows using the item makes something needed, so a short goal elsewhere does not blame it.
+    const neededItems = new Set(lp.shortfall.keys())
+    for (let grew = true; grew;) {
+      grew = false
+      for (const col of columns) {
+        if (![...neededItems].some(id => (system.S.get(id)?.get(col.id) ?? 0) > 0)) continue
+        for (const [id, m] of system.S) {
+          if ((m.get(col.id) ?? 0) < 0 && !neededItems.has(id)) {
+            neededItems.add(id)
+            grew = true
+          }
+        }
+      }
+    }
+    const needed = (area: number, itemId: string) => columns.some(col =>
+      col.area === area && !col.node.byproductConsumer && (system.S.get(itemId)?.get(col.id) ?? 0) < 0 &&
+      [...neededItems].some(id => (system.S.get(id)?.get(col.id) ?? 0) > 0))
+    const cut: { area: number; itemId: string }[] = []
+    for (const itemId of pairItems) {
+      if (!system.classification.intermediates.has(itemId) || totalCaps.has(itemId)) continue
+      const producers = new Set<number>()
+      for (const col of columns) if ((system.S.get(itemId)?.get(col.id) ?? 0) > 0) producers.add(col.area)
+      if (producers.size === 0) continue
+      for (const a of touching.get(itemId)!) {
+        // Cut off by the area's own rule only: a byproduct consumer's ingredient is locked too, and a switch there is the way
+        // to reserve a byproduct.
+        const rule = ruleOf(a, itemId)
+        if (producers.has(a) || consumerIngredients.has(itemId) || rule.importOff !== true || rule.makeHere === 'off') continue
+        if (!needed(a, itemId)) continue
+        const off = offOf(a, itemId)
+        if ([...producers].every(b => off.has(b))) cut.push({ area: a, itemId })
+      }
+    }
+    return cut
+      .sort((x, y) => x.area - y.area || (x.itemId < y.itemId ? -1 : x.itemId > y.itemId ? 1 : 0))
+      .map(c => ({ areaId: areas[c.area].id, itemId: c.itemId }))
+  }
+  const cut = lp.feasible && lp.shortfall.size > 0 ? cutOffAreas() : []
+  if (cut.length > 0) warnings.push({ type: 'area-cut-off', cutOffs: cut })
+
+  const flows = areaFlows(system, columns, throughput, areas, lp.dedicatedIn, lp.outside, areaItems, lp.feasible ? pairItems : new Set(), lp.pairs)
   return {
     result: {
       nodes,

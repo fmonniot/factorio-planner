@@ -295,6 +295,26 @@ describe('focusArea', () => {
   })
 })
 
+describe('a relay (an area that receives an item and sends it on)', () => {
+  // c sends 12 to a, a sends 12 to b: a's net is 0, so it has no cell.
+  const relay = { ...row({ c: 12, b: -12 }, 0, 0, [pf('c', 'a', 12), pf('a', 'b', 12)]) }
+  const m = matrixOf(['c', 'a', 'b'], [relay])
+
+  it('keeps the row in the focus of the relay area, with both its routes', () => {
+    const v = focusArea(m, 'a')
+    expect(v.rows).toHaveLength(1)
+    expect(v.counterpart.x).toEqual({ c: 12, b: 12 })
+    expect(v.trades.find(t => t.partyId === 'c')!.inRate).toBe(12)
+    expect(v.trades.find(t => t.partyId === 'b')!.outRate).toBe(12)
+  })
+
+  it('counts a relay between the same two areas each way in the counterpart total', () => {
+    const both = row({ a: 0, b: 0 }, 0, 0, [pf('a', 'b', 5), pf('b', 'a', 3)])
+    const f = focusArea(matrixOf(['a', 'b'], [both]), 'a')
+    expect(groupTotal([both], 'b', f)).toEqual({ kind: 'pair', out: 3, in: 5 })
+  })
+})
+
 describe('focusArea trade lines', () => {
   const item = (itemId: string, name: string, pairs: PairFlow[]) => ({ ...row({}, 0, 0, pairs), itemId, name })
 
