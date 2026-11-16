@@ -16,4 +16,14 @@ describe('FlowChip', () => {
     expect(chip).toHaveAttribute('title', 'Water: 60.0/m — from outside the block')
     expect(screen.queryAllByRole('button')).toHaveLength(0)
   })
+
+  it('names the other end in the title, boundary or not', () => {
+    render(<FlowChip itemId="water" rate={60} boundary otherEnd="from Oil" direction="receives" items={items} rateUnit="min" />)
+    expect(document.querySelector('[data-item-id="water"]')).toHaveAttribute('title', 'Water: 60.0/m — from Oil')
+  })
+
+  it('keeps the old title without an other end', () => {
+    render(<FlowChip itemId="water" rate={60} boundary direction="sends" items={items} rateUnit="min" />)
+    expect(document.querySelector('[data-item-id="water"]')).toHaveAttribute('title', 'Water: 60.0/m — leaves the block')
+  })
 })

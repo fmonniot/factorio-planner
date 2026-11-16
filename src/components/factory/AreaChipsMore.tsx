@@ -1,14 +1,16 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import type { GameData, SolvedArea } from '../../data/types'
+import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { useHoverPopup } from '../useHoverPopup'
 import { FlowChip } from './AreaFlow'
 import { fmtItemRateText } from './ItemTile'
+import type { FlowLine } from './sidePanel/groupFlows'
 
 // ---------------------------------------------------------------------------
 // AreaChipsMore — the "+N" of a collapsed area row: a button that opens a popup
-// listing the flows the row has no room for (a row is one line high: what does not fit on it is here). The popup sits
+// listing the flows the row has no room for (a row is one line high: what does not fit on it is here), one line per
+// partner with that route's rate and the other end under the item's name. The popup sits
 // under the button, above it when there is no room: where a recipe row's "+N" puts its list.
 // The button is one chip slot wide (32px), so the row counts it as a chip when it fits the line. Rendered in a portal: the
 // production table scrolls and would clip it.
@@ -16,7 +18,7 @@ import { fmtItemRateText } from './ItemTile'
 
 interface AreaChipsMoreProps {
   /** The hidden flows only. */
-  flows: SolvedArea['receives']
+  flows: FlowLine[]
   direction: 'receives' | 'sends'
   items: GameData['items']
   rateUnit: RateUnit
@@ -29,6 +31,9 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
   useEffect(() => { if (empty) hide() }, [empty, hide])
   if (empty) return null
   const received = direction === 'receives'
+  const rows = flows.flatMap(l => (l.ends.length > 0
+    ? l.ends.map(e => ({ itemId: l.itemId, boundary: l.boundary, rate: e.rate, otherEnd: e.otherEnd }))
+    : [{ itemId: l.itemId, boundary: l.boundary, rate: l.rate, otherEnd: '' }]))
   return (
     <>
       <button
@@ -49,13 +54,22 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
           onContextMenu={e => e.stopPropagation()}
           className="z-[60] w-max max-w-xs max-h-[60vh] overflow-y-auto p-2 text-xs bg-gray-900 border border-gray-700 rounded-lg shadow-2xl"
         >
-          <div className="mb-1 text-gray-400">{received ? 'Also receives' : 'Also sends'}</div>
+          <div className="mb-1 text-gray-400">{received ? 'Also receives' : 'Also sends'}{rows.length !== flows.length && ` (${rows.length} lines, one per partner)`}</div>
           <ul className="flex flex-col gap-1">
-            {flows.map(f => (
-              <li key={f.itemId} className="flex items-center gap-2">
-                <FlowChip {...f} direction={direction} items={items} rateUnit={rateUnit} />
-                <span className="truncate text-gray-200">{items[f.itemId]?.name ?? f.itemId}</span>
-                <span className="font-mono tabular-nums text-gray-400">{fmtItemRateText(f.itemId, f.rate / 60, rateUnit)}</span>
+            {rows.map((r, i) => (
+              <li
+                key={`${r.itemId}:${i}`}
+                data-testid="area-chips-line"
+                data-item-id={r.itemId}
+                data-other-end={r.otherEnd}
+                className="flex items-center gap-2"
+              >
+                <FlowChip itemId={r.itemId} rate={r.rate} boundary={r.boundary} otherEnd={r.otherEnd} direction={direction} items={items} rateUnit={rateUnit} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-gray-200">{items[r.itemId]?.name ?? r.itemId}</div>
+                  {r.otherEnd && <div className="truncate text-[11px] text-gray-400" title={r.otherEnd}>{r.otherEnd}</div>}
+                </div>
+                <span className="shrink-0 whitespace-nowrap font-mono tabular-nums text-gray-400">{fmtItemRateText(r.itemId, r.rate / 60, rateUnit)}</span>
               </li>
             ))}
           </ul>
