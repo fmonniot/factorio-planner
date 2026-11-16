@@ -323,7 +323,7 @@ function solveAreaLP(
   supplyCaps: Map<string, number>,
   connectionsFirst: Set<string>,
   byproductsFirst: Set<string>,
-  areaItems: AreaItemSpec[] = [],
+  areaItems: AreaItemSpec[],
 ): AreaLPResult {
   const args = [system, columns, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, areaItems] as const
   const plain = solveAreaLPOnce(...args, false)
@@ -476,13 +476,16 @@ function solveAreaLPOnce(
     }
   }
 
+  const colOf = new Map(columns.map(c => [c.id, c]))
+  const colIndex = new Map(columns.map((c, i) => [c.id, i]))
   for (const itemId of [...classification.goals.keys(), ...classification.intermediates]) {
     const rowS = S.get(itemId)
     if (!rowS) continue
     const byArea = new Map<number, { col: Column; coeff: number }[]>()
-    for (const col of columns) {
-      const coeff = rowS.get(col.id) ?? 0
-      if (coeff === 0) continue
+    // The row's columns in column order, so the order of the LP's terms does not depend on how `S` was filled.
+    const inRow = [...rowS].flatMap(([id, coeff]) => (coeff !== 0 && colOf.has(id) ? [{ col: colOf.get(id)!, coeff }] : []))
+    inRow.sort((x, y) => colIndex.get(x.col.id)! - colIndex.get(y.col.id)!)
+    for (const { col, coeff } of inRow) {
       const list = byArea.get(col.area) ?? []
       list.push({ col, coeff })
       byArea.set(col.area, list)
@@ -499,10 +502,6 @@ function solveAreaLPOnce(
     const opool = `opool${j++}`
     constraints[dpool] = { max: 0 }
     constraints[opool] = { max: 0 }
-    const slackName = base.itemToSlack.get(itemId)
-    const supplyName = base.itemToSupply.get(itemId)
-    if (slackName) variables[slackName][opool] = -1
-    if (supplyName) variables[supplyName][opool] = -1
 
     for (const area of [...byArea.keys()].sort((a, b) => a - b)) {
       const cols = byArea.get(area)!
@@ -566,16 +565,19 @@ function solveAreaLPOnce(
     const outside = areaNames.map(n => ({ itemId: n.itemId, area: n.area, slack: value(n.slack), supply: value(n.supply) }))
     const slack = new Map(lp.slack)
     const supply = new Map(lp.supply)
+    const totals = new Map<string, { s: number; u: number }>()
+    for (const o of outside) {
+      const t = totals.get(o.itemId) ?? { s: 0, u: 0 }
+      t.s += o.slack
+      t.u += o.supply
+      totals.set(o.itemId, t)
+    }
+    // `specOf` order, as before.
     for (const itemId of specOf.keys()) {
-      let s = 0
-      let u = 0
-      for (const o of outside) {
-        if (o.itemId !== itemId) continue
-        s += o.slack
-        u += o.supply
-      }
-      if (s > SLACK_TOLERANCE) slack.set(itemId, s)
-      if (u > SLACK_TOLERANCE) supply.set(itemId, u)
+      const t = totals.get(itemId)
+      if (!t) continue
+      if (t.s > SLACK_TOLERANCE) slack.set(itemId, t.s)
+      if (t.u > SLACK_TOLERANCE) supply.set(itemId, t.u)
     }
     return { ...lp, slack, supply, warnings, dedicatedIn, outside }
   }
@@ -644,9 +646,11 @@ function resolveAreaRules(plan: SolverPlan, areas: SolverArea[], columns: Column
 }
 
 /**
- * The routes of an area item, read from the LP. Outside legs into an area are its slack plus its supply (at most what it
- * receives, `supplied` the supply's part; when they exceed it, the whole of them, and the area sends the excess on). The
- * area-to-area legs are paired by `itemRoutes`, on what each receiver still takes once its outside leg is counted.
+ * The routes of an area item, read from the LP. Outside legs into an area are its slack plus its supply, at most what it
+ * receives (`supplied` the supply's part). What an area takes beyond that (a supply bounded by its use, while its rows
+ * make as much) passes through it to the others: it is outside supply to them, so the routes keep agreeing with the nets.
+ * The area-to-area legs, and the outside legs left over, are paired by `itemRoutes`, on what each receiver still takes
+ * once its own outside leg is counted.
  */
 function areaItemRoutes(
   itemId: string,
@@ -654,48 +658,41 @@ function areaItemRoutes(
   outside: AreaOutside[],
   senders: RouteSender[],
   receivers: RouteReceiver[],
-  net: number[],
-  other: number[],
 ): AreaRoute[] {
   const tol = Math.min(...senders.map(x => x.tol), ...receivers.map(x => x.tol))
-  const legs: ItemRoute[] = []
-  const supplied = new Map<number, number>()
+  const into = new Map<number, { rate: number; supplied: number }>()
   const outsideIn = new Map<number, number>()
-  const sending = senders.map(x => ({ ...x }))
-  const excessAreas = new Set<number>()
+  let passing = 0
   for (const o of outside) {
-    if (o.itemId !== itemId) continue
     const full = o.slack + o.supply
-    const into = receivers.find(r => r.area === o.area)?.rate ?? 0
-    // More than the area receives: it passes the excess on, so its legs balance.
-    const excess = full - into > tol
-    const rate = excess ? full : Math.min(full, into)
+    const takes = receivers.find(r => r.area === o.area)?.rate ?? 0
+    if (full - takes > tol) passing += Math.max(0, o.supply - takes)
+    const rate = Math.min(full, takes)
     if (rate <= tol) continue
-    if (excess) {
-      excessAreas.add(o.area)
-      const sender = sending.find(x => x.area === o.area)
-      if (sender) {
-        sender.rate = net[o.area] + full
-        sender.other = other[o.area] + full
-      } else {
-        sending.push({ area: o.area, rate: net[o.area] + full, other: other[o.area] + full, tol })
-      }
-    }
     outsideIn.set(o.area, rate)
-    supplied.set(o.area, Math.min(o.supply, rate))
-    legs.push({ to: o.area, rate })
+    into.set(o.area, { rate, supplied: Math.min(o.supply, rate) })
   }
   const rest = receivers
-    .filter(r => !excessAreas.has(r.area))
     .map(r => ({ ...r, rate: r.rate - (outsideIn.get(r.area) ?? 0) }))
     .filter(r => r.rate > r.tol)
-  sending.sort((a, b) => a.area - b.area)
-  legs.push(...itemRoutes(sending, rest).filter(l => l.from !== undefined))
+  const legs: ItemRoute[] = []
+  for (const l of itemRoutes(senders, rest)) {
+    if (l.from !== undefined || l.to === undefined) {
+      legs.push(l)
+      continue
+    }
+    // Outside supply left over for this receiver: what an area passed on is connected supply.
+    const part = Math.min(passing, l.rate)
+    passing -= part
+    const own = into.get(l.to)
+    into.set(l.to, { rate: (own?.rate ?? 0) + l.rate, supplied: (own?.supplied ?? 0) + part })
+  }
+  for (const [to, v] of into) legs.push({ to, rate: v.rate })
   const rank = (a: number | undefined) => (a === undefined ? Infinity : a)
   return legs
     .sort((a, b) => rank(a.from) - rank(b.from) || rank(a.to) - rank(b.to))
     .map(l => {
-      const s = l.from === undefined && l.to !== undefined ? supplied.get(l.to) ?? 0 : 0
+      const s = l.from === undefined && l.to !== undefined ? into.get(l.to)?.supplied ?? 0 : 0
       return {
         itemId,
         ...(l.from !== undefined ? { from: areas[l.from].id } : {}),
@@ -717,13 +714,15 @@ function areaFlows(
   throughput: Map<string, number>,
   areas: SolverArea[],
   dedicatedIn: { area: number; itemId: string; rate: number }[],
-  outside: AreaOutside[] = [],
-  areaItems: ReadonlySet<string> = new Set(),
+  outside: AreaOutside[],
+  areaItems: ReadonlySet<string>,
 ): { areas: SolvedArea[]; routes: AreaRoute[] } {
   const colById = new Map(columns.map(c => [c.id, c]))
   const dedicatedInOf = new Map(dedicatedIn.map(d => [`${d.area}\u0000${d.itemId}`, d.rate]))
   const solved: SolvedArea[] = areas.map(a => ({ areaId: a.id, receives: [], sends: [] }))
   const routes: AreaRoute[] = []
+  const outsideOf = new Map<string, AreaOutside[]>()
+  for (const o of outside) outsideOf.set(o.itemId, [...(outsideOf.get(o.itemId) ?? []), o])
   for (const [itemId, rowS] of [...system.S].sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))) {
     const net = areas.map(() => 0)
     const other = areas.map(() => 0)
@@ -769,7 +768,7 @@ function areaFlows(
       }
     }
     if (areaItems.has(itemId)) {
-      routes.push(...areaItemRoutes(itemId, areas, outside, senders, receivers, net, other))
+      routes.push(...areaItemRoutes(itemId, areas, outsideOf.get(itemId) ?? [], senders, receivers))
       continue
     }
     for (const r of itemRoutes(senders, receivers)) {
@@ -862,9 +861,10 @@ function buildAreaColumns(plan: SolverPlan, areas: SolverArea[], gameData: GameD
 function touchingAreas(system: ClassifiedSystem, columns: Column[]): Map<string, number[]> {
   const touching = new Map<string, number[]>()
   const { goals, intermediates } = system.classification
+  const areaOf = new Map(columns.map(c => [c.id, c.area]))
   for (const itemId of [...goals.keys(), ...intermediates]) {
     const set = new Set<number>()
-    for (const col of columns) if ((system.S.get(itemId)?.get(col.id) ?? 0) !== 0) set.add(col.area)
+    for (const [colId, coeff] of system.S.get(itemId) ?? []) if (coeff !== 0 && areaOf.has(colId)) set.add(areaOf.get(colId)!)
     touching.set(itemId, [...set].sort((a, b) => a - b))
   }
   return touching
@@ -983,17 +983,18 @@ export function solveAreaBlock(
     totalCaps: plainCaps, intermediates: system.classification.intermediates, firstItems, locked,
     slack: lp.slack, S: system.S, throughput: lp.throughput,
   })
-  // An area item runs pass 2 when an area that is not connections-first has a residual above the item's noise.
+  // An area item runs pass 2 when the residuals of its areas that are not connections-first add up to more than the item's noise
+  // (as `pass2Plan`, on the item's total).
   const residual = new Map<string, Map<number, number>>()
-  let areaPass2 = false
+  const openResidual = new Map<string, number>()
   for (const o of lp.outside) {
     if (o.slack <= FLOW_TOLERANCE) continue
     const m = residual.get(o.itemId) ?? new Map<number, number>()
     m.set(o.area, o.slack)
     residual.set(o.itemId, m)
-    if (totalCaps.has(o.itemId) && !isFirst(o.area, o.itemId)
-      && o.slack > surplusTolerance(itemGrossFlow(system.S.get(o.itemId), lp.throughput))) areaPass2 = true
+    if (totalCaps.has(o.itemId) && !isFirst(o.area, o.itemId)) openResidual.set(o.itemId, (openResidual.get(o.itemId) ?? 0) + o.slack)
   }
+  const areaPass2 = [...openResidual].some(([itemId, r]) => r > surplusTolerance(itemGrossFlow(system.S.get(itemId), lp.throughput)))
   if (pass2.run || areaPass2) {
     lp = solveAreaLP(
       system, columns, pinnedRates, bcColumns, pass2.noImport,

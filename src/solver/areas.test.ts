@@ -4,7 +4,7 @@ import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveAll, solveBlock, flattenBlock, surplusTolerance } from './index'
 import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker, areaRuleOf, areaLPItems } from './areas'
 import { outsideLegParts } from './areaRoutes'
-import { createSolveCache, exactKey, planKey, sourcingKey } from './solveCache'
+import { canonicalAreas, createSolveCache, exactKey, planKey, sourcingKey } from './solveCache'
 import { coproductDrivenWarning } from './blockResult'
 import { parseAppState } from '../data/loader'
 import type { AreaRoute, AreaSourceRule, Block, GameData, GameRecipeNode, Product, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
@@ -897,6 +897,13 @@ describe('area rules: the plan carries them', () => {
     expect(key({ L: { plate: off } })).toBe(keys[1])
   })
 
+  it('planKey and the request-cycle key do not depend on the order the rules were built in', () => {
+    const a = flattenBlock(plateBlock(['L', 'B'], plateRowsA(), { L: { plate: { makeHere: 'off', importOff: true }, gear: first } }))
+    const b = flattenBlock(plateBlock(['L', 'B'], plateRowsA(), { L: { gear: first, plate: { importOff: true, makeHere: 'off' } } }))
+    expect(planKey(a)).toBe(planKey(b))
+    expect(exactKey(canonicalAreas(a.areas!))).toBe(exactKey(canonicalAreas(b.areas!)))
+  })
+
   it('a request cycle is solved again when an area rule is added or changed in a member', () => {
     const data = gd()
     const cache = createSolveCache()
@@ -1075,6 +1082,28 @@ describe('area rules: the supply rank and the net sender', () => {
     // L's net is a send of 6, M takes 3, the surplus 3 leaves the block
     expect(out('L') - into('L')).toBeCloseTo(6, 6)
     expect(into('M') - out('M')).toBeCloseTo(3, 6)
+  })
+
+  it('a supply that passes through: L uses and makes 10 and takes the offer, B takes the plate from the outside', () => {
+    // L's net is 0 but its supply is 10 (bounded by its use): the routes keep agreeing with the nets, so B's receive is served from the outside.
+    const l = withRules(sub('L', [pin('use-plate', 'L', 10), pin('make-plate', 'L', 10)], [], true), { plate: first })
+    const m = sub('B', [pin('use-plate', 'B', 10)], [], true)
+    const b = blk(root([], [l, m]), [['pgear', 20]])
+    const { result } = solveBlock(flattenBlock(b), gd(), new Map([['plate', 100]]))
+    checkRoutes(result)
+    expectLegs(result, 'plate', [[undefined, 'B', 10, 10]])
+  })
+})
+
+describe('area rules: the second pass trigger', () => {
+  it('compares the item\'s total residual with the noise floor, not each area\'s: two residuals of 0.006 at a flow of 1e6 are filled', () => {
+    // The tolerance at this flow is 0.01. Each area's residual is below it, their sum is not.
+    const l = sub('L', [pin('use-plate', 'L', 500000.006), pin('make-plate', 'L', 500000)], [], true)
+    const m = sub('B', [pin('use-plate', 'B', 500000.006), pin('make-plate', 'B', 500000)], [], true)
+    const b = blk(root([], [l, m]), [['pgear', 1000000.012]])
+    const { result, received } = solveBlock(flattenBlock(b), gd(), new Map([['plate', 100]]))
+    expect(received.get('plate') ?? 0).toBeCloseTo(0.012, 6)
+    expect(unsat(result, 'plate')).toBeCloseTo(0, 6)
   })
 })
 

@@ -28,7 +28,7 @@ import { buildServed } from './served'
 import { areaNeedsOf, splitByArea, type AreaNeed, type AreaNeeds, type AreaReport } from './servedAreas'
 import { servedGroupSpans } from '../data/servedEntries'
 import { grantByRank, rankedPairs, servedRankOf, waterFill, type RankedEntry, type RankedPair, type RankedPairs, type ServedRank } from './servedRank'
-import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
+import { canonicalAreas, exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
 /**
  * Flatten a Block into a SolverPlan: walk the rootPlan tree, collect every
@@ -1248,7 +1248,7 @@ function computeRequests(
                 takes.map(t => [t.id, t.fromBlockId, t.maxRate ?? null]),
               ]),
               [...(requested.get(m.id) ?? [])],
-              ...(flat.areas ? [flat.areas] : []),
+              ...(flat.areas ? [canonicalAreas(flat.areas)] : []),
             ]
           }),
           members.flatMap(m =>

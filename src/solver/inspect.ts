@@ -206,15 +206,8 @@ function whatIfAreaRules(block: Block, blockRules: Record<string, SourceRule>, w
     const map = out.get(areaId) ?? {}
     out.set(areaId, map)
     if (Object.hasOwn(map, itemId)) return map[itemId]
-    const own = stored.get(areaId)
-    let rule: AreaSourceRule
-    if (own && Object.hasOwn(own, itemId)) rule = { ...own[itemId] }
-    else {
-      rule = {}
-      const wide = blockRules[itemId]
-      if (wide?.makeHere !== undefined) rule.makeHere = wide.makeHere
-      if (wide?.importOff === true) rule.importOff = true
-    }
+    // The solver's own resolution (`areaRuleOf`), copied so the edit below leaves the stored rule alone.
+    const rule: AreaSourceRule = { ...areaRuleOf({ id: areaId, nodeIds: [], rules: stored.get(areaId) }, blockRules, itemId) }
     map[itemId] = rule
     return rule
   }
