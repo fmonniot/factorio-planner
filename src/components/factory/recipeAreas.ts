@@ -1,4 +1,4 @@
-import type { GameRecipeNode, SolvedArea, SolvedNode, SubPlan } from '../../data/types'
+import type { GameRecipeNode, SolvedArea, AreaRoute, SolvedNode, SubPlan } from '../../data/types'
 import { areaRecipeIds, blockAreas, subPlanAreaIds, subPlanCopyBlocker } from '../../solver/areas'
 import { areaName } from '../../data/subPlanTree'
 import { canCopyGroupInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
@@ -33,6 +33,8 @@ export interface AreaView {
   index: RecipeAreaIndex
   solvedMap: ReadonlyMap<string, SolvedNode>
   solvedAreas: SolvedArea[] | undefined
+  /** The solver's routes between areas; absent when the solve has none. */
+  areaRoutes?: AreaRoute[]
 }
 
 export function indexRecipeAreas(root: SubPlan): RecipeAreaIndex {

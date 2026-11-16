@@ -99,7 +99,7 @@ export function ProductionTable() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const areaIndex = useMemo(() => (rootPlan ? indexRecipeAreas(rootPlan) : undefined), [rootPlan])
-  const areaView: AreaView | undefined = areaIndex && { index: areaIndex, solvedMap, solvedAreas: solverResult?.areas }
+  const areaView: AreaView | undefined = areaIndex && { index: areaIndex, solvedMap, solvedAreas: solverResult?.areas, areaRoutes: solverResult?.areaRoutes }
 
   // A request to show a row (Build also in…, Go to row in…): expand its sub-factories now, scroll
   // and flash once it is rendered. A request left over from before this table mounted is ignored.

@@ -7,17 +7,20 @@ interface ChipProps {
   itemId: string
   rate: number
   boundary: boolean
+  /** The other end in words ("from Oil"); the title falls back to the boundary text without it. */
+  otherEnd?: string
   direction: 'receives' | 'sends'
   items: GameData['items']
   rateUnit: RateUnit
 }
 
-export function FlowChip({ itemId, rate, boundary, direction, items, rateUnit }: ChipProps) {
+export function FlowChip({ itemId, rate, boundary, otherEnd, direction, items, rateUnit }: ChipProps) {
   const item = items[itemId]
   const name = item?.name ?? itemId
   const { value: amount, unit: unitLabel } = fmtItemRate(itemId, rate / 60, rateUnit)
   const outside = direction === 'receives' ? ' — from outside the block' : ' — leaves the block'
-  const title = `${name}: ${amount}${unitLabel}${boundary ? outside : ''}`
+  const end = otherEnd ? ` — ${otherEnd}` : boundary ? outside : ''
+  const title = `${name}: ${amount}${unitLabel}${end}`
   return (
     <IconChip
       iconPath={item?.iconPath || undefined}

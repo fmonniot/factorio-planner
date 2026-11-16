@@ -9,6 +9,7 @@ import {
 } from './areaMatrix'
 import { fmtAmount, fmtAmountUnit, fmtSigned, tradeRateText } from './matrixFormat'
 import { isEnergyItem } from '../../data/electricity'
+import { FoldedList } from './FoldedList'
 
 // ---------------------------------------------------------------------------
 // One block's areas as a balance matrix (items x areas), with an optional focus on one area.
@@ -374,6 +375,9 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   )
 }
 
+/** Trades with lists this many items per partner until "Show all" is pressed. */
+const TRADE_LINES_CAP = 4
+
 function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenArea }: {
   matrix: BlockMatrix
   area: MatrixArea
@@ -437,11 +441,28 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
                 outText ? `${outText} out` : '',
               ].filter(Boolean)
               const detail = parts.join(` ${'·'} `)
+              const lines = (
+                <FoldedList
+                  items={t.lines}
+                  cap={TRADE_LINES_CAP}
+                  testId={`trade-lines-${t.partyId}`}
+                  className="mt-1 ml-2 space-y-0.5"
+                  renderItem={l => (
+                    <li key={`${l.itemId}:${l.direction}`} data-item-id={l.itemId} data-direction={l.direction} className="flex items-baseline gap-2 text-[11px]">
+                      <span className="flex-1 min-w-0 truncate text-gray-300" title={l.name}>{l.name}</span>
+                      <span className="tabular-nums text-gray-400">{fmtAmountUnit(l.rate, rateUnit, l.energy)} {l.direction}</span>
+                    </li>
+                  )}
+                />
+              )
               if (t.partyId === OUTSIDE) {
                 return (
-                  <li key={t.partyId} className="rounded border border-gray-700 px-2 py-1">
-                    <div className="text-gray-200">Outside the block</div>
-                    <div className="text-[11px] text-gray-400">{detail}</div>
+                  <li key={t.partyId}>
+                    <div className="rounded border border-gray-700 px-2 py-1">
+                      <div className="text-gray-200">Outside the block</div>
+                      <div className="text-[11px] text-gray-400">{detail}</div>
+                    </div>
+                    {lines}
                   </li>
                 )
               }
@@ -456,6 +477,7 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
                     <div className="text-gray-200">{other?.name ?? t.partyId}</div>
                     <div className="text-[11px] text-gray-400">{detail}</div>
                   </button>
+                  {lines}
                 </li>
               )
             })}

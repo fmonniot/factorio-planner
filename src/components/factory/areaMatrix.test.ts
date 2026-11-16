@@ -295,6 +295,34 @@ describe('focusArea', () => {
   })
 })
 
+describe('focusArea trade lines', () => {
+  const item = (itemId: string, name: string, pairs: PairFlow[]) => ({ ...row({}, 0, 0, pairs), itemId, name })
+
+  it('lists what is traded with a partner, with its direction', () => {
+    const one = { ...item('one', 'One', [pf('A', 'B', 10)]), cells: { A: 10, B: -10 } }
+    const v = focusArea(matrixOf(['A', 'B'], [one]), 'A')
+    expect(v.trades.find(t => t.partyId === 'B')!.lines).toEqual([{ itemId: 'one', name: 'One', direction: 'out', rate: 10, energy: false }])
+  })
+
+  it('lists the outside in both directions', () => {
+    const out = { ...item('out', 'Out', [pf('A', OUTSIDE, 3)]), cells: { A: 3 } }
+    const inn = { ...item('inn', 'Inn', [pf(OUTSIDE, 'A', 7)]), cells: { A: -7 } }
+    const v = focusArea(matrixOf(['A'], [out, inn]), 'A')
+    const lines = v.trades.find(t => t.partyId === OUTSIDE)!.lines
+    expect(lines.map(l => [l.itemId, l.direction, l.rate])).toEqual([['inn', 'in', 7], ['out', 'out', 3]])
+  })
+
+  it('puts energy after items and sorts by rate', () => {
+    const elec = { ...item('power:electricity', 'Electricity', [pf('A', 'B', 600)]), cells: { A: 600, B: -600 } }
+    const small = { ...item('s', 'Small', [pf('A', 'B', 1)]), cells: { A: 1, B: -1 } }
+    const big = { ...item('b', 'Big', [pf('A', 'B', 9)]), cells: { A: 9, B: -9 } }
+    const v = focusArea(matrixOf(['A', 'B'], [elec, small, big]), 'A')
+    const lines = v.trades.find(t => t.partyId === 'B')!.lines
+    expect(lines.map(l => l.itemId)).toEqual(['b', 's', 'power:electricity'])
+    expect(lines[2].energy).toBe(true)
+  })
+})
+
 describe('areaContents', () => {
   const recipes = makeGameData().recipes
   const root = plan('root', 'Main',

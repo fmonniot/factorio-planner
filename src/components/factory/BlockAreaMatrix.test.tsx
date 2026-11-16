@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { BlockAreaMatrix, type BlockAreaMatrixProps } from './BlockAreaMatrix'
 import { OUTSIDE, type BlockMatrix, type MatrixRow } from './areaMatrix'
 import type { GameData } from '../../data/types'
@@ -113,5 +113,32 @@ describe('BlockAreaMatrix power units', () => {
     renderMatrix({ matrix: { ...matrix, rows: [elecRow, heat] } })
     const header = document.querySelector('tbody[data-group-id="power"] tr')!
     expect(header.textContent).not.toContain('MW')
+  })
+
+  it('lists under each partner the items traded, with their direction', () => {
+    renderMatrix({ focusedAreaId: 'A' })
+    const lines = screen.getByTestId('trade-lines-B')
+    const elec = lines.querySelector(`[data-item-id="${ELEC}"]`)!
+    expect(elec.textContent).toContain('Electricity')
+    expect(elec.textContent).toContain('5.0MW out')
+    const plate = lines.querySelector('[data-item-id="plate"]')!
+    expect(plate.textContent).toContain('Plate')
+    expect(plate.textContent).toContain('in')
+    expect(plate.getAttribute('data-direction')).toBe('in')
+    // Items before energy.
+    expect([...lines.querySelectorAll('li')].map(l => l.getAttribute('data-item-id'))).toEqual(['plate', ELEC])
+  })
+
+  it('folds a long list of trades after four and unfolds it', () => {
+    const rows: MatrixRow[] = ['a', 'b', 'c', 'd', 'e'].map((id, i) => ({
+      itemId: id, name: id.toUpperCase(), groupId: 'other-items', cells: { A: 10 - i, B: -(10 - i) },
+      fromOutside: 0, toOutside: 0, total: 10 - i, pairs: [{ from: 'A', to: 'B', rate: 10 - i }],
+    }))
+    renderMatrix({ matrix: { ...matrix, rows }, focusedAreaId: 'A' })
+    expect(screen.getByTestId('trade-lines-B').querySelectorAll('li')).toHaveLength(4)
+    const toggle = screen.getByTestId('trade-lines-B-toggle')
+    expect(toggle.textContent).toBe('Show all 5')
+    fireEvent.click(toggle)
+    expect(screen.getByTestId('trade-lines-B').querySelectorAll('li')).toHaveLength(5)
   })
 })
