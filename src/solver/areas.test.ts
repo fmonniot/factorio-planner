@@ -1,11 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
+import solver from 'javascript-lp-solver'
 import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveAll, solveBlock, flattenBlock, surplusTolerance } from './index'
-import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker } from './areas'
-import { createSolveCache, exactKey, planKey } from './solveCache'
+import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker, areaRuleOf, areaLPItems } from './areas'
+import { outsideLegParts } from './areaRoutes'
+import { canonicalAreas, createSolveCache, exactKey, planKey, sourcingKey } from './solveCache'
 import { coproductDrivenWarning } from './blockResult'
 import { parseAppState } from '../data/loader'
-import type { Block, GameData, GameRecipeNode, Product, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
+import type { AreaRoute, AreaSourceRule, Block, GameData, GameRecipeNode, Product, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
 
 // Areas: a sub-factory with `area: true` is solved as its own area. Every recipe takes 1 s in a
 // speed-1 machine, so machineCountExact = throughput / 60. Fixtures are built fresh by each call.
@@ -69,6 +71,9 @@ function gd(): GameData {
     // Co-product driven: co-maker makes cp and 40 cw per run; co-user needs 100 cw per cgadget.
     recipe('co-maker', [], [['cp', 1], ['cw', 40]], { mainProduct: 'cp' }),
     recipe('co-user', [['cp', 1], ['cw', 100]], [['cgadget', 1]]),
+    // Area rules (case 21's plate recipes)
+    recipe('make-plate', [['pore', 1]], [['plate', 1]]),
+    recipe('use-plate', [['plate', 1]], [['pgear', 1]]),
   ]
   return {
     factorioVersion: '2.0.0',
@@ -778,5 +783,365 @@ describe('areas: coproduct-driven warning', () => {
     expect(w.drivers[0].recipeId).toBe('co-maker')
     expect(w.drivers[0].itemIds).toEqual(['cw'])
     expect(w.drivers[0].needed).toBeCloseTo(60, 3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Area rules (phase 5, T4): each area's own rule for an item (`SubPlan.sourceRules`) in the area LP.
+// ---------------------------------------------------------------------------
+
+const withRules = (p: SubPlan, rules: Record<string, AreaSourceRule> | undefined): SubPlan => (rules ? { ...p, sourceRules: rules } : p)
+const first: AreaSourceRule = { makeHere: 'after-blocks' }
+const off: AreaSourceRule = { makeHere: 'off' }
+type AreaRules = Record<string, Record<string, AreaSourceRule>>
+
+/** Areas `order` (table order) with the given rows, each carrying its rules; the root has no rows. */
+function plateBlock(order: string[], rows: Record<string, RecipeNode[]>, rules: AreaRules = {}, blockRules: Block['sourceRules'] = {}, products: [string, number][] = [['pgear', 20]]): Block {
+  const b = blk(root([], order.map(id => withRules(sub(id, rows[id], [], true), rules[id]))), products)
+  return { ...b, sourceRules: blockRules }
+}
+const pin = (recipeId: string, where: string, rate: number) => row(recipeId, where, { pinnedRate: rate })
+/** L uses 12 plate and B uses 8 (both pinned), and each has a plate row of its own. */
+const plateRowsA = (): Record<string, RecipeNode[]> => ({
+  L: [pin('use-plate', 'L', 12), row('make-plate', 'L')],
+  B: [pin('use-plate', 'B', 8), row('make-plate', 'B')],
+})
+/** The same, with the plate rows pinned at 0: plate is an intermediate with a residual in both areas. */
+const plateRowsZero = (): Record<string, RecipeNode[]> => ({
+  L: [pin('use-plate', 'L', 12), pin('make-plate', 'L', 0)],
+  B: [pin('use-plate', 'B', 8), pin('make-plate', 'B', 0)],
+})
+const solvePlate = (b: Block, offer?: number) =>
+  solveBlock(flattenBlock(b), gd(), new Map(offer === undefined ? [] : [['plate', offer]]))
+const legsFor = (r: SolverResult, itemId: string): AreaRoute[] => (r.areaRoutes ?? []).filter(x => x.itemId === itemId)
+const unsat = (r: SolverResult, itemId: string) => r.unsatisfied.find(u => u.itemId === itemId)?.rate ?? 0
+/** A leg as [from, to, rate, supplied]; `supplied` absent where the table has a dash. */
+type Leg = [from: string | undefined, to: string | undefined, rate: number, supplied?: number]
+function expectLegs(r: SolverResult, itemId: string, want: Leg[]) {
+  const got = legsFor(r, itemId)
+  expect(got.map(l => [l.from, l.to]), `${itemId} legs`).toEqual(want.map(l => [l[0], l[1]]))
+  got.forEach((l, i) => {
+    expect(l.rate, `leg ${l.from}>${l.to} rate`).toBeCloseTo(want[i][2], 6)
+    if (want[i][3] === undefined) expect(l, `leg ${l.from}>${l.to} supplied`).not.toHaveProperty('supplied')
+    else expect(l.supplied, `leg ${l.from}>${l.to} supplied`).toBeCloseTo(want[i][3]!, 6)
+  })
+}
+/** The parts of the outside leg into `areaId`, under that area's rule. */
+function partsOf(b: Block, r: SolverResult, itemId: string, areaId: string) {
+  const leg = legsFor(r, itemId).find(l => l.from === undefined && l.to === areaId)
+  if (!leg) throw new Error(`no outside leg into ${areaId}`)
+  const a = flattenBlock(b).areas!.find(x => x.id === areaId)!
+  return outsideLegParts(leg, areaRuleOf(a, b.sourceRules, itemId))
+}
+const expectParts = (b: Block, r: SolverResult, areaId: string, [received, imported, missing]: [number, number, number]) => {
+  const p = partsOf(b, r, 'plate', areaId)
+  expect(p.received, `${areaId} received`).toBeCloseTo(received, 6)
+  expect(p.imported, `${areaId} imported`).toBeCloseTo(imported, 6)
+  expect(p.missing, `${areaId} missing`).toBeCloseTo(missing, 6)
+}
+
+describe('area rules: the plan carries them', () => {
+  const ruled = (): Block => ({
+    ...blk(
+      { ...root([], [withRules(sub('L', plateRowsA().L, [], true), { plate: {} }), sub('B', plateRowsA().B, [], true)]), sourceRules: { plate: { makeHere: 'off' } } },
+      [['pgear', 20]],
+    ),
+  })
+
+  it('flattenBlock puts the rules of each area on its entry, only when it has some', () => {
+    const b = ruled()
+    const areas = flattenBlock(b).areas!
+    expect(areas.map(a => a.id)).toEqual(['root', 'L', 'B'])
+    expect(areas[0].rules).toBe(b.rootPlan.sourceRules)
+    expect(areas[1].rules).toBe(b.rootPlan.subPlans[0].sourceRules)
+    expect(areas[1].rules, 'a keyless rule is a rule').toEqual({ plate: {} })
+    expect(areas[2]).not.toHaveProperty('rules')
+  })
+
+  it('carries nothing for an in-memory empty record, and keeps the plain areas of a plan with no rule', () => {
+    const b = plateBlock(['L', 'B'], plateRowsA())
+    const withEmpty: Block = { ...b, rootPlan: { ...b.rootPlan, sourceRules: {}, subPlans: b.rootPlan.subPlans.map(p => ({ ...p, sourceRules: {} })) } }
+    expect(flattenBlock(withEmpty)).toStrictEqual(flattenBlock(b))
+    for (const a of flattenBlock(b).areas!) expect(Object.keys(a).sort()).toEqual(['id', 'nodeIds'])
+  })
+
+  it('a block without areas gets none, and keys as without the root rules', () => {
+    const plain = blk(sub('root', [row('electrolysis', 'root')]), [['hydrogen', 60]])
+    const ruledRoot: Block = { ...plain, rootPlan: { ...plain.rootPlan, sourceRules: { hydrogen: { makeHere: 'off' } } } }
+    expect(flattenBlock(ruledRoot)).not.toHaveProperty('areas')
+    expect(planKey(flattenBlock(ruledRoot))).toBe(planKey(flattenBlock(plain)))
+  })
+
+  it('planKey: with no rule it is the goals, the nodes, the sourcing and the areas {id, nodeIds}', () => {
+    const plan = flattenBlock(plateBlock(['L', 'B'], plateRowsA()))
+    expect(planKey(plan)).toBe(exactKey([plan.goals, plan.nodes, sourcingKey(plan.sourceRules), plan.areas]))
+    expect(plan.areas).toEqual([
+      { id: 'root', nodeIds: [] },
+      { id: 'L', nodeIds: ['use-plate@L', 'make-plate@L'] },
+      { id: 'B', nodeIds: ['use-plate@B', 'make-plate@B'] },
+    ])
+  })
+
+  it('planKey changes with an added or changed rule and is equal for equal rules', () => {
+    const key = (rules: AreaRules) => planKey(flattenBlock(plateBlock(['L', 'B'], plateRowsA(), rules)))
+    const none = key({})
+    const variants: AreaRules[] = [
+      { L: { plate: {} } },
+      { L: { plate: off } },
+      { L: { plate: first } },
+      { L: { plate: { importOff: true } } },
+      { L: { plate: { areasOff: ['B'] } } },
+    ]
+    const keys = variants.map(key)
+    expect(new Set([none, ...keys]).size, 'every variant has its own key').toBe(variants.length + 1)
+    expect(key({ L: { plate: off } })).toBe(keys[1])
+  })
+
+  it('planKey and the request-cycle key do not depend on the order the rules were built in', () => {
+    const a = flattenBlock(plateBlock(['L', 'B'], plateRowsA(), { L: { plate: { makeHere: 'off', importOff: true }, gear: first } }))
+    const b = flattenBlock(plateBlock(['L', 'B'], plateRowsA(), { L: { gear: first, plate: { importOff: true, makeHere: 'off' } } }))
+    expect(planKey(a)).toBe(planKey(b))
+    expect(exactKey(canonicalAreas(a.areas!))).toBe(exactKey(canonicalAreas(b.areas!)))
+  })
+
+  it('a request cycle is solved again when an area rule is added or changed in a member', () => {
+    const data = gd()
+    const cache = createSolveCache()
+    const pair = (rule: AreaSourceRule): Block[] => {
+      const g = withRules(sub('G', [row('fx', 'g')], [], true), { y: rule })
+      const a = blk(root([], [g]), [['x', 60]], 'A')
+      a.inputConnections = [{ id: 'ca', itemId: 'y', fromBlockId: 'B' }]
+      const b = blk(sub('rootB', [row('fy', 'b')]), [['y', 0]], 'B')
+      b.products = [{ id: 'p-y', itemId: 'y' }]
+      b.inputConnections = [{ id: 'cb', itemId: 'x', fromBlockId: 'A' }]
+      return [a, b]
+    }
+    solveAll(pair({}), data, cache)
+    const lookup = vi.spyOn(cache, 'getRequestLoop')
+    const hit = (rule: AreaSourceRule) => {
+      solveAll(pair(rule), data, cache)
+      return lookup.mock.results.at(-1)!.value !== undefined
+    }
+    expect(hit({}), 'same rule').toBe(true)
+    expect(hit({ makeHere: 'off' }), 'makeHere added').toBe(false)
+    expect(hit({ makeHere: 'off' }), 'same again').toBe(true)
+    expect(hit({ makeHere: 'off', importOff: true }), 'importOff added').toBe(false)
+  })
+})
+
+describe('area rules: LP calls and what is read', () => {
+  const calls = (b: Block, offer?: number) => {
+    const spy = vi.spyOn(solver, 'Solve')
+    try {
+      solvePlate(b, offer)
+      return spy.mock.calls.length
+    } finally {
+      spy.mockRestore()
+    }
+  }
+  it('an area rule costs as many LP calls as the block-wide rule: 2 with no offer, 4 with an offer', () => {
+    const area = plateBlock(['L', 'B'], plateRowsA(), { L: { plate: off } })
+    const wide = plateBlock(['L', 'B'], plateRowsA(), {}, { plate: off })
+    expect(calls(area)).toBe(2)
+    expect(calls(wide)).toBe(2)
+    expect(calls(area, 100)).toBe(4)
+    expect(calls(wide, 100)).toBe(4)
+  })
+
+  it('step 6 with Import off on the area: a short offer leaves the rest missing', () => {
+    const b = plateBlock(['L', 'B'], plateRowsA(), { L: { plate: { makeHere: 'off', importOff: true } } })
+    const { result, received } = solvePlate(b, 5)
+    checkRoutes(result)
+    expect(received.get('plate')).toBeCloseTo(5, 6)
+    expect(unsat(result, 'plate')).toBeCloseTo(7, 6)
+    expectLegs(result, 'plate', [[undefined, 'L', 12, 5]])
+    expectParts(b, result, 'L', [5, 0, 7])
+  })
+
+  it('step 6 with Import off on C1: the byproduct goes to C2 and what C1 lacks is missing', () => {
+    const t = sub('T', [row('r-main', 'T')], [], true)
+    const c1 = withRules(sub('C1', [pin('use-x', 'C1', 40)], [], true), { x: { makeHere: 'off', importOff: true } })
+    const c2 = sub('C2', [pin('use-x', 'C2', 50), row('x-make', 'C2')], [], true)
+    const b = blk(root([], [t, c1, c2]), [['y', 30], ['z', 90]])
+    const { result } = solveBlock(flattenBlock(b), gd())
+    checkRoutes(result)
+    expect(node(result, 'x-make@C2').throughput, 'R').toBeCloseTo(10, 6)
+    expect(unsat(result, 'x')).toBeCloseTo(40, 6)
+    expectLegs(result, 'x', [['T', 'C2', 30], [undefined, 'C1', 40]])
+    const leg = legsFor(result, 'x').find(l => l.to === 'C1')!
+    const parts = outsideLegParts(leg, areaRuleOf(flattenBlock(b).areas![2], b.sourceRules, 'x'))
+    expect([parts.received, parts.imported, parts.missing].map(n => Math.round(n * 1e6) / 1e6)).toEqual([0, 0, 40])
+  })
+
+  it('Import off is read per area at the LP level: a locked area that nobody can supply is infeasible', () => {
+    // L uses 12 plate, B uses 8 and makes none (its plate row is pinned at 0), no offer.
+    const rows = (): Record<string, RecipeNode[]> => ({ L: [pin('use-plate', 'L', 12)], B: [pin('use-plate', 'B', 8), pin('make-plate', 'B', 0)] })
+    const locked = solvePlate(plateBlock(['L', 'B'], rows(), { L: { plate: { importOff: true } } })).result
+    expect(locked.warnings).toContainEqual(expect.objectContaining({ type: 'infeasible-pins', conflict: true }))
+    const free = solvePlate(plateBlock(['L', 'B'], rows())).result
+    checkRoutes(free)
+    expect(unsat(free, 'plate')).toBeCloseTo(20, 6)
+    expectLegs(free, 'plate', [[undefined, 'L', 12], [undefined, 'B', 8]])
+  })
+
+  it('areasOff is not read by the solve yet (T5 replaces this test)', () => {
+    const rows = (): Record<string, RecipeNode[]> => ({
+      L: [pin('use-plate', 'L', 12)], M1: [row('make-plate', 'M1')], M2: [row('make-plate', 'M2')],
+    })
+    const plain = solvePlate(plateBlock(['L', 'M1', 'M2'], rows(), {}, {}, [['pgear', 12]])).result
+    const ruled = solvePlate(plateBlock(['L', 'M1', 'M2'], rows(), { L: { plate: { areasOff: ['M1'] } } }, {}, [['pgear', 12]])).result
+    expect(node(plain, 'make-plate@M1').throughput).toBeCloseTo(12, 6)
+    expect(ruled).toEqual(plain)
+  })
+})
+
+describe('area rules: a short offer between two areas with residuals (offer 5 below 12 + 8)', () => {
+  type Want = { legs: Leg[]; parts: Array<[string, [number, number, number]]> }
+  const run = (order: string[], rules: AreaRules) => {
+    const b = plateBlock(order, plateRowsZero(), rules)
+    const { result } = solvePlate(b, 5)
+    checkRoutes(result)
+    return { b, result }
+  }
+  const check = (order: string[], rules: AreaRules, want: Want) => {
+    const { b, result } = run(order, rules)
+    expectLegs(result, 'plate', want.legs)
+    for (const [id, parts] of want.parts) expectParts(b, result, id, parts)
+  }
+
+  describe('(i) L: Import off', () => {
+    const rules = { L: { plate: { importOff: true as const } } }
+    it('L above B: L takes the offer and misses the rest', () => {
+      check(['L', 'B'], rules, { legs: [[undefined, 'L', 12, 5], [undefined, 'B', 8]], parts: [['L', [5, 0, 7]]] })
+    })
+    it('B above L: B takes the offer and L misses all 12', () => {
+      check(['B', 'L'], rules, { legs: [[undefined, 'B', 8, 5], [undefined, 'L', 12]], parts: [['L', [0, 0, 12]]] })
+    })
+  })
+
+  describe('(ii) L: Receive it first, B: Receive it first with Import off', () => {
+    const rules = { L: { plate: first }, B: { plate: { makeHere: 'after-blocks' as const, importOff: true as const } } }
+    it('L above B', () => {
+      check(['L', 'B'], rules, { legs: [[undefined, 'L', 12, 5], [undefined, 'B', 8]], parts: [['B', [0, 0, 8]]] })
+    })
+    it('B above L', () => {
+      check(['B', 'L'], rules, { legs: [[undefined, 'B', 8, 5], [undefined, 'L', 12]], parts: [['B', [5, 0, 3]], ['L', [0, 12, 0]]] })
+    })
+  })
+
+  describe('(iii) characterisation: L Receive it first alone, the pass-2 offer goes by table order', () => {
+    const rules = { L: { plate: first } }
+    it('L above B', () => {
+      check(['L', 'B'], rules, { legs: [[undefined, 'L', 12, 5], [undefined, 'B', 8]], parts: [] })
+    })
+    it('B above L', () => {
+      check(['B', 'L'], rules, { legs: [[undefined, 'B', 8, 5], [undefined, 'L', 12]], parts: [] })
+    })
+  })
+})
+
+describe('area rules: where the LP is indifferent', () => {
+  it('characterisation (case 21 C b): the byproduct goes to C1 and the imports to the lower receivers', () => {
+    // The block does not make X more than it has; T makes 30, C1 uses 40, C2 uses 50, 60 are imported. Which receiver takes the byproduct is
+    // not decided by the LP. Before area rules the pairing gave T>C2 30, out>C1 40, out>C2 20; the nets and the total import are the same.
+    const t = sub('T', [row('r-main', 'T')], [], true)
+    const c1 = sub('C1', [pin('use-x', 'C1', 40)], [], true)
+    const c2 = sub('C2', [pin('use-x', 'C2', 50), row('x-make', 'C2')], [], true)
+    const b = { ...blk(root([], [t, c1, c2]), [['y', 30], ['z', 90]]), sourceRules: { x: off } }
+    const { result } = solveBlock(flattenBlock(b), gd())
+    checkRoutes(result)
+    expect(node(result, 'x-make@C2').throughput).toBeCloseTo(0, 6)
+    expect(unsat(result, 'x')).toBeCloseTo(60, 6)
+    expectLegs(result, 'x', [['T', 'C1', 30], [undefined, 'C1', 10], [undefined, 'C2', 50]])
+  })
+})
+
+describe('area rules: the supply rank and the net sender', () => {
+  it('a late area is supplied rather than taking another area\'s surplus', () => {
+    // Z (index 1) makes 12 plate that nothing uses; L, 12 areas further down, uses 12 and Receives it first: the tie-break on the supply stays
+    // below taking Z's surplus, whatever L's rank.
+    const fillers = Array.from({ length: 11 }, (_, i) => sub(`F${i}`, [pin('use-plate', `F${i}`, 0)], [], true))
+    const z = sub('Z', [pin('make-plate', 'Z', 12)], [], true)
+    const l = withRules(sub('L', [pin('use-plate', 'L', 12), row('make-plate', 'L')], [], true), { plate: first })
+    const b = blk(root([], [z, ...fillers, l]), [['pgear', 12]])
+    const { result } = solveBlock(flattenBlock(b), gd(), new Map([['plate', 100]]))
+    const into = legsFor(result, 'plate').filter(r => r.to === 'L')
+    expect(into.map(r => r.from), 'L takes the offer, not Z').toEqual([undefined])
+    expect(into[0].supplied).toBeCloseTo(12, 6)
+  })
+
+  it('a net sender with a rule: Receive it first on L, which makes 10 and uses 4, leaves no unbalanced outside leg', () => {
+    const l = withRules(sub('L', [pin('use-plate', 'L', 4), pin('make-plate', 'L', 10)], [], true), { plate: first })
+    const m = sub('M', [pin('use-plate', 'M', 3)], [], true)
+    const b = blk(root([], [l, m]), [['pgear', 7]])
+    const { result } = solveBlock(flattenBlock(b), gd(), new Map([['plate', 100]]))
+    checkRoutes(result)
+    const legs = legsFor(result, 'plate')
+    const into = (to: string | undefined) => legs.filter(r => r.to === to).reduce((x, r) => x + r.rate, 0)
+    const out = (from: string | undefined) => legs.filter(r => r.from === from).reduce((x, r) => x + r.rate, 0)
+    // L's net is a send of 6, M takes 3, the surplus 3 leaves the block
+    expect(out('L') - into('L')).toBeCloseTo(6, 6)
+    expect(into('M') - out('M')).toBeCloseTo(3, 6)
+  })
+
+  it('a supply that passes through: L uses and makes 10 and takes the offer, B takes the plate from the outside', () => {
+    // L's net is 0 but its supply is 10 (bounded by its use): the routes keep agreeing with the nets, so B's receive is served from the outside.
+    const l = withRules(sub('L', [pin('use-plate', 'L', 10), pin('make-plate', 'L', 10)], [], true), { plate: first })
+    const m = sub('B', [pin('use-plate', 'B', 10)], [], true)
+    const b = blk(root([], [l, m]), [['pgear', 20]])
+    const { result } = solveBlock(flattenBlock(b), gd(), new Map([['plate', 100]]))
+    checkRoutes(result)
+    expectLegs(result, 'plate', [[undefined, 'B', 10, 10]])
+  })
+})
+
+describe('area rules: the second pass trigger', () => {
+  it('compares the item\'s total residual with the noise floor, not each area\'s: two residuals of 0.006 at a flow of 1e6 are filled', () => {
+    // The tolerance at this flow is 0.01. Each area's residual is below it, their sum is not.
+    const l = sub('L', [pin('use-plate', 'L', 500000.006), pin('make-plate', 'L', 500000)], [], true)
+    const m = sub('B', [pin('use-plate', 'B', 500000.006), pin('make-plate', 'B', 500000)], [], true)
+    const b = blk(root([], [l, m]), [['pgear', 1000000.012]])
+    const { result, received } = solveBlock(flattenBlock(b), gd(), new Map([['plate', 100]]))
+    expect(received.get('plate') ?? 0).toBeCloseTo(0.012, 6)
+    expect(unsat(result, 'plate')).toBeCloseTo(0, 6)
+  })
+})
+
+describe('area rules: the set the coproduct-driven check is told cannot be imported', () => {
+  const plan = (rootRules?: Record<string, AreaSourceRule>, sRules?: Record<string, AreaSourceRule>): Block =>
+    blk(
+      withRules(root([row('r-main', 'root')], [withRules(sub('S', [row('use-x', 's'), row('x-make', 's')], [], true), sRules)]), rootRules),
+      [['y', 10], ['z', 30]],
+    )
+  const told = (b: Block) => {
+    solveBlock(flattenBlock(b), gd())
+    return [...vi.mocked(coproductDrivenWarning).mock.calls.at(-1)![0].noImportItems].sort()
+  }
+  it("an area's Import off does not lock an item another area that touches it may import", () => {
+    expect(told(plan(undefined, { x: { makeHere: 'off', importOff: true } }))).not.toContain('x')
+  })
+  it('every touching area with Import off locks it', () => {
+    expect(told(plan({ x: { importOff: true } }, { x: { makeHere: 'off', importOff: true } }))).toContain('x')
+  })
+})
+
+describe('areaLPItems and outsideLegParts', () => {
+  it('names the intermediates two areas or more touch', () => {
+    expect([...areaLPItems(flattenBlock(scenario1()), gd())]).toEqual(['hydrogen'])
+  })
+  it('leaves out an item one area touches', () => {
+    const b = blk(root([], [sub('S', [row('use-x', 's'), row('x-make', 's')], [], true)]), [['z', 30]])
+    expect(areaLPItems(flattenBlock(b), gd()).size).toBe(0)
+  })
+  it('is empty for a plan without areas', () => {
+    expect(areaLPItems(flattenBlock(blk(sub('root', [row('electrolysis', 'root')]), [['hydrogen', 60]])), gd()).size).toBe(0)
+  })
+  const leg = (rate: number, supplied?: number): AreaRoute => ({ itemId: 'plate', to: 'L', rate, ...(supplied === undefined ? {} : { supplied }) })
+  it('splits a leg into supplied, imported and missing', () => {
+    expect(outsideLegParts(leg(12), {})).toEqual({ received: 0, imported: 12, missing: 0 })
+    expect(outsideLegParts(leg(12, 5), {})).toEqual({ received: 5, imported: 7, missing: 0 })
+    expect(outsideLegParts(leg(12, 5), { importOff: true })).toEqual({ received: 5, imported: 0, missing: 7 })
+    expect(outsideLegParts(leg(12), { importOff: true })).toEqual({ received: 0, imported: 0, missing: 12 })
+    expect(outsideLegParts(leg(12, 12), { importOff: true })).toEqual({ received: 12, imported: 0, missing: 0 })
   })
 })

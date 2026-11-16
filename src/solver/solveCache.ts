@@ -9,7 +9,7 @@
  * warm solve runs none of the demand rounds; those entries are not counted by `size` or `has`,
  * and `retain` drops the ones the solve since the last `retain` did not use.
  */
-import type { GameData, SolverGoal, RecipeNode, SolverResult, SourceRule } from '../data/types'
+import type { AreaSourceRule, GameData, SolverGoal, RecipeNode, SolverResult, SourceRule } from '../data/types'
 import type { AreaNeeds } from './servedAreas'
 
 export interface BlockSolve {
@@ -79,6 +79,20 @@ export function sourcingKey(s?: Record<string, SourceRule>): [string, string | n
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
 }
 
+/**
+ * The areas of a plan as a key: an area's rules (`SolverArea.rules`) as entries sorted by item with every field spelled out, so equal
+ * rule maps give equal keys whatever the order they were built in. An area without rules stays as it is.
+ */
+export function canonicalAreas<A extends { rules?: Record<string, AreaSourceRule> }>(areas: A[]): unknown[] {
+  return areas.map(a => {
+    if (!a.rules) return a
+    const rules = Object.entries(a.rules)
+      .map(([id, r]): [string, string | null, boolean, string[] | null] => [id, r.makeHere ?? null, r.importOff === true, r.areasOff ?? null])
+      .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+    return { ...a, rules }
+  })
+}
+
 /** Everything `solveBlock` reads from a flattened plan, as an exact string. */
 export function planKey(plan: {
   goals: SolverGoal[]
@@ -87,7 +101,7 @@ export function planKey(plan: {
   areas?: unknown
 }): string {
   const key = [plan.goals, plan.nodes, sourcingKey(plan.sourceRules)]
-  return exactKey(plan.areas ? [...key, plan.areas] : key)
+  return exactKey(plan.areas ? [...key, canonicalAreas(plan.areas as { rules?: Record<string, AreaSourceRule> }[])] : key)
 }
 
 function sameCaps(stored: [string, number][], caps: Map<string, number>): boolean {

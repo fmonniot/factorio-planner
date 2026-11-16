@@ -1,4 +1,6 @@
-import { solveAll } from './index'
+import { solveAll, flattenBlock } from './index'
+import { areaLPItems, areaRuleOf, blockAreas } from './areas'
+import { outsideLegParts } from './areaRoutes'
 import { makeHereOf } from '../data/sourceRules'
 import { servedGroups } from '../data/servedEntries'
 import { areaName } from '../data/subPlanTree'
@@ -6,6 +8,7 @@ import { rankedPairs } from './servedRank'
 import type {
   AppState,
   AreaRoute,
+  AreaSourceRule,
   Block,
   ConnectionFlow,
   GameData,
@@ -31,6 +34,62 @@ export interface WhatIf {
   importOff?: string[]
   /** Clear the `area` flag of every sub-factory of the block. */
   noArea?: boolean
+  /** An area's own rule for an item (`SubPlan.sourceRules`), edited from the block's rule: Receive it first, Don't make more here, or Make it here. */
+  areaSourcing?: (AreaItemWhatIf & { mode: AreaSourcingMode })[]
+  /** Items whose Import is turned off in an area's own rule. */
+  areaImportOff?: AreaItemWhatIf[]
+}
+
+/** `first`: Receive it first; `off`: Don't make more here; `here`: Make it here. */
+export type AreaSourcingMode = 'first' | 'off' | 'here'
+
+/** An area (a sub-factory id or name, "Top level" for the root) and an item id. */
+export interface AreaItemWhatIf {
+  area: string
+  itemId: string
+}
+
+const AREA_MODES: readonly string[] = ['first', 'off', 'here']
+
+/** Parses `--area-sourcing <area>:<item>=<first|off|here>` entries: split on the last `=`, then on the first `:`. */
+export function parseAreaSourcing(entries: readonly string[]): (AreaItemWhatIf & { mode: AreaSourcingMode })[] {
+  return entries.map(entry => {
+    const at = entry.lastIndexOf('=')
+    const left = at > 0 ? entry.slice(0, at) : ''
+    const mode = entry.slice(at + 1)
+    const colon = left.indexOf(':')
+    const area = colon > 0 ? left.slice(0, colon) : ''
+    const itemId = colon > 0 ? left.slice(colon + 1) : ''
+    if (at <= 0 || area === '' || itemId === '') throw new Error(`--area-sourcing expects <area>:<item>=<first|off|here>, got "${entry}"`)
+    if (!AREA_MODES.includes(mode)) throw new Error(`--area-sourcing ${area}:${itemId}=${mode}: expected first, off or here`)
+    return { area, itemId, mode: mode as AreaSourcingMode }
+  })
+}
+
+/** Parses `--area-import-off <area>:<item>` entries. */
+export function parseAreaImportOff(entries: readonly string[]): AreaItemWhatIf[] {
+  return entries.map(entry => {
+    const colon = entry.indexOf(':')
+    const area = colon > 0 ? entry.slice(0, colon) : ''
+    const itemId = colon > 0 ? entry.slice(colon + 1) : ''
+    if (area === '' || itemId === '') throw new Error(`--area-import-off expects <area>:<item>, got "${entry}"`)
+    return { area, itemId }
+  })
+}
+
+/** The id of the area of `block` called `nameOrId`: an id, else a name as `areaName` gives it ("Top level" for the root), else that name ignoring case. */
+export function findArea(block: Block, nameOrId: string): string {
+  const areas = blockAreas(block.rootPlan)
+  if (!areas) throw new Error(`Block "${block.name}" has no areas`)
+  const named = areas.map(a => ({ id: a.id, name: areaName(block.rootPlan, a.id) }))
+  if (named.some(a => a.id === nameOrId)) return nameOrId
+  for (const matches of [named.filter(a => a.name === nameOrId), named.filter(a => a.name.toLowerCase() === nameOrId.toLowerCase())]) {
+    if (matches.length === 1) return matches[0].id
+    if (matches.length > 1) {
+      throw new Error(`Area name "${nameOrId}" is ambiguous in block "${block.name}": use an id (${matches.map(a => a.id).join(', ')})`)
+    }
+  }
+  throw new Error(`No area "${nameOrId}" in block "${block.name}". Areas: ${named.map(a => a.name).join(', ')}`)
 }
 
 export interface RowReport {
@@ -88,6 +147,10 @@ export interface InspectReport {
   /** Connections into and out of the block. */
   flows: ConnectionFlow[]
   areaRoutes: AreaRoute[]
+  /** The block's areas in table order, with their own rules (`SubPlan.sourceRules`); empty for a block without areas. */
+  areas: { id: string; name: string; rules: Record<string, AreaSourceRule> }[]
+  /** For each intermediate two areas or more touch that has an outside leg into an area: what each such area receives, imports and misses, in route order. */
+  areaItems: { itemId: string; areas: { areaId: string; name: string; received: number; imported: number; missing: number }[] }[]
   /** The inspected block's items other blocks take from it: the order they were served in and what each got. */
   served: ServedItemReport[]
   totals: { executions: number; machineCountExact: number; machineCountCeil: number; powerKw: number }
@@ -122,31 +185,65 @@ function whatIfRules(rules: Record<string, SourceRule>, whatIf: WhatIf): Record<
   return out
 }
 
+/** The areas' own rules after the what-if: area id → item id → rule. Each starts from the area's stored rule, else the block's (new) rule cut to its two keys, else `{}`. */
+function whatIfAreaRules(block: Block, blockRules: Record<string, SourceRule>, whatIf: WhatIf): Map<string, Record<string, AreaSourceRule>> {
+  const sourcing = whatIf.areaSourcing ?? []
+  const importOff = whatIf.areaImportOff ?? []
+  const out = new Map<string, Record<string, AreaSourceRule>>()
+  if (sourcing.length === 0 && importOff.length === 0) return out
+  if (whatIf.noArea) throw new Error('--no-area cannot be combined with --area-sourcing or --area-import-off')
+  for (const e of sourcing) {
+    if (!AREA_MODES.includes(e.mode)) throw new Error(`--area-sourcing ${e.area}:${e.itemId}=${String(e.mode)}: expected first, off or here`)
+  }
+  // The areas are resolved on the original tree.
+  const stored = new Map<string, Record<string, AreaSourceRule>>()
+  const collect = (p: SubPlan): void => {
+    if (p.sourceRules) stored.set(p.id, p.sourceRules)
+    p.subPlans.forEach(collect)
+  }
+  collect(block.rootPlan)
+  const ruleOf = (areaId: string, itemId: string): AreaSourceRule => {
+    const map = out.get(areaId) ?? {}
+    out.set(areaId, map)
+    if (Object.hasOwn(map, itemId)) return map[itemId]
+    // The solver's own resolution (`areaRuleOf`), copied so the edit below leaves the stored rule alone.
+    const rule: AreaSourceRule = { ...areaRuleOf({ id: areaId, nodeIds: [], rules: stored.get(areaId) }, blockRules, itemId) }
+    map[itemId] = rule
+    return rule
+  }
+  for (const e of sourcing) {
+    const rule = ruleOf(findArea(block, e.area), e.itemId)
+    if (e.mode === 'here') delete rule.makeHere
+    else rule.makeHere = e.mode === 'first' ? 'after-blocks' : 'off'
+  }
+  for (const e of importOff) ruleOf(findArea(block, e.area), e.itemId).importOff = true
+  return out
+}
+
 /** A copy of `appState` with the what-if edits applied to `blockId`; the input is not modified. */
 export function applyWhatIf(appState: AppState, blockId: string, whatIf: WhatIf): AppState {
   const drop = new Set(whatIf.drop ?? [])
   const pins = whatIf.pins ?? {}
-  const edit = (plan: SubPlan): SubPlan => {
-    const next: SubPlan = {
-      ...plan,
-      nodes: plan.nodes
-        .filter(n => n.kind !== 'game-recipe' || !drop.has(n.recipeId))
-        .map(n => (n.kind === 'game-recipe' && n.recipeId in pins ? { ...n, pinnedRate: pins[n.recipeId] } : n)),
-    }
-    if (whatIf.noArea) delete next.area
-    return next
-  }
   return {
     ...appState,
-    blocks: appState.blocks.map(b =>
-      b.id !== blockId
-        ? b
-        : {
-            ...b,
-            sourceRules: whatIfRules(b.sourceRules, whatIf),
-            rootPlan: mapPlan(b.rootPlan, edit),
-          },
-    ),
+    blocks: appState.blocks.map(b => {
+      if (b.id !== blockId) return b
+      const sourceRules = whatIfRules(b.sourceRules, whatIf)
+      const areaRules = whatIfAreaRules(b, sourceRules, whatIf)
+      const edit = (plan: SubPlan): SubPlan => {
+        const next: SubPlan = {
+          ...plan,
+          nodes: plan.nodes
+            .filter(n => n.kind !== 'game-recipe' || !drop.has(n.recipeId))
+            .map(n => (n.kind === 'game-recipe' && n.recipeId in pins ? { ...n, pinnedRate: pins[n.recipeId] } : n)),
+        }
+        if (whatIf.noArea) delete next.area
+        const edited = areaRules.get(plan.id)
+        if (edited) next.sourceRules = { ...plan.sourceRules, ...edited }
+        return next
+      }
+      return { ...b, sourceRules, rootPlan: mapPlan(b.rootPlan, edit) }
+    }),
   }
 }
 
@@ -241,6 +338,8 @@ export function inspectPlan(appState: AppState, gameData: GameData, blockName: s
     warnings: [],
     flows: [],
     areaRoutes: [],
+    areas: [],
+    areaItems: [],
     served: [],
     totals: { executions: 0, machineCountExact: 0, machineCountCeil: 0, powerKw: 0 },
   }
@@ -281,6 +380,20 @@ export function inspectPlan(appState: AppState, gameData: GameData, blockName: s
     isProduct: products.has(itemId),
   }))
 
+  const flat = flattenBlock(block)
+  const areas = (flat.areas ?? []).map(a => ({ id: a.id, name: areaName(block.rootPlan, a.id), rules: a.rules ?? {} }))
+  const areaLP = areaLPItems(flat, gameData)
+  const areaItems: InspectReport['areaItems'] = []
+  for (const route of result.areaRoutes ?? []) {
+    if (!areaLP.has(route.itemId) || route.from !== undefined || route.to === undefined) continue
+    const a = (flat.areas ?? []).find(x => x.id === route.to)
+    if (!a) continue
+    const parts = outsideLegParts(route, areaRuleOf(a, block.sourceRules, route.itemId))
+    let entry = areaItems.find(x => x.itemId === route.itemId)
+    if (!entry) areaItems.push((entry = { itemId: route.itemId, areas: [] }))
+    entry.areas.push({ areaId: a.id, name: areaName(block.rootPlan, a.id), received: parts.received, imported: parts.imported, missing: parts.missing })
+  }
+
   return {
     ...empty,
     rows,
@@ -289,6 +402,8 @@ export function inspectPlan(appState: AppState, gameData: GameData, blockName: s
     warnings: result.warnings,
     flows: solved.flows.filter(f => f.fromBlockId === block.id || f.toBlockId === block.id),
     areaRoutes: result.areaRoutes ?? [],
+    areas,
+    areaItems,
     served: servedReportOf(state.blocks, block.id, solved.served),
     totals,
   }
@@ -366,7 +481,30 @@ export function formatReport(report: InspectReport, options: FormatOptions = {})
 
   if (report.areaRoutes.length > 0) {
     out.push('', 'Area routes (item, from → to, items/min):')
-    for (const r of report.areaRoutes) out.push(`  ${r.itemId}  ${r.from ?? 'outside'} → ${r.to ?? 'outside'}  ${num(r.rate)}`)
+    for (const r of report.areaRoutes) {
+      out.push(`  ${r.itemId}  ${r.from ?? 'outside'} → ${r.to ?? 'outside'}  ${num(r.rate)}${r.supplied !== undefined ? `  (supplied ${num(r.supplied)})` : ''}`)
+    }
+  }
+
+  if (report.areas.length > 0) {
+    const nameOf = (id: string) => report.areas.find(a => a.id === id)?.name ?? id
+    out.push('', 'Area rules (area, item, rule):')
+    for (const a of report.areas) {
+      const entries = Object.entries(a.rules)
+      if (entries.length === 0) out.push(`  ${a.name}  follows the block`)
+      for (const [itemId, rule] of entries) {
+        const make = rule.makeHere === 'after-blocks' ? 'first' : rule.makeHere === 'off' ? 'off' : 'here'
+        out.push(`  ${a.name}  ${itemId}  ${make}  Import ${rule.importOff === true ? 'off' : 'on'}`)
+        if (rule.areasOff && rule.areasOff.length > 0) out.push(`  takes nothing from ${rule.areasOff.map(nameOf).join(', ')} (not read by the solver)`)
+      }
+    }
+  }
+
+  if (report.areaItems.length > 0) {
+    out.push('', 'Area items from outside (item, area, received, imported, missing):')
+    for (const item of report.areaItems) {
+      for (const a of item.areas) out.push(`  ${item.itemId}  ${a.name}  ${num(a.received)}  ${num(a.imported)}  ${num(a.missing)}`)
+    }
   }
   return out.join('\n')
 }

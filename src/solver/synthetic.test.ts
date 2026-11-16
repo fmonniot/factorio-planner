@@ -3,7 +3,9 @@ import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveAll, solveBlock, flattenBlock } from './index'
 import { createSolveCache } from './solveCache'
 import { areaNeedsOf } from './servedAreas'
-import type { Block, GameData, ServedEntry, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SourceRule, SubPlan } from '../data/types'
+import { areaRuleOf } from './areas'
+import { outsideLegParts } from './areaRoutes'
+import type { AreaRoute, AreaSourceRule, Block, GameData, ServedEntry, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SourceRule, SubPlan } from '../data/types'
 
 // Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius item ids and coefficients).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
@@ -124,6 +126,11 @@ function recipes(): GameRecipe[] {
     recipe('case17-use-p', 'smelting', 1, [item('case17-p', 1)], [item('case17-s', 1)]),
     recipe('case13-make-plate', 'smelting', 1, [item('case13-ore', 1)], [item('case13-plate', 1)]),
     recipe('case13-use-plate', 'smelting', 1, [item('case13-plate', 1)], [item('case13-gear', 1)]),
+    // Case 21 (area rules): a second and a third item the areas trade, with no rule on them.
+    recipe('case21-make-y', 'smelting', 1, [item('case21-ore', 1)], [item('case21-y', 1)]),
+    recipe('case21-use-y', 'smelting', 1, [item('case21-y', 1)], [item('case21-z', 1)]),
+    recipe('case21-make-coin', 'smelting', 1, [item('case21-ore', 1)], [item('case21-coin', 1)]),
+    recipe('case21-use-coin', 'smelting', 1, [item('case21-coin', 1)], [item('case21-token', 1)]),
   ]
 }
 
@@ -2088,6 +2095,279 @@ describe('solver synthetic cases', () => {
       const cold = solveAll(blocks(), gd)
       expect(warm.served).toEqual(cold.served)
       expect(warm.flows).toEqual(cold.flows)
+    })
+  })
+  describe('case 21: area rules', () => {
+    // Case 13's recipes (1 ore makes 1 plate, 1 plate makes 1 gear) and case 11's (A makes the goal with X on the side, U uses X, R makes 2 X).
+    // An area's rule for an item replaces the block's rule in that area, whole (see spec/test-synthetic.md and spec/solver.md, "Area rules").
+    // Values are derived by hand in initiatives/sourcing-priority/phase-5.md; none is edited to match the solver.
+    const PLATE = 'case13-plate'
+    const X = 'case11-x'
+    const Y = 'case21-y'
+    type AreaRules = Record<string, Record<string, AreaSourceRule>>
+    const sp = (id: string, nodes: RecipeNode[], rules?: Record<string, AreaSourceRule>): SubPlan =>
+      ({ ...subPlan(id, nodes, [], true), ...(rules ? { sourceRules: rules } : {}) })
+    const pin = (recipeId: string, where: string, rate: number): GameRecipeNode => ({ ...rowIn(recipeId, where), pinnedRate: rate })
+    const house = (id: string, rootPlan: SubPlan, products: Array<[string, number]>, sourceRules: Block['sourceRules'], links: Block['inputConnections']): Block => ({
+      id, name: id, color: '#60a5fa',
+      products: products.map(([itemId, extraRate], i) => ({ id: `p-${id}-${i}`, itemId, extraRate })),
+      sourceRules, inputConnections: links, rootPlan,
+    })
+    const offerLink = (from: string): Block['inputConnections'] => [{ id: 'c-H', itemId: PLATE, fromBlockId: from }]
+
+    // A: L uses 12 plate (pinned), B uses 8 (pinned); both have a plate row. `withY` adds an item no rule names, traded by two areas.
+    const blockA = (blockRule: SourceRule | undefined, rules: AreaRules, withY: boolean, links: Block['inputConnections'] = []): Block => {
+      const l = sp('L', [pin('case13-use-plate', 'L', 12), rowIn('case13-make-plate', 'L'), ...(withY ? [rowIn('case21-use-y', 'L')] : [])], rules.L)
+      const b = sp('B', [pin('case13-use-plate', 'B', 8), rowIn('case13-make-plate', 'B'), ...(withY ? [rowIn('case21-make-y', 'B')] : [])], rules.B)
+      return house('H', subPlan('root', [], [l, b]), [['case13-gear', 20], ...(withY ? [['case21-z', 6] as [string, number]] : [])],
+        blockRule ? { [PLATE]: blockRule } : {}, links)
+    }
+    // C: T makes 30 goal and 30 X; C1 uses 40 X (pinned); C2 uses 50 X (pinned) and can make X.
+    const blockC = (blockRule: SourceRule | undefined, rules: AreaRules, withY: boolean): Block => {
+      const t = sp('T', [rowIn('case11-make-goal', 'T'), ...(withY ? [rowIn('case21-make-y', 'T')] : [])], rules.T)
+      const c1 = sp('C1', [pin('case11-use-x', 'C1', 40), ...(withY ? [rowIn('case21-use-y', 'C1')] : [])], rules.C1)
+      const c2 = sp('C2', [pin('case11-use-x', 'C2', 50), rowIn('case11-make-x', 'C2')], rules.C2)
+      return house('H', subPlan('root', [], [t, c1, c2]), [['case11-goal', 30], ['case11-other', 90], ...(withY ? [['case21-z', 6] as [string, number]] : [])],
+        blockRule ? { [X]: blockRule } : {}, [])
+    }
+    const solveA = (b: Block, offer?: number) =>
+      solveBlock(flattenBlock(b), makeGameData(), new Map(offer === undefined ? [] : [[PLATE, offer]]))
+    const rateOf = (result: SolverResult, nodeId: string) => nodeOf(result, nodeId).throughput
+    const unsat = (result: SolverResult, itemId: string) => unsatisfiedRate(result, itemId) ?? 0
+    const r6 = (n: number) => Math.round(n * 1e6) / 1e6
+    const legsOf = (result: SolverResult, itemId: string): AreaRoute[] => (result.areaRoutes ?? []).filter(r => r.itemId === itemId)
+    // A leg as [from, to, rate, supplied]; `supplied` absent where the table has a dash.
+    type Leg = [from: string | undefined, to: string | undefined, rate: number, supplied?: number]
+    const legKey = (from?: string, to?: string) => `${from ?? '~'}>${to ?? '~'}`
+    const expectLegs = (result: SolverResult, itemId: string, want: Leg[]) => {
+      const got = [...legsOf(result, itemId)].sort((a, b) => (legKey(a.from, a.to) < legKey(b.from, b.to) ? -1 : 1))
+      const exp = [...want].sort((a, b) => (legKey(a[0], a[1]) < legKey(b[0], b[1]) ? -1 : 1))
+      expect(got.map(l => [l.from, l.to]), `${itemId} legs`).toEqual(exp.map(l => [l[0], l[1]]))
+      got.forEach((l, i) => {
+        expect(l.rate, `${itemId} leg ${legKey(l.from, l.to)} rate`).toBeCloseTo(exp[i][2], 6)
+        if (exp[i][3] === undefined) expect(l, `${itemId} leg ${legKey(l.from, l.to)} supplied`).not.toHaveProperty('supplied')
+        else expect(l.supplied, `${itemId} leg ${legKey(l.from, l.to)} supplied`).toBeCloseTo(exp[i][3]!, 6)
+      })
+    }
+    // What each outside leg into an area is made of, under the area's own rule: [area, received, imported, missing].
+    const expectParts = (b: Block, result: SolverResult, itemId: string, want: Array<[string, number, number, number]>) => {
+      const flat = flattenBlock(b)
+      const outside = legsOf(result, itemId).filter(l => l.from === undefined && l.to !== undefined)
+      expect(outside.map(l => l.to), `${itemId} outside legs`).toEqual(want.map(w => w[0]))
+      outside.forEach((l, i) => {
+        const area = flat.areas!.find(a => a.id === l.to)!
+        const parts = outsideLegParts(l, areaRuleOf(area, b.sourceRules, itemId))
+        expect(parts.received, `${l.to} received`).toBeCloseTo(want[i][1], 6)
+        expect(parts.imported, `${l.to} imported`).toBeCloseTo(want[i][2], 6)
+        expect(parts.missing, `${l.to} missing`).toBeCloseTo(want[i][3], 6)
+      })
+    }
+
+    describe('A: a central block and an area with its own row', () => {
+      const first: AreaSourceRule = { makeHere: 'after-blocks' }
+      const off: AreaSourceRule = { makeHere: 'off' }
+      type Row = {
+        name: string; blockRule?: SourceRule; rules: AreaRules; offer?: number
+        received: number; l: number; b: number; plateUnsat: number
+        legs: Leg[]; parts: Array<[string, number, number, number]>
+      }
+      const rows: Row[] = [
+        { name: 'a: none (measured)', rules: {}, offer: 100, received: 0, l: 12, b: 8, plateUnsat: 0, legs: [], parts: [] },
+        { name: 'b: block Receive it first (measured)', blockRule: first, rules: {}, offer: 100, received: 20, l: 0, b: 0, plateUnsat: 0,
+          legs: [[undefined, 'L', 12, 12], [undefined, 'B', 8, 8]], parts: [['L', 12, 0, 0], ['B', 8, 0, 0]] },
+        { name: 'c: L Receive it first', rules: { L: { [PLATE]: first } }, offer: 100, received: 12, l: 0, b: 8, plateUnsat: 0,
+          legs: [[undefined, 'L', 12, 12]], parts: [['L', 12, 0, 0]] },
+        { name: 'd: block Receive it first; B {}', blockRule: first, rules: { B: { [PLATE]: {} } }, offer: 100, received: 12, l: 0, b: 8, plateUnsat: 0,
+          legs: [[undefined, 'L', 12, 12]], parts: [['L', 12, 0, 0]] },
+        { name: 'e: L Receive it first, offer 5', rules: { L: { [PLATE]: first } }, offer: 5, received: 5, l: 7, b: 8, plateUnsat: 0,
+          legs: [[undefined, 'L', 5, 5]], parts: [['L', 5, 0, 0]] },
+        { name: 'f: L Receive it first, unlimited offer (the probe)', rules: { L: { [PLATE]: first } }, offer: Infinity, received: 12, l: 0, b: 8, plateUnsat: 0,
+          legs: [[undefined, 'L', 12, 12]], parts: [['L', 12, 0, 0]] },
+        { name: "g: L Don't make more here, no offer", rules: { L: { [PLATE]: off } }, received: 0, l: 0, b: 8, plateUnsat: 12,
+          legs: [[undefined, 'L', 12]], parts: [['L', 0, 12, 0]] },
+        { name: "h: L Don't make more here, offer 100", rules: { L: { [PLATE]: off } }, offer: 100, received: 12, l: 0, b: 8, plateUnsat: 0,
+          legs: [[undefined, 'L', 12, 12]], parts: [['L', 12, 0, 0]] },
+        { name: "i: L Don't make more here, offer 5", rules: { L: { [PLATE]: off } }, offer: 5, received: 5, l: 0, b: 8, plateUnsat: 7,
+          legs: [[undefined, 'L', 12, 5]], parts: [['L', 5, 7, 0]] },
+        { name: "j: L Don't make more here, Import off", rules: { L: { [PLATE]: { makeHere: 'off', importOff: true } } }, received: 0, l: 0, b: 8, plateUnsat: 12,
+          legs: [[undefined, 'L', 12]], parts: [['L', 0, 0, 12]] },
+        { name: "k: block Don't make more here; L {}", blockRule: off, rules: { L: { [PLATE]: {} } }, received: 0, l: 12, b: 0, plateUnsat: 8,
+          legs: [[undefined, 'B', 8]], parts: [['B', 0, 8, 0]] },
+      ]
+      for (const row of rows) {
+        it(row.name, () => {
+          const b = blockA(row.blockRule, row.rules, false)
+          const { result, received } = solveA(b, row.offer)
+          expect(received.get(PLATE) ?? 0, 'received').toBeCloseTo(row.received, 6)
+          expect(rateOf(result, 'case13-make-plate@L'), "L's plate row").toBeCloseTo(row.l, 6)
+          expect(rateOf(result, 'case13-make-plate@B'), "B's plate row").toBeCloseTo(row.b, 6)
+          expect(unsat(result, PLATE), 'plate imported or missing').toBeCloseTo(row.plateUnsat, 6)
+          expect(rateOf(result, 'case13-use-plate@L')).toBeCloseTo(12, 6)
+          expect(rateOf(result, 'case13-use-plate@B')).toBeCloseTo(8, 6)
+          expectLegs(result, PLATE, row.legs)
+          expectParts(b, result, PLATE, row.parts)
+        })
+        // The regression pin (one-path equivalence): Y is traded by two areas and no rule names it, so it goes through the per-area shape;
+        // these are the values today's pooled model gives, and the plate's rule must not move them or the plate figures.
+        it(`${row.name}, with a second item Y no rule names: Y and the plate do not move`, () => {
+          const bare = solveA(blockA(row.blockRule, row.rules, false), row.offer)
+          const withY = solveA(blockA(row.blockRule, row.rules, true), row.offer)
+          expect(rateOf(withY.result, 'case21-make-y@B'), 'make-y').toBeCloseTo(6, 6)
+          expect(rateOf(withY.result, 'case21-use-y@L'), 'use-y').toBeCloseTo(6, 6)
+          expect(legsOf(withY.result, Y)).toEqual([{ itemId: Y, from: 'B', to: 'L', rate: expect.closeTo(6, 6) }])
+          expect(unsat(withY.result, 'case21-ore'), 'ore').toBeCloseTo(6, 6)
+          const sends = withY.result.areas!.find(a => a.areaId === 'B')!.sends.find(s => s.itemId === Y)
+          const receives = withY.result.areas!.find(a => a.areaId === 'L')!.receives.find(s => s.itemId === Y)
+          expect(sends?.rate, 'B sends Y').toBeCloseTo(6, 6)
+          expect(sends?.boundary).toBe(false)
+          expect(receives?.rate, 'L receives Y').toBeCloseTo(6, 6)
+          expect(receives?.boundary).toBe(false)
+          const plate = (x: typeof bare) => ({
+            received: r6(x.received.get(PLATE) ?? 0),
+            rows: ['L', 'B'].map(w => r6(rateOf(x.result, `case13-make-plate@${w}`))),
+            unsat: r6(unsat(x.result, PLATE)),
+            legs: legsOf(x.result, PLATE).map(l => ({ ...l, rate: r6(l.rate), ...(l.supplied !== undefined ? { supplied: r6(l.supplied) } : {}) })),
+          })
+          expect(plate(withY)).toEqual(plate(bare))
+        })
+      }
+    })
+
+    describe('C: one consumer takes the byproduct', () => {
+      type Row = { name: string; blockRule?: SourceRule; rules: AreaRules; r: number; xUnsat: number; legs?: Leg[]; parts?: Array<[string, number, number, number]> }
+      const rows: Row[] = [
+        { name: 'a: none', rules: {}, r: 30, xUnsat: 0 },
+        { name: "b: block Don't make more here", blockRule: { makeHere: 'off' }, rules: {}, r: 0, xUnsat: 60 },
+        { name: "c: C1 Don't make more here", rules: { C1: { [X]: { makeHere: 'off' } } }, r: 10, xUnsat: 40,
+          legs: [['T', 'C2', 30], [undefined, 'C1', 40]], parts: [['C1', 0, 40, 0]] },
+      ]
+      for (const row of rows) {
+        it(row.name, () => {
+          const b = blockC(row.blockRule, row.rules, false)
+          const { result } = solveBlock(flattenBlock(b), makeGameData())
+          expect(rateOf(result, 'case11-make-goal@T')).toBeCloseTo(30, 6)
+          expect(rateOf(result, 'case11-use-x@C1')).toBeCloseTo(40, 6)
+          expect(rateOf(result, 'case11-use-x@C2')).toBeCloseTo(50, 6)
+          expect(rateOf(result, 'case11-make-x@C2'), 'R runs').toBeCloseTo(row.r, 6)
+          expect(unsat(result, X), 'X imported or missing').toBeCloseTo(row.xUnsat, 6)
+          if (row.legs) expectLegs(result, X, row.legs)
+          if (row.parts) expectParts(b, result, X, row.parts)
+          if (row.name.startsWith('a')) for (const l of legsOf(result, X)) expect(l, 'no supplied leg').not.toHaveProperty('supplied')
+        })
+        it(`${row.name}, with a second item Y no rule names: Y and X do not move`, () => {
+          const bare = solveBlock(flattenBlock(blockC(row.blockRule, row.rules, false)), makeGameData()).result
+          const withY = solveBlock(flattenBlock(blockC(row.blockRule, row.rules, true)), makeGameData()).result
+          expect(rateOf(withY, 'case21-make-y@T'), 'make-y').toBeCloseTo(6, 6)
+          expect(rateOf(withY, 'case21-use-y@C1'), 'use-y').toBeCloseTo(6, 6)
+          expect(legsOf(withY, Y)).toEqual([{ itemId: Y, from: 'T', to: 'C1', rate: expect.closeTo(6, 6) }])
+          expect(unsat(withY, 'case21-ore'), 'ore').toBeCloseTo(6, 6)
+          const sends = withY.areas!.find(a => a.areaId === 'T')!.sends.find(s => s.itemId === Y)
+          const receives = withY.areas!.find(a => a.areaId === 'C1')!.receives.find(s => s.itemId === Y)
+          expect(sends?.rate, 'T sends Y').toBeCloseTo(6, 6)
+          expect(sends?.boundary).toBe(false)
+          expect(receives?.rate, 'C1 receives Y').toBeCloseTo(6, 6)
+          expect(receives?.boundary).toBe(false)
+          const x = (r: SolverResult) => ({
+            r: r6(rateOf(r, 'case11-make-x@C2')),
+            unsat: r6(unsat(r, X)),
+            legs: legsOf(r, X).map(l => ({ ...l, rate: r6(l.rate) })),
+          })
+          expect(x(withY)).toEqual(x(bare))
+        })
+      }
+    })
+
+    describe('f, the list and the cycle: block H as a consumer of other blocks', () => {
+      const P = PLATE
+      const L1: Record<string, Record<string, AreaSourceRule>> = { L: { [P]: { makeHere: 'after-blocks' } } }
+      const S = (list?: ServedEntry[]): Block => mk('S', [[P, 0]], [rowIn('case13-make-plate', 'root')], [], list, P)
+      const orders = [['S', 'H'], ['H', 'S']]
+
+      for (const order of orders) {
+        it(`f as a request: L Receive it first makes S the supplier, tabs ${order.join(' ')}`, () => {
+          const byId: Record<string, Block> = { S: S(), H: blockA(undefined, L1, false, offerLink('S')) }
+          const all = solveAll(order.map(t => byId[t]), makeGameData())
+          const f = flowIn(all, 'c-H')
+          expect(f.kind).toBe('request')
+          expect(f.requested, 'requested').toBeCloseTo(12, 6)
+          expect(f.rate, 'rate').toBeCloseTo(12, 6)
+          expect(f.status).toBe('ok')
+          expect(nodeOf(all.results.S, 'case13-make-plate@root').throughput, 'S makes').toBeCloseTo(12, 6)
+          expect(nodeOf(all.results.H, 'case13-make-plate@L').throughput, 'L').toBeCloseTo(0, 6)
+          expect(nodeOf(all.results.H, 'case13-make-plate@B').throughput, 'B').toBeCloseTo(8, 6)
+          expectLegs(all.results.H, P, [[undefined, 'L', 12, 12]])
+        })
+        it(`f as a request: with no rule nothing is asked, tabs ${order.join(' ')}`, () => {
+          const byId: Record<string, Block> = { S: S(), H: blockA(undefined, {}, false, offerLink('S')) }
+          const all = solveAll(order.map(t => byId[t]), makeGameData())
+          const f = flowIn(all, 'c-H')
+          expect(f.requested ?? 0, 'requested').toBeCloseTo(0, 6)
+          expect(f.rate, 'rate').toBeCloseTo(0, 6)
+          expect(f.status).toBe('unused')
+          expect(nodeOf(all.results.H, 'case13-make-plate@L').throughput, 'L').toBeCloseTo(12, 6)
+        })
+      }
+
+      describe('a served list on the source that ranks B above L: an area need follows its rule', () => {
+        const list: ServedEntry[] = [{ kind: 'block', blockId: 'H', areaId: 'B' }, { kind: 'block', blockId: 'H', areaId: 'L' }]
+        const linesOfH = (all: ReturnType<typeof solveAll>) => all.served.S[P].consumers.filter(c => c.blockId === 'H')
+        for (const order of orders) {
+          it(`row c, tabs ${order.join(' ')}: the lines are exactly L's 12`, () => {
+            const byId: Record<string, Block> = { S: S(list), H: blockA(undefined, L1, false, offerLink('S')) }
+            const all = solveAll(order.map(t => byId[t]), makeGameData())
+            expect(linesOfH(all).map(c => [c.blockId, c.areaId, r6(c.share), r6(c.got)])).toEqual([['H', 'L', 12, 12]])
+          })
+          it(`row a, tabs ${order.join(' ')}: no H line has a share or got anything`, () => {
+            const byId: Record<string, Block> = { S: S(list), H: blockA(undefined, {}, false, offerLink('S')) }
+            const all = solveAll(order.map(t => byId[t]), makeGameData())
+            for (const c of linesOfH(all)) {
+              expect(c.share, `${c.areaId} share`).toBeCloseTo(0, 6)
+              expect(c.got, `${c.areaId} got`).toBeCloseTo(0, 6)
+            }
+          })
+        }
+        it('the request probe reads L 12 in row c and nothing in row a', () => {
+          const probe = (rules: AreaRules) => areaNeedsOf(solveBlock(flattenBlock(blockA(undefined, rules, false)), makeGameData(), new Map([[P, Infinity]])).result.areaRoutes)?.get(P)
+          expect(probe(L1)).toEqual([{ areaId: 'L', need: 12 }])
+          expect(probe({})).toBeUndefined()
+        })
+      })
+
+      describe('a cycle of requests: H takes plate from S, S takes coin from H', () => {
+        // H also makes a coin per unit S asks for (1 token needs 1 coin, which takes 1 ore); S makes the plate H's area L asks for.
+        const Hc = (rules: AreaRules): Block => {
+          const b = blockA(undefined, rules, false, offerLink('S'))
+          return { ...b, products: [...b.products, { id: 'p-H-coin', itemId: 'case21-coin', extraRate: 0 }], rootPlan: { ...b.rootPlan, nodes: [rowIn('case21-make-coin', 'root')] } }
+        }
+        const Sc = (): Block =>
+          mk('S', [[P, 0], ['case21-token', 1]], [rowIn('case13-make-plate', 'root'), rowIn('case21-use-coin', 'root')], [{ id: 'c-S', itemId: 'case21-coin', fromBlockId: 'H' }])
+        for (const order of orders) {
+          it(`row c, tabs ${order.join(' ')}: both requests are met in one loop`, () => {
+            const byId: Record<string, Block> = { S: Sc(), H: Hc(L1) }
+            const all = solveAll(order.map(t => byId[t]), makeGameData())
+            expect(flowIn(all, 'c-H')).toMatchObject({ status: 'ok' })
+            expect(flowIn(all, 'c-H').requested).toBeCloseTo(12, 6)
+            expect(flowIn(all, 'c-H').rate).toBeCloseTo(12, 6)
+            expect(flowIn(all, 'c-S')).toMatchObject({ status: 'ok' })
+            expect(flowIn(all, 'c-S').requested).toBeCloseTo(1, 6)
+            expect(flowIn(all, 'c-S').rate).toBeCloseTo(1, 6)
+            expect(nodeOf(all.results.H, 'case21-make-coin@root').throughput, "H's coin row").toBeCloseTo(1, 6)
+            expect(nodeOf(all.results.H, 'case13-make-plate@L').throughput, 'L').toBeCloseTo(0, 6)
+            expect(nodeOf(all.results.H, 'case13-make-plate@B').throughput, 'B').toBeCloseTo(8, 6)
+            expect(nodeOf(all.results.S, 'case13-make-plate@root').throughput, "S's plate row").toBeCloseTo(12, 6)
+            expect(all.loops).toHaveLength(1)
+            expect([...all.loops[0].blockIds].sort()).toEqual(['H', 'S'])
+            expect(all.loops[0].converged).toBe(true)
+          })
+          it(`row a, tabs ${order.join(' ')}: with no rule L makes its plate and c-H is unused`, () => {
+            const byId: Record<string, Block> = { S: Sc(), H: Hc({}) }
+            const all = solveAll(order.map(t => byId[t]), makeGameData())
+            expect(flowIn(all, 'c-H')).toMatchObject({ status: 'unused' })
+            expect(flowIn(all, 'c-H').rate).toBeCloseTo(0, 6)
+            expect(nodeOf(all.results.H, 'case13-make-plate@L').throughput, 'L').toBeCloseTo(12, 6)
+          })
+        }
+      })
     })
   })
 })

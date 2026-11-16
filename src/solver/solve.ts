@@ -69,6 +69,8 @@ export interface LPModel {
   itemToSupply: Map<string, string>
   /** goal itemId → shortfall variable name (elastic models only) */
   goalToShort: Map<string, string>
+  /** itemId → the names of its fluid temperature rows (only items that have an import or a supply) */
+  itemToTemperatureRows: Map<string, string[]>
   /** the least total shortfall `D` `boundShortfall` found (elastic models, once bounded) */
   leastShortfall?: number
 }
@@ -151,6 +153,9 @@ export function buildLPModel(
 
   // itemId → supply variable name (for post-solve extraction)
   const itemToSupply = new Map<string, string>()
+
+  // itemId → the names of its fluid temperature rows
+  const itemToTemperatureRows = new Map<string, string[]>()
 
   /** Adds the row for itemId and returns its constraint name. */
   function addConstraintWithSlack(itemId: string, rhs: number): string {
@@ -238,8 +243,11 @@ export function buildLPModel(
     const slackName = itemToSlack.get(itemId)
     const supplyName = itemToSupply.get(itemId)
     if (!slackName && !supplyName) continue
+    const rowNames: string[] = []
+    itemToTemperatureRows.set(itemId, rowNames)
     for (const row of temperatureRows(f)) {
       const cName = `c${constraintIdx++}`
+      rowNames.push(cName)
       constraints[cName] = { min: 0 }
       for (const [colId, coeff] of row) {
         const varName = recipeToVar.get(colId)
@@ -259,7 +267,7 @@ export function buildLPModel(
     variables[varName][cName] = 1
   }
 
-  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, goalToShort }
+  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, goalToShort, itemToTemperatureRows }
 }
 
 type LPConstraints = LPModel['constraints']
