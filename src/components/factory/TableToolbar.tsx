@@ -146,6 +146,7 @@ function warningTitle(w: SolverWarning): string {
     case 'overconstrained': return "Recipe network can't fully balance"
     case 'coproduct-driven': return 'Recipe runs for its co-product'
     case 'area-shortfall': return "Area can't cover its own need"
+    case 'area-cut-off': return 'Area cut off from its supply'
     case 'loop-not-converged': return 'Loop between blocks did not settle'
     case 'request-loop-not-converged': return 'Requests around a loop do not settle'
     case 'temperature-mismatch': return 'Fluid temperature does not fit'
@@ -202,6 +203,15 @@ function warningBody(
         })
         .join(' ')
     }
+    case 'area-cut-off': {
+      return w.cutOffs
+        .map(c => {
+          const area = rootPlan ? areaName(rootPlan, c.areaId) : c.areaId
+          const item = gameData.items[c.itemId]?.name ?? c.itemId
+          return `${area} takes ${item} from no other area, cannot import it and has no row that makes it, so the rows there that use it cannot run.`
+        })
+        .join(' ')
+    }
     case 'loop-not-converged': {
       const names = [...w.blockIds, w.blockIds[0]].map(blockName)
       return `The supply around the loop ${names.join(' → ')} still changed after ${w.rounds} rounds. Rates are from the last round and may not add up.`
@@ -223,6 +233,7 @@ function warningHint(w: SolverWarning): string {
         : 'Remove the duplicate nodes from the production table.'
     case 'infeasible-pins': return w.conflict ? 'Unpin it, or change which recipes are active.' : 'Raise the pin, unpin it, or change which recipes are active.'
     case 'area-shortfall': return 'Unpin that row, or turn Import on for its inputs.'
+    case 'area-cut-off': return 'Switch a supplying area back on, or turn Import on for it.'
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
     case 'coproduct-driven': return "Add an extraction or other row that supplies the co-product, set it to Don't make more here (right-click its ingredient chip, then Comes from…), or pin the recipe's rate."
     case 'loop-not-converged': return "Remove one of the loop's connections, or set a limit on one."

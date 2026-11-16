@@ -989,7 +989,7 @@ M1: T's list `[K2, K1]` -> `[K2, K1 tied]` (case 17): the cycle is solved again,
 
 ## Case 21 — Area rules
 
-**Exercises:** an area's own rule for an item (`SubPlan.sourceRules`) in the area LP: Receive it first, Don't make more here and Import off set on one area while the block's rule and the other areas keep theirs; a keyless `{}` rule that overrides the block's; the outside leg into an area and its connected part (`AreaRoute.supplied`); the split of that leg into received, imported and missing (`outsideLegParts`); a second item that no rule names and that two areas trade (the one-path pin); the rule as a request, in a served list's needs and in a cycle of requests; and the byproduct that goes where it saves the most runs.
+**Exercises:** an area's own rule for an item (`SubPlan.sourceRules`) in the area LP: Receive it first, Don't make more here and Import off set on one area while the block's rule and the other areas keep theirs; a keyless `{}` rule that overrides the block's; the outside leg into an area and its connected part (`AreaRoute.supplied`); the split of that leg into received, imported and missing (`outsideLegParts`); a second item that no rule names and that two areas trade (the one-path pin); the rule as a request, in a served list's needs and in a cycle of requests; the byproduct that goes where it saves the most runs; and the supplier switch (`areasOff`): an area that takes an item from one supplying area and not another, from none (imported, or missing when Import is off), and a byproduct that only one consumer may take.
 
 **Recipes:** case 13's (`case13-make-plate`: 1 ore makes 1 plate; `case13-use-plate`: 1 plate makes 1 gear) and case 11's (`case11-make-goal`, `case11-use-x`, `case11-make-x`), plus `case21-make-y` (1 `case21-ore` makes 1 Y), `case21-use-y` (1 Y makes 1 `case21-z`), `case21-make-coin` and `case21-use-coin` (1 `case21-ore` makes 1 coin; 1 coin makes 1 token). The values were derived by hand before the solver change; no row was edited to match the solver. Rows marked *measured* are what the solver gave before area rules.
 
@@ -1032,6 +1032,26 @@ Each row's second item: with the product 6 `case21-z`, B (A) or T (C) also has `
 
 **A cycle of requests.** H also makes 1 `case21-coin` (a root row `case21-make-coin`, product coin 0); S also makes 1 `case21-token` from `case21-use-coin` and takes the coin from H (`c-S`). Row c (L receives first): `c-H` requested 12, rate 12, `ok`; `c-S` requested 1, rate 1, `ok`; H's coin row 1, L's plate row 0, B's 8; S's plate row 12; one loop {H, S}, converged. Row a: `c-H` 0, `unused`, L's plate row 12.
 
+### B — choosing the supplying area
+
+Block H, product 12 gears; area L has a gear row pinned at 12 and no plate row; areas M1 and M2, in that order, each have a plate row. "off M1" is `areasOff: ['M1']` in L's rule for plate.
+
+| Row | L's rule | Offer | M1 | M2 | Plate imported or missing | Received | Legs | Parts |
+|---|---|---|---|---|---|---|---|---|
+| a | none | none | 12 | 0 | 0 | 0 | (M1 to L 12) | |
+| b | off M1 | none | 0 | 12 | 0 | 0 | (M2 to L 12) | |
+| c | off M1, M2 | none | 0 | 0 | 12 imported | 0 | (outside to L 12, no supplied) | L 0/12/0 |
+| d | off M1, M2 | 100 | 0 | 0 | 0 | 12 | (outside to L 12, supplied 12) | L 12/0/0 |
+
+```
+a: no switch: M1 is higher in the table, so it makes the 12 and sends them to L.
+b: the pair M1 to L is gone: L takes from M2 (run cost 12) or imports (12e6 as a slack): M2 makes 12, M1 none.
+c: no pair into L: L imports 12 as a slack; the leg is outside to L with no connected part.
+d: pass 1 leaves L a residual of 12; in pass 2 u_L = min(100, 12) = 12 and s_L = 0: received 12, the leg outside to L is supplied 12.
+```
+
+All rows: `case13-use-plate@L` runs at 12.
+
 ### C — one consumer takes the byproduct
 
 Case 11's recipes. Block H, products 30 `case11-goal` and 90 `case11-other`. Area T has `case11-make-goal` (30 goal and 30 X on the side); area C1 has `case11-use-x` pinned at 40; area C2 has `case11-use-x` pinned at 50 and `case11-make-x` (R: 1 ore makes 2 X).
@@ -1041,11 +1061,15 @@ Case 11's recipes. Block H, products 30 `case11-goal` and 90 `case11-other`. Are
 | a | none | none | 30 | 0 | no leg has `supplied` |
 | b | off | none | 0 | 60 imported | T to C1 30, outside to C1 10, outside to C2 50 (below) |
 | c | none | C1 off | 10 | 40 imported | T to C2 30, outside to C1 40 (no supplied), parts 0/40/0 |
+| d | none | C1 off; C2 switches T off | 25 | 10 imported | T to C1 30, outside to C1 10, parts 0/10/0 |
+| e | none | C1 off with Import off; C2 switches T off | 25 | 10 missing | T to C1 30, outside to C1 10, parts 0/0/10 |
 
 ```
 a: 90 used, 30 made on the side, R makes 60 / 2 = 30. (measured)
 b: no row runs for X: T's 30 are used, the other 60 are imported. Which receiver takes the byproduct is not decided by the LP (the nets and the total import are the same); the per-area imports go to the receivers lower in the table, so T goes to C1 (30) and the imports are C1 10 and C2 50. (Before area rules the pairing gave T to C2 30, outside to C1 40, outside to C2 20.)
 c: C1 does not make X, but the byproduct still goes where it saves the most runs: C2 takes T's 30 and R makes (50 - 30) / 2 = 10; C1 imports its 40.
+d: T's 30 X are a byproduct of the fixed goal and cannot be avoided. C2 switched T off, so its 50 come from R (25 runs); T's 30 can reach only C1. C1's other 10 are cheaper imported (1e-5 each) than made by 5 more runs of R: R 25, X imported 10, legs T to C1 30 and outside to C1 10. No flow is penalised (no area has a dedicated row that takes from another), so stage 1 is skipped.
+e: the same LP (`makeHere: 'off'` keeps the cheap slack); with Import off the 10 are missing, not imported: parts 0/0/10.
 ```
 
 The second item Y (T makes it, C1 uses it) is the same pin as in A: the plate (X) figures with Y equal those without it.

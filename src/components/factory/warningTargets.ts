@@ -29,6 +29,17 @@ function uniqueRows(targets: WarningTarget[]): WarningTarget[] {
   return targets.filter(t => t.kind !== 'row' || (!seen.has(t.nodeId) && seen.add(t.nodeId)))
 }
 
+/** One link per distinct area an area warning names, to the area's handle row. */
+function areaTargets(rootPlan: SubPlan, entries: { areaId: string }[]): WarningTarget[] {
+  const seen = new Set<string>()
+  return entries.flatMap(e => {
+    if (seen.has(e.areaId)) return []
+    seen.add(e.areaId)
+    const nodeId = handleNodeId(rootPlan, e.areaId)
+    return nodeId === undefined ? [] : [{ kind: 'row' as const, label: `Go to ${areaName(rootPlan, e.areaId)}`, nodeId }]
+  })
+}
+
 /**
  * The links of a warning, in the order the warning names them: the first row of each recipe it
  * names (the first one of the area for an area's duplicate), the handle row of each area, or each
@@ -60,15 +71,8 @@ export function warningTargets(
     case 'infeasible-pins': return uniqueRows(w.recipeIds.flatMap(id => recipeTarget(id)))
     case 'temperature-mismatch': return recipeTarget(w.recipeId)
     case 'coproduct-driven': return uniqueRows(w.drivers.flatMap(d => recipeTarget(d.recipeId)))
-    case 'area-shortfall': {
-      const seen = new Set<string>()
-      return w.shortfalls.flatMap(s => {
-        if (seen.has(s.areaId)) return []
-        seen.add(s.areaId)
-        const nodeId = handleNodeId(rootPlan, s.areaId)
-        return nodeId === undefined ? [] : [{ kind: 'row' as const, label: `Go to ${areaName(rootPlan, s.areaId)}`, nodeId }]
-      })
-    }
+    case 'area-shortfall': return areaTargets(rootPlan, w.shortfalls)
+    case 'area-cut-off': return areaTargets(rootPlan, w.cutOffs)
     default: return []
   }
 }

@@ -38,6 +38,8 @@ export interface WhatIf {
   areaSourcing?: (AreaItemWhatIf & { mode: AreaSourcingMode })[]
   /** Items whose Import is turned off in an area's own rule. */
   areaImportOff?: AreaItemWhatIf[]
+  /** An area stops taking an item from another area (`areasOff` of its own rule). */
+  areaOff?: AreaOffWhatIf[]
 }
 
 /** `first`: Receive it first; `off`: Don't make more here; `here`: Make it here. */
@@ -47,6 +49,11 @@ export type AreaSourcingMode = 'first' | 'off' | 'here'
 export interface AreaItemWhatIf {
   area: string
   itemId: string
+}
+
+/** An area, an item, and the other area (same forms as `area`) the first no longer takes the item from. */
+export interface AreaOffWhatIf extends AreaItemWhatIf {
+  other: string
 }
 
 const AREA_MODES: readonly string[] = ['first', 'off', 'here']
@@ -74,6 +81,20 @@ export function parseAreaImportOff(entries: readonly string[]): AreaItemWhatIf[]
     const itemId = colon > 0 ? entry.slice(colon + 1) : ''
     if (area === '' || itemId === '') throw new Error(`--area-import-off expects <area>:<item>, got "${entry}"`)
     return { area, itemId }
+  })
+}
+
+/** Parses `--area-off <area>:<item>=<other area>` entries: split on the last `=`, then the left side on the first `:`. */
+export function parseAreaOff(entries: readonly string[]): AreaOffWhatIf[] {
+  return entries.map(entry => {
+    const at = entry.lastIndexOf('=')
+    const left = at > 0 ? entry.slice(0, at) : ''
+    const other = entry.slice(at + 1)
+    const colon = left.indexOf(':')
+    const area = colon > 0 ? left.slice(0, colon) : ''
+    const itemId = colon > 0 ? left.slice(colon + 1) : ''
+    if (at <= 0 || area === '' || itemId === '' || other === '') throw new Error(`--area-off expects <area>:<item>=<other area>, got "${entry}"`)
+    return { area, itemId, other }
   })
 }
 
@@ -189,9 +210,10 @@ function whatIfRules(rules: Record<string, SourceRule>, whatIf: WhatIf): Record<
 function whatIfAreaRules(block: Block, blockRules: Record<string, SourceRule>, whatIf: WhatIf): Map<string, Record<string, AreaSourceRule>> {
   const sourcing = whatIf.areaSourcing ?? []
   const importOff = whatIf.areaImportOff ?? []
+  const areaOff = whatIf.areaOff ?? []
   const out = new Map<string, Record<string, AreaSourceRule>>()
-  if (sourcing.length === 0 && importOff.length === 0) return out
-  if (whatIf.noArea) throw new Error('--no-area cannot be combined with --area-sourcing or --area-import-off')
+  if (sourcing.length === 0 && importOff.length === 0 && areaOff.length === 0) return out
+  if (whatIf.noArea) throw new Error('--no-area cannot be combined with --area-sourcing, --area-import-off or --area-off')
   for (const e of sourcing) {
     if (!AREA_MODES.includes(e.mode)) throw new Error(`--area-sourcing ${e.area}:${e.itemId}=${String(e.mode)}: expected first, off or here`)
   }
@@ -217,6 +239,13 @@ function whatIfAreaRules(block: Block, blockRules: Record<string, SourceRule>, w
     else rule.makeHere = e.mode === 'first' ? 'after-blocks' : 'off'
   }
   for (const e of importOff) ruleOf(findArea(block, e.area), e.itemId).importOff = true
+  for (const e of areaOff) {
+    const areaId = findArea(block, e.area)
+    const rule = ruleOf(areaId, e.itemId)
+    const other = findArea(block, e.other)
+    if (other === areaId) throw new Error(`--area-off ${e.area}:${e.itemId}=${e.other}: an area cannot switch itself off`)
+    rule.areasOff = [...new Set([...(rule.areasOff ?? []), other])]
+  }
   return out
 }
 
@@ -495,7 +524,7 @@ export function formatReport(report: InspectReport, options: FormatOptions = {})
       for (const [itemId, rule] of entries) {
         const make = rule.makeHere === 'after-blocks' ? 'first' : rule.makeHere === 'off' ? 'off' : 'here'
         out.push(`  ${a.name}  ${itemId}  ${make}  Import ${rule.importOff === true ? 'off' : 'on'}`)
-        if (rule.areasOff && rule.areasOff.length > 0) out.push(`  takes nothing from ${rule.areasOff.map(nameOf).join(', ')} (not read by the solver)`)
+        if (rule.areasOff && rule.areasOff.length > 0) out.push(`  takes nothing from ${rule.areasOff.map(nameOf).join(', ')}`)
       }
     }
   }

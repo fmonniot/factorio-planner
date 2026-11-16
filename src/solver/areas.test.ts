@@ -983,15 +983,181 @@ describe('area rules: LP calls and what is read', () => {
     expect(unsat(free, 'plate')).toBeCloseTo(20, 6)
     expectLegs(free, 'plate', [[undefined, 'L', 12], [undefined, 'B', 8]])
   })
+})
 
-  it('areasOff is not read by the solve yet (T5 replaces this test)', () => {
-    const rows = (): Record<string, RecipeNode[]> => ({
-      L: [pin('use-plate', 'L', 12)], M1: [row('make-plate', 'M1')], M2: [row('make-plate', 'M2')],
+describe('area rules: supplier switches', () => {
+  const rounded = (r: SolverResult, itemId: string) => legsFor(r, itemId).map(l => ({ ...l, rate: Math.round(l.rate * 1e6) / 1e6 }))
+  const freeRows = (): Record<string, RecipeNode[]> => ({
+    L: [pin('use-plate', 'L', 12)], M1: [row('make-plate', 'M1')], M2: [row('make-plate', 'M2')],
+  })
+  const three = (rules: AreaRules, rows = freeRows(), offer?: number) => {
+    const b = plateBlock(Object.keys(rows), rows, rules, {}, [['pgear', 12]])
+    return { b, ...solvePlate(b, offer) }
+  }
+
+  it('case B shape: areasOff [M1] sends the plate from M2, and the legs decompose the nets', () => {
+    const { result } = three({ L: { plate: { areasOff: ['M1'] } } })
+    checkRoutes(result)
+    expect(node(result, 'make-plate@M1').throughput).toBeCloseTo(0, 6)
+    expect(node(result, 'make-plate@M2').throughput).toBeCloseTo(12, 6)
+    expectLegs(result, 'plate', [['M2', 'L', 12]])
+  })
+
+  describe('stage 1 and stage 2 with flows per pair', () => {
+    // L has its own plate row pinned at 4, so what it takes from M1's and M2's rows is penalised.
+    const short = (rules: AreaRules) => {
+      const rows = { ...freeRows(), L: [pin('use-plate', 'L', 12), pin('make-plate', 'L', 4)] }
+      const b = plateBlock(['L', 'M1', 'M2'], rows, rules, {}, [['pgear', 12]])
+      return solvePlate(b).result
+    }
+    const shortfall = (r: SolverResult) => {
+      const w = r.warnings.find(x => x.type === 'area-shortfall')
+      return w?.type === 'area-shortfall' ? w.shortfalls.map(x => ({ ...x, rate: Math.round(x.rate * 1e6) / 1e6 })) : []
+    }
+    it('no switch: M1 makes 8 and L reports the shortfall', () => {
+      const r = short({})
+      expect(node(r, 'make-plate@M1').throughput).toBeCloseTo(8, 6)
+      expect(shortfall(r)).toEqual([{ areaId: 'L', itemId: 'plate', rate: 8 }])
     })
-    const plain = solvePlate(plateBlock(['L', 'M1', 'M2'], rows(), {}, {}, [['pgear', 12]])).result
-    const ruled = solvePlate(plateBlock(['L', 'M1', 'M2'], rows(), { L: { plate: { areasOff: ['M1'] } } }, {}, [['pgear', 12]])).result
-    expect(node(plain, 'make-plate@M1').throughput).toBeCloseTo(12, 6)
-    expect(ruled).toEqual(plain)
+    it('areasOff [M1]: the bound holds on the pair flows, M2 makes 8, same shortfall', () => {
+      const r = short({ L: { plate: { areasOff: ['M1'] } } })
+      expect(node(r, 'make-plate@M1').throughput).toBeCloseTo(0, 6)
+      expect(node(r, 'make-plate@M2').throughput).toBeCloseTo(8, 6)
+      expect(shortfall(r)).toEqual([{ areaId: 'L', itemId: 'plate', rate: 8 }])
+      checkRoutes(r)
+      expectLegs(r, 'plate', [['M2', 'L', 8]])
+    })
+    it('areasOff [M1, M2]: no pair is left, plate is imported and there is no area-shortfall', () => {
+      const r = short({ L: { plate: { areasOff: ['M1', 'M2'] } } })
+      expect(node(r, 'make-plate@M1').throughput + node(r, 'make-plate@M2').throughput).toBeCloseTo(0, 6)
+      expect(unsat(r, 'plate')).toBeCloseTo(8, 6)
+      expect(shortfall(r)).toEqual([])
+    })
+  })
+
+  describe('a switched-off supplier that is pinned', () => {
+    const rows = (): Record<string, RecipeNode[]> => ({ L: [pin('use-plate', 'L', 12)], M1: [pin('make-plate', 'M1', 12)], M2: [row('make-plate', 'M2')] })
+    it('its output shows as a surplus, not as a route to L', () => {
+      const { result } = three({ L: { plate: { areasOff: ['M1'] } } }, rows())
+      checkRoutes(result)
+      expect(node(result, 'make-plate@M2').throughput).toBeCloseTo(12, 6)
+      expect(node(result, 'make-plate@M1').throughput).toBeCloseTo(12, 6)
+      expectLegs(result, 'plate', [['M1', undefined, 12], ['M2', 'L', 12]])
+      expect(flow(area(result, 'M1').sends, 'plate')?.rate).toBeCloseTo(12, 6)
+      const w = result.warnings.find(x => x.type === 'overconstrained')
+      expect(w, 'overconstrained').toBeDefined()
+      expect(JSON.stringify(w)).toContain('plate')
+    })
+    it('control, no switch: M1 supplies L and M2 makes nothing', () => {
+      const { result } = three({}, rows())
+      checkRoutes(result)
+      expect(node(result, 'make-plate@M2').throughput).toBeCloseTo(0, 6)
+      expectLegs(result, 'plate', [['M1', 'L', 12]])
+    })
+  })
+
+  it('a switch in one area and a rule in another: the offer passes through B to L', () => {
+    const rows = {
+      L: [pin('use-plate', 'L', 12)], B: [pin('use-plate', 'B', 8), row('make-plate', 'B')], M: [row('make-plate', 'M')],
+    }
+    const b = plateBlock(['L', 'B', 'M'], rows, { L: { plate: { areasOff: ['M'] } }, B: { plate: first } })
+    const { result, received } = solvePlate(b, 100)
+    checkRoutes(result)
+    expect(node(result, 'make-plate@B').throughput).toBeCloseTo(12, 6)
+    expect(node(result, 'make-plate@M').throughput).toBeCloseTo(0, 6)
+    expect(received.get('plate') ?? 0).toBeCloseTo(8, 6)
+    expect(unsat(result, 'plate')).toBeCloseTo(0, 6)
+    expectLegs(result, 'plate', [['B', 'L', 4], [undefined, 'L', 8, 8]])
+  })
+
+  describe('an inert switch changes nothing', () => {
+    const plain = () => three({}).result
+    it('naming an area that does not touch the item', () => {
+      const rows = { ...freeRows(), N: [row('copper', 'N')] }
+      const b = plateBlock(['L', 'M1', 'M2', 'N'], rows, { L: { plate: { areasOff: ['N'] } } }, {}, [['pgear', 12]])
+      const base = plateBlock(['L', 'M1', 'M2', 'N'], rows, {}, {}, [['pgear', 12]])
+      expect(solvePlate(b).result).toEqual(solvePlate(base).result)
+    })
+    it('naming the area itself', () => {
+      expect(three({ L: { plate: { areasOff: ['L'] } } }).result).toEqual(plain())
+    })
+  })
+
+  describe('equivalence with an inert switch: a switch that removes no flow pairs as the pools do', () => {
+    // Senders make plate (pinned), receivers use it (pinned); the senders' sum exceeds the receivers'.
+    function blockSurplus(senders: number[], receivers: number[], perSender: number, perReceiver: number, rules: AreaRules = {}): Block {
+      const ss = senders.map(i => sub(`S${i}`, [pin('make-plate', `S${i}`, perSender)], [], true))
+      const rs = receivers.map(i => withRules(sub(`R${i}`, [pin('use-plate', `R${i}`, perReceiver)], [], true), rules[`R${i}`]))
+      return blk(root([], [...ss, ...rs]), [['pgear', perReceiver * receivers.length]])
+    }
+    const run = (b: Block) => rounded(solveBlock(flattenBlock(b), gd()).result, 'plate')
+    const scenarios: Array<[string, number[], number[]]> = [
+      ['2 senders, 2 receivers', [0, 1], [0, 1]],
+      ['3 senders, 3 receivers', [0, 1, 2], [0, 1, 2]],
+      ['5 senders, 5 receivers', [0, 1, 2, 3, 4], [0, 1, 2, 3, 4]],
+      ['3 senders, 2 receivers', [0, 1, 2], [0, 1]],
+    ]
+    for (const [name, ss, rs] of scenarios) {
+      it(`${name}: the routes equal the pooled ones`, () => {
+        const switched: AreaRules = { R0: { plate: { areasOff: ['R1'] } } }
+        expect(run(blockSurplus(ss, rs, 10, 7, switched))).toEqual(run(blockSurplus(ss, rs, 10, 7)))
+      })
+    }
+    it('2 senders, 2 receivers: S0>R0 7, S0>R1 3, S1>R1 4, S1>outside 6', () => {
+      const r = run(blockSurplus([0, 1], [0, 1], 10, 7, { R0: { plate: { areasOff: ['R1'] } } }))
+      expect(r.map(l => [l.from, l.to, l.rate])).toEqual([['S0', 'R0', 7], ['S0', 'R1', 3], ['S1', 'R1', 4], ['S1', undefined, 6]])
+    })
+  })
+
+  it('a relay stays visible as two legs (characterisation; the legs do not decompose the nets, so no checkRoutes)', () => {
+    // c makes 12, a makes 12 and uses 12, b uses 12 and takes nothing from c: c sends to a, a sends on to b.
+    // The nets say c sends 12 and b receives 12; the legs say c to a and a to b.
+    const rows = {
+      c: [pin('make-plate', 'c', 12)],
+      a: [pin('make-plate', 'a', 12), pin('use-plate', 'a', 12)],
+      b: [pin('use-plate', 'b', 12)],
+    }
+    const b = plateBlock(['c', 'a', 'b'], rows, { b: { plate: { areasOff: ['c'] } } }, {}, [['pgear', 24]])
+    const { result } = solvePlate(b)
+    expectLegs(result, 'plate', [['c', 'a', 12], ['a', 'b', 12]])
+  })
+
+  it('a goal touched by two areas where one switches the other off takes the pair path with valid routes', () => {
+    const rows = { L: [pin('use-plate', 'L', 12)], M: [row('use-plate', 'M'), row('make-plate', 'M')] }
+    const b = plateBlock(['L', 'M'], rows, { L: { pgear: { areasOff: ['M'] } } }, {}, [['pgear', 20]])
+    const { result } = solvePlate(b)
+    checkRoutes(result)
+    expect(result.nodes).toHaveLength(3)
+    expect(node(result, 'use-plate@L').throughput).toBeCloseTo(12, 6)
+    expect(node(result, 'use-plate@M').throughput).toBeCloseTo(8, 6)
+    expect(node(result, 'make-plate@M').throughput).toBeCloseTo(20, 6)
+    expect(unsat(result, 'pgear')).toBeCloseTo(0, 6)
+    expectLegs(result, 'plate', [['M', 'L', 12]])
+  })
+
+  describe('the area-cut-off warning', () => {
+    const cutRules = (extra: AreaSourceRule = {}): AreaRules => ({ L: { plate: { importOff: true, areasOff: ['M1', 'M2'], ...extra } } })
+    const freeL = (): Record<string, RecipeNode[]> => ({ L: [row('use-plate', 'L')], M1: [row('make-plate', 'M1')], M2: [row('make-plate', 'M2')] })
+    it('names the area and the item, and the goal is left short', () => {
+      const { result } = three(cutRules(), freeL())
+      expect(result.unsatisfied).toEqual([{ itemId: 'pgear', rate: 12 }])
+      expect(result.warnings).toEqual([{ type: 'area-cut-off', cutOffs: [{ areaId: 'L', itemId: 'plate' }] }])
+      for (const id of ['use-plate@L', 'make-plate@M1', 'make-plate@M2']) expect(node(result, id).throughput).toBeCloseTo(0, 6)
+    })
+    it('a pinned consumer is infeasible-pins with a conflict, not a cut-off', () => {
+      const { result } = three(cutRules())
+      expect(result.warnings).toContainEqual(expect.objectContaining({ type: 'infeasible-pins', conflict: true }))
+      expect(result.warnings.some(w => w.type === 'area-cut-off')).toBe(false)
+    })
+    const silent = (name: string, rules: AreaRules, rows = freeL(), offer?: number) => it(`silent: ${name}`, () => {
+      const { result } = three(rules, rows, offer)
+      expect(result.warnings.some(w => w.type === 'area-cut-off')).toBe(false)
+    })
+    silent('Import on', { L: { plate: { areasOff: ['M1', 'M2'] } } })
+    silent('an offer', cutRules(), freeL(), 100)
+    silent('one supplier left', cutRules({ areasOff: ['M1'] }))
+    silent('L has its own plate row', cutRules(), { ...freeL(), L: [row('use-plate', 'L'), row('make-plate', 'L')] })
+    silent('a second consumer meets the goal', cutRules(), { ...freeL(), K: [row('use-plate', 'K')] })
   })
 })
 

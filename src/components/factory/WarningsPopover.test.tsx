@@ -320,6 +320,25 @@ describe('WarningsPopover — area-shortfall', () => {
   })
 })
 
+describe('WarningsPopover — area-cut-off', () => {
+  beforeEach(() => {
+    setupAreaBlock()
+    setupWithWarnings({ warnings: [{ type: 'area-cut-off', cutOffs: [{ areaId: 'plastics', itemId: 'steam' }] }] })
+    render(<WarningsPopover />)
+    openPopover()
+  })
+
+  it('shows the title and a body naming the area and the item', () => {
+    expect(screen.getByText(/Area cut off from its supply/)).toBeInTheDocument()
+    expect(screen.getByText('Plastics takes Steam from no other area, cannot import it and has no row that makes it, so the rows there that use it cannot run.')).toBeInTheDocument()
+  })
+
+  it('hint says how to get supply back, and the warning is not critical', () => {
+    expect(screen.getByText(/Switch a supplying area back on, or turn Import on for it/)).toBeInTheDocument()
+    expect(screen.getByText(/Area cut off from its supply/).className).toContain('text-yellow-400')
+  })
+})
+
 describe('WarningsPopover — duplicate-recipe in an area', () => {
   const nodeIds = () => {
     const root = useBlockStore.getState().blocks[0].rootPlan
@@ -376,6 +395,17 @@ describe('WarningsPopover — links', () => {
     const handle = { kind: 'subplan' as const, id: 'handle-plastics', subPlanId: 'plastics' }
     useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...rootPlan, nodes: [...rootPlan.nodes, handle] } }], activeBlockId: block.id })
     setupWithWarnings({ warnings: [{ type: 'area-shortfall', shortfalls: [{ areaId: 'plastics', itemId: 'steam', rate: 52 }] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Plastics' }))
+    expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('handle-plastics')
+  })
+
+  it('an area-cut-off warning links to the area\'s handle row', () => {
+    const { block, rootPlan } = setupAreaBlock()
+    const handle = { kind: 'subplan' as const, id: 'handle-plastics', subPlanId: 'plastics' }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...rootPlan, nodes: [...rootPlan.nodes, handle] } }], activeBlockId: block.id })
+    setupWithWarnings({ warnings: [{ type: 'area-cut-off', cutOffs: [{ areaId: 'plastics', itemId: 'steam' }] }] })
     render(<WarningsPopover />)
     openPopover()
     fireEvent.click(screen.getByRole('button', { name: 'Go to Plastics' }))
