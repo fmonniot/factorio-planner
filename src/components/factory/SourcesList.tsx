@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
+import { areaIdsOf, effectiveAreaRule } from '../../data/subPlanTree'
 import type { Block, BlockConnection, ConnectionFlow, Product } from '../../data/types'
 import { blockAreas } from '../../solver/areas'
 import { hasProduct } from '../../solver/blockGraph'
@@ -13,7 +14,9 @@ import { fmtItemRateText, fmtRate, inputRateUnit } from './ItemTile'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { RateInput } from './RateInput'
 import { cappedTitle, cappingLimit, REQUEST_IGNORED_TITLE } from './summarySegments'
-import { SOURCES_LINES, sourcesLineOrder } from './itemSourcing'
+import { AREA_LINE_HELP, SOURCES_LINES, sourcesLineOrder } from './itemSourcing'
+import { areaSupply, supplierLines } from './areaSources'
+import type { SupplierLine } from './areaSources'
 import type { LineKey, Side } from './itemSourcing'
 import { itemMakers } from './sourcingText'
 import type { ItemMaker } from './sourcingText'
@@ -26,6 +29,10 @@ import { MINI_BUTTON_CLASS, Switch } from './Switch'
 // moving *Make more here* below the block lines is Receive it first, switching it off is Don't make more here, and the Import
 // line holds the same switch as the Comes from control. Between *Make more here* and the end of the block lines it draws one
 // line per connection of the item, in connection order, then the Receive from… line (`add-block`).
+// With `areaId` it is the list of one area (D6 and D12 of phase 5): the same lines read and written through the area's own rule.
+// *Other areas* is one line per area that supplies the item, with a switch and the rate routed from it; the block lines are
+// read-only (their order and limits belong to the block) and a line under them says how much of it reaches the area; *Import*
+// reads the area's own figure. At block scope *Other areas* stays one read-only line.
 // ---------------------------------------------------------------------------
 
 const EPS = 1e-6
@@ -42,14 +49,16 @@ function keyboardFocus(el: Element): boolean {
 /** The drag type of the *Make more here* line. */
 const DRAG_TYPE = 'application/x-sources-line'
 
-/** The `data-line` values: the lines of `sourcesLineOrder`, and the Receive from… line that ends the block lines. */
-type RowKey = LineKey | 'add-block'
+/** The `data-line` values: the lines of `sourcesLineOrder` (a supplying area's is `other-area`), the line that says what reaches the area, and the Receive from… line that ends the block lines. */
+type RowKey = Exclude<LineKey, `area:${string}`> | 'other-area' | 'block-reach' | 'add-block'
 
 /** What a line is, for the shared frame: its key, name (a block line has none), help, reading, controls and state. */
 interface LineProps {
   line: RowKey
   /** A block line: the connection it stands for. */
   connectionId?: string
+  /** A supplying area's line: the area. */
+  areaId?: string
   /** The id of the line's tooltip: the line's description, and its controls'. */
   helpId: string
   name?: React.ReactNode
@@ -71,13 +80,14 @@ interface LineProps {
  * One line: its name, what it reads, its controls. The line takes the focus (so the keyboard reaches the read-only ones), and
  * shows its help as a tooltip on hover and focus and as a help line under it while it holds the focus.
  */
-function Line({ line, connectionId, helpId, name, help, reading, off, controls, frame, dropSide, focused, onFocusLine, onBlurLine }: LineProps) {
+function Line({ line, connectionId, areaId, helpId, name, help, reading, off, controls, frame, dropSide, focused, onFocusLine, onBlurLine }: LineProps) {
   return (
     <li
       tabIndex={0}
       data-testid="sources-line"
       data-line={line}
       data-connection-id={connectionId}
+      data-area-id={areaId}
       data-off={off || undefined}
       aria-describedby={helpId}
       onFocus={onFocusLine}
@@ -133,11 +143,21 @@ type DropHandlers = Required<Pick<React.HTMLAttributes<HTMLLIElement>, 'onDragOv
 
 const DRAG_BLOCK = 'application/x-sources-block-line'
 
-export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
+const isAreaLine = (line: LineKey): line is `area:${string}` => line.startsWith('area:')
+
+export function SourcesList({ itemId, id, areaId }: {
+  itemId: string
+  id?: string
+  /** The list of this area (its own rule, its rows); without one, or with one that is no area, the block's. */
+  areaId?: string
+}) {
   const block = useBlockStore(selectActiveBlock)
   const blocks = useBlockStore(s => s.blocks)
   const setMakeHere = useBlockStore(s => s.setMakeHere)
   const toggleImportOff = useBlockStore(s => s.toggleImportOff)
+  const setAreaMakeHere = useBlockStore(s => s.setAreaMakeHere)
+  const toggleAreaImportOff = useBlockStore(s => s.toggleAreaImportOff)
+  const toggleAreaSupplier = useBlockStore(s => s.toggleAreaSupplier)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
   const moveConnection = useBlockStore(s => s.moveConnection)
@@ -149,11 +169,15 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
   const unit = useUiStore(s => s.rateUnit)
   const openConnectionMenu = useUiStore(s => s.openConnectionMenu)
 
-  const rule = block?.sourceRules[itemId]
+  const rootPlan = block?.rootPlan
+  // An area whose flag went off is no area: the list falls back to the block's.
+  const area = useMemo(() => (rootPlan !== undefined && areaId !== undefined && areaIdsOf(rootPlan).has(areaId) ? areaId : undefined), [rootPlan, areaId])
+  const rule = block && rootPlan && area !== undefined ? effectiveAreaRule(rootPlan, block.sourceRules, area, itemId) : block?.sourceRules[itemId]
   const makeHere = rule?.makeHere
   // Where *Make more here* was drawn last: it keeps that place while it is switched off. Session state in the ui store, not part
   // of the stored rule, so that every surface that shows the list agrees and a closed list remembers it.
-  const blockId = block?.id
+  // At area scope it is remembered per area.
+  const blockId = block ? (area !== undefined ? `${block.id}/${area}` : block.id) : undefined
   const storedSide = useUiStore(s => (blockId ? s.sourcesSides[`${blockId}:${itemId}`] : undefined))
   const setSourcesSide = useUiStore(s => s.setSourcesSide)
   const drawnSide: Side | undefined = makeHere === 'after-blocks' ? 'below' : makeHere === undefined ? 'above' : undefined
@@ -186,11 +210,10 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
 
   const blockById = useMemo(() => new Map(blocks.map(b => [b.id, b])), [blocks])
   const flowById = useMemo(() => new Map(flows.map(f => [f.connectionId, f])), [flows])
-  const rootPlan = block?.rootPlan
   const hasAreas = useMemo(() => rootPlan !== undefined && blockAreas(rootPlan) !== undefined, [rootPlan])
   const makers = useMemo(
-    () => (block && gameData ? itemMakers(block, gameData, result, itemId) : []),
-    [block, gameData, result, itemId],
+    () => (block && gameData ? itemMakers(block, gameData, result, itemId, area) : []),
+    [block, gameData, result, itemId, area],
   )
   if (!block || !gameData) return null
 
@@ -208,7 +231,11 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
   const dedicated = makers.filter(m => !m.byproduct)
   const makeText = dedicated.length > 0 ? dedicated.map(m => makerLabel(m, solved)).join(', ') : 'no row here makes it'
   const unsatisfied = result?.unsatisfied.find(u => u.itemId === itemId)?.rate ?? 0
-  const importText = !solved ? '' : importOn ? (unsatisfied > EPS ? rate(unsatisfied) : 'none') : (unsatisfied > EPS ? `Missing ${rate(unsatisfied)}` : '')
+  // At area scope: the area's own figure (areaSupply), not the block's.
+  const supply = area !== undefined ? areaSupply(result?.areaRoutes, itemId, area, rule ?? {}, unsatisfied) : undefined
+  const importAmount = supply ? (importOn ? supply.imported : supply.missing) : unsatisfied
+  const importText = !solved ? '' : importOn ? (importAmount > EPS ? rate(importAmount) : 'none') : (importAmount > EPS ? `Missing ${rate(importAmount)}` : '')
+  const suppliers = area !== undefined && rule ? supplierLines(block, gameData, result, itemId, area, rule) : []
 
   // The block lines, in connection order.
   const connections = block.inputConnections.filter(c => c.itemId === itemId)
@@ -241,10 +268,11 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
   })
 
   /** Make more here goes above (Make it here) or below (Receive it first) the block lines. */
-  const placeMakeMore = (side: Side) => setMakeHere(itemId, side === 'below' ? 'after-blocks' : undefined)
+  const writeMakeHere = (value: 'after-blocks' | 'off' | undefined) => area !== undefined ? setAreaMakeHere(area, itemId, value) : setMakeHere(itemId, value)
+  const placeMakeMore = (side: Side) => writeMakeHere(side === 'below' ? 'after-blocks' : undefined)
   const toggleMakeMore = () => {
     refocus.current = '[data-testid="sources-make-here-switch"]'
-    setMakeHere(itemId, off ? undefined : 'off')
+    writeMakeHere(off ? undefined : 'off')
   }
   /** Move Make more here by button: the focus goes to the other button, since the pressed one is at the end of the group now. */
   const moveMakeMore = (side: Side) => {
@@ -405,6 +433,11 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
     },
   })
 
+  // Under the block lines at area scope: how much of what the connections deliver reaches this area.
+  const reachesText = solved && supply && rows.some(r => !r.greyed)
+    ? (supply.reaches > EPS ? `${rate(supply.reaches)} of it reaches this area` : 'none of it reaches this area')
+    : undefined
+
   const drawBlockLines = (helpId: string): React.ReactNode => {
     const help = SOURCES_LINES['other-blocks'].title
     const last = rows.length // the index of the Receive from… line
@@ -455,11 +488,11 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
                   {row.status && <span data-testid="sources-block-status" data-status={row.flow?.status}>{row.status}</span>}
                 </>
               }
-              frame={rowFrame(index, c.id, !row.greyed && editingLimit !== c.id)}
+              frame={rowFrame(index, c.id, area === undefined && !row.greyed && editingLimit !== c.id)}
               dropSide={edge(index)}
               controls={
                 <span className="flex shrink-0 flex-wrap items-center gap-1">
-                  {row.canMakeProduct && (
+                  {area === undefined && row.canMakeProduct && (
                     <button
                       type="button" data-testid="sources-make-product" aria-describedby={rowHelpId}
                       aria-disabled={row.productBlocked !== undefined || undefined} title={row.productBlocked}
@@ -469,7 +502,7 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
                       Make it a product
                     </button>
                   )}
-                  {!row.greyed && (editingLimit === c.id
+                  {area === undefined && !row.greyed && (editingLimit === c.id
                     ? (
                       <RateInput
                         initial={c.maxRate !== undefined ? fmtRate(c.maxRate / 60, inputRateUnit(itemId, unit)) : ''}
@@ -494,7 +527,7 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
                         {limit ? `Limit ${limit}` : 'No limit'}
                       </button>
                     ))}
-                  {!row.greyed && (
+                  {area === undefined && !row.greyed && (
                     <>
                       <button
                         type="button" data-testid="sources-block-move-up" aria-label="Move up" aria-describedby={rowHelpId}
@@ -512,15 +545,26 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
                       </button>
                     </>
                   )}
-                  <button type="button" data-testid="sources-block-remove" aria-label={`Remove ${sourceName}`} aria-describedby={rowHelpId} onClick={() => removeRow(c.id)} className={MINI_BUTTON_CLASS}>
-                    Remove
-                  </button>
+                  {area === undefined && (
+                    <button type="button" data-testid="sources-block-remove" aria-label={`Remove ${sourceName}`} aria-describedby={rowHelpId} onClick={() => removeRow(c.id)} className={MINI_BUTTON_CLASS}>
+                      Remove
+                    </button>
+                  )}
                 </span>
               }
               {...focusProps(key)}
             />
           )
         })}
+        {reachesText !== undefined && (
+          <Line
+            line="block-reach"
+            helpId={`${helpId}-reach`}
+            help="The connections' whole rate is the block's; this is the part of it routed to this area."
+            reading={<span data-testid="sources-reaches">{reachesText}</span>}
+            {...focusProps('block-reach')}
+          />
+        )}
         <Line
           line="add-block"
           helpId={`${helpId}-add`}
@@ -550,7 +594,41 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
     )
   }
 
+  const drawAreaLine = (line: SupplierLine): React.ReactNode => {
+    const key = `area:${line.areaId}`
+    const reading = !solved ? '' : line.off ? '—' : line.routed > EPS ? rate(line.routed) : 'nothing'
+    const helpId = `${listId}-${line.areaId}-help`
+    return (
+      <Line
+        key={key}
+        line="other-area"
+        areaId={line.areaId}
+        helpId={helpId}
+        name={line.name}
+        help={AREA_LINE_HELP}
+        reading={reading}
+        off={line.off}
+        controls={
+          <span className="flex shrink-0 items-center">
+            <Switch
+              on={!line.off} label={`Take from ${line.name}`} testId="sources-area-switch" describedBy={helpId}
+              onToggle={() => {
+                refocus.current = `[data-area-id="${line.areaId}"] [data-testid="sources-area-switch"]`
+                if (area !== undefined) toggleAreaSupplier(area, itemId, line.areaId)
+              }}
+            />
+          </span>
+        }
+        {...focusProps(key)}
+      />
+    )
+  }
+
   const draw = (line: LineKey): React.ReactNode => {
+    if (isAreaLine(line)) {
+      const supplier = suppliers.find(l => `area:${l.areaId}` === line)
+      return supplier ? drawAreaLine(supplier) : null
+    }
     const helpId = `${listId}-${line}-help`
     switch (line) {
       case 'made-here':
@@ -591,7 +669,13 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
         )
       }
       case 'other-areas':
-        return <Line key={line} line={line} helpId={helpId} name={SOURCES_LINES['other-areas'].label} help={SOURCES_LINES['other-areas'].title} {...focusProps(line)} />
+        return (
+          <Line
+            key={line} line={line} helpId={helpId} name={SOURCES_LINES['other-areas'].label} help={SOURCES_LINES['other-areas'].title}
+            reading={area !== undefined ? `No other area makes ${name}.` : undefined}
+            {...focusProps(line)}
+          />
+        )
       case 'block':
         return <Fragment key={line}>{drawBlockLines(helpId)}</Fragment>
       case 'import': {
@@ -606,7 +690,7 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
             off={!importOn}
             controls={
               <span className="flex shrink-0 items-center">
-                <Switch on={importOn} label={SOURCES_LINES.import.label} testId="sources-import-switch" describedBy={helpId} onToggle={() => toggleImportOff(itemId)} />
+                <Switch on={importOn} label={SOURCES_LINES.import.label} testId="sources-import-switch" describedBy={helpId} onToggle={() => area !== undefined ? toggleAreaImportOff(area, itemId) : toggleImportOff(itemId)} />
               </span>
             }
             {...focusProps(line)}
@@ -619,7 +703,7 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
   return (
     <>
       <ul ref={listRef} id={id} role="list" aria-label={`Sources of ${name}`} data-testid="sources-list" className="flex flex-col rounded border border-gray-700/70 bg-gray-950/40 py-0.5">
-        {sourcesLineOrder(makeHere, hasAreas, lastSide).map(draw)}
+        {sourcesLineOrder(makeHere, hasAreas, lastSide, suppliers.map(l => l.areaId)).map(draw)}
       </ul>
       {pending && (
         <ProductChangeDialog

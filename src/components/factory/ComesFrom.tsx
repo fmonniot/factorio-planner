@@ -5,7 +5,7 @@ import { Segment, Segmented } from '../SegmentedControl'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, SOURCES_BUTTON_LABEL, SOURCE_RULE_NAMES, makeHereOf, presetOf } from './itemSourcing'
+import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, ruleLabel, SOURCES_BUTTON_LABEL, makeHereOf, presetOf } from './itemSourcing'
 import { noEffectText, scopeAreasOf, sourceRules } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
@@ -19,8 +19,12 @@ import { anchorOf } from './popoverAnchor'
 // sentence for the last solve, and any rule of the item that has no effect, with a button to remove it.
 // In a block with areas it has a scope control: the whole block, or one area, whose own rule replaces the block's for its rows.
 // It sits in the strip of a selected Ingredients slot and in the Comes from popover (`ComesFromPopover`), which holds it for
-// an item that has no slot. A rule that has nothing to act on yet ("No connection for X.") offers the way forward.
+// an item that has no slot. A rule that has nothing to act on yet ("No connection for X.") offers the way forward. The Sources…
+// button and its list are at both scopes: the list of an area has one line per supplying area, with a switch.
 // ---------------------------------------------------------------------------
+
+/** A rule's key in the list of rules that do nothing: its kind, and the other area of a switch. */
+const ruleKey = (rule: { kind: string; otherAreaId?: string }) => `${rule.kind}:${rule.otherAreaId ?? ''}`
 
 const ARROW_STEP: Record<string, 1 | -1> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
 
@@ -175,25 +179,20 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
         </div>
       )}
 
-      {/* The list of an area is the next ticket's: at area scope there is no Sources… button yet. */}
-      {area === undefined && (
-        <>
-          <div className="flex">
-            <button
-              type="button"
-              data-testid="sources-button"
-              aria-expanded={listInPopover ? false : listOpen}
-              aria-controls={!listInPopover && listOpen ? `${baseId}-sources` : undefined}
-              aria-haspopup={listInPopover ? 'dialog' : undefined}
-              onClick={e => listInPopover ? openComesFrom(itemId, anchorOf(e.currentTarget), { list: true }) : setListOpen(o => !o)}
-              className={MINI_BUTTON_CLASS}
-            >
-              {SOURCES_BUTTON_LABEL}
-            </button>
-          </div>
-          {!listInPopover && listOpen && <SourcesList id={`${baseId}-sources`} itemId={itemId} />}
-        </>
-      )}
+      <div className="flex">
+        <button
+          type="button"
+          data-testid="sources-button"
+          aria-expanded={listInPopover ? false : listOpen}
+          aria-controls={!listInPopover && listOpen ? `${baseId}-sources` : undefined}
+          aria-haspopup={listInPopover ? 'dialog' : undefined}
+          onClick={e => listInPopover ? openComesFrom(itemId, anchorOf(e.currentTarget), { list: true }) : setListOpen(o => !o)}
+          className={MINI_BUTTON_CLASS}
+        >
+          {SOURCES_BUTTON_LABEL}
+        </button>
+      </div>
+      {!listInPopover && listOpen && <SourcesList id={`${baseId}-sources`} itemId={itemId} areaId={area} />}
 
       <p data-testid="sourcing-sentence" className="text-[11px] leading-snug text-gray-400">{sentence}</p>
 
@@ -201,19 +200,19 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
         <ul className="flex flex-col gap-0.5">
           {unavailable.map(rule => (
             <li
-              key={rule.kind}
+              key={ruleKey(rule)}
               data-testid="no-effect"
               data-rule={rule.kind}
               data-no-effect={rule.noEffect}
               className="flex items-baseline gap-2 text-[11px] leading-snug text-gray-500"
             >
-              <span id={`${baseId}-no-effect-${rule.kind}`} className="min-w-0 flex-1">{noEffectText(rule.noEffect!, name, rule.areaId !== undefined)}</span>
+              <span id={`${baseId}-no-effect-${ruleKey(rule)}`} className="min-w-0 flex-1">{noEffectText(rule.noEffect!, name, rule.areaId !== undefined, rule.otherAreaId !== undefined ? areaNameOf(block.rootPlan, rule.otherAreaId) : undefined)}</span>
               <span className="shrink-0 flex items-baseline gap-1">
                 {rule.noEffect === 'no-connection' && (
                   <button
                     type="button"
                     data-testid="receive-from"
-                    aria-describedby={`${baseId}-no-effect-${rule.kind}`}
+                    aria-describedby={`${baseId}-no-effect-${ruleKey(rule)}`}
                     title={`Pick the block that sends ${name} to this one`}
                     onClick={e => {
                       const r = e.currentTarget.getBoundingClientRect()
@@ -226,8 +225,8 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
                 )}
                 <button
                   type="button"
-                  aria-describedby={`${baseId}-no-effect-${rule.kind}`}
-                  title={`Remove the ${SOURCE_RULE_NAMES[rule.kind]} rule`}
+                  aria-describedby={`${baseId}-no-effect-${ruleKey(rule)}`}
+                  title={`Remove the ${ruleLabel(rule, block.rootPlan)} rule`}
                   onClick={() => removeRule(rule)}
                   className="bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 hover:border-gray-500"
                 >

@@ -240,3 +240,23 @@ describe('itemMakers and itemConnections', () => {
     expect(itemConnections(block, [block, source], flows, 'x')).toEqual([{ blockName: 'Source', offered: 40, taken: 10 }])
   })
 })
+
+describe('sourcingText — the areas an area takes nothing from', () => {
+  const area = { areaName: 'Line L' }
+  const presets = [undefined, { makeHere: 'after-blocks' }, { makeHere: 'off' }] as const
+  it('ends an area sentence with the clause, after every preset', () => {
+    for (const rule of presets) {
+      const base = sourcingText(input({ ...area, rule, makers: [maker()] }))
+      const text = sourcingText(input({ ...area, rule, makers: [maker()], takesNothingFrom: ['Line M1'] }))
+      expect(text).toBe(`${base} Takes nothing from Line M1.`)
+      expect(text.startsWith('Line L: ')).toBe(true)
+    }
+  })
+  it('lists several names', () => {
+    expect(sourcingText(input({ ...area, takesNothingFrom: ['Line M1', 'Line M2'] }))).toMatch(/ Takes nothing from Line M1 and Line M2\.$/)
+  })
+  it('has no clause without names, and the block sentence ignores them', () => {
+    expect(sourcingText(input({ ...area, takesNothingFrom: [] }))).not.toContain('Takes nothing')
+    expect(sourcingText(input({ takesNothingFrom: ['Line M1'] }))).not.toContain('Takes nothing')
+  })
+})

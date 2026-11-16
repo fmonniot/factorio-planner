@@ -1,5 +1,7 @@
 import { makeHereOf, presetOf, type SourcingPreset } from '../../data/sourceRules'
-import type { SourceRuleKind } from './sourceRules'
+import { areaName } from '../../data/subPlanTree'
+import type { SubPlan } from '../../data/types'
+import type { SourceRuleKind, SourceRulePart } from './sourceRules'
 
 // ---------------------------------------------------------------------------
 // How a block sources an item: the three presets and the Import switch, read by every surface that shows them.
@@ -42,10 +44,19 @@ export const SOURCE_RULE_NAMES: Record<SourceRuleKind, string> = {
   'import-off': `${IMPORT_SWITCH.label} off`,
   'make-here': ITEM_SOURCING_CHOICES[0].label,
   'import-on': `${IMPORT_SWITCH.label} on`,
+  'takes-nothing': 'Takes nothing',
 }
 
 /** The name of a rule of an area, as the rule list and the remove button read it: "Line L: Receive it first". */
 export const areaRuleLabel = (areaName: string, ruleName: string): string => `${areaName}: ${ruleName}`
+
+/** The name of one part of a rule as the rule list and the remove button read it: the preset's name, "Line L: Import off", "Line L: takes nothing from Line M1". */
+export function ruleLabel(rule: Pick<SourceRulePart, 'kind' | 'areaId' | 'otherAreaId'>, rootPlan: SubPlan): string {
+  if (rule.areaId === undefined) return SOURCE_RULE_NAMES[rule.kind]
+  const area = areaName(rootPlan, rule.areaId)
+  if (rule.kind === 'takes-nothing' && rule.otherAreaId !== undefined) return `${area}: takes nothing from ${areaName(rootPlan, rule.otherAreaId)}`
+  return areaRuleLabel(area, SOURCE_RULE_NAMES[rule.kind])
+}
 
 // ---------------------------------------------------------------------------
 // The Sources list (phase 2 of sourcing priority), named with the author on 2026-11-12. Nothing draws it yet.
@@ -83,7 +94,10 @@ export const SOURCES_LINES = {
 // The order of the Sources list's lines, a function of the rule and of the block.
 // ---------------------------------------------------------------------------
 
-export type LineKey = 'made-here' | 'make-here' | 'other-areas' | 'block' | 'import'
+export type LineKey = 'made-here' | 'make-here' | 'other-areas' | `area:${string}` | 'block' | 'import'
+
+/** The help text of the line of one supplying area, at area scope. */
+export const AREA_LINE_HELP = 'Take it from the rows of this area. Off: nothing of it comes from this area.'
 
 /** Where *Make more here* is drawn against the block lines. */
 export type Side = 'above' | 'below'
@@ -91,10 +105,11 @@ export type Side = 'above' | 'below'
 /**
  * The lines top to bottom. *Already made here* is first and *Import* last. *Make more here* is above the block lines (no `makeHere`) or
  * below them (`'after-blocks'`), and *Other areas* always follows it directly (plan.md's mapping table); switched off it keeps the
- * side it was drawn last (`lastSide`) and *Other areas* follows *Already made here*.
+ * side it was drawn last (`lastSide`) and *Other areas* follows *Already made here*. At area scope `supplierAreas` (the areas that
+ * supply the item, table order) turns *Other areas* into one `area:<id>` line each, in the same place.
  */
-export function sourcesLineOrder(makeHere: 'after-blocks' | 'off' | undefined, hasAreas: boolean, lastSide: Side): LineKey[] {
-  const areas: LineKey[] = hasAreas ? ['other-areas'] : []
+export function sourcesLineOrder(makeHere: 'after-blocks' | 'off' | undefined, hasAreas: boolean, lastSide: Side, supplierAreas?: readonly string[]): LineKey[] {
+  const areas: LineKey[] = hasAreas ? (supplierAreas && supplierAreas.length > 0 ? supplierAreas.map((id): LineKey => `area:${id}`) : ['other-areas']) : []
   if (makeHere === 'off') {
     return ['made-here', ...areas, ...(lastSide === 'above' ? ['make-here', 'block'] as const : ['block', 'make-here'] as const), 'import']
   }

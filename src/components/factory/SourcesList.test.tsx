@@ -7,7 +7,7 @@ import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/block
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
-import type { Block, GameData, SolverResult } from '../../data/types'
+import type { AreaRoute, AreaSourceRule, Block, GameData, SolverResult, SubPlan } from '../../data/types'
 
 // Ore Synth makes Ore (dedicated); Smelt makes Plate from Ore and Slag as a co-product, so Slag is a byproduct of Smelt.
 function gameData(): GameData {
@@ -720,5 +720,187 @@ describe('the block lines', () => {
       fireEvent.click(screen.getByTestId('sources-receive-from'))
       expect(useUiStore.getState().connectionMenu).toMatchObject({ itemId: 'ore' })
     })
+  })
+})
+
+describe('at area scope', () => {
+  const NOW = '2026-01-01T00:00:00.000Z'
+  const area = (id: string, recipe: string, rules?: Record<string, AreaSourceRule>): SubPlan => ({
+    id, name: `Line ${id}`, nodes: [makeRecipeNode(recipe)], subPlans: [], area: true, createdAt: NOW, updatedAt: NOW,
+    ...(rules ? { sourceRules: rules } : {}),
+  })
+  const areaRules = (id: string) => mainBlock().rootPlan.subPlans.find(sp => sp.id === id)?.sourceRules
+  const setupAreas = (opts: { M2?: boolean; block?: Block['sourceRules']; connected?: boolean } = {}) => {
+    const subs = [area('L', 'smelt'), area('M1', 'ore-synth'), ...(opts.M2 === false ? [] : [area('M2', 'ore-synth')])]
+    const main: Block = {
+      ...makeEmptyBlock('Main'), id: 'main', sourceRules: opts.block ?? {},
+      ...(opts.connected ? { inputConnections: [{ id: 'c1', fromBlockId: 'src', itemId: 'ore' }] } : {}),
+    }
+    main.rootPlan = { ...main.rootPlan, nodes: [], subPlans: subs }
+    const src: Block = { ...makeEmptyBlock('Src'), id: 'src', color: '#112233' }
+    useBlockStore.setState({ blocks: [main, src], activeBlockId: 'main', history: {} })
+  }
+  const solve = (areaRoutes: AreaRoute[], unsatisfied: { itemId: string; rate: number }[] = []) => act(() => useSolverStore.setState({
+    lastResults: { main: { nodes: [], unsatisfied, warnings: [], areaRoutes } as unknown as SolverResult },
+  }))
+  const openAreaList = () => {
+    render(<ComesFrom itemId="ore" areaId="L" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Line L' }))
+    fireEvent.click(screen.getByTestId('sources-button'))
+  }
+  const areaLine = (id: string) => screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-area-id') === id)!
+  const reading = (el: HTMLElement) => within(el).getByTestId('sources-reading').textContent
+  const into = (from: string | undefined, rate: number, supplied?: number): AreaRoute => ({ itemId: 'ore', ...(from ? { from } : {}), to: 'L', rate, ...(supplied !== undefined ? { supplied } : {}) })
+
+  it('lists one line per supplying area, in table order, each with its area', () => {
+    setupAreas()
+    openAreaList()
+    expect(lines()).toEqual(['made-here', 'make-here', 'other-area', 'other-area', 'add-block', 'import'])
+    expect(screen.getAllByTestId('sources-line').filter(l => l.getAttribute('data-line') === 'other-area').map(l => l.getAttribute('data-area-id'))).toEqual(['M1', 'M2'])
+    expect(within(areaLine('M1')).getByText('Line M1')).toBeInTheDocument()
+  })
+
+  it('keeps the single read-only Other areas line at block scope', () => {
+    setupAreas()
+    render(<ComesFrom itemId="ore" />)
+    fireEvent.click(screen.getByTestId('sources-button'))
+    expect(lines()).toEqual(['made-here', 'make-here', 'other-areas', 'add-block', 'import'])
+    expect(screen.queryByTestId('sources-area-switch')).not.toBeInTheDocument()
+    expect(reading(line('other-areas'))).toBe('')
+  })
+
+  it('reads the rate routed from each area, nothing when it sends none', () => {
+    setupAreas()
+    openAreaList()
+    solve([into('M1', 12)])
+    expect(reading(areaLine('M1'))).toBe('12.0/m')
+    expect(reading(areaLine('M2'))).toBe('nothing')
+    for (const sw of screen.getAllByTestId('sources-area-switch')) expect(sw).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('reads nothing before a solve', () => {
+    setupAreas()
+    openAreaList()
+    expect(reading(areaLine('M1'))).toBe('')
+    expect(screen.queryByTestId('sources-reaches')).not.toBeInTheDocument()
+  })
+
+  it('switches an area off on the area rule only, and reads — for it', () => {
+    setupAreas()
+    openAreaList()
+    solve([into('M1', 12)])
+    fireEvent.click(within(areaLine('M1')).getByTestId('sources-area-switch'))
+    expect(areaRules('L')).toEqual({ ore: { areasOff: ['M1'] } })
+    expect(mainBlock().sourceRules).toEqual({})
+    expect(reading(areaLine('M1'))).toBe('—')
+    expect(within(areaLine('M1')).getByTestId('sources-area-switch')).toHaveAttribute('aria-checked', 'false')
+    expect(within(areaLine('M2')).getByTestId('sources-area-switch')).toHaveAttribute('aria-checked', 'true')
+    // Switched back on, the area keeps a keyless rule (D1: a rule that says "as the block", until Use the block's rule).
+    fireEvent.click(within(areaLine('M1')).getByTestId('sources-area-switch'))
+    expect(areaRules('L')).toEqual({ ore: {} })
+  })
+
+  it('keeps a switched-off area listed though it makes nothing', () => {
+    setupAreas({ M2: false })
+    openAreaList()
+    fireEvent.click(within(areaLine('M1')).getByTestId('sources-area-switch'))
+    expect(areaLine('M1')).toBeInTheDocument()
+    expect(within(areaLine('M1')).getByTestId('sources-area-switch')).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('writes Make more here to the area rule', () => {
+    setupAreas()
+    openAreaList()
+    fireEvent.click(screen.getByTestId('sources-move-down'))
+    expect(areaRules('L')).toEqual({ ore: { makeHere: 'after-blocks' } })
+    fireEvent.click(screen.getByTestId('sources-make-here-switch'))
+    expect(areaRules('L')).toEqual({ ore: { makeHere: 'off' } })
+    expect(mainBlock().sourceRules).toEqual({})
+  })
+
+  it('writes Import to the area rule', () => {
+    setupAreas()
+    openAreaList()
+    fireEvent.click(screen.getByTestId('sources-import-switch'))
+    expect(areaRules('L')).toEqual({ ore: { importOff: true } })
+    expect(mainBlock().sourceRules).toEqual({})
+  })
+
+  it('reads the Import figure of the area', () => {
+    setupAreas()
+    openAreaList()
+    solve([into('M1', 3, undefined), into(undefined, 5, 0)])
+    expect(reading(line('import'))).toBe('5.00/m')
+    fireEvent.click(screen.getByTestId('sources-import-switch'))
+    expect(reading(line('import'))).toBe('Missing 5.00/m')
+  })
+
+  it('reads none when no leg comes from outside', () => {
+    setupAreas()
+    openAreaList()
+    solve([into('M1', 12)])
+    expect(reading(line('import'))).toBe('none')
+  })
+
+  it('reads the connection flow on its line and what reaches the area under the block lines', () => {
+    setupAreas({ connected: true })
+    openAreaList()
+    act(() => useSolverStore.setState({
+      flows: [{ connectionId: 'c1', fromBlockId: 'src', toBlockId: 'main', itemId: 'ore', available: 60, capped: false, rate: 12, status: 'ok', kind: 'take' }] as never,
+    }))
+    solve([into(undefined, 12, 9)])
+    const blockLine = screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-line') === 'block')!
+    expect(within(blockLine).getByTestId('sources-block-rate')).toHaveTextContent('12')
+    expect(screen.getByTestId('sources-reaches')).toHaveTextContent('9.00/m of it reaches this area')
+    expect(reading(line('import'))).toBe('3.00/m')
+  })
+
+  it('reads what reaches the area from the leg and the block\'s unsatisfied rate when no area shares the item', () => {
+    setupAreas({ connected: true })
+    openAreaList()
+    solve([into(undefined, 12)])
+    expect(screen.getByTestId('sources-reaches')).toHaveTextContent('12.0/m of it reaches this area')
+    solve([into(undefined, 12)], [{ itemId: 'ore', rate: 12 }])
+    expect(screen.getByTestId('sources-reaches')).toHaveTextContent('none of it reaches this area')
+    expect(reading(line('import'))).toBe('12.0/m')
+  })
+
+  it('makes the block lines read-only', () => {
+    setupAreas({ connected: true })
+    openAreaList()
+    const blockLine = screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-line') === 'block')!
+    for (const id of ['sources-limit', 'sources-block-move-up', 'sources-block-move-down', 'sources-block-remove', 'sources-make-product']) {
+      expect(within(blockLine).queryByTestId(id)).not.toBeInTheDocument()
+    }
+    expect(blockLine).not.toHaveAttribute('draggable')
+    expect(within(blockLine).getByTestId('sources-block-name')).toHaveTextContent('Src')
+    expect(screen.getByTestId('sources-receive-from')).toBeInTheDocument()
+  })
+
+  it('has one Other areas line saying so when no other area makes the item', () => {
+    const main: Block = { ...makeEmptyBlock('Main'), id: 'main' }
+    main.rootPlan = { ...main.rootPlan, nodes: [], subPlans: [area('L', 'smelt'), area('M1', 'smelt')] }
+    useBlockStore.setState({ blocks: [main], activeBlockId: 'main', history: {} })
+    openAreaList()
+    expect(lines()).toEqual(['made-here', 'make-here', 'other-areas', 'add-block', 'import'])
+    expect(reading(line('other-areas'))).toBe('No other area makes Ore.')
+  })
+
+  it('remembers the side of Make more here per scope', () => {
+    setupAreas()
+    openAreaList()
+    fireEvent.click(screen.getByTestId('sources-move-down'))
+    expect(lines()).toEqual(['made-here', 'add-block', 'make-here', 'other-area', 'other-area', 'import'])
+    expect(useUiStore.getState().sourcesSides['main/L:ore']).toBe('below')
+    expect(useUiStore.getState().sourcesSides['main:ore']).toBeUndefined()
+  })
+
+  it('draws the list of the block when the area flag goes off', () => {
+    setupAreas()
+    openAreaList()
+    act(() => useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => b.id === 'main' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: [] } } : b),
+    })))
+    expect(screen.queryByTestId('sources-area-switch')).not.toBeInTheDocument()
   })
 })

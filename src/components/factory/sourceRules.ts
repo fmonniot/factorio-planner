@@ -15,9 +15,10 @@ import { blockMakesItem } from '../../solver/index'
 
 /**
  * `make-here` is an area's rule with no preset that overrides a block rule that has one (the area makes it here, whatever
- * the block says); `import-on` is an area's rule with Import on that overrides a block rule that has it off.
+ * the block says); `import-on` is an area's rule with Import on that overrides a block rule that has it off; `takes-nothing` is
+ * one area switched off as a supplier of the item (`areasOff`), named by `otherAreaId`.
  */
-export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off' | 'make-here' | 'import-on'
+export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off' | 'make-here' | 'import-on' | 'takes-nothing'
 export type NoEffectReason = 'product' | 'not-made' | 'no-connection'
 
 export interface SourceRulePart {
@@ -25,6 +26,8 @@ export interface SourceRulePart {
   kind: SourceRuleKind
   /** The area whose rule this part is; absent for a rule of the block. */
   areaId?: string
+  /** A `takes-nothing` part: the area that supplies nothing. */
+  otherAreaId?: string
   /** Why the solver ignores the rule; absent when it has an effect. */
   noEffect?: NoEffectReason
 }
@@ -32,7 +35,8 @@ export interface SourceRulePart {
 /**
  * Every part of every rule of the block, in map order, the `makeHere` part before `import-off`; then the parts of the
  * rules of its areas, areas in table order, each rule's parts in the same order (and a `make-here` part last when the
- * area's rule has no preset where the block's has one, then an `import-on` part when it has Import on where the block's is off).
+ * area's rule has no preset where the block's has one, then an `import-on` part when it has Import on where the block's is off,
+ * then one `takes-nothing` part per area in its `areasOff`, in stored order).
  * `blockIds` holds the ids of all existing blocks of the plan: a connection whose source is gone, or is
  * the block itself, does not count (the solver's own test, `receivesItem`).
  */
@@ -54,6 +58,7 @@ export function sourceRules(block: Block, gameData: GameData, blockIds: Readonly
       const blockRule = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : undefined
       if (!kind && presetOf(blockRule)) rules.push(part('make-here'))
       if (!rule.importOff && blockRule?.importOff) rules.push(part('import-on'))
+      for (const otherAreaId of rule.areasOff ?? []) rules.push(withEffect(block, gameData, blockIds, { itemId, kind: 'takes-nothing', areaId: area.id, otherAreaId }))
     }
   }
   return rules
@@ -75,8 +80,13 @@ function noEffectReason(
   block: Block,
   gameData: GameData,
   blockIds: ReadonlySet<string>,
-  { itemId, kind, areaId }: SourceRulePart,
+  { itemId, kind, areaId, otherAreaId }: SourceRulePart,
 ): NoEffectReason | undefined {
+  // A switch is about the other area's rows, whatever the block does with the item: it only does nothing when that area makes none.
+  if (kind === 'takes-nothing') {
+    const other = new Set(blockAreas(block.rootPlan)?.find(a => a.id === otherAreaId)?.nodeIds)
+    return blockMakesItem(block, gameData, itemId, other) ? undefined : 'not-made'
+  }
   if (hasProduct(block, itemId)) return 'product'
   // An area's rule is about the rows of that area: with none making the item it changes nothing there.
   const rows = areaId === undefined ? undefined : new Set(blockAreas(block.rootPlan)?.find(a => a.id === areaId)?.nodeIds)
@@ -167,10 +177,10 @@ export function scopeAreasOf(block: Block, itemId: string, areaId: string | unde
 }
 
 /** The text shown beside a rule that has no effect. */
-export function noEffectText(reason: NoEffectReason, itemName: string, inArea = false): string {
+export function noEffectText(reason: NoEffectReason, itemName: string, inArea = false, otherAreaName?: string): string {
   switch (reason) {
     case 'product': return `${itemName} is a product of this block, so the block always makes it.`
-    case 'not-made': return `No row in this ${inArea ? 'area' : 'block'} makes ${itemName}.`
+    case 'not-made': return otherAreaName !== undefined ? `No row in ${otherAreaName} makes ${itemName}.` : `No row in this ${inArea ? 'area' : 'block'} makes ${itemName}.`
     case 'no-connection': return `No connection for ${itemName}.`
   }
 }

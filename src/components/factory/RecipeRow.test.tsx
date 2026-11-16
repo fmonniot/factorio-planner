@@ -1053,6 +1053,19 @@ describe('RecipeRow source rule marker', () => {
       expect(markers()[0]).toHaveAccessibleName(/^Line L: /)
     })
 
+    it('marks the rows of an area that only switches another area off, with its sentence', () => {
+      const root = setAreas()
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => ({ ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => sp.id === 'L' ? { ...sp, sourceRules: { oxygen: { areasOff: ['B'] } } } : sp.id === 'B' ? { ...sp, nodes: [combustionB, { ...elecL, id: 'node-elec-b' }] } : sp) } })),
+      }))
+      rowIn(combustionPlanNode, useBlockStore.getState().blocks[0].rootPlan)
+      expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['oxygen'])
+      expect(markers()[0]).toHaveAccessibleName(/^Line L: .*Takes nothing from Line B\./)
+      cleanup()
+      rowIn(combustionB, root)
+      expect(markers()).toHaveLength(0)
+    })
+
     it("marks the rows of an area whose keyless rule overrides the block's Import off, with the area's sentence", () => {
       const root = setAreas({ sourceRules: { hydrogen: { importOff: true as const } } })
       useBlockStore.setState(s => ({

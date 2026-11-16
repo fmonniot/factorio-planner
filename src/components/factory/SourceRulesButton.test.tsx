@@ -450,6 +450,62 @@ describe('Source rules — the rules of an area', () => {
     expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'off' } })
   })
 
+  it('lists one entry for an area that only switches another off, and counts it', () => {
+    setupAreas({ plate: { areasOff: ['B'] } })
+    render(<SourceRulesButton />)
+    expect(button()).toHaveTextContent('Source rules (1)')
+    openPopover()
+    expect(names()).toEqual(['Line L: takes nothing from Line B'])
+    expect(entries()[0].dataset).toMatchObject({ rule: 'takes-nothing', areaId: 'L', otherAreaId: 'B' })
+    expect(text(entries()[0])).toMatch(/^Line L: .* Takes nothing from Line B\.$/)
+    expect(within(entries()[0]).getByRole('button', { name: 'Remove the Line L: takes nothing from Line B rule of Plate' })).toBeInTheDocument()
+  })
+
+  it('removes the switch through the store, and the area rule with it when it repeats the block', () => {
+    setupAreas({ plate: { areasOff: ['B'] } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(remove(entries()[0]))
+    expect(lRules()).toBeUndefined()
+    expect(screen.queryByTestId('source-rules')).not.toBeInTheDocument()
+  })
+
+  it('removes one of two switches and keeps the other', () => {
+    setupAreas({ plate: { areasOff: ['B', 'C'] } })
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => b.id === 'main' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: [...b.rootPlan.subPlans, area('C')] } } : b) }))
+    render(<SourceRulesButton />)
+    openPopover()
+    expect(names()).toEqual(['Line L: takes nothing from Line B', 'Line L: takes nothing from Line C'])
+    fireEvent.click(remove(entries()[0]))
+    expect(lRules()).toEqual({ plate: { areasOff: ['C'] } })
+  })
+
+  it('clears the copied rule when the last switch goes under a block preset', () => {
+    setupAreas({ plate: { makeHere: 'after-blocks', areasOff: ['B'] } }, { plate: { makeHere: 'after-blocks' } })
+    render(<SourceRulesButton />)
+    openPopover()
+    expect(entries().filter(e => e.dataset.areaId === 'L').map(e => e.dataset.rule)).toEqual(['connections-first', 'takes-nothing'])
+    fireEvent.click(remove(entries().find(e => e.dataset.rule === 'takes-nothing')!))
+    expect(lRules()).toBeUndefined()
+  })
+
+  it('keeps the switches when the make-here override goes, and gives the area the block\'s preset', () => {
+    setupAreas({ plate: { areasOff: ['B'] } }, { plate: { makeHere: 'after-blocks' } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(remove(entry('plate', 'make-here')))
+    expect(lRules()).toEqual({ plate: { makeHere: 'after-blocks', areasOff: ['B'] } })
+  })
+
+  it('greys a switch whose other area has no row making the item', () => {
+    setupAreas({ plate: { areasOff: ['B'] } })
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => b.id === 'main' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => sp.id === 'B' ? { ...sp, nodes: [] } : sp) } } : b) }))
+    render(<SourceRulesButton />)
+    openPopover()
+    expect(entries()[0]).toHaveAttribute('data-no-effect', 'not-made')
+    expect(text(entries()[0])).toBe('No row in Line B makes Plate.')
+  })
+
   it('expands the Comes from control on the scope of the area', () => {
     setupAreas({ plate: { importOff: true } })
     render(<SourceRulesButton />)

@@ -6,7 +6,7 @@ import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
 import { Icon } from '../Icon'
-import { SOURCE_RULE_NAMES, areaRuleLabel } from './itemSourcing'
+import { ruleLabel } from './itemSourcing'
 import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
 import { keepTabInside } from './keepTabInside'
@@ -38,14 +38,15 @@ function RuleEntry({ rule, block, gameData, expanded, onToggle, onRemove }: {
   const item = gameData.items[rule.itemId]
   const name = item?.name ?? rule.itemId
   const sentence = useSourcingSentence(rule.itemId, gameData, rule.areaId)
-  // The rule of an area reads "Line L: Receive it first".
-  const ruleName = rule.areaId === undefined ? SOURCE_RULE_NAMES[rule.kind] : areaRuleLabel(areaNameOf(block.rootPlan, rule.areaId), SOURCE_RULE_NAMES[rule.kind])
+  // The rule of an area reads "Line L: Receive it first", a switch "Line L: takes nothing from Line M1".
+  const ruleName = ruleLabel(rule, block.rootPlan)
   const off = rule.noEffect !== undefined
   return (
     <li
       data-testid="source-rule"
       data-item-id={rule.itemId}
       data-area-id={rule.areaId}
+      data-other-area-id={rule.otherAreaId}
       data-rule={rule.kind}
       data-no-effect={rule.noEffect}
       className="px-3 py-2 border-b border-gray-800 last:border-b-0"
@@ -70,7 +71,7 @@ function RuleEntry({ rule, block, gameData, expanded, onToggle, onRemove }: {
             <span data-testid="source-rule-name" className={`text-[11px] ${off ? 'text-gray-400' : 'text-teal-300'}`}>{ruleName}</span>
           </div>
           <p data-testid="source-rule-text" className={`mt-0.5 text-[11px] leading-snug break-words ${off ? 'text-gray-400' : 'text-gray-300'}`}>
-            {off ? noEffectText(rule.noEffect!, name, rule.areaId !== undefined) : sentence}
+            {off ? noEffectText(rule.noEffect!, name, rule.areaId !== undefined, rule.otherAreaId !== undefined ? areaNameOf(block.rootPlan, rule.otherAreaId) : undefined) : sentence}
           </p>
         </div>
         <button
@@ -105,7 +106,7 @@ export function SourceRulesButton() {
   const panelRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   // The rule whose Comes from control is expanded in its row; a popover opened again starts with none.
-  const [expanded, setExpanded] = useState<{ itemId: string; kind: SourceRulePart['kind']; areaId?: string } | null>(null)
+  const [expanded, setExpanded] = useState<{ itemId: string; kind: SourceRulePart['kind']; areaId?: string; otherAreaId?: string } | null>(null)
 
   const rules = useMemo(
     () => (block && gameData ? sourceRules(block, gameData, new Set(blocks.map(b => b.id))) : []),
@@ -113,7 +114,7 @@ export function SourceRulesButton() {
   )
   // Changing the rule in the expanded control keeps it open on the item's rule that is there now (its first one).
   const expandedRule = expanded
-    ? (rules.find(r => r.itemId === expanded.itemId && r.kind === expanded.kind && r.areaId === expanded.areaId) ?? rules.find(r => r.itemId === expanded.itemId && r.areaId === expanded.areaId))
+    ? (rules.find(r => r.itemId === expanded.itemId && r.kind === expanded.kind && r.areaId === expanded.areaId && r.otherAreaId === expanded.otherAreaId) ?? rules.find(r => r.itemId === expanded.itemId && r.areaId === expanded.areaId))
     : undefined
   // The last rule went (removed here, or by an undo): the button goes, and the popover with it.
   if (open && rules.length === 0) setOpen(false)
@@ -212,12 +213,12 @@ export function SourceRulesButton() {
           <ul role="list" className="min-h-0 overflow-y-auto">
             {rules.map((rule, index) => (
               <RuleEntry
-                key={`${rule.areaId ?? ''}:${rule.itemId}:${rule.kind}`}
+                key={`${rule.areaId ?? ''}:${rule.itemId}:${rule.kind}:${rule.otherAreaId ?? ''}`}
                 rule={rule}
                 block={block}
                 gameData={gameData}
                 expanded={expandedRule === rule}
-                onToggle={() => setExpanded(expandedRule === rule ? null : { itemId: rule.itemId, kind: rule.kind, areaId: rule.areaId })}
+                onToggle={() => setExpanded(expandedRule === rule ? null : { itemId: rule.itemId, kind: rule.kind, areaId: rule.areaId, otherAreaId: rule.otherAreaId })}
                 onRemove={() => {
                   afterRemove.current = { index, pane: buttonRef.current?.closest<HTMLElement>('[data-testid="summary-pane"]') ?? null }
                   removeRule(rule)

@@ -1,0 +1,133 @@
+{
+  "blocks": [
+    {
+      "id": "bbbb0001-0000-0000-0000-000000000001",
+      "name": "Crushing B",
+      "color": "#60a5fa",
+      "products": [
+        {
+          "id": "bbbb0001-0000-0000-0000-000000000002",
+          "itemId": "nullius-box-gravel",
+          "extraRate": 12
+        }
+      ],
+      "noImportItems": [],
+      "sourceRules": {},
+      "inputConnections": [
+        {
+          "id": "bbbb0002-0000-0000-0000-0000000000c1",
+          "itemId": "nullius-box-stone",
+          "fromBlockId": "eeee0011-0000-0000-0000-000000000001"
+        }
+      ],
+      "rootPlan": {
+        "id": "bbbb0002-0000-0000-0000-000000000001",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "subplan",
+            "id": "bbbb0004-0000-0000-0000-000000000001",
+            "subPlanId": "bbbb0005-0000-0000-0000-000000000001"
+          },
+          {
+            "kind": "subplan",
+            "id": "bbbb0004-0000-0000-0000-000000000002",
+            "subPlanId": "bbbb0005-0000-0000-0000-000000000002"
+          },
+          {
+            "kind": "subplan",
+            "id": "bbbb0004-0000-0000-0000-000000000003",
+            "subPlanId": "bbbb0005-0000-0000-0000-000000000003"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "bbbb0005-0000-0000-0000-000000000001",
+            "name": "Line L",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "bbbb0006-0000-0000-0000-000000000001",
+                "recipeId": "nullius-boxed-gravel",
+                "modules": [],
+                "byproductPolicy": {},
+                "pinnedRate": 12
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-11-16T00:00:00.000Z",
+            "updatedAt": "2026-11-16T00:00:00.000Z"
+          },
+          {
+            "id": "bbbb0005-0000-0000-0000-000000000002",
+            "name": "Line M1",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "bbbb0007-0000-0000-0000-000000000001",
+                "recipeId": "nullius-box-stone",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-11-16T00:00:00.000Z",
+            "updatedAt": "2026-11-16T00:00:00.000Z"
+          },
+          {
+            "id": "bbbb0005-0000-0000-0000-000000000003",
+            "name": "Line M2",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "bbbb0008-0000-0000-0000-000000000001",
+                "recipeId": "nullius-box-stone",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-11-16T00:00:00.000Z",
+            "updatedAt": "2026-11-16T00:00:00.000Z"
+          }
+        ],
+        "createdAt": "2026-11-16T00:00:00.000Z",
+        "updatedAt": "2026-11-16T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "eeee0011-0000-0000-0000-000000000001",
+      "name": "Boxer",
+      "color": "#f59e0b",
+      "products": [
+        {
+          "id": "eeee0012-0000-0000-0000-000000000001",
+          "itemId": "nullius-box-stone",
+          "extraRate": 100
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "eeee0012-0000-0000-0000-000000000002",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "eeee0013-0000-0000-0000-000000000001",
+            "recipeId": "nullius-box-stone",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-11-16T00:00:00.000Z",
+        "updatedAt": "2026-11-16T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "bbbb0001-0000-0000-0000-000000000001"
+}
