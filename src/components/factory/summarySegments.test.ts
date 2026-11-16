@@ -244,6 +244,27 @@ describe('ingredientSlot', () => {
     expect(slot.status).toBe(null)
   })
 
+  it('splits an import into imported and missing when the rows say how much is missing', () => {
+    const slot = ingredientSlot(ingredientRow({ importPerMin: 20, missingPerMin: 12 }), new Map(), blocks)
+    expect(shape(slot.segments)).toEqual([['import', 8], ['missing', 12]])
+    expect(slot.segments[1]).toMatchObject({ kind: 'short', missing: true })
+    expect(slot).toMatchObject({ status: 'short', rate: 20 })
+  })
+
+  it('draws all of an import as missing when the rows say so, and as imported when they say none is', () => {
+    expect(shape(ingredientSlot(ingredientRow({ importPerMin: 12, missingPerMin: 12 }), new Map(), blocks).segments)).toEqual([['missing', 12]])
+    const none = ingredientSlot(ingredientRow({ importPerMin: 12, missingPerMin: 0 }), new Map(), blocks)
+    expect(shape(none.segments)).toEqual([['import', 12]])
+    expect(none.status).toBe(null)
+  })
+
+  it('reads the rows before the block lock when both say something, and leaves the lock overlay', () => {
+    const slot = ingredientSlot(ingredientRow({ locked: true, importPerMin: 12, missingPerMin: 0 }), new Map(), blocks)
+    expect(shape(slot.segments)).toEqual([['import', 12]])
+    expect(slot.overlays.map(o => o.kind)).toEqual(['locked'])
+    expect(slot).toMatchObject({ status: 'locked', dimmed: true, locked: true })
+  })
+
   it('writes the missing segment as "Missing N" with the note "— Import is off"', () => {
     const slot = ingredientSlot(ingredientRow({ locked: true, importPerMin: 5 }), new Map(), blocks)
     const ctx = { blockName: undefined, product: undefined, fmt: (n: number) => `${n}/m`, nameOf: () => undefined }

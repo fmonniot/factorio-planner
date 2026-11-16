@@ -309,3 +309,15 @@ Deviations and additions only. Case 21 B (rows a to d) and C (rows d, e) came ou
 - **Warning UI.** `area-cut-off` title, body, hint and Go-to links (shared helper with `area-shortfall`); no control for `areasOff` yet (T6, T7).
 - **Test replaced.** T4's "areasOff is not read by the solve yet" became the `area rules: supplier switches` suite in `areas.test.ts`.
 - **Review fixes.** Pair-item sink: 0 on purpose (shipping must cost more than leaving; a sink costed like a shipped unit sank the first sender's surplus); no unpinned-surplus equivalence test can be built, since nothing makes a surplus the plan does not pin. Measured at the time: a plan with one pair item solved in about 2.2 to 2.3 ms, against 2.1 to 3.0 ms for the pooled plan. `area-cut-off` is gated on a short goal that one of the area's rows using the item serves, and skips a byproduct consumer's ingredient. A relay is kept visible; the matrix focus view and the counterpart totals read the routes, the group panel's lines list net flows only (limitation in `spec/solver.md` Routes).
+
+## T6 report
+
+Deviations and additions only. The UI follows D9 and D10; no solver, schema or store-shape change (only `storedAreaRule` moved to `subPlanTree.ts`, the store's private helper delegates to it).
+
+- **Offered scopes.** Beyond the plan's "whole block plus the row's area", the scope control also offers the area it is on and every area with a stored rule for the item, so a popover opened from a slot's "{n} areas" button can reach the others. Without an area to offer there is no control.
+- **Row markers.** A row's marker set replaces, not adds to, the block's for an item its area has a rule for (`rowRuleItems`: D1, a keyless `{}` included), so a keyless `{}` over a block rule drops the marker on that area's rows.
+- **`make-here` part.** An area's keyless rule over a block rule that has a preset lists as "{area}: Make it here"; Remove on it clears the area's rule altogether, including any Import-off part it had stored.
+- **Missing part.** `areaMissingPerMin` caps at the block's import and falls back to the block's lock when no area has its own rule for the item; `locked`, the lock overlay and the dimming stay block-level.
+- **Undo of the flag** is tested in `ComesFrom.test.tsx` (nothing in the page undoes); the e2e covers the switch off.
+- **e2e.** `fixtures/area-rules.json` is hand-written on Nullius "Stone boxing" and "Gravel (boxed)" (case 21 A's plate is the Stone box, its gear the Gravel box, its ore stone). Rows a to d came out as derived, so no expected value was edited; the Stone slot has no slot at 0, so the 0 is asserted as its absence. After the flag goes off the popover still offers the root as an area while another area exists.
+- **Golden.** `legacyParity.json` gained one line, for the new e2e fixture (every plan fixture is solved there); no existing line moved.

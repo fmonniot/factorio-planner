@@ -40,7 +40,11 @@ export const SOURCE_RULE_NAMES: Record<SourceRuleKind, string> = {
   'connections-first': ITEM_SOURCING_CHOICES[1].label,
   'byproducts-first': ITEM_SOURCING_CHOICES[2].label,
   'import-off': `${IMPORT_SWITCH.label} off`,
+  'make-here': ITEM_SOURCING_CHOICES[0].label,
 }
+
+/** The name of a rule of an area, as the rule list and the remove button read it: "Line L: Receive it first". */
+export const areaRuleLabel = (areaName: string, ruleName: string): string => `${areaName}: ${ruleName}`
 
 // ---------------------------------------------------------------------------
 // The Sources list (phase 2 of sourcing priority), named with the author on 2026-11-12. Nothing draws it yet.

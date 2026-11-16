@@ -29,7 +29,7 @@ import { SummaryPane } from './SummaryPane'
 import { SummaryLine } from './SummaryLine'
 import type { StripAction } from './SummaryDetailStrip'
 import { presentRecipesFor } from './recipeAreas'
-import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
+import { ingredientRows, byproductRows, isLeftover, areaMissingPerMin } from './summaryRows'
 import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
 import type { ProductInfo } from './summarySegments'
 import { netBalance as computeNetBalance, grossFlow, FLOW_TOLERANCE } from '../../solver/index'
@@ -256,7 +256,12 @@ export function FactorySummary() {
   // Ingredients: unsatisfied raw inputs
   const ingredientItems = (solverResult?.unsatisfied ?? []).filter(u => u.rate > 0)
   const connections = activeBlock?.inputConnections ?? []
-  const ingredientRowList = ingredientRows(connections, ingredientItems, noImportItems)
+  // A block with areas: the missing part of an import comes from the areas' own rules (`areaMissingPerMin`).
+  const areaRoutes = solverResult?.areaRoutes
+  const ingredientRowList = ingredientRows(
+    connections, ingredientItems, noImportItems,
+    activeBlock && areaRoutes ? (itemId, imported) => areaMissingPerMin(itemId, imported, activeBlock.sourceRules, activeBlock.rootPlan, areaRoutes) : undefined,
+  )
   const limitConnection =
     limitEditor && limitEditor.toBlockId === activeBlockId
       ? connections.find(c => c.id === limitEditor.connectionId)

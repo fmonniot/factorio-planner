@@ -286,6 +286,15 @@ describe('Comes from popover and connection menu', () => {
     expect(useUiStore.getState().comesFromPopover).toBeNull()
   })
 
+  it('keeps the area it was opened for, and has no key without one', () => {
+    useUiStore.getState().openComesFrom('iron-ore', anchor, { areaId: 'L' })
+    expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'iron-ore', areaId: 'L' })
+    useUiStore.getState().openComesFrom('iron-ore', anchor)
+    expect(useUiStore.getState().comesFromPopover).not.toHaveProperty('areaId')
+    useUiStore.getState().openComesFrom('iron-ore', anchor, { list: true })
+    expect(useUiStore.getState().comesFromPopover).not.toHaveProperty('areaId')
+  })
+
   it('opens the connection menu for an item at a point, and closes it', () => {
     useUiStore.getState().openConnectionMenu('iron-ore', 10, 20)
     expect(useUiStore.getState().connectionMenu).toEqual({ itemId: 'iron-ore', x: 10, y: 20 })

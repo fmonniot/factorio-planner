@@ -1,11 +1,12 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { GameData } from '../../data/types'
+import type { Block, GameData } from '../../data/types'
+import { areaName as areaNameOf } from '../../data/subPlanTree'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
 import { Icon } from '../Icon'
-import { SOURCE_RULE_NAMES } from './itemSourcing'
+import { SOURCE_RULE_NAMES, areaRuleLabel } from './itemSourcing'
 import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
 import { keepTabInside } from './keepTabInside'
@@ -16,7 +17,7 @@ import { useSourcingSentence } from './useSourcingSentence'
 
 // ---------------------------------------------------------------------------
 // SourceRulesButton — the "Source rules (N)" button of the Ingredients pane's header and the popover it opens:
-// every rule of the active block, with or without an Ingredients slot, each with what it does (or why it
+// every rule of the active block and of its areas, with or without an Ingredients slot, each with what it does (or why it
 // does nothing) and a button to remove it. A rule's item expands the Comes from control in its row, to change the rule.
 // ---------------------------------------------------------------------------
 
@@ -25,8 +26,9 @@ const MARGIN = 8
 const GAP = 4
 
 /** One rule: its item (a button that shows or hides the Comes from control in the row), its name, what it does, and Remove. */
-function RuleEntry({ rule, gameData, expanded, onToggle, onRemove }: {
+function RuleEntry({ rule, block, gameData, expanded, onToggle, onRemove }: {
   rule: SourceRulePart
+  block: Block
   gameData: GameData
   expanded: boolean
   onToggle: () => void
@@ -35,13 +37,15 @@ function RuleEntry({ rule, gameData, expanded, onToggle, onRemove }: {
   const controlId = useId()
   const item = gameData.items[rule.itemId]
   const name = item?.name ?? rule.itemId
-  const sentence = useSourcingSentence(rule.itemId, gameData)
-  const ruleName = SOURCE_RULE_NAMES[rule.kind]
+  const sentence = useSourcingSentence(rule.itemId, gameData, rule.areaId)
+  // The rule of an area reads "Line L: Receive it first".
+  const ruleName = rule.areaId === undefined ? SOURCE_RULE_NAMES[rule.kind] : areaRuleLabel(areaNameOf(block.rootPlan, rule.areaId), SOURCE_RULE_NAMES[rule.kind])
   const off = rule.noEffect !== undefined
   return (
     <li
       data-testid="source-rule"
       data-item-id={rule.itemId}
+      data-area-id={rule.areaId}
       data-rule={rule.kind}
       data-no-effect={rule.noEffect}
       className="px-3 py-2 border-b border-gray-800 last:border-b-0"
@@ -79,7 +83,7 @@ function RuleEntry({ rule, gameData, expanded, onToggle, onRemove }: {
           Remove
         </button>
       </div>
-      {expanded && <div id={controlId} className="mt-1.5"><ComesFrom itemId={rule.itemId} /></div>}
+      {expanded && <div id={controlId} className="mt-1.5"><ComesFrom itemId={rule.itemId} areaId={rule.areaId} /></div>}
     </li>
   )
 }
@@ -101,7 +105,7 @@ export function SourceRulesButton() {
   const panelRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   // The rule whose Comes from control is expanded in its row; a popover opened again starts with none.
-  const [expanded, setExpanded] = useState<{ itemId: string; kind: SourceRulePart['kind'] } | null>(null)
+  const [expanded, setExpanded] = useState<{ itemId: string; kind: SourceRulePart['kind']; areaId?: string } | null>(null)
 
   const rules = useMemo(
     () => (block && gameData ? sourceRules(block, gameData, new Set(blocks.map(b => b.id))) : []),
@@ -109,7 +113,7 @@ export function SourceRulesButton() {
   )
   // Changing the rule in the expanded control keeps it open on the item's rule that is there now (its first one).
   const expandedRule = expanded
-    ? (rules.find(r => r.itemId === expanded.itemId && r.kind === expanded.kind) ?? rules.find(r => r.itemId === expanded.itemId))
+    ? (rules.find(r => r.itemId === expanded.itemId && r.kind === expanded.kind && r.areaId === expanded.areaId) ?? rules.find(r => r.itemId === expanded.itemId && r.areaId === expanded.areaId))
     : undefined
   // The last rule went (removed here, or by an undo): the button goes, and the popover with it.
   if (open && rules.length === 0) setOpen(false)
@@ -176,7 +180,7 @@ export function SourceRulesButton() {
     pane.focus()
   })
 
-  if (!gameData || rules.length === 0) return null
+  if (!gameData || !block || rules.length === 0) return null
 
   return (
     <>
@@ -208,11 +212,12 @@ export function SourceRulesButton() {
           <ul role="list" className="min-h-0 overflow-y-auto">
             {rules.map((rule, index) => (
               <RuleEntry
-                key={`${rule.itemId}:${rule.kind}`}
+                key={`${rule.areaId ?? ''}:${rule.itemId}:${rule.kind}`}
                 rule={rule}
+                block={block}
                 gameData={gameData}
                 expanded={expandedRule === rule}
-                onToggle={() => setExpanded(expandedRule === rule ? null : { itemId: rule.itemId, kind: rule.kind })}
+                onToggle={() => setExpanded(expandedRule === rule ? null : { itemId: rule.itemId, kind: rule.kind, areaId: rule.areaId })}
                 onRemove={() => {
                   afterRemove.current = { index, pane: buttonRef.current?.closest<HTMLElement>('[data-testid="summary-pane"]') ?? null }
                   removeRule(rule)

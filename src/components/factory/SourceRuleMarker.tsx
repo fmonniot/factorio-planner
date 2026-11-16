@@ -41,9 +41,9 @@ export function SourceRuleMarker({ sentence, itemId }: SourceRuleMarkerProps) {
   )
 }
 
-/** The marker of an item of the active block: its sentence is the one every other surface shows (`useSourcingSentence`). Render it only for an item `useSourceRuleItems` holds; it does not test that itself. */
-export function ItemSourceRuleMarker({ itemId, gameData }: { itemId: string; gameData: GameData | undefined }) {
-  const sentence = useSourcingSentence(itemId, gameData)
+/** The marker of an item of the active block: its sentence is the one every other surface shows (`useSourcingSentence`); `areaId` is the area whose own rule the row follows, when it has one. Render it only for an item `useSourceRuleItems` holds; it does not test that itself. */
+export function ItemSourceRuleMarker({ itemId, gameData, areaId }: { itemId: string; gameData: GameData | undefined; areaId?: string }) {
+  const sentence = useSourcingSentence(itemId, gameData, areaId)
   return <SourceRuleMarker sentence={sentence} itemId={itemId} />
 }
 

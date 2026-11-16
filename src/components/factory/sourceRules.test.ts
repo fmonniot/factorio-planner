@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { itemsWithEffect, noEffectText, sourceRuleItems, sourceRules, type NoEffectReason, type SourceRuleKind } from './sourceRules'
+import { areaRuleItems, itemsWithEffect, noEffectText, rowRuleItems, sourceRuleItems, sourceRules, type NoEffectReason, type SourceRuleKind } from './sourceRules'
 import { makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
-import type { Block, GameData } from '../../data/types'
+import type { AreaSourceRule, Block, GameData, SourceRule } from '../../data/types'
 import { sourceRulesOf } from '../../test/sourceRulesOf'
 
 const gameData = {
@@ -205,6 +205,89 @@ describe('sourceRuleItems', () => {
     // Another plan array, or a replaced block, is answered afresh.
     expect(sourceRuleItems(b, gameData, [b])).not.toBe(first)
     expect([...sourceRuleItems({ ...b, sourceRules: {} }, gameData, blocks)]).toEqual([])
+  })
+})
+
+describe('rules of areas', () => {
+  /** A block whose areas L and B (in that order) each hold a smelting row. */
+  function areaBlock(opts: { block?: Record<string, SourceRule>; L?: Record<string, AreaSourceRule>; B?: Record<string, AreaSourceRule>; product?: string } = {}): Block {
+    const b = makeEmptyBlock('B')
+    b.id = 'self'
+    const sub = (id: string, rules?: Record<string, AreaSourceRule>) => ({
+      id, name: `Line ${id}`, nodes: [makeRecipeNode('smelt')], subPlans: [], area: true as const, createdAt: '', updatedAt: '',
+      ...(rules ? { sourceRules: rules } : {}),
+    })
+    b.rootPlan.subPlans = [sub('L', opts.L), sub('B', opts.B)]
+    b.sourceRules = opts.block ?? {}
+    if (opts.product) b.products = [{ id: 'p', itemId: opts.product }]
+    return b
+  }
+
+  it('lists one part per setting of an area rule, after the block parts, areas in table order', () => {
+    const b = areaBlock({
+      block: { gear: { makeHere: 'off' } },
+      B: { plate: { importOff: true } },
+      L: { plate: { makeHere: 'after-blocks', importOff: true } },
+    })
+    expect(rules(b).map(r => [r.areaId, r.itemId, r.kind])).toEqual([
+      [undefined, 'gear', 'byproducts-first'],
+      ['L', 'plate', 'connections-first'],
+      ['L', 'plate', 'import-off'],
+      ['B', 'plate', 'import-off'],
+    ])
+  })
+
+  it('lists a keyless rule under a non-default block rule as make-here, and nothing when the block has none', () => {
+    const over = areaBlock({ block: { plate: { makeHere: 'after-blocks' } }, L: { plate: {} } })
+    expect(rules(over).filter(r => r.areaId === 'L')).toEqual([{ itemId: 'plate', kind: 'make-here', areaId: 'L' }])
+    const none = areaBlock({ L: { plate: {} } })
+    expect(rules(none)).toEqual([])
+    // A block rule that is only Import off has the default preset: the area's keyless rule says nothing more.
+    const importOnly = areaBlock({ block: { plate: { importOff: true } }, L: { plate: {} } })
+    expect(rules(importOnly).filter(r => r.areaId === 'L')).toEqual([])
+  })
+
+  it('judges an area part at block level: a product has no effect', () => {
+    const b = areaBlock({ L: { plate: { makeHere: 'off' } }, product: 'plate' })
+    expect(rules(b)).toEqual([{ itemId: 'plate', kind: 'byproducts-first', areaId: 'L', noEffect: 'product' }])
+  })
+
+  it('leaves the area parts out of sourceRuleItems', () => {
+    const b = areaBlock({ block: { plate: { makeHere: 'off' } }, L: { gear: { makeHere: 'off' } } })
+    // Gear is made by no row.
+    expect([...sourceRuleItems(b, gameData, [b])]).toEqual(['plate'])
+    const only = areaBlock({ L: { plate: { makeHere: 'off' } } })
+    expect(sourceRuleItems(only, gameData, [only]).size).toBe(0)
+  })
+
+  it('has the items of an area that has its own rule', () => {
+    const b = areaBlock({ block: { plate: { makeHere: 'off' } }, L: { plate: { importOff: true } }, B: { ore: { makeHere: 'off' } } })
+    const blocks = [b]
+    // L replaces the block's rule for Plate by one that has an effect of its own; B's Ore is made by no row.
+    expect([...rowRuleItems(b, gameData, blocks, 'L')]).toEqual(['plate'])
+    expect([...rowRuleItems(b, gameData, blocks, 'B')]).toEqual(['plate'])
+    expect(rowRuleItems(b, gameData, blocks, undefined)).toBe(sourceRuleItems(b, gameData, blocks))
+  })
+
+  it('drops a block item the area overrides with a rule that has no effect, and adds an area-only item', () => {
+    const b = areaBlock({ block: { plate: { makeHere: 'off' } }, L: { plate: {} }, B: { plate: {} } })
+    expect([...rowRuleItems(b, gameData, [b], 'L')]).toEqual(['plate'])
+    const dropped = areaBlock({ block: { plate: { importOff: true } }, L: { plate: {} } })
+    expect([...rowRuleItems(dropped, gameData, [dropped], 'L')]).toEqual([])
+    expect([...rowRuleItems(dropped, gameData, [dropped], 'B')]).toEqual(['plate'])
+    const added = areaBlock({ L: { plate: { makeHere: 'off' } } })
+    expect([...rowRuleItems(added, gameData, [added], 'L')]).toEqual(['plate'])
+    expect(rowRuleItems(added, gameData, [added], 'B').size).toBe(0)
+  })
+
+  it('maps each area to the items its own rules change, from memory', () => {
+    const b = areaBlock({ L: { plate: { makeHere: 'off' } }, B: { ore: { makeHere: 'off' } } })
+    const blocks = [b]
+    const map = areaRuleItems(b, gameData, blocks)
+    expect([...map.keys()]).toEqual(['L'])
+    expect([...map.get('L')!]).toEqual(['plate'])
+    expect(areaRuleItems(b, gameData, blocks)).toBe(map)
+    expect(areaRuleItems(areaBlock(), gameData, blocks).size).toBe(0)
   })
 })
 

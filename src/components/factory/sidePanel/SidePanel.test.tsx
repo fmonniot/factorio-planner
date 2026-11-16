@@ -339,6 +339,44 @@ describe('SidePanel — where inputs come from', () => {
     expect(useBlockStore.getState().blocks[0]).toBe(before)
   })
 
+  describe('in a block with areas', () => {
+    /** Rows n1 (plate) and n2 (gear) in the area "Line", the plate row of n3 in a second area "Other". */
+    function setAreas(rules?: SubPlan['sourceRules']) {
+      setPlan([], [
+        sub('sp-a', 'Line', [row('n1', 'r-plate'), row('n2', 'r-gear')], { area: true, ...(rules ? { sourceRules: rules } : {}) }),
+        sub('sp-b', 'Other', [row('n3', 'r-plate')], { area: true }),
+      ])
+      select('n2')
+      renderWithSolve()
+    }
+
+    it("reads the sentence of the row's area when the area has its own rule for the item", () => {
+      setAreas({ plate: { makeHere: 'off' } })
+      expect(within(entry('plate')).getByTestId('sourcing-sentence').textContent).toMatch(/^Line: Uses what this area already makes/)
+    })
+
+    it('keeps the sentence of the block when the area has no rule of its own for the item', () => {
+      setAreas({ gear: {} })
+      expect(within(entry('plate')).getByTestId('sourcing-sentence').textContent).toMatch(/^Made here by Iron Plate/)
+    })
+
+    it("Change… opens the popover on the row's area", () => {
+      setAreas()
+      const button = within(entry('plate')).getByTestId('sourcing-change')
+      expect(button).toHaveAttribute('title', "Choose where this item comes from, for the block or for this row's area")
+      fireEvent.click(button)
+      expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'plate', areaId: 'sp-a' })
+    })
+
+    it('passes no area in a block without areas', () => {
+      setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+      select('n2')
+      renderWithSolve()
+      fireEvent.click(within(entry('plate')).getByTestId('sourcing-change'))
+      expect(useUiStore.getState().comesFromPopover).not.toHaveProperty('areaId')
+    })
+  })
+
   it('offers Change… for a product of the block and for an item no row makes', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, products: [{ id: 'p1', itemId: 'plate', extraRate: 10 }] })) }))

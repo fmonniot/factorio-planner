@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { areaIdsOf, cleanAreaRules, remapAreaRules, reparentSubPlans } from './subPlanTree'
+import { areaIdsOf, cleanAreaRules, remapAreaRules, reparentSubPlans, storedAreaRule } from './subPlanTree'
 import { blockAreas } from '../solver/areas'
 import type { AreaSourceRule, RecipeNode, SubPlan } from './types'
 
@@ -124,6 +124,28 @@ describe('areaIdsOf', () => {
       plan('root', [], [plan('g', [], [plan('a', [], [], true)]), plan('c', [], [], true)]),
     ]
     for (const root of roots) expect(areaIdsOf(root)).toEqual(new Set((blockAreas(root) ?? []).map(a => a.id)))
+  })
+})
+
+describe('storedAreaRule', () => {
+  const root = plan('root', [], [withRules(plan('a', [], [], true), { plate: { makeHere: 'off' }, gear: {} }), plan('b', [], [], true)])
+
+  it('returns the rule stored on the area', () => {
+    expect(storedAreaRule(root, 'a', 'plate')).toEqual({ makeHere: 'off' })
+  })
+
+  it('keeps a keyless rule, which is a real rule', () => {
+    expect(storedAreaRule(root, 'a', 'gear')).toEqual({})
+  })
+
+  it('is undefined for an item with no rule, an area with none, or a missing plan', () => {
+    expect(storedAreaRule(root, 'a', 'ore')).toBeUndefined()
+    expect(storedAreaRule(root, 'b', 'plate')).toBeUndefined()
+    expect(storedAreaRule(root, 'nope', 'plate')).toBeUndefined()
+  })
+
+  it('reads own keys only', () => {
+    expect(storedAreaRule(root, 'a', 'toString')).toBeUndefined()
   })
 })
 

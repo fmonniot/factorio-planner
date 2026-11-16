@@ -12,8 +12,8 @@ import { AllBlocksMatrix } from './AllBlocksMatrix'
 import { blockMatrix, machineItemIds, type ColumnMode, type MatrixArea, type RowMode } from './areaMatrix'
 import { planMatrix } from './planAreaMatrix'
 import type { GameData } from '../../data/types'
-import { BlockSourceRuleMarker } from './SourceRuleMarker'
-import { useSourceRuleItems } from './useSourceRuleItems'
+import { BlockSourceRuleMarker, SourceRuleMarker } from './SourceRuleMarker'
+import { useAreaRuleItems, useSourceRuleItems } from './useSourceRuleItems'
 
 // ---------------------------------------------------------------------------
 // Areas as a balance matrix: items as rows, areas as columns, the outside at both ends. One block
@@ -56,6 +56,8 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
   )
   // The items of the shown block that carry the source rule marker on their row header.
   const ruleItems = useSourceRuleItems(block, gameData)
+  // The areas of the shown block that have source rules of their own, and the items those rules are for.
+  const areaRuleItemsOfBlock = useAreaRuleItems(block, gameData)
   const plan = useMemo(
     () => (tab === ALL ? planMatrix(blocks, results, flows, gameData, machines, { crossingOnly }) : undefined),
     [tab, blocks, results, flows, gameData, machines, crossingOnly],
@@ -94,6 +96,14 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
   function sourceRuleMarker(itemId: string) {
     if (!block || !ruleItems.has(itemId)) return null
     return <BlockSourceRuleMarker block={block} itemId={itemId} gameData={gameData} />
+  }
+
+  // The marker of an area's column: it names the items the area has its own rule for.
+  function areaRuleMarker(areaId: string) {
+    const items = areaRuleItemsOfBlock.get(areaId)
+    if (!items || items.size === 0) return null
+    const names = [...items].map(id => gameData.items[id]?.name ?? id).join(', ')
+    return <SourceRuleMarker sentence={`Has its own source rule for ${names}`} />
   }
 
   const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
@@ -152,6 +162,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
           onToggleTail={toggleTail}
           onOpenArea={openArea}
           sourceRuleMarker={sourceRuleMarker}
+          areaRuleMarker={areaRuleMarker}
         />
       )}
       {plan && (

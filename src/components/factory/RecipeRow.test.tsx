@@ -1009,6 +1009,80 @@ describe('RecipeRow source rule marker', () => {
     expect(markers()).toHaveLength(0)
   })
 
+  describe('in a block with areas', () => {
+    afterEach(() => useUiStore.setState({ comesFromPopover: null }))
+    const NOW = '2026-01-01T00:00:00.000Z'
+    const combustionB: RecipeNode = { kind: 'game-recipe', id: 'node-comb-b', recipeId: 'combustion', modules: [], byproductPolicy: {} }
+    const lPlan: SubPlan = { id: 'L', name: 'Line L', nodes: [combustionPlanNode], subPlans: [], area: true as const, createdAt: NOW, updatedAt: NOW, sourceRules: { oxygen: { makeHere: 'off' as const } } }
+    const bPlan: SubPlan = { id: 'B', name: 'Line B', nodes: [combustionB], subPlans: [], area: true as const, createdAt: NOW, updatedAt: NOW }
+
+    function setAreas(rules: Partial<Pick<Block, 'sourceRules'>> = {}) {
+      const block = makeEmptyBlock('Test')
+      const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode], subPlans: [lPlan, bPlan] }
+      useBlockStore.setState({ blocks: [{ ...block, rootPlan, ...rules }], activeBlockId: block.id, history: {} })
+      return rootPlan
+    }
+    const rowIn = (planNode: RecipeNode, rootPlan: SubPlan) =>
+      renderRow({
+        planNode,
+        solvedNode: { ...combustionSolved, recipeNodeId: planNode.id },
+        gameData,
+        areaView: { index: indexRecipeAreas(rootPlan), solvedMap: new Map(), solvedAreas: undefined },
+      })
+
+    it("marks the chip of a row in an area that has its own rule, with the area's sentence, and not a row of another area", () => {
+      const root = setAreas()
+      rowIn(combustionPlanNode, root)
+      expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['oxygen'])
+      expect(markers()[0]).toHaveAccessibleName(/^Line L: No row here already makes Oxygen/)
+      cleanup()
+      rowIn(combustionB, root)
+      expect(markers()).toHaveLength(0)
+    })
+
+    it("marks a row of another area with the block's rule, whose sentence has no area name", () => {
+      const root = setAreas({ sourceRules: { oxygen: { makeHere: 'off' as const } } })
+      rowIn(combustionB, root)
+      expect(markers()).toHaveLength(1)
+      expect(markers()[0]).toHaveAccessibleName(/^Uses what this block already makes/)
+      cleanup()
+      // L has a rule of its own for oxygen, which replaces the block's: still a marker, now L's.
+      rowIn(combustionPlanNode, root)
+      expect(markers()[0]).toHaveAccessibleName(/^Line L: /)
+    })
+
+    it('drops the marker of a row whose area overrides the block rule with a rule that does nothing', () => {
+      const root = setAreas({ sourceRules: { hydrogen: { importOff: true as const } } })
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => ({ ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => sp.id === 'L' ? { ...sp, sourceRules: { hydrogen: {} } } : sp) } })),
+      }))
+      rowIn(combustionB, root)
+      expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['hydrogen'])
+      cleanup()
+      // L's keyless rule replaces the block's rule for hydrogen: nothing is left to mark in its rows.
+      rowIn(combustionPlanNode, useBlockStore.getState().blocks[0].rootPlan)
+      expect(markers()).toHaveLength(0)
+    })
+
+    it("opens the Comes from popover on the row's area from the chip's menu", () => {
+      const root = setAreas()
+      rowIn(combustionB, root)
+      fireEvent.contextMenu(screen.getByTitle(/^Oxygen/))
+      const item = screen.getByRole('menuitem')
+      expect(item).toHaveAttribute('title', "Choose where this item comes from, for the block or for this row's area")
+      fireEvent.click(item)
+      expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'oxygen', areaId: 'B' })
+    })
+
+    it('opens it with no area in a block without areas', () => {
+      setBlock({})
+      renderCombustion()
+      fireEvent.contextMenu(screen.getByTitle(/^Oxygen/))
+      fireEvent.click(screen.getByRole('menuitem'))
+      expect(useUiStore.getState().comesFromPopover).not.toHaveProperty('areaId')
+    })
+  })
+
   it('a click on the marker opens nothing: it is an image, and the chip keeps its own click', () => {
     setBlock({ sourceRules: { oxygen: { makeHere: 'off' as const } } })
     const onIngredientClick = vi.fn()

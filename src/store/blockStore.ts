@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
-import { areaIdsOf, findSubPlan, remapAreaRules } from '../data/subPlanTree'
+import { areaIdsOf, findSubPlan, remapAreaRules, storedAreaRule as storedAreaRuleOf } from '../data/subPlanTree'
 import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
 import { areaRecipeIds, blockAreas, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
@@ -315,8 +315,7 @@ function areaRuleBase(block: Block, itemId: string): AreaSourceRule {
 
 /** The rule stored on the area for an item, or undefined. */
 function storedAreaRule(block: Block, areaId: string, itemId: string): AreaSourceRule | undefined {
-  const rules = findSubPlan(block.rootPlan, areaId)?.sourceRules ?? {}
-  return Object.hasOwn(rules, itemId) ? rules[itemId] : undefined
+  return storedAreaRuleOf(block.rootPlan, areaId, itemId)
 }
 
 /** The area's own rule for an item when it has one, else the block's (see `areaRuleBase`). */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL, SOURCE_RULE_NAMES, SOURCES_BUTTON_LABEL, SOURCES_LINES } from './itemSourcing'
+import { areaRuleLabel, ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL, SOURCE_RULE_NAMES, SOURCES_BUTTON_LABEL, SOURCES_LINES } from './itemSourcing'
 
 describe('the vocabulary', () => {
   it('names the three presets and gives each its help text', () => {
@@ -23,7 +23,9 @@ describe('the vocabulary', () => {
       'connections-first': 'Receive it first',
       'byproducts-first': "Don't make more here",
       'import-off': 'Import off',
+      'make-here': 'Make it here',
     })
+    expect(areaRuleLabel('Line L', SOURCE_RULE_NAMES['connections-first'])).toBe('Line L: Receive it first')
   })
 
   it('names the Sources list, its button and its lines, each with its help text', () => {

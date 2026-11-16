@@ -1,26 +1,35 @@
 import type { Block, GameData } from '../../data/types'
 import { presetOf } from '../../data/sourceRules'
+import { blockAreas } from '../../solver/areas'
 import { hasProduct, receivesItem } from '../../solver/blockGraph'
+import { findSubPlan } from '../../data/subPlanTree'
+import type { SubPlan } from '../../data/types'
 import { blockMakesItem } from '../../solver/index'
 
 // ---------------------------------------------------------------------------
 // Which of a block's source rules have an effect. A rule is one non-default stored setting of one item:
 // a part of an item's stored rule (`Block.sourceRules`): its `makeHere` preset or its Import-off switch. Pure functions of the block and the game
-// data; no solve result is read, so a rule is judged by what the block is, not by what the solver did.
+// data; no solve result is read, so a rule is judged by what the block is, not by what the solver did. An area's own
+// rule (`SubPlan.sourceRules`) is listed part by part after the block's; it is judged at block level too.
 // ---------------------------------------------------------------------------
 
-export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off'
+/** `make-here` is an area's rule with no preset that overrides a block rule that has one (the area makes it here, whatever the block says). */
+export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off' | 'make-here'
 export type NoEffectReason = 'product' | 'not-made' | 'no-connection'
 
 export interface SourceRulePart {
   itemId: string
   kind: SourceRuleKind
+  /** The area whose rule this part is; absent for a rule of the block. */
+  areaId?: string
   /** Why the solver ignores the rule; absent when it has an effect. */
   noEffect?: NoEffectReason
 }
 
 /**
- * Every part of every rule of the block, in map order, the `makeHere` part before `import-off`.
+ * Every part of every rule of the block, in map order, the `makeHere` part before `import-off`; then the parts of the
+ * rules of its areas, areas in table order, each rule's parts in the same order (and a `make-here` part last when the
+ * area's keyless preset overrides one of the block's).
  * `blockIds` holds the ids of all existing blocks of the plan: a connection whose source is gone, or is
  * the block itself, does not count (the solver's own test, `receivesItem`).
  */
@@ -31,7 +40,24 @@ export function sourceRules(block: Block, gameData: GameData, blockIds: Readonly
     if (kind) rules.push(withEffect(block, gameData, blockIds, { itemId, kind }))
     if (rule.importOff) rules.push(withEffect(block, gameData, blockIds, { itemId, kind: 'import-off' }))
   }
+  for (const area of blockAreas(block.rootPlan) ?? []) {
+    const stored = findSubPlan(block.rootPlan, area.id)?.sourceRules
+    if (!stored) continue
+    for (const [itemId, rule] of Object.entries(stored)) {
+      const kind = presetOf(rule)
+      const part = (k: SourceRuleKind) => withEffect(block, gameData, blockIds, { itemId, kind: k, areaId: area.id })
+      if (kind) rules.push(part(kind))
+      if (rule.importOff) rules.push(part('import-off'))
+      if (!kind && Object.hasOwn(block.sourceRules, itemId) && presetOf(block.sourceRules[itemId])) rules.push(part('make-here'))
+    }
+  }
   return rules
+}
+
+/** Whether the block, or any plan of its tree, has a stored rule. */
+function hasAnyRule(block: Block): boolean {
+  const walk = (plan: SubPlan): boolean => (plan.sourceRules !== undefined && Object.keys(plan.sourceRules).length > 0) || plan.subPlans.some(walk)
+  return Object.keys(block.sourceRules).length > 0 || walk(block.rootPlan)
 }
 
 /** `rule` with `noEffect` set to the first reason that applies, in the order of the table in phase-1.md. */
@@ -58,21 +84,63 @@ export function itemsWithEffect(rules: readonly SourceRulePart[]): ReadonlySet<s
 }
 
 const NO_ITEMS: ReadonlySet<string> = new Set()
-const ruleItemsCache = new WeakMap<Block, { gameData: GameData; blocks: readonly Block[]; items: ReadonlySet<string> }>()
+const NO_AREA_ITEMS: ReadonlyMap<string, ReadonlySet<string>> = new Map()
+interface RuleItems {
+  gameData: GameData
+  blocks: readonly Block[]
+  /** The items whose rule of the block has an effect. */
+  items: ReadonlySet<string>
+  /** Per area that has a rule with an effect, the items it changes. */
+  areas: ReadonlyMap<string, ReadonlySet<string>>
+}
+const ruleItemsCache = new WeakMap<Block, RuleItems>()
+
+function ruleItemsOf(block: Block, gameData: GameData, blocks: readonly Block[]): RuleItems {
+  const cached = ruleItemsCache.get(block)
+  if (cached && cached.gameData === gameData && cached.blocks === blocks) return cached
+  // A block without a rule, the usual case, needs no walk and shares one empty set.
+  let items = NO_ITEMS
+  let areas = NO_AREA_ITEMS
+  if (hasAnyRule(block)) {
+    const parts = sourceRules(block, gameData, new Set(blocks.map(b => b.id))).filter(r => r.noEffect === undefined)
+    items = new Set(parts.filter(r => r.areaId === undefined).map(r => r.itemId))
+    const byArea = new Map<string, Set<string>>()
+    for (const r of parts) if (r.areaId !== undefined) (byArea.get(r.areaId) ?? byArea.set(r.areaId, new Set()).get(r.areaId)!).add(r.itemId)
+    areas = byArea
+  }
+  const entry = { gameData, blocks, items, areas }
+  ruleItemsCache.set(block, entry)
+  return entry
+}
 
 /**
- * `itemsWithEffect` for one block of the plan, where `blocks` is every block of the plan (the block store's array).
- * The answer is kept per block object, so asking once per chip costs one `sourceRules` call per block and per change
- * of the plan. It relies on the store replacing a block, the array and the game data when they change, never
- * mutating them.
+ * `itemsWithEffect` for the rules of one block of the plan (not of its areas), where `blocks` is every block of the plan
+ * (the block store's array). The answer is kept per block object, so asking once per chip costs one `sourceRules` call per
+ * block and per change of the plan. It relies on the store replacing a block, the array and the game data when they change,
+ * never mutating them.
  */
 export function sourceRuleItems(block: Block, gameData: GameData, blocks: readonly Block[]): ReadonlySet<string> {
-  const cached = ruleItemsCache.get(block)
-  if (cached && cached.gameData === gameData && cached.blocks === blocks) return cached.items
-  // A block without a rule, the usual case, needs no walk and shares one empty set.
-  const hasRule = Object.keys(block.sourceRules).length > 0
-  const items = hasRule ? itemsWithEffect(sourceRules(block, gameData, new Set(blocks.map(b => b.id)))) : NO_ITEMS
-  ruleItemsCache.set(block, { gameData, blocks, items })
+  return ruleItemsOf(block, gameData, blocks).items
+}
+
+/** Per area of the block, the items whose rule on that area has an effect (areas without one are absent). Kept like `sourceRuleItems`. */
+export function areaRuleItems(block: Block, gameData: GameData, blocks: readonly Block[]): ReadonlyMap<string, ReadonlySet<string>> {
+  return ruleItemsOf(block, gameData, blocks).areas
+}
+
+/**
+ * The items of `block` whose rule shows on the rows of the area `areaId`: the block's items, except those the area has a
+ * rule of its own for (its rule replaces the block's, whole), plus the items its own rules change. Without an area it is
+ * `sourceRuleItems`.
+ */
+export function rowRuleItems(block: Block, gameData: GameData, blocks: readonly Block[], areaId: string | undefined): ReadonlySet<string> {
+  const base = sourceRuleItems(block, gameData, blocks)
+  if (areaId === undefined) return base
+  const own = findSubPlan(block.rootPlan, areaId)?.sourceRules
+  const changed = areaRuleItems(block, gameData, blocks).get(areaId)
+  if (!own && !changed) return base
+  const items = new Set([...base].filter(id => !own || !Object.hasOwn(own, id)))
+  for (const id of changed ?? []) items.add(id)
   return items
 }
 

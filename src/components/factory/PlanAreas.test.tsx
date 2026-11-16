@@ -368,6 +368,26 @@ describe('PlanAreasModal — source rule marker', () => {
     expect(markers()).toHaveLength(0)
   })
 
+  it('puts a marker on the column header of an area that has its own rule, and on no other column', () => {
+    useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => b.id !== 'A' ? b : {
+        ...b,
+        rootPlan: {
+          ...b.rootPlan,
+          subPlans: b.rootPlan.subPlans.map(sp => ({ ...sp, nodes: [makeRecipeNode('h2-synth')], sourceRules: { h2: { makeHere: 'off' as const } } })),
+        },
+      }),
+    }))
+    render(<PlanAreasModal gameData={dataWithMaker()} onClose={() => {}} />)
+    const header = (areaId: string) => table('Alpha').querySelector(`th[data-area-id="${areaId}"]`) as HTMLElement
+    const marker = within(header('A-p')).getByTestId('source-rule-marker')
+    expect(marker).toHaveAccessibleName('Has its own source rule for Hydrogen')
+    expect(within(header('A-root')).queryByTestId('source-rule-marker')).toBeNull()
+    // The area's name still names its button; the row headers carry no marker for the block's (absent) rule.
+    expect(within(header('A-p')).getByRole('button', { name: 'Plastics' })).toBeInTheDocument()
+    expect(within(row('Alpha', 'h2')).queryByTestId('source-rule-marker')).toBeNull()
+  })
+
   it('only shows the rule, also in the matrix of the active block: a click opens nothing and the matrix stays', () => {
     const onClose = vi.fn()
     lockHydrogen('A')

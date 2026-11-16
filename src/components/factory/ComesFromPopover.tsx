@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
+import { areaIdsOf } from '../../data/subPlanTree'
 import { Icon } from '../Icon'
 import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
@@ -13,7 +14,7 @@ import { liveAnchor } from './popoverAnchor'
 // ComesFromPopover — the Comes from control of any item of the active block, in a popover opened where the player
 // already is: the side panel's Change…, or the right-click menu of an ingredient chip. An item that has an Ingredients slot
 // has the same control in the slot's strip; one that is only an intermediate of the block has no slot, and this is where
-// its rule is set. The popover says whose rule it is (the block's, for every row) and, when the item has a slot, links to it.
+// its rule is set. The popover says whose rule it is (the block's, for every row; in a block with areas, the block's or one area's) and, when the item has a slot, links to it.
 // ---------------------------------------------------------------------------
 
 const MARGIN = 8
@@ -26,7 +27,8 @@ export function ComesFromPopover({ hasSlot }: {
   const popover = useUiStore(s => s.comesFromPopover)
   const close = useUiStore(s => s.closeComesFrom)
   const openIngredientSlot = useUiStore(s => s.openIngredientSlot)
-  const activeBlockId = useBlockStore(selectActiveBlock)?.id
+  const activeBlock = useBlockStore(selectActiveBlock)
+  const activeBlockId = activeBlock?.id
   const gameData = useGameDataStore(selectGameData)
   const titleId = useId()
   const ref = useRef<HTMLDivElement>(null)
@@ -119,7 +121,9 @@ export function ComesFromPopover({ hasSlot }: {
         {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />}
         <div className="min-w-0 flex-1 leading-tight">
           <div id={titleId} className="text-xs font-semibold text-gray-100 truncate">{name}</div>
-          <div className="text-[11px] text-gray-400">Applies to every row of this block</div>
+          <div className="text-[11px] text-gray-400">
+            {activeBlock && areaIdsOf(activeBlock.rootPlan).size > 0 ? 'For the whole block or for one area' : 'Applies to every row of this block'}
+          </div>
         </div>
         <button
           type="button"
@@ -132,7 +136,7 @@ export function ComesFromPopover({ hasSlot }: {
           </svg>
         </button>
       </div>
-      <ComesFrom key={`${popover.itemId}:${popover.seq ?? 0}`} itemId={popover.itemId} initialListOpen={popover.list} />
+      <ComesFrom key={`${popover.itemId}:${popover.seq ?? 0}`} itemId={popover.itemId} areaId={popover.areaId} initialListOpen={popover.list} />
       {hasSlot(popover.itemId) && (
         <button
           type="button"

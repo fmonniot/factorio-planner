@@ -76,6 +76,23 @@ describe('ComesFromPopover', () => {
     expect(within(popover()).queryByTestId('comes-from-show-slot')).not.toBeInTheDocument()
   })
 
+  it('says the rule is for the whole block or for one area in a block with areas, and starts on the area it was opened for', () => {
+    const NOW = '2026-01-01T00:00:00.000Z'
+    const area = (id: string, sourceRules?: Block['sourceRules']) => ({
+      id, name: `Line ${id}`, nodes: [makeRecipeNode('smelt')], subPlans: [], area: true as const, createdAt: NOW, updatedAt: NOW,
+      ...(sourceRules ? { sourceRules } : {}),
+    })
+    const block = mainBlock()
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [], subPlans: [area('L', { plate: {} }), area('B')] } }, ...useBlockStore.getState().blocks.slice(1)],
+    })
+    render(<ComesFromPopover hasSlot={() => false} />)
+    act(() => useUiStore.getState().openComesFrom('plate', anchor, { areaId: 'L' }))
+    expect(popover()).toHaveTextContent('For the whole block or for one area')
+    expect(popover()).not.toHaveTextContent('Applies to every row of this block')
+    expect(within(within(popover()).getByTestId('comes-from-scope')).getByRole('button', { name: 'Line L' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('sets the rule of the block from the control', () => {
     render(<ComesFromPopover hasSlot={() => false} />)
     open('ore')

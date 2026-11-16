@@ -105,6 +105,12 @@ export function areaIdsOf(root: SubPlan): Set<string> {
   return ids
 }
 
+/** The rule stored on the area `areaId` of the block `root` for an item, or undefined (an own key only; a keyless `{}` is kept). */
+export function storedAreaRule(root: SubPlan, areaId: string, itemId: string): AreaSourceRule | undefined {
+  const rules = findSubPlan(root, areaId)?.sourceRules
+  return rules !== undefined && Object.hasOwn(rules, itemId) ? rules[itemId] : undefined
+}
+
 /**
  * `root` with its area rules cleaned: rules only on areas (the key goes from any other plan), an `areasOff` id kept
  * only when it names another area of the block (repeats dropped), an emptied `areasOff` key removed while the rule

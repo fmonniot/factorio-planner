@@ -9,6 +9,7 @@ import { fmtPower, fmtItemRateText } from './ItemTile'
 import { ItemChip } from './ItemChip'
 import { ItemSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
+import { storedAreaRule } from '../../data/subPlanTree'
 import { anchorOf } from './popoverAnchor'
 import { treeGuideStyle, guideLevels, groupRowBackground, OPEN_GROUP_HAIRLINE, INGREDIENTS_INDENT_PX, INGREDIENTS_PADDING_LEFT } from './treeGuides'
 import { canAddGroupIn, canMoveNodeInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
@@ -140,8 +141,12 @@ export function RecipeRow({
   const buildRowAlsoIn = useBlockStore(s => s.buildRowAlsoIn)
   const duplicateSubPlanTo = useBlockStore(s => s.duplicateSubPlanTo)
   const activeBlock = useBlockStore(selectActiveBlock)
-  // The items of the block that have a source rule with an effect: their ingredient chips carry the marker.
-  const ruleItems = useSourceRuleItems(activeBlock, gameData)
+  // The area this row is in, in a block with areas (a sub-factory row: its own area). Its own rule for an item replaces the block's.
+  const rowAreaId = areaView?.index.hasAreas
+    ? (planNode.kind === 'game-recipe' ? areaView.index.rowById.get(planNode.id)?.areaId : areaView.index.areaOfSubPlan.get(planNode.subPlanId))
+    : undefined
+  // The items whose source rule has an effect on this row: their ingredient chips carry the marker.
+  const ruleItems = useSourceRuleItems(activeBlock, gameData, rowAreaId)
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
   const rateUnit = useUiStore(s => s.rateUnit)
   const horizon = useHorizon(gameData)
@@ -904,7 +909,9 @@ export function RecipeRow({
                 fuel={isFuel}
                 onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
                 onContextMenu={e => openIngredientMenu(e, itemId)}
-                marker={ruleItems.has(itemId) ? <ItemSourceRuleMarker itemId={itemId} gameData={gameData} /> : undefined}
+                marker={ruleItems.has(itemId)
+                  ? <ItemSourceRuleMarker itemId={itemId} gameData={gameData} areaId={activeBlock && rowAreaId !== undefined && storedAreaRule(activeBlock.rootPlan, rowAreaId, itemId) !== undefined ? rowAreaId : undefined} />
+                  : undefined}
                 temperature={temp}
                 title={isFuel
                   ? `Fuel: ${label}${onIngredientClick ? ' — Find producer recipe' : ''}`
@@ -919,8 +926,10 @@ export function RecipeRow({
               y={ingredientMenu.y}
               actions={[{
                 label: 'Comes from…',
-                title: 'Choose where this item comes from, for every row of the block',
-                onSelect: () => useUiStore.getState().openComesFrom(ingredientMenu.itemId, ingredientMenu.anchor),
+                title: rowAreaId !== undefined
+                  ? "Choose where this item comes from, for the block or for this row's area"
+                  : 'Choose where this item comes from, for every row of the block',
+                onSelect: () => useUiStore.getState().openComesFrom(ingredientMenu.itemId, ingredientMenu.anchor, rowAreaId !== undefined ? { areaId: rowAreaId } : undefined),
               }]}
               onClose={() => closeMenu('ingredient')}
             />
