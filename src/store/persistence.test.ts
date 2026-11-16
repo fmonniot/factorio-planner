@@ -21,7 +21,7 @@ import {
   makeDataSetStamp,
   dataSetMismatchMessage,
 } from './persistence'
-import { useBlockStore, makeEmptyBlock, selectAppState } from './blockStore'
+import { useBlockStore, makeEmptyBlock, makeEmptySubPlan, selectAppState } from './blockStore'
 import { parseAppState } from '../data/loader'
 import { usePlansStore } from './plansStore'
 import { legacyPlanStorageKey, planIndexKey, planKey } from './sourceId'
@@ -677,6 +677,22 @@ describe('plan actions', () => {
     expect(duplicatePlan()).toEqual({ type: 'ok' })
     const { blocks } = useBlockStore.getState()
     expect(blocks[0].servedOrder?.['iron-plate'][0]).toEqual({ kind: 'block', blockId: blocks[1].id })
+  })
+
+  it('area rules survive a save round trip and duplicatePlan remaps them', () => {
+    const area = (id: string, sourceRules?: Record<string, { areasOff?: string[] }>) => ({
+      ...makeEmptySubPlan(id), id, area: true, ...(sourceRules ? { sourceRules } : {}),
+    })
+    const base = makeEmptyBlock('Block')
+    const a = area('A', { plate: { areasOff: ['B'] } })
+    const b = area('B')
+    useBlockStore.setState({ blocks: [{ ...base, rootPlan: { ...base.rootPlan, id: 'root', subPlans: [a, b] } }], activeBlockId: base.id })
+    const state = selectAppState(useBlockStore.getState())
+    expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
+    expect(duplicatePlan()).toEqual({ type: 'ok' })
+    const copy = useBlockStore.getState().blocks[0].rootPlan
+    expect(copy.subPlans[1].id).not.toBe('B')
+    expect(copy.subPlans[0].sourceRules).toEqual({ plate: { areasOff: [copy.subPlans[1].id] } })
   })
 
   it('renamePlan trims, cuts to 60 characters and refuses a blank name', () => {

@@ -3484,3 +3484,256 @@ describe('nesting limit', () => {
     expect(findSubPlan(root(), 'g3')!.subPlans).toHaveLength(2)
   })
 })
+
+describe('area rules', () => {
+  // root [h-A, h-B, h-G]; A and B are areas, G an organising group
+  function setup(blockRules?: Block['sourceRules']): string {
+    const a = planOf('A', [], [], true)
+    const b = planOf('B', [], [], true)
+    const g = planOf('G', [])
+    const id = loadRoot(planOf('root', [handleOf(a), handleOf(b), handleOf(g)], [a, b, g]))
+    if (blockRules) useBlockStore.setState(s => ({ blocks: s.blocks.map(x => ({ ...x, sourceRules: blockRules })) }))
+    return id
+  }
+  const rules = (id: string) => treePlan(id).sourceRules
+  const stackOf = (blockId: string) => useBlockStore.getState().history[blockId]?.undoStack.length ?? 0
+  const st = () => useBlockStore.getState()
+
+  it('writes the rule on that area only, and undo and redo move it', () => {
+    setup()
+    st().setAreaMakeHere('A', 'plate', 'off')
+    expect(rules('A')).toStrictEqual({ plate: { makeHere: 'off' } })
+    expect(rules('B')).toBeUndefined()
+    st().undo()
+    expect('sourceRules' in treePlan('A')).toBe(false)
+    st().redo()
+    expect(rules('A')).toStrictEqual({ plate: { makeHere: 'off' } })
+  })
+
+  it('starts from the block rule', () => {
+    setup({ plate: { makeHere: 'after-blocks', importOff: true } })
+    st().toggleAreaSupplier('A', 'plate', 'B')
+    expect(rules('A')).toStrictEqual({ plate: { makeHere: 'after-blocks', importOff: true, areasOff: ['B'] } })
+  })
+
+  it('keeps a keyless rule until it is cleared', () => {
+    setup()
+    st().toggleAreaImportOff('A', 'plate')
+    st().toggleAreaImportOff('A', 'plate')
+    expect(rules('A')).toStrictEqual({ plate: {} })
+    st().clearAreaRule('A', 'plate')
+    expect('sourceRules' in treePlan('A')).toBe(false)
+  })
+
+  it('removes the areasOff key when the last area is switched back on, keeping the rule', () => {
+    setup()
+    st().toggleAreaSupplier('A', 'plate', 'B')
+    st().toggleAreaSupplier('A', 'plate', 'B')
+    expect(rules('A')).toStrictEqual({ plate: {} })
+  })
+
+  it('appends areasOff ids in toggle order', () => {
+    setup()
+    st().toggleAreaSupplier('A', 'plate', 'root')
+    st().toggleAreaSupplier('A', 'plate', 'B')
+    expect(rules('A')!.plate.areasOff).toEqual(['root', 'B'])
+  })
+
+  it('touches the area', () => {
+    setup()
+    const before = treePlan('A').updatedAt
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2099-01-01T00:00:00.000Z'))
+    try {
+      st().toggleAreaImportOff('A', 'plate')
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(treePlan('A').updatedAt).not.toBe(before)
+  })
+
+  it('does nothing, with no history entry, when the change is not valid', () => {
+    const id = setup()
+    st().setAreaMakeHere('A', 'plate', undefined) // the effective value already
+    st().setAreaMakeHere('G', 'plate', 'off')
+    st().toggleAreaImportOff('ghost', 'plate')
+    st().toggleAreaSupplier('A', 'plate', 'A')
+    st().toggleAreaSupplier('A', 'plate', 'G')
+    st().toggleAreaSupplier('G', 'plate', 'A')
+    st().clearAreaRule('A', 'plate')
+    expect(stackOf(id)).toBe(0)
+  })
+
+  it('counts the root as an area only in a block with areas', () => {
+    const id = setup()
+    st().setAreaMakeHere('root', 'plate', 'off')
+    st().toggleAreaSupplier('A', 'plate', 'root')
+    expect(rules('root')).toStrictEqual({ plate: { makeHere: 'off' } })
+    expect(rules('A')).toStrictEqual({ plate: { areasOff: ['root'] } })
+    expect(stackOf(id)).toBe(2)
+    loadRoot(planOf('root', [], [planOf('G', [])]))
+    st().setAreaMakeHere('root', 'plate', 'off')
+    expect(stackOf(st().activeBlockId)).toBe(0)
+  })
+
+  it('puts a cleared entry back at its old index on undo', () => {
+    setup()
+    for (const item of ['a', 'b', 'c']) st().toggleAreaImportOff('A', item)
+    st().clearAreaRule('A', 'b')
+    expect(Object.keys(rules('A')!)).toEqual(['a', 'c'])
+    st().undo()
+    expect(Object.keys(rules('A')!)).toEqual(['a', 'b', 'c'])
+  })
+
+  describe('with sub-plan commands', () => {
+    function rich() {
+      const id = setup()
+      st().toggleAreaImportOff('A', 'plate')
+      st().toggleAreaImportOff('A', 'gear')
+      st().toggleAreaSupplier('B', 'plate', 'A')
+      st().toggleAreaSupplier('B', 'plate', 'root')
+      return id
+    }
+
+    it('setSubPlanArea off cuts the area rules and trims others, one undo restores both', () => {
+      rich()
+      const rootBefore = structuredClone(treePlan('B').sourceRules)
+      const aBefore = structuredClone(rules('A'))
+      st().setSubPlanArea('A', false)
+      expect(rules('A')).toBeUndefined()
+      expect(rules('B')).toStrictEqual({ plate: { areasOff: ['root'] } })
+      st().undo()
+      expect(rules('A')).toStrictEqual(aBefore)
+      expect(rules('B')).toStrictEqual(rootBefore)
+      st().redo()
+      expect(rules('A')).toBeUndefined()
+      expect(rules('B')).toStrictEqual({ plate: { areasOff: ['root'] } })
+      st().undo()
+      expect(rules('A')).toStrictEqual(aBefore)
+    })
+
+    it('turning the last area off cuts the root rules; undo restores them', () => {
+      setup()
+      st().toggleAreaImportOff('root', 'plate')
+      st().setSubPlanArea('A', false)
+      st().setSubPlanArea('B', false)
+      expect(rules('root')).toBeUndefined()
+      st().undo()
+      expect(rules('root')).toStrictEqual({ plate: { importOff: true } })
+    })
+
+    it('turning an area on writes nothing', () => {
+      setup()
+      st().setSubPlanArea('G', true)
+      expect(rules('A')).toBeUndefined()
+      expect(rules('G')).toBeUndefined()
+    })
+
+    it('keeps a rule as keyless when its only areasOff entry goes', () => {
+      setup()
+      st().toggleAreaSupplier('B', 'plate', 'A')
+      st().setSubPlanArea('A', false)
+      expect(rules('B')).toStrictEqual({ plate: {} })
+    })
+
+    it('removeSubPlan trims the survivors, undo restores them with the removed subtree rules', () => {
+      rich()
+      const aBefore = structuredClone(rules('A'))
+      const bBefore = structuredClone(rules('B'))
+      st().removeSubPlan('A')
+      expect(rules('B')).toStrictEqual({ plate: { areasOff: ['root'] } })
+      st().undo()
+      expect(rules('B')).toStrictEqual(bBefore)
+      expect(rules('A')).toStrictEqual(aBefore)
+      st().redo()
+      st().undo()
+      expect(rules('B')).toStrictEqual(bBefore)
+    })
+
+    it('removing a group holding two areas trims both ids', () => {
+      const x = planOf('X', [], [], true)
+      const y = planOf('Y', [], [], true)
+      const g = planOf('G', [handleOf(x), handleOf(y)], [x, y])
+      const b = planOf('B', [], [], true, )
+      loadRoot(planOf('root', [handleOf(g), handleOf(b)], [g, b]))
+      st().toggleAreaSupplier('B', 'plate', 'X')
+      st().toggleAreaSupplier('B', 'plate', 'Y')
+      st().toggleAreaSupplier('B', 'plate', 'root')
+      st().removeSubPlan('G')
+      expect(rules('B')).toStrictEqual({ plate: { areasOff: ['root'] } })
+    })
+
+    it('removing a group with no areas inside changes no rules', () => {
+      rich()
+      const before = structuredClone(rules('B'))
+      st().removeSubPlan('G')
+      expect(rules('B')).toStrictEqual(before)
+    })
+
+    it('undoes a rule cut and a served cut together', () => {
+      const consumerId = setup()
+      st().toggleAreaImportOff('A', 'plate')
+      st().toggleAreaSupplier('B', 'plate', 'A')
+      const entry: ServedEntry = { kind: 'block', blockId: consumerId, areaId: 'A' }
+      const source = {
+        ...makeEmptyBlock('Source'),
+        servedOrder: { plate: [entry, { kind: 'block' as const, blockId: consumerId, areaId: 'B' }] },
+      }
+      useBlockStore.setState(s => ({
+        blocks: [...s.blocks.map(x => ({ ...x, inputConnections: [{ id: 'c1', itemId: 'plate', fromBlockId: source.id }] })), source],
+      }))
+      st().setSubPlanArea('A', false)
+      expect(st().blocks[1].servedOrder?.plate).toEqual([{ kind: 'block', blockId: consumerId, areaId: 'B' }])
+      expect(rules('A')).toBeUndefined()
+      st().undo()
+      expect(st().blocks[1].servedOrder?.plate?.[0]).toEqual(entry)
+      expect(rules('A')).toStrictEqual({ plate: { importOff: true } })
+      expect(rules('B')).toStrictEqual({ plate: { areasOff: ['A'] } })
+    })
+  })
+
+  describe('copies', () => {
+    it('duplicateSubPlanTo remaps a rule to the copies and drops ids outside the copy', () => {
+      const y = planOf('Y', [], [], true)
+      const x = { ...planOf('X', [handleOf(y)], [y], true), sourceRules: { plate: { areasOff: ['Y', 'Z'] } } }
+      const z = planOf('Z', [], [], true)
+      const root = planOf('root', [handleOf(x), handleOf(z)], [x, z])
+      loadRoot(root)
+      const original = structuredClone(treePlan('X'))
+      st().duplicateSubPlanTo('Z', 'root')
+      // Z is not X: duplicate X itself into Z
+      st().duplicateSubPlanTo('X', 'Z')
+      const copy = treePlan('Z').subPlans.at(-1)!
+      expect(copy.sourceRules).toStrictEqual({ plate: { areasOff: [copy.subPlans[0].id] } })
+      expect(treePlan('X')).toStrictEqual(original)
+      expect(copy.id).not.toBe('X')
+    })
+
+    it('cloneBlock remaps areasOff and the root rules follow the new root', () => {
+      const a = { ...planOf('A', [], [], true), sourceRules: { plate: { areasOff: ['root', 'B'] } } }
+      const b = planOf('B', [], [], true)
+      const block = { ...makeEmptyBlock('S'), rootPlan: { ...planOf('root', [handleOf(a), handleOf(b)], [a, b]), sourceRules: { gear: {} } } }
+      const copy = cloneBlock(block, '#000000')
+      const [ca, cb] = copy.rootPlan.subPlans
+      expect(ca.sourceRules).toStrictEqual({ plate: { areasOff: [copy.rootPlan.id, cb.id] } })
+      expect(copy.rootPlan.sourceRules).toStrictEqual({ gear: {} })
+    })
+
+    it('clonePlan keeps every areasOff id inside the copy of its own block', () => {
+      const mk = (n: string) => {
+        const a = { ...planOf(`${n}A`, [], [], true), sourceRules: { plate: { areasOff: [`${n}B`] } } }
+        const b = planOf(`${n}B`, [], [], true)
+        return { ...makeEmptyBlock(n), rootPlan: planOf(`${n}root`, [handleOf(a), handleOf(b)], [a, b]) }
+      }
+      const state: AppState = { blocks: [mk('p'), mk('q')], activeBlockId: '', horizonTechnologyIds: [], defaultMachineOverrides: {} }
+      const copy = clonePlan(state)
+      const original = new Set(['pA', 'pB', 'qA', 'qB', 'proot', 'qroot'])
+      for (const b of copy.blocks) {
+        const own = new Set(blockAreas(b.rootPlan)!.map(x => x.id))
+        const a = b.rootPlan.subPlans[0]
+        expect(own.has(a.sourceRules!.plate.areasOff![0])).toBe(true)
+        expect(original.has(a.sourceRules!.plate.areasOff![0])).toBe(false)
+      }
+    })
+  })
+})

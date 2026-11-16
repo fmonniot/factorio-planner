@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { reparentSubPlans } from './subPlanTree'
-import type { RecipeNode, SubPlan } from './types'
+import { areaIdsOf, cleanAreaRules, remapAreaRules, reparentSubPlans } from './subPlanTree'
+import { blockAreas } from '../solver/areas'
+import type { AreaSourceRule, RecipeNode, SubPlan } from './types'
 
 const NOW = '2026-01-01T00:00:00.000Z'
 
@@ -101,5 +102,78 @@ describe('reparentSubPlans', () => {
     const before = structuredClone(root)
     reparentSubPlans(root)
     expect(root).toEqual(before)
+  })
+})
+
+const withRules = (p: SubPlan, sourceRules: Record<string, AreaSourceRule>): SubPlan => ({ ...p, sourceRules })
+
+describe('areaIdsOf', () => {
+  it('is empty without an area', () => {
+    expect(areaIdsOf(plan('root', [], [plan('g')])).size).toBe(0)
+  })
+
+  it('holds the root and a nested area under a non-area group', () => {
+    const root = plan('root', [], [plan('g', [], [plan('a', [], [], true)])])
+    expect(areaIdsOf(root)).toEqual(new Set(['root', 'a']))
+  })
+
+  it('agrees with blockAreas', () => {
+    const roots = [
+      plan('root'),
+      plan('root', [], [plan('a', [], [plan('b', [], [], true)], true), plan('g')]),
+      plan('root', [], [plan('g', [], [plan('a', [], [], true)]), plan('c', [], [], true)]),
+    ]
+    for (const root of roots) expect(areaIdsOf(root)).toEqual(new Set((blockAreas(root) ?? []).map(a => a.id)))
+  })
+})
+
+describe('cleanAreaRules', () => {
+  const tree = (a: Partial<SubPlan> = {}, root: Partial<SubPlan> = {}) =>
+    ({ ...plan('root', [], [{ ...plan('a', [], [], true), ...a }, plan('b', [], [], true), plan('g')]), ...root })
+
+  it('returns a valid tree as the same object', () => {
+    const root = tree({ sourceRules: { plate: { areasOff: ['b', 'root'] }, gear: {} } }, { sourceRules: { plate: { importOff: true } } })
+    expect(cleanAreaRules(root)).toBe(root)
+  })
+
+  it('drops the rules of a plan that is not an area, and the emptied key', () => {
+    const root = plan('root', [], [withRules(plan('g'), { plate: {} }), plan('a', [], [], true)])
+    const cleaned = cleanAreaRules(root)
+    expect('sourceRules' in find(cleaned, 'g')!).toBe(false)
+  })
+
+  it('drops the root rules without an area and keeps them with one', () => {
+    expect('sourceRules' in cleanAreaRules(withRules(plan('root', [], [plan('g')]), { plate: {} }))).toBe(false)
+    const kept = tree({}, { sourceRules: { plate: {} } })
+    expect(cleanAreaRules(kept)).toBe(kept)
+  })
+
+  it('removes areasOff ids that name no area, a non-area plan or the plan itself, but keeps the rule', () => {
+    const root = tree({ sourceRules: { plate: { makeHere: 'off', areasOff: ['ghost', 'g', 'a', 'b'] } } })
+    expect(find(cleanAreaRules(root), 'a')!.sourceRules).toStrictEqual({ plate: { makeHere: 'off', areasOff: ['b'] } })
+  })
+
+  it('removes an emptied areasOff key and keeps the keyless rule', () => {
+    const root = tree({ sourceRules: { plate: { areasOff: ['ghost'] }, gear: { areasOff: [] } } })
+    expect(find(cleanAreaRules(root), 'a')!.sourceRules).toStrictEqual({ plate: {}, gear: {} })
+  })
+})
+
+describe('remapAreaRules', () => {
+  const ids = new Map([['x', 'x2'], ['y', 'y2']])
+
+  it('maps the ids, drops the unmapped and keeps the order', () => {
+    const out = remapAreaRules({ b: { areasOff: ['x', 'z', 'y'] }, a: { importOff: true } }, ids)
+    expect(Object.keys(out!)).toEqual(['b', 'a'])
+    expect(out).toStrictEqual({ b: { areasOff: ['x2', 'y2'] }, a: { importOff: true } })
+  })
+
+  it('removes an emptied key and keeps the rule', () => {
+    expect(remapAreaRules({ a: { makeHere: 'off', areasOff: ['z'] } }, ids)).toStrictEqual({ a: { makeHere: 'off' } })
+  })
+
+  it('gives undefined for no rules', () => {
+    expect(remapAreaRules(undefined, ids)).toBeUndefined()
+    expect(remapAreaRules({}, ids)).toBeUndefined()
   })
 })

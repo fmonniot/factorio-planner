@@ -1,14 +1,15 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
-import { findSubPlan } from '../data/subPlanTree'
+import { areaIdsOf, findSubPlan, remapAreaRules } from '../data/subPlanTree'
 import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
 import { areaRecipeIds, blockAreas, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore, selectGameData } from './gameDataStore'
-import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, SourceRule, ServedEntry } from '../data/types'
+import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, SourceRule, AreaSourceRule, ServedEntry } from '../data/types'
 import { insertionTarget } from '../utils/insertionTarget'
 import { canonicalServedList, dropServedEntries, expandServedAreas, isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedEntryKey, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedEntryRanked, withServedList, withServedShare, withServedTied } from '../data/servedEntries'
 import type { ServedPlace } from '../data/servedEntries'
+import { cutAreaRules, restoreAreaRules, type AreaRuleCut } from './areaRuleCuts'
 import { cutServedEntries, lostAreaIds, restoreServedCuts, type ServedCut } from './servedCuts'
 
 // ---------------------------------------------------------------------------
@@ -175,7 +176,8 @@ export function makeEmptyBlock(name: string, color: string = pickBlockColor([]),
 
 /**
  * Deep copy of a sub-plan tree with a fresh id on every sub-plan and node. `subplan` nodes are
- * remapped to the cloned child sub-plans; names, timestamps and `area` flags are kept.
+ * remapped to the cloned child sub-plans; names, timestamps and `area` flags are kept. Area rules are kept with
+ * their `areasOff` ids carried to the copies; an id with no copy (an area outside the copied tree) is dropped.
  */
 export function cloneSubPlanTree(plan: SubPlan): SubPlan {
   return cloneSubPlanTreeWithIds(plan).plan
@@ -200,6 +202,9 @@ function cloneSubPlanTreeWithIds(plan: SubPlan): { plan: SubPlan; ids: Map<strin
       if (copy.kind === 'subplan') copy.subPlanId = subPlanIds.get(copy.subPlanId) ?? copy.subPlanId
       return copy
     })
+    const rules = remapAreaRules(source.sourceRules, subPlanIds)
+    if (rules) target.sourceRules = rules
+    else delete target.sourceRules
     source.subPlans.forEach((child, i) => cloneNodes(child, target.subPlans[i]))
   }
   cloneNodes(plan, rootPlan)
@@ -245,7 +250,7 @@ export function clonePlan(appState: AppState): AppState {
   const cloned = appState.blocks.map(b => cloneBlockWithIds(b, b.color))
   const copies = cloned.map((c, i) => ({ ...c.block, name: appState.blocks[i].name }))
   const ids = new Map(appState.blocks.map((b, i) => [b.id, copies[i].id]))
-  // Area ids are sub-plan ids: every copy's sub-plans got fresh ones.
+  // Area ids are sub-plan ids: every copy's sub-plans got fresh ones. This cross-block map is for the served lists only; area rules name areas of their own block, remapped per block.
   const areaIds = new Map(cloned.flatMap(c => [...c.subPlanIds]))
   return {
     blocks: copies.map((b, i) => {
@@ -290,6 +295,69 @@ function sourceRuleCommand(block: Block, itemId: string, before: SourceRule, aft
   return {
     apply: b => withSourceRule(b, itemId, after),
     undo: b => withSourceRule(b, itemId, before, index < 0 ? undefined : index),
+  }
+}
+
+/** `rule` with the keys it has only; `areasOff` only when non-empty (a copy). */
+function cleanAreaRule(rule: AreaSourceRule): AreaSourceRule {
+  return {
+    ...(rule.makeHere !== undefined && { makeHere: rule.makeHere }),
+    ...(rule.importOff !== undefined && { importOff: rule.importOff }),
+    ...(rule.areasOff !== undefined && rule.areasOff.length > 0 && { areasOff: [...rule.areasOff] }),
+  }
+}
+
+/** What an area with no rule of its own for an item starts from: the block's rule for it (its two keys), else the default. */
+function areaRuleBase(block: Block, itemId: string): AreaSourceRule {
+  if (!Object.hasOwn(block.sourceRules, itemId)) return {}
+  return cleanAreaRule(block.sourceRules[itemId])
+}
+
+/** The rule stored on the area for an item, or undefined. */
+function storedAreaRule(block: Block, areaId: string, itemId: string): AreaSourceRule | undefined {
+  const rules = findSubPlan(block.rootPlan, areaId)?.sourceRules ?? {}
+  return Object.hasOwn(rules, itemId) ? rules[itemId] : undefined
+}
+
+/** The area's own rule for an item when it has one, else the block's (see `areaRuleBase`). */
+function effectiveAreaRule(block: Block, areaId: string, itemId: string): AreaSourceRule {
+  return storedAreaRule(block, areaId, itemId) ?? areaRuleBase(block, itemId)
+}
+
+/**
+ * The block with the area's rule for an item replaced, or removed when `rule` is undefined. A rule with no key is
+ * kept (it is a real rule). An existing entry keeps its place in the map; a new entry goes at `at` (default: the end);
+ * an emptied map removes the `sourceRules` key.
+ */
+function withAreaRule(block: Block, areaId: string, itemId: string, rule: AreaSourceRule | undefined, at?: number): Block {
+  const update = (p: SubPlan): SubPlan => {
+    const { sourceRules, ...rest } = p
+    const entries = Object.entries(sourceRules ?? {})
+    const has = Object.hasOwn(sourceRules ?? {}, itemId)
+    let next: [string, AreaSourceRule][]
+    if (rule === undefined) next = entries.filter(([id]) => id !== itemId)
+    else if (has) next = entries.map(([id, r]) => [id, id === itemId ? cleanAreaRule(rule) : r])
+    else {
+      next = [...entries]
+      next.splice(at ?? next.length, 0, [itemId, cleanAreaRule(rule)])
+    }
+    return next.length === 0 ? rest : { ...rest, sourceRules: Object.fromEntries(next) }
+  }
+  return touchSubPlan({ ...block, rootPlan: updateSubPlanInTree(block.rootPlan, areaId, update) }, areaId)
+}
+
+/** Command setting an area's rule for an item from `before` to `after` (undefined: no entry); undo puts a removed entry back at its old place in the map. */
+function areaRuleCommand(block: Block, areaId: string, itemId: string, before: AreaSourceRule | undefined, after: AreaSourceRule | undefined): Command {
+  const index = Object.keys(findSubPlan(block.rootPlan, areaId)?.sourceRules ?? {}).indexOf(itemId)
+  const valid = (b: Block, rule: AreaSourceRule | undefined): boolean => {
+    const areas = areaIdsOf(b.rootPlan)
+    return areas.has(areaId) && (rule?.areasOff ?? []).every(id => areas.has(id))
+  }
+  return {
+    apply: b => withAreaRule(b, areaId, itemId, after),
+    undo: b => withAreaRule(b, areaId, itemId, before, index < 0 ? undefined : index),
+    canApply: (_blocks, b) => valid(b, after),
+    canUndo: (_blocks, b) => valid(b, before),
   }
 }
 
@@ -576,6 +644,21 @@ export interface BlockStoreState {
   setMakeHere: (itemId: string, makeHere: 'after-blocks' | 'off' | undefined) => void
   /** Turn Import off for an item in the active block, or back on. Undoable. */
   toggleImportOff: (itemId: string) => void
+  /**
+   * Set where "Make more here" sits in an area's rule for an item (undefined = before the block lines). An area with no
+   * rule of its own starts from the block's. Active block only; undoable; no-op when `areaId` is not an area of the block
+   * (the root counts only when the block has areas) or when the effective rule already has that value.
+   */
+  setAreaMakeHere: (areaId: string, itemId: string, makeHere: 'after-blocks' | 'off' | undefined) => void
+  /** Turn Import off in an area's rule for an item, or back on. Active block only; undoable; no-op when `areaId` is not an area. */
+  toggleAreaImportOff: (areaId: string, itemId: string) => void
+  /**
+   * Switch off, or back on, taking an item from the area `otherAreaId` in the rule of area `areaId`. Active block
+   * only; undoable; no-op unless both are areas of the block and they differ. Switching the last one back on removes the `areasOff` key; the rule stays.
+   */
+  toggleAreaSupplier: (areaId: string, itemId: string, otherAreaId: string) => void
+  /** Remove an area's own rule for an item (it follows the block's rule again). Active block only; undoable; no-op without one. */
+  clearAreaRule: (areaId: string, itemId: string) => void
   /**
    * Append a block that makes `itemId` (named `name`), make it active, and request the item
    * from it on `consumerId` (default: the active block). The block has the default colour (from the
@@ -1001,6 +1084,8 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       // The areas this removal takes away, and the served entries cut for them from the sources' lists.
       let lost = new Set<string>()
       let cuts: ServedCut[] = []
+      // The area rules cut for them from the areas that stay, recomputed on every apply.
+      let ruleCuts: AreaRuleCut[] = []
       const cmd: Command = {
         apply: b => {
           const p = findSubPlan(b.rootPlan, parentId)
@@ -1019,7 +1104,9 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
             rootPlan: removeSubPlanNodeReferences(removeSubPlanFromTree(b.rootPlan, subPlanId), subPlanId),
           }, parentId)
           lost = lostAreaIds(b.rootPlan, next.rootPlan)
-          return next
+          const r = cutAreaRules(next.rootPlan)
+          ruleCuts = r.cuts
+          return r.cuts.length > 0 ? { ...next, rootPlan: r.root } : next
         },
         applyOthers: servedAreaCuts(() => lost, c => { cuts = c }),
         undoOthers: blocks => {
@@ -1030,7 +1117,7 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         undo: b => {
           const snap = snapshot
           if (!snap) return b
-          return touchSubPlan({
+          const restored = touchSubPlan({
             ...b,
             rootPlan: updateSubPlanInTree(b.rootPlan, parentId, p => {
               const subPlans = [...p.subPlans]
@@ -1040,6 +1127,7 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
               return { ...p, subPlans, nodes }
             }),
           }, parentId)
+          return { ...restored, rootPlan: restoreAreaRules(restored.rootPlan, ruleCuts) }
         },
         // Drop the command rather than orphan the sub-plan or duplicate its id when
         // the tree changed through an action that is not undoable.
@@ -1110,6 +1198,8 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       // Turning the area off takes it away from the consumers' served entries, which are cut from the sources' lists.
       let lost = new Set<string>()
       let cuts: ServedCut[] = []
+      // Likewise the area rules: the sub-plan's own and the `areasOff` entries naming it, recomputed on every apply.
+      let ruleCuts: AreaRuleCut[] = []
       const cmd: Command = {
         apply: b => {
           const next = touchSubPlan({
@@ -1117,7 +1207,9 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
             rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, setArea(area ? true : undefined)),
           }, subPlanId)
           lost = lostAreaIds(b.rootPlan, next.rootPlan)
-          return next
+          const r = cutAreaRules(next.rootPlan)
+          ruleCuts = r.cuts
+          return r.cuts.length > 0 ? { ...next, rootPlan: r.root } : next
         },
         applyOthers: servedAreaCuts(() => lost, c => { cuts = c }),
         undoOthers: blocks => {
@@ -1125,10 +1217,13 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
           cuts = []
           return out
         },
-        undo: b => touchSubPlan({
-          ...b,
-          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, setArea(previous)),
-        }, subPlanId),
+        undo: b => {
+          const reset = touchSubPlan({
+            ...b,
+            rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, setArea(previous)),
+          }, subPlanId)
+          return { ...reset, rootPlan: restoreAreaRules(reset.rootPlan, ruleCuts) }
+        },
         canApply: (_blocks, b) => findSubPlan(b.rootPlan, subPlanId) !== undefined,
         canUndo: (_blocks, b) => findSubPlan(b.rootPlan, subPlanId) !== undefined,
       }
@@ -1228,6 +1323,46 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       const before = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : {}
       const after: SourceRule = before.importOff ? { ...before, importOff: undefined } : { ...before, importOff: true }
       return applyCommand(state, sourceRuleCommand(block, itemId, before, after))
+    }),
+
+  setAreaMakeHere: (areaId, itemId, makeHere) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block || !areaIdsOf(block.rootPlan).has(areaId)) return state
+      const effective = effectiveAreaRule(block, areaId, itemId)
+      if (effective.makeHere === makeHere) return state
+      return applyCommand(state, areaRuleCommand(block, areaId, itemId, storedAreaRule(block, areaId, itemId), cleanAreaRule({ ...effective, makeHere })))
+    }),
+
+  toggleAreaImportOff: (areaId, itemId) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block || !areaIdsOf(block.rootPlan).has(areaId)) return state
+      const effective = effectiveAreaRule(block, areaId, itemId)
+      const after = cleanAreaRule({ ...effective, importOff: effective.importOff ? undefined : true })
+      return applyCommand(state, areaRuleCommand(block, areaId, itemId, storedAreaRule(block, areaId, itemId), after))
+    }),
+
+  toggleAreaSupplier: (areaId, itemId, otherAreaId) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const areas = areaIdsOf(block.rootPlan)
+      if (!areas.has(areaId) || !areas.has(otherAreaId) || areaId === otherAreaId) return state
+      const effective = effectiveAreaRule(block, areaId, itemId)
+      const off = effective.areasOff ?? []
+      const areasOff = off.includes(otherAreaId) ? off.filter(id => id !== otherAreaId) : [...off, otherAreaId]
+      const after = cleanAreaRule({ ...effective, areasOff })
+      return applyCommand(state, areaRuleCommand(block, areaId, itemId, storedAreaRule(block, areaId, itemId), after))
+    }),
+
+  clearAreaRule: (areaId, itemId) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block || !areaIdsOf(block.rootPlan).has(areaId)) return state
+      const stored = storedAreaRule(block, areaId, itemId)
+      if (stored === undefined) return state
+      return applyCommand(state, areaRuleCommand(block, areaId, itemId, stored, undefined))
     }),
 
   setMakeHere: (itemId, makeHere) =>

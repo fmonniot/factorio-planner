@@ -1182,6 +1182,63 @@ describe('parseAppState — sub-factory areas', () => {
     expect(on.area).toBe(true)
     expect('area' in absent).toBe(false)
   })
+
+  describe('area source rules', () => {
+    const loadRoot = (root: Record<string, unknown>) =>
+      parseAppState({
+        blocks: [{ id: 'b1', name: 'Block', noImportItems: [], products: [], rootPlan: root }],
+        activeBlockId: 'b1',
+      }).blocks[0].rootPlan
+
+    it('keeps a keyless rule on an area', () => {
+      const [a] = load([plan({ id: 'a', area: true, sourceRules: { plate: {} } })])
+      expect(a.sourceRules).toStrictEqual({ plate: {} })
+    })
+
+    it('adds no sourceRules key to plans without one', () => {
+      const [a] = load([plan({ id: 'a', area: true })])
+      expect('sourceRules' in a).toBe(false)
+    })
+
+    it('drops the rules of a plan that is not an area', () => {
+      const [g] = load([plan({ id: 'g', sourceRules: { plate: { importOff: true } } })])
+      expect('sourceRules' in g).toBe(false)
+    })
+
+    it('drops the root rules without an area and keeps them with one', () => {
+      expect('sourceRules' in loadRoot(plan({ sourceRules: { plate: {} } }))).toBe(false)
+      const root = loadRoot(plan({ sourceRules: { plate: {} }, subPlans: [plan({ id: 'a', area: true })] }))
+      expect(root.sourceRules).toStrictEqual({ plate: {} })
+    })
+
+    it('loads areasOff without repeats, unknown or own ids', () => {
+      const root = loadRoot(plan({
+        subPlans: [plan({ id: 'a', area: true, sourceRules: { plate: { areasOff: ['a', 'b', 'ghost', 'b'] } } }), plan({ id: 'b', area: true })],
+      }))
+      expect(root.subPlans[0].sourceRules).toStrictEqual({ plate: { areasOff: ['b'] } })
+    })
+
+    it('loads an empty areasOff as no key', () => {
+      const [a] = load([plan({ id: 'a', area: true, sourceRules: { plate: { areasOff: [] } } })])
+      expect(a.sourceRules).toStrictEqual({ plate: {} })
+    })
+
+    it('rejects a malformed rule', () => {
+      expect(() => load([plan({ id: 'a', area: true, sourceRules: { plate: { importOff: false } } })])).toThrow(AppStateLoadError)
+    })
+
+    it('is idempotent', () => {
+      const first = loadRoot(plan({
+        sourceRules: { plate: { areasOff: ['a'] } },
+        subPlans: [plan({ id: 'a', area: true, sourceRules: { gear: { makeHere: 'off', areasOff: ['root', 'root'] } } })],
+      }))
+      const again = parseAppState({
+        blocks: [{ id: 'b1', name: 'Block', noImportItems: [], products: [], rootPlan: first }],
+        activeBlockId: 'b1',
+      }).blocks[0].rootPlan
+      expect(again).toEqual(first)
+    })
+  })
 })
 
 describe('parseAppState — sub-plans stored under the plan that holds their handle', () => {
