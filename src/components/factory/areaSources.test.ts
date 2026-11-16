@@ -8,22 +8,27 @@ const between = (from: string, to: string, rate: number): AreaRoute => ({ itemId
 
 describe('areaSupply', () => {
   it('reads a split item from the supplied part of the outside leg', () => {
-    expect(areaSupply([out('L', 12, 12)], 'ore', 'L', {}, 0)).toEqual({ imported: 0, missing: 0, reaches: 12 })
-    expect(areaSupply([out('L', 12, 5)], 'ore', 'L', {}, 0)).toEqual({ imported: 7, missing: 0, reaches: 5 })
-    expect(areaSupply([out('L', 12, 5)], 'ore', 'L', { importOff: true }, 0)).toEqual({ imported: 0, missing: 7, reaches: 5 })
+    expect(areaSupply([out('L', 12, 12)], 'ore', 'L', {}, 0, true)).toEqual({ imported: 0, missing: 0, reaches: 12 })
+    expect(areaSupply([out('L', 12, 5)], 'ore', 'L', {}, 0, true)).toEqual({ imported: 7, missing: 0, reaches: 5 })
+    expect(areaSupply([out('L', 12, 5)], 'ore', 'L', { importOff: true }, 0, true)).toEqual({ imported: 0, missing: 7, reaches: 5 })
   })
 
   it('reads an item one area touches from the block\'s unsatisfied rate', () => {
-    expect(areaSupply([out('L', 20)], 'ore', 'L', {}, 8)).toEqual({ imported: 8, missing: 0, reaches: 12 })
-    expect(areaSupply([out('L', 20)], 'ore', 'L', { importOff: true }, 8)).toEqual({ imported: 0, missing: 8, reaches: 12 })
-    expect(areaSupply([out('L', 20)], 'ore', 'L', {}, 50)).toEqual({ imported: 20, missing: 0, reaches: 0 })
+    expect(areaSupply([out('L', 20)], 'ore', 'L', {}, 8, false)).toEqual({ imported: 8, missing: 0, reaches: 12 })
+    expect(areaSupply([out('L', 20)], 'ore', 'L', { importOff: true }, 8, false)).toEqual({ imported: 0, missing: 8, reaches: 12 })
+    expect(areaSupply([out('L', 20)], 'ore', 'L', {}, 50, false)).toEqual({ imported: 20, missing: 0, reaches: 0 })
+  })
+
+  it('reads a split item whose legs carry no supplied part as split (none connected: all imported, or missing)', () => {
+    expect(areaSupply([out('L', 12), out('M', 5, 5)], 'ore', 'L', {}, 3, true)).toEqual({ imported: 12, missing: 0, reaches: 0 })
+    expect(areaSupply([out('L', 12), out('M', 5, 5)], 'ore', 'L', { importOff: true }, 3, true)).toEqual({ imported: 0, missing: 12, reaches: 0 })
   })
 
   it('is zero without a leg into the area', () => {
     const none = { imported: 0, missing: 0, reaches: 0 }
-    expect(areaSupply(undefined, 'ore', 'L', {}, 5)).toEqual(none)
-    expect(areaSupply([out('M', 12, 12), between('M', 'L', 3)], 'ore', 'L', {}, 5)).toEqual(none)
-    expect(areaSupply([{ ...out('L', 9), itemId: 'other' }], 'ore', 'L', {}, 5)).toEqual(none)
+    expect(areaSupply(undefined, 'ore', 'L', {}, 5, false)).toEqual(none)
+    expect(areaSupply([out('M', 12, 12), between('M', 'L', 3)], 'ore', 'L', {}, 5, false)).toEqual(none)
+    expect(areaSupply([{ ...out('L', 9), itemId: 'other' }], 'ore', 'L', {}, 5, false)).toEqual(none)
   })
 })
 

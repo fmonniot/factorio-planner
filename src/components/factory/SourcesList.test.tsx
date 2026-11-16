@@ -730,8 +730,8 @@ describe('at area scope', () => {
     ...(rules ? { sourceRules: rules } : {}),
   })
   const areaRules = (id: string) => mainBlock().rootPlan.subPlans.find(sp => sp.id === id)?.sourceRules
-  const setupAreas = (opts: { M2?: boolean; block?: Block['sourceRules']; connected?: boolean } = {}) => {
-    const subs = [area('L', 'smelt'), area('M1', 'ore-synth'), ...(opts.M2 === false ? [] : [area('M2', 'ore-synth')])]
+  const setupAreas = (opts: { M1?: boolean; M2?: boolean; block?: Block['sourceRules']; connected?: boolean } = {}) => {
+    const subs = [area('L', 'smelt'), ...(opts.M1 === false ? [] : [area('M1', 'ore-synth')]), ...(opts.M2 === false ? [] : [area('M2', 'ore-synth')])]
     const main: Block = {
       ...makeEmptyBlock('Main'), id: 'main', sourceRules: opts.block ?? {},
       ...(opts.connected ? { inputConnections: [{ id: 'c1', fromBlockId: 'src', itemId: 'ore' }] } : {}),
@@ -795,9 +795,9 @@ describe('at area scope', () => {
     expect(reading(areaLine('M1'))).toBe('—')
     expect(within(areaLine('M1')).getByTestId('sources-area-switch')).toHaveAttribute('aria-checked', 'false')
     expect(within(areaLine('M2')).getByTestId('sources-area-switch')).toHaveAttribute('aria-checked', 'true')
-    // Switched back on, the area keeps a keyless rule (D1: a rule that says "as the block", until Use the block's rule).
+    // Switched back on, what is left repeats the block's rule: the area follows the block again.
     fireEvent.click(within(areaLine('M1')).getByTestId('sources-area-switch'))
-    expect(areaRules('L')).toEqual({ ore: {} })
+    expect(areaRules('L')).toBeUndefined()
   })
 
   it('keeps a switched-off area listed though it makes nothing', () => {
@@ -856,7 +856,8 @@ describe('at area scope', () => {
   })
 
   it('reads what reaches the area from the leg and the block\'s unsatisfied rate when no area shares the item', () => {
-    setupAreas({ connected: true })
+    // Only Line L touches the item: nothing for the area LP to split.
+    setupAreas({ connected: true, M1: false, M2: false })
     openAreaList()
     solve([into(undefined, 12)])
     expect(screen.getByTestId('sources-reaches')).toHaveTextContent('12.0/m of it reaches this area')

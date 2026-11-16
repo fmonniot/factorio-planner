@@ -2,7 +2,8 @@ import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState 
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { areaIdsOf, effectiveAreaRule } from '../../data/subPlanTree'
 import type { Block, BlockConnection, ConnectionFlow, Product } from '../../data/types'
-import { blockAreas } from '../../solver/areas'
+import { areaLPItems, blockAreas } from '../../solver/areas'
+import { flattenBlock } from '../../solver/index'
 import { hasProduct } from '../../solver/blockGraph'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { productChangeEffects, requestBlockerTitle } from '../../store/connections'
@@ -31,7 +32,8 @@ import { MINI_BUTTON_CLASS, Switch } from './Switch'
 // line per connection of the item, in connection order, then the Receive from… line (`add-block`).
 // With `areaId` it is the list of one area (D6 and D12 of phase 5): the same lines read and written through the area's own rule.
 // *Other areas* is one line per area that supplies the item, with a switch and the rate routed from it; the block lines are
-// read-only (their order and limits belong to the block) and a line under them says how much of it reaches the area; *Import*
+// read-only (their order, limits and removal belong to the block); only the Receive from… line stays, because it adds a
+// connection to the block (no order, no limit) and the area's "No connection for X." notice offers it; and a line under them says how much of it reaches the area; *Import*
 // reads the area's own figure. At block scope *Other areas* stays one read-only line.
 // ---------------------------------------------------------------------------
 
@@ -215,6 +217,18 @@ export function SourcesList({ itemId, id, areaId }: {
     () => (block && gameData ? itemMakers(block, gameData, result, itemId, area) : []),
     [block, gameData, result, itemId, area],
   )
+  // The other areas that supply this one (area scope only): walks the plan once per other area, so kept until the plan, the solve or the switches change.
+  // (The switches are keyed by their ids: an area with no rule of its own gets a fresh empty rule on every render.)
+  const offKey = (block && rootPlan && area !== undefined ? effectiveAreaRule(rootPlan, block.sourceRules, area, itemId).areasOff : undefined)?.join('\n') ?? ''
+  const suppliers = useMemo(
+    () => (block && gameData && area !== undefined ? supplierLines(block, gameData, result, itemId, area, { areasOff: offKey === '' ? undefined : offKey.split('\n') }) : []),
+    [block, gameData, result, itemId, area, offKey],
+  )
+  // Whether the area LP splits the item's outside legs between the areas (two areas or more touch it); not told by the routes, which omit a part at zero.
+  const split = useMemo(
+    () => (block && gameData && area !== undefined ? areaLPItems(flattenBlock(block), gameData).has(itemId) : false),
+    [block, gameData, itemId, area],
+  )
   if (!block || !gameData) return null
 
   const name = gameData.items[itemId]?.name ?? itemId
@@ -232,10 +246,9 @@ export function SourcesList({ itemId, id, areaId }: {
   const makeText = dedicated.length > 0 ? dedicated.map(m => makerLabel(m, solved)).join(', ') : 'no row here makes it'
   const unsatisfied = result?.unsatisfied.find(u => u.itemId === itemId)?.rate ?? 0
   // At area scope: the area's own figure (areaSupply), not the block's.
-  const supply = area !== undefined ? areaSupply(result?.areaRoutes, itemId, area, rule ?? {}, unsatisfied) : undefined
+  const supply = area !== undefined ? areaSupply(result?.areaRoutes, itemId, area, rule ?? {}, unsatisfied, split) : undefined
   const importAmount = supply ? (importOn ? supply.imported : supply.missing) : unsatisfied
   const importText = !solved ? '' : importOn ? (importAmount > EPS ? rate(importAmount) : 'none') : (importAmount > EPS ? `Missing ${rate(importAmount)}` : '')
-  const suppliers = area !== undefined && rule ? supplierLines(block, gameData, result, itemId, area, rule) : []
 
   // The block lines, in connection order.
   const connections = block.inputConnections.filter(c => c.itemId === itemId)

@@ -122,6 +122,12 @@ export function effectiveAreaRule(root: SubPlan, blockRules: Record<string, Sour
   return blockRules !== undefined && Object.hasOwn(blockRules, itemId) ? blockRules[itemId] : {}
 }
 
+/** Whether an area's `rule` says what the block's rule for the item already says (and switches no area off): then it can go. */
+export function repeatsBlockRule(rule: AreaSourceRule, blockRules: Record<string, SourceRule> | undefined, itemId: string): boolean {
+  const blockRule = blockRules !== undefined && Object.hasOwn(blockRules, itemId) ? blockRules[itemId] : undefined
+  return rule.makeHere === blockRule?.makeHere && !rule.importOff === !blockRule?.importOff && (rule.areasOff?.length ?? 0) === 0
+}
+
 /**
  * `root` with its area rules cleaned: rules only on areas (the key goes from any other plan), an `areasOff` id kept
  * only when it names another area of the block (repeats dropped), an emptied `areasOff` key removed while the rule

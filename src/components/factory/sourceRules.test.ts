@@ -275,6 +275,13 @@ describe('rules of areas', () => {
     expect(noEffectText('not-made', 'Plate', false, 'Line B')).toBe('No row in Line B makes Plate.')
   })
 
+  it('keeps a switch on an area that only uses the item (a relay): not-made needs no row making it and none using it', () => {
+    const relay = areaBlock({ L: { ore: { areasOff: ['B'] } } })
+    expect(rules(relay)).toEqual([{ itemId: 'ore', kind: 'takes-nothing', areaId: 'L', otherAreaId: 'B' }])
+    const unrelated = areaBlock({ L: { gear: { areasOff: ['B'] } } })
+    expect(rules(unrelated)[0].noEffect).toBe('not-made')
+  })
+
   it('marks the area and its rows for an item that has only switches', () => {
     const b = areaBlock({ L: { plate: { areasOff: ['B'] } } })
     expect([...rowRuleItems(b, gameData, [b], 'L')]).toEqual(['plate'])

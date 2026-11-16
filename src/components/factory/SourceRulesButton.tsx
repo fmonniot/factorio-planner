@@ -10,7 +10,7 @@ import { ruleLabel } from './itemSourcing'
 import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
 import { keepTabInside } from './keepTabInside'
-import { noEffectText, sourceRules } from './sourceRules'
+import { noEffectText, ruleId, sourceRules } from './sourceRules'
 import type { SourceRulePart } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
@@ -106,7 +106,7 @@ export function SourceRulesButton() {
   const panelRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   // The rule whose Comes from control is expanded in its row; a popover opened again starts with none.
-  const [expanded, setExpanded] = useState<{ itemId: string; kind: SourceRulePart['kind']; areaId?: string; otherAreaId?: string } | null>(null)
+  const [expanded, setExpanded] = useState<SourceRulePart | null>(null)
 
   const rules = useMemo(
     () => (block && gameData ? sourceRules(block, gameData, new Set(blocks.map(b => b.id))) : []),
@@ -114,7 +114,7 @@ export function SourceRulesButton() {
   )
   // Changing the rule in the expanded control keeps it open on the item's rule that is there now (its first one).
   const expandedRule = expanded
-    ? (rules.find(r => r.itemId === expanded.itemId && r.kind === expanded.kind && r.areaId === expanded.areaId && r.otherAreaId === expanded.otherAreaId) ?? rules.find(r => r.itemId === expanded.itemId && r.areaId === expanded.areaId))
+    ? (rules.find(r => ruleId(r) === ruleId(expanded)) ?? rules.find(r => r.itemId === expanded.itemId && r.areaId === expanded.areaId))
     : undefined
   // The last rule went (removed here, or by an undo): the button goes, and the popover with it.
   if (open && rules.length === 0) setOpen(false)
@@ -213,12 +213,12 @@ export function SourceRulesButton() {
           <ul role="list" className="min-h-0 overflow-y-auto">
             {rules.map((rule, index) => (
               <RuleEntry
-                key={`${rule.areaId ?? ''}:${rule.itemId}:${rule.kind}:${rule.otherAreaId ?? ''}`}
+                key={ruleId(rule)}
                 rule={rule}
                 block={block}
                 gameData={gameData}
                 expanded={expandedRule === rule}
-                onToggle={() => setExpanded(expandedRule === rule ? null : { itemId: rule.itemId, kind: rule.kind, areaId: rule.areaId, otherAreaId: rule.otherAreaId })}
+                onToggle={() => setExpanded(expandedRule === rule ? null : rule)}
                 onRemove={() => {
                   afterRemove.current = { index, pane: buttonRef.current?.closest<HTMLElement>('[data-testid="summary-pane"]') ?? null }
                   removeRule(rule)

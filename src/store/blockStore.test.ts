@@ -3525,11 +3525,21 @@ describe('area rules', () => {
     expect('sourceRules' in treePlan('A')).toBe(false)
   })
 
-  it('removes the areasOff key when the last area is switched back on, keeping the rule', () => {
+  it('removes the area rule when the last area is switched back on and what is left repeats the block rule', () => {
     setup()
     st().toggleAreaSupplier('A', 'plate', 'B')
     st().toggleAreaSupplier('A', 'plate', 'B')
-    expect(rules('A')).toStrictEqual({ plate: {} })
+    expect('sourceRules' in treePlan('A')).toBe(false)
+    st().undo()
+    expect(rules('A')).toStrictEqual({ plate: { areasOff: ['B'] } })
+  })
+
+  it('keeps a rule that differs from the block rule when the last area is switched back on', () => {
+    setup()
+    st().setAreaMakeHere('A', 'plate', 'off')
+    st().toggleAreaSupplier('A', 'plate', 'B')
+    st().toggleAreaSupplier('A', 'plate', 'B')
+    expect(rules('A')).toStrictEqual({ plate: { makeHere: 'off' } })
   })
 
   it('appends areasOff ids in toggle order', () => {

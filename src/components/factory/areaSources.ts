@@ -23,14 +23,14 @@ export interface AreaSupply {
 /**
  * What the area `areaId` gets from outside the block for `itemId`. An item two areas or more touch has its outside legs split by the LP
  * (`supplied`, see `outsideLegParts`). An item one area touches has no split: the block's own unsatisfied rate is what it imports (or
- * misses), the rest of the leg is connected supply. Without a leg, nothing reaches the area from outside.
+ * misses), the rest of the leg is connected supply. `split` is whether the area LP splits the item (`areaLPItems`): the routes cannot tell, since a
+ * leg omits `supplied` when it is zero. Without a leg, nothing reaches the area from outside.
  */
-export function areaSupply(routes: readonly AreaRoute[] | undefined, itemId: string, areaId: string, rule: AreaSourceRule, unsatisfied: number): AreaSupply {
+export function areaSupply(routes: readonly AreaRoute[] | undefined, itemId: string, areaId: string, rule: AreaSourceRule, unsatisfied: number, split: boolean): AreaSupply {
   const ofItem = (routes ?? []).filter(r => r.itemId === itemId)
   const legs = ofItem.filter(r => r.from === undefined && r.to === areaId)
   const total = legs.reduce((sum, r) => sum + r.rate, 0)
   if (total <= 0) return { imported: 0, missing: 0, reaches: 0 }
-  const split = ofItem.some(r => r.supplied !== undefined)
   if (split) {
     const parts = legs.map(leg => outsideLegParts(leg, rule))
     const sum = (key: 'received' | 'imported' | 'missing') => parts.reduce((s, p) => s + p[key], 0)

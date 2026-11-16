@@ -32,6 +32,11 @@ export interface SourceRulePart {
   noEffect?: NoEffectReason
 }
 
+/** A rule part's identity among the parts of the block: its area, item, kind and the other area of a switch. */
+export function ruleId(part: Pick<SourceRulePart, 'itemId' | 'kind' | 'areaId' | 'otherAreaId'>): string {
+  return `${part.areaId ?? ''}:${part.itemId}:${part.kind}:${part.otherAreaId ?? ''}`
+}
+
 /**
  * Every part of every rule of the block, in map order, the `makeHere` part before `import-off`; then the parts of the
  * rules of its areas, areas in table order, each rule's parts in the same order (and a `make-here` part last when the
@@ -82,10 +87,11 @@ function noEffectReason(
   blockIds: ReadonlySet<string>,
   { itemId, kind, areaId, otherAreaId }: SourceRulePart,
 ): NoEffectReason | undefined {
-  // A switch is about the other area's rows, whatever the block does with the item: it only does nothing when that area makes none.
+  // A switch is about the other area's rows, whatever the block does with the item: it only does nothing when that area has no
+  // row making the item and none using it (an area that only passes supply on, a relay, can still be a route into this one).
   if (kind === 'takes-nothing') {
     const other = new Set(blockAreas(block.rootPlan)?.find(a => a.id === otherAreaId)?.nodeIds)
-    return blockMakesItem(block, gameData, itemId, other) ? undefined : 'not-made'
+    return blockMakesItem(block, gameData, itemId, other) || blockUsesItem(block, gameData, itemId, other) ? undefined : 'not-made'
   }
   if (hasProduct(block, itemId)) return 'product'
   // An area's rule is about the rows of that area: with none making the item it changes nothing there.
@@ -93,6 +99,14 @@ function noEffectReason(
   if (!blockMakesItem(block, gameData, itemId, rows)) return 'not-made'
   if (kind === 'connections-first' && !receivesItem(block, itemId, blockIds)) return 'no-connection'
   return undefined
+}
+
+/** Whether a recipe row of the area (`nodeIds`) takes `itemId` as an ingredient. */
+function blockUsesItem(block: Block, gameData: GameData, itemId: string, nodeIds: ReadonlySet<string>): boolean {
+  const uses = (plan: SubPlan): boolean =>
+    plan.nodes.some(n => n.kind === 'game-recipe' && nodeIds.has(n.id) && gameData.recipes[n.recipeId]?.ingredients.some(i => i.itemId === itemId))
+    || plan.subPlans.some(uses)
+  return uses(block.rootPlan)
 }
 
 /** The ids of the items that have at least one rule with an effect: the items that carry the marker. */

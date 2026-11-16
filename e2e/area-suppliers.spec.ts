@@ -158,7 +158,7 @@ test.describe('choosing the supplying area (case 21 B)', () => {
     await expect(blockLine.getByTestId('sources-block-rate')).toHaveText(/^12(\.0+)?\/m$/)
     await expect(popover(page).getByTestId('sources-reaches')).toHaveText(/^12(\.0+)?\/m of it reaches this area$/)
     await expect(reading(page, popover(page).locator('[data-line="import"]'))).toHaveText('none')
-    // The block lines are read-only here.
+    // The block lines are read-only here (no limit, no Remove); Receive from… stays, as it only adds a connection.
     await expect(blockLine.getByTestId('sources-limit')).toHaveCount(0)
     await expect(blockLine.getByTestId('sources-block-remove')).toHaveCount(0)
     await page.keyboard.press('Escape')
@@ -172,7 +172,7 @@ test.describe('choosing the supplying area (case 21 B)', () => {
 /**
  * Case 21 C of spec/test-synthetic.md on Nullius, with ratios of its own (re-derived by hand, never fitted): A is "Iron ingot 1"
  * (5 iron ore for 2 ingots and 1 Gravel), X the Gravel it makes on the side, R "Gravel" (1 stone for 1 Gravel), U "Mineral dust
- * (gravel)" (6 Gravel for 5 dust). The block "Dust" asks for 30 ingots (A is pinned at 15 runs: 15 Gravel on the side; unpinned the solver over-runs A, since a surplus of ingots costs nothing) and 45 dust; Line T
+ * (gravel)" (6 Gravel for 5 dust). The block "Dust" asks for 30 ingots (A is pinned at 15 runs: 15 Gravel on the side. The pin is there because a surplus the plan does not pin is free: unpinned, A's output is indifferent to the solver, which over-ran A and made R 30 instead of the derived 39) and 45 dust; Line T
  * has A, Line C1 has U pinned at 4 runs, 20 dust (needs 24 Gravel), Line C2 has U pinned at 5 runs, 25 dust (needs 30) and R. Gravel is 54 in all.
  *
  *   a  no rule:                                R makes 39

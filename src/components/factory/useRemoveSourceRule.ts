@@ -1,14 +1,8 @@
 import { useCallback } from 'react'
-import { storedAreaRule } from '../../data/subPlanTree'
+import { repeatsBlockRule, storedAreaRule } from '../../data/subPlanTree'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
-import type { AreaSourceRule, SourceRule } from '../../data/types'
+import type { AreaSourceRule } from '../../data/types'
 import type { SourceRulePart } from './sourceRules'
-
-/** Whether an area's `rule` says what the block's rule for the item already says (and switches no area off): then it can go. */
-function repeatsBlock(rule: AreaSourceRule, blockRules: Record<string, SourceRule>, itemId: string): boolean {
-  const blockRule = Object.hasOwn(blockRules, itemId) ? blockRules[itemId] : undefined
-  return rule.makeHere === blockRule?.makeHere && !rule.importOff === !blockRule?.importOff && (rule.areasOff?.length ?? 0) === 0
-}
 
 /**
  * Clears one rule of the active block: a preset goes back to the default, Import off goes back to on.
@@ -36,29 +30,25 @@ export function useRemoveSourceRule(): (rule: Pick<SourceRulePart, 'itemId' | 'k
       clearAreaRule(areaId, itemId)
       return
     }
-    if (kind === 'takes-nothing') {
-      const after = { ...stored, areasOff: (stored.areasOff ?? []).filter(id => id !== otherAreaId) }
-      if (repeatsBlock(after, block.sourceRules, itemId)) clearAreaRule(areaId, itemId)
-      else if (otherAreaId !== undefined) toggleAreaSupplier(areaId, itemId, otherAreaId)
-      return
-    }
+    // What is left of the area's rule once the part goes. A part that says "back to the block" (make-here, import-on) takes the
+    // whole rule with it, unless the area has switches to keep; a rule that only repeats the block's goes whichever part is asked
+    // for (clearing one part of it would make the area differ from the block).
     const switched = (stored.areasOff?.length ?? 0) > 0
-    // A part that says "back to the block" (make-here, import-on) removes the whole rule, unless the area has switches to keep;
-    // so does a rule that only repeats the block's, whichever part is asked for: clearing one part of it would make the area
-    // differ from the block.
-    if (switched && (kind === 'make-here' || kind === 'import-on')) {
-      const blockRule = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : undefined
-      if (kind === 'make-here') setAreaMakeHere(areaId, itemId, blockRule?.makeHere)
-      else toggleAreaImportOff(areaId, itemId)
-      return
-    }
-    if (kind === 'make-here' || kind === 'import-on' || repeatsBlock(stored, block.sourceRules, itemId)) {
+    const blockRule = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : undefined
+    let after: AreaSourceRule | undefined
+    if (kind === 'takes-nothing') after = { ...stored, areasOff: (stored.areasOff ?? []).filter(id => id !== otherAreaId) }
+    else if (kind === 'import-off') after = { ...stored, importOff: undefined }
+    else if (kind === 'make-here') after = switched ? { ...stored, makeHere: blockRule?.makeHere } : undefined
+    else if (kind === 'import-on') after = switched ? { ...stored, importOff: stored.importOff ? undefined : true } : undefined
+    else after = { ...stored, makeHere: undefined }
+    if (after === undefined || (kind !== 'takes-nothing' && repeatsBlockRule(stored, block.sourceRules, itemId)) || repeatsBlockRule(after, block.sourceRules, itemId)) {
       clearAreaRule(areaId, itemId)
       return
     }
-    const after = kind === 'import-off' ? { ...stored, importOff: undefined } : { ...stored, makeHere: undefined }
-    if (repeatsBlock(after, block.sourceRules, itemId)) clearAreaRule(areaId, itemId)
-    else if (kind === 'import-off') toggleAreaImportOff(areaId, itemId)
+    // Otherwise write the one field that changed.
+    if (kind === 'takes-nothing') { if (otherAreaId !== undefined) toggleAreaSupplier(areaId, itemId, otherAreaId) }
+    else if (kind === 'make-here') setAreaMakeHere(areaId, itemId, after.makeHere)
+    else if (kind === 'import-off' || kind === 'import-on') toggleAreaImportOff(areaId, itemId)
     else setAreaMakeHere(areaId, itemId, undefined)
   }, [setMakeHere, toggleImportOff, setAreaMakeHere, toggleAreaImportOff, toggleAreaSupplier, clearAreaRule])
 }
