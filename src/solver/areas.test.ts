@@ -897,6 +897,12 @@ describe('area rules: the plan carries them', () => {
     expect(key({ L: { plate: off } })).toBe(keys[1])
   })
 
+  it('planKey does not depend on the order of the ids in areasOff', () => {
+    const key = (areasOff: string[]) => planKey(flattenBlock(plateBlock(['L', 'M1', 'M2'], { L: [], M1: [], M2: [] }, { L: { plate: { areasOff } } })))
+    expect(key(['M1', 'M2'])).toBe(key(['M2', 'M1']))
+    expect(key(['M1'])).not.toBe(key(['M1', 'M2']))
+  })
+
   it('planKey and the request-cycle key do not depend on the order the rules were built in', () => {
     const a = flattenBlock(plateBlock(['L', 'B'], plateRowsA(), { L: { plate: { makeHere: 'off', importOff: true }, gear: first } }))
     const b = flattenBlock(plateBlock(['L', 'B'], plateRowsA(), { L: { gear: first, plate: { importOff: true, makeHere: 'off' } } }))
@@ -1158,6 +1164,15 @@ describe('area rules: supplier switches', () => {
     silent('one supplier left', cutRules({ areasOff: ['M1'] }))
     silent('L has its own plate row', cutRules(), { ...freeL(), L: [row('use-plate', 'L'), row('make-plate', 'L')] })
     silent('a second consumer meets the goal', cutRules(), { ...freeL(), K: [row('use-plate', 'K')] })
+    it('blames only an area whose rows serve a short goal, not one that is cut off for nothing', () => {
+      // L is cut off for plate but no goal needs pgear; K is cut off for x and z is short.
+      const rows = { ...freeL(), K: [row('use-x', 'K')], N: [row('x-make', 'N')] }
+      const rules: AreaRules = { ...cutRules(), K: { x: { importOff: true, areasOff: ['N'] } } }
+      const b = plateBlock(Object.keys(rows), rows, rules, {}, [['z', 12]])
+      const { result } = solvePlate(b)
+      expect(result.unsatisfied).toEqual([{ itemId: 'z', rate: 12 }])
+      expect(result.warnings.filter(w => w.type === 'area-cut-off')).toEqual([{ type: 'area-cut-off', cutOffs: [{ areaId: 'K', itemId: 'x' }] }])
+    })
   })
 })
 

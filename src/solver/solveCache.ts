@@ -87,7 +87,7 @@ export function canonicalAreas<A extends { rules?: Record<string, AreaSourceRule
   return areas.map(a => {
     if (!a.rules) return a
     const rules = Object.entries(a.rules)
-      .map(([id, r]): [string, string | null, boolean, string[] | null] => [id, r.makeHere ?? null, r.importOff === true, r.areasOff ?? null])
+      .map(([id, r]): [string, string | null, boolean, string[] | null] => [id, r.makeHere ?? null, r.importOff === true, r.areasOff ? [...r.areasOff].sort() : null])
       .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
     return { ...a, rules }
   })

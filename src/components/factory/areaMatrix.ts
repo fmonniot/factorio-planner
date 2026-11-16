@@ -300,7 +300,8 @@ export interface FocusView {
 
 /** What one area trades: its rows, the counterpart of each, and who it trades with. */
 export function focusArea(m: BlockMatrix, areaId: string): FocusView {
-  const rows = m.rows.filter(r => (r.cells[areaId] ?? 0) !== 0)
+  // A relay (an area that receives an item and sends it on, with a net of 0) has no cell but still has routes.
+  const rows = m.rows.filter(r => (r.cells[areaId] ?? 0) !== 0 || r.pairs.some(p => p.from === areaId || p.to === areaId))
   const counterpart: Record<string, Record<string, number>> = {}
   const trade = new Map<string, { items: Set<string>; lines: TradeLine[]; inRate: number; outRate: number; inEnergy: number; outEnergy: number }>()
   const entry = (id: string) => {
@@ -411,6 +412,14 @@ export function groupTotal(all: MatrixRow[], areaId: string, focus: FocusView | 
     for (const r of list) {
       const c = focus.counterpart[r.itemId]?.[areaId] ?? 0
       if (c <= 1e-9) continue
+      // A relay between the two areas goes both ways: the routes say how much each way.
+      const sent = r.pairs.filter(p => p.from === areaId && p.to === focus.areaId).reduce((n, p) => n + p.rate, 0)
+      const got = r.pairs.filter(p => p.from === focus.areaId && p.to === areaId).reduce((n, p) => n + p.rate, 0)
+      if (sent > 1e-9 && got > 1e-9) {
+        out += sent
+        inn += got
+        continue
+      }
       // The direction comes from this row: the area sends it (cell > 0) or receives it.
       if ((r.cells[areaId] ?? 0) > 0) out += c
       else inn += c

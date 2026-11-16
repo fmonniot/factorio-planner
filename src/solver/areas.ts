@@ -476,7 +476,7 @@ function solveAreaLPOnce(
       // receivers. μ·n stays below half a rank step of the sender, so the sender's rank still decides first.
       const tie = (a: number, b: number) => receiverTieUnit(n) * b * (n - a)
       for (const from of info) {
-        // What leaves the block from this area (a goal, a surplus): free, as a unit that stays in the pools today.
+        // What leaves the block from this area (a goal, a surplus): free: shipping costs more than leaving, and costing the sink like a shipped unit sank the first sender's surplus (the pools price leaving at the sender's rank, `dout`/`oout`; a pair item's surplus is not priced, so the two paths agree only where a surplus is pinned or consumed).
         if (from.hasDedicated || from.hasOther) {
           const sink = `sk${from.i}`
           variables[sink] = { __s2: 0, [from.row]: -1 }
@@ -722,6 +722,22 @@ function resolveAreaRules(plan: SolverPlan, areas: SolverArea[], columns: Column
 }
 
 /**
+ * One area's outside leg: its slack plus its supply, at most what it takes (`supplied` the supply's part). `excess` is what
+ * it brings beyond that, `passing` the supply's part of it (what passes through the area to the others).
+ */
+function outsideLeg(o: AreaOutside, receivers: RouteReceiver[], tol: number) {
+  const full = o.slack + o.supply
+  const takes = receivers.find(r => r.area === o.area)?.rate ?? 0
+  const rate = Math.min(full, takes)
+  return {
+    rate,
+    supplied: Math.min(o.supply, rate),
+    excess: full - takes,
+    passing: full - takes > tol ? Math.max(0, o.supply - takes) : 0,
+  }
+}
+
+/**
  * The routes of an area item, read from the LP. Outside legs into an area are its slack plus its supply, at most what it
  * receives (`supplied` the supply's part). What an area takes beyond that (a supply bounded by its use, while its rows
  * make as much) passes through it to the others: it is outside supply to them, so the routes keep agreeing with the nets.
@@ -742,13 +758,11 @@ function areaItemRoutes(
   const outsideIn = new Map<number, number>()
   let passing = 0
   for (const o of outside) {
-    const full = o.slack + o.supply
-    const takes = receivers.find(r => r.area === o.area)?.rate ?? 0
-    if (full - takes > tol) passing += Math.max(0, o.supply - takes)
-    const rate = Math.min(full, takes)
-    if (rate <= tol) continue
-    outsideIn.set(o.area, rate)
-    into.set(o.area, { rate, supplied: Math.min(o.supply, rate) })
+    const leg = outsideLeg(o, receivers, tol)
+    passing += leg.passing
+    if (leg.rate <= tol) continue
+    outsideIn.set(o.area, leg.rate)
+    into.set(o.area, { rate: leg.rate, supplied: leg.supplied })
   }
   const rest = receivers
     .map(r => ({ ...r, rate: r.rate - (outsideIn.get(r.area) ?? 0) }))
@@ -812,17 +826,15 @@ function pairItemRoutes(
     .map(p => ({ from: p.from, ...(p.to !== undefined ? { to: p.to } : {}), rate: p.rate }))
   const into = new Map<number, { rate: number; supplied: number }>()
   for (const o of outside) {
-    const full = o.slack + o.supply
-    const takes = receivers.find(r => r.area === o.area)?.rate ?? 0
-    const rate = Math.min(full, takes)
+    const { rate, supplied: inSupplied, excess: out, passing: pass } = outsideLeg(o, receivers, tol)
     if (rate > tol) {
       // An earlier area's pass-through may already have put a leg here.
       const v = into.get(o.area) ?? { rate: 0, supplied: 0 }
-      into.set(o.area, { rate: v.rate + rate, supplied: v.supplied + Math.min(o.supply, rate) })
+      into.set(o.area, { rate: v.rate + rate, supplied: v.supplied + inSupplied })
     }
-    let excess = full - takes
+    let excess = out
     if (excess <= tol) continue
-    let passing = Math.max(0, o.supply - takes)
+    let passing = pass
     const own = legs
       .filter(l => l.from === o.area)
       .sort((a, b) => (a.to === undefined ? -1 : b.to === undefined ? 1 : b.to - a.to))
@@ -837,6 +849,13 @@ function pairItemRoutes(
       passing -= supplied
       const v = into.get(leg.to) ?? { rate: 0, supplied: 0 }
       into.set(leg.to, { rate: v.rate + part, supplied: v.supplied + supplied })
+    }
+    // Outside supply that never entered the area's legs (rounding, or a surplus the LP kept in its balance): it stays an
+    // outside leg into the area, so the routes still add up.
+    if (excess > tol) {
+      const supplied = Math.min(passing, excess)
+      const v = into.get(o.area) ?? { rate: 0, supplied: 0 }
+      into.set(o.area, { rate: v.rate + excess, supplied: v.supplied + supplied })
     }
   }
   const all: ItemRoute[] = legs.filter(l => l.rate > tol)
@@ -1197,6 +1216,24 @@ export function solveAreaBlock(
   // An area with no supplier left for an item that cannot be imported and has no row that makes it: its rows that use the
   // item cannot run. Only said when the plan is feasible and a goal falls short; infeasible pins name their own conflict.
   const cutOffAreas = (): { areaId: string; itemId: string }[] => {
+    // Items the short goals need: the goals, then the ingredients of every row that makes a needed item. An area is cut off
+    // only when one of its rows using the item makes something needed, so a short goal elsewhere does not blame it.
+    const neededItems = new Set(lp.shortfall.keys())
+    for (let grew = true; grew;) {
+      grew = false
+      for (const col of columns) {
+        if (![...neededItems].some(id => (system.S.get(id)?.get(col.id) ?? 0) > 0)) continue
+        for (const [id, m] of system.S) {
+          if ((m.get(col.id) ?? 0) < 0 && !neededItems.has(id)) {
+            neededItems.add(id)
+            grew = true
+          }
+        }
+      }
+    }
+    const needed = (area: number, itemId: string) => columns.some(col =>
+      col.area === area && !col.node.byproductConsumer && (system.S.get(itemId)?.get(col.id) ?? 0) < 0 &&
+      [...neededItems].some(id => (system.S.get(id)?.get(col.id) ?? 0) > 0))
     const cut: { area: number; itemId: string }[] = []
     for (const itemId of pairItems) {
       if (!system.classification.intermediates.has(itemId) || totalCaps.has(itemId)) continue
@@ -1204,7 +1241,11 @@ export function solveAreaBlock(
       for (const col of columns) if ((system.S.get(itemId)?.get(col.id) ?? 0) > 0) producers.add(col.area)
       if (producers.size === 0) continue
       for (const a of touching.get(itemId)!) {
-        if (producers.has(a) || !isLocked(a, itemId)) continue
+        // Cut off by the area's own rule only: a byproduct consumer's ingredient is locked too, and a switch there is the way
+        // to reserve a byproduct.
+        const rule = ruleOf(a, itemId)
+        if (producers.has(a) || consumerIngredients.has(itemId) || rule.importOff !== true || rule.makeHere === 'off') continue
+        if (!needed(a, itemId)) continue
         const off = offOf(a, itemId)
         if ([...producers].every(b => off.has(b))) cut.push({ area: a, itemId })
       }
