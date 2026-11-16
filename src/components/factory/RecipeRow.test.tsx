@@ -1013,7 +1013,9 @@ describe('RecipeRow source rule marker', () => {
     afterEach(() => useUiStore.setState({ comesFromPopover: null }))
     const NOW = '2026-01-01T00:00:00.000Z'
     const combustionB: RecipeNode = { kind: 'game-recipe', id: 'node-comb-b', recipeId: 'combustion', modules: [], byproductPolicy: {} }
-    const lPlan: SubPlan = { id: 'L', name: 'Line L', nodes: [combustionPlanNode], subPlans: [], area: true as const, createdAt: NOW, updatedAt: NOW, sourceRules: { oxygen: { makeHere: 'off' as const } } }
+    // Line L also holds an electrolysis row: an area's rule counts only for an item one of its own rows makes.
+    const elecL: RecipeNode = { kind: 'game-recipe', id: 'node-elec-l', recipeId: 'electrolysis', modules: [], byproductPolicy: {} }
+    const lPlan: SubPlan = { id: 'L', name: 'Line L', nodes: [combustionPlanNode, elecL], subPlans: [], area: true as const, createdAt: NOW, updatedAt: NOW, sourceRules: { oxygen: { makeHere: 'off' as const } } }
     const bPlan: SubPlan = { id: 'B', name: 'Line B', nodes: [combustionB], subPlans: [], area: true as const, createdAt: NOW, updatedAt: NOW }
 
     function setAreas(rules: Partial<Pick<Block, 'sourceRules'>> = {}) {
@@ -1034,7 +1036,7 @@ describe('RecipeRow source rule marker', () => {
       const root = setAreas()
       rowIn(combustionPlanNode, root)
       expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['oxygen'])
-      expect(markers()[0]).toHaveAccessibleName(/^Line L: No row here already makes Oxygen/)
+      expect(markers()[0]).toHaveAccessibleName(/^Line L: Uses what this area already makes/)
       cleanup()
       rowIn(combustionB, root)
       expect(markers()).toHaveLength(0)
@@ -1051,7 +1053,7 @@ describe('RecipeRow source rule marker', () => {
       expect(markers()[0]).toHaveAccessibleName(/^Line L: /)
     })
 
-    it('drops the marker of a row whose area overrides the block rule with a rule that does nothing', () => {
+    it("marks the rows of an area whose keyless rule overrides the block's Import off, with the area's sentence", () => {
       const root = setAreas({ sourceRules: { hydrogen: { importOff: true as const } } })
       useBlockStore.setState(s => ({
         blocks: s.blocks.map(b => ({ ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => sp.id === 'L' ? { ...sp, sourceRules: { hydrogen: {} } } : sp) } })),
@@ -1059,9 +1061,10 @@ describe('RecipeRow source rule marker', () => {
       rowIn(combustionB, root)
       expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['hydrogen'])
       cleanup()
-      // L's keyless rule replaces the block's rule for hydrogen: nothing is left to mark in its rows.
+      // L's keyless rule replaces the block's rule for hydrogen (the area imports again): it is L's own rule, so L's rows carry it.
       rowIn(combustionPlanNode, useBlockStore.getState().blocks[0].rootPlan)
-      expect(markers()).toHaveLength(0)
+      expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['hydrogen'])
+      expect(markers()[0]).toHaveAccessibleName(/^Line L: /)
     })
 
     it("opens the Comes from popover on the row's area from the chip's menu", () => {

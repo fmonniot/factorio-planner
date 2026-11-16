@@ -55,13 +55,14 @@ export function flattenBlock(block: Block): SolverPlan {
 
 /**
  * Does a recipe row of the block make `itemId`? Such an item has an LP row, so Import off can
- * forbid importing it; any other item is raw in the block and a lock on it changes nothing.
+ * forbid importing it; any other item is raw in the block and a lock on it changes nothing. With `nodeIds`, only the rows
+ * of that set count (the rows of one area).
  */
-export function blockMakesItem(block: Block, gameData: GameData, itemId: string): boolean {
+export function blockMakesItem(block: Block, gameData: GameData, itemId: string, nodeIds?: ReadonlySet<string>): boolean {
   // Same test as buildClassifiedSystem: a product registers a producer only with an effective amount above 0
   // (a probability of 0 does not). Bonuses are left out: they scale a positive amount but never change its sign.
   const makes = (plan: SubPlan): boolean =>
-    plan.nodes.some(n => n.kind === 'game-recipe'
+    plan.nodes.some(n => n.kind === 'game-recipe' && (nodeIds === undefined || nodeIds.has(n.id))
       && gameData.recipes[n.recipeId]?.products.some(p => p.itemId === itemId && rowProductAmount(p) > 0))
     || plan.subPlans.some(makes)
   return makes(block.rootPlan)

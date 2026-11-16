@@ -1,8 +1,8 @@
 import type { Block, GameData } from '../../data/types'
 import { presetOf } from '../../data/sourceRules'
-import { blockAreas } from '../../solver/areas'
+import { blockAreas, type SolverArea } from '../../solver/areas'
 import { hasProduct, receivesItem } from '../../solver/blockGraph'
-import { findSubPlan } from '../../data/subPlanTree'
+import { findSubPlan, storedAreaRule } from '../../data/subPlanTree'
 import type { SubPlan } from '../../data/types'
 import { blockMakesItem } from '../../solver/index'
 
@@ -10,11 +10,14 @@ import { blockMakesItem } from '../../solver/index'
 // Which of a block's source rules have an effect. A rule is one non-default stored setting of one item:
 // a part of an item's stored rule (`Block.sourceRules`): its `makeHere` preset or its Import-off switch. Pure functions of the block and the game
 // data; no solve result is read, so a rule is judged by what the block is, not by what the solver did. An area's own
-// rule (`SubPlan.sourceRules`) is listed part by part after the block's; it is judged at block level too.
+// rule (`SubPlan.sourceRules`) is listed part by part after the block's; its effect is judged by its own rows.
 // ---------------------------------------------------------------------------
 
-/** `make-here` is an area's rule with no preset that overrides a block rule that has one (the area makes it here, whatever the block says). */
-export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off' | 'make-here'
+/**
+ * `make-here` is an area's rule with no preset that overrides a block rule that has one (the area makes it here, whatever
+ * the block says); `import-on` is an area's rule with Import on that overrides a block rule that has it off.
+ */
+export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off' | 'make-here' | 'import-on'
 export type NoEffectReason = 'product' | 'not-made' | 'no-connection'
 
 export interface SourceRulePart {
@@ -29,7 +32,7 @@ export interface SourceRulePart {
 /**
  * Every part of every rule of the block, in map order, the `makeHere` part before `import-off`; then the parts of the
  * rules of its areas, areas in table order, each rule's parts in the same order (and a `make-here` part last when the
- * area's keyless preset overrides one of the block's).
+ * area's rule has no preset where the block's has one, then an `import-on` part when it has Import on where the block's is off).
  * `blockIds` holds the ids of all existing blocks of the plan: a connection whose source is gone, or is
  * the block itself, does not count (the solver's own test, `receivesItem`).
  */
@@ -48,7 +51,9 @@ export function sourceRules(block: Block, gameData: GameData, blockIds: Readonly
       const part = (k: SourceRuleKind) => withEffect(block, gameData, blockIds, { itemId, kind: k, areaId: area.id })
       if (kind) rules.push(part(kind))
       if (rule.importOff) rules.push(part('import-off'))
-      if (!kind && Object.hasOwn(block.sourceRules, itemId) && presetOf(block.sourceRules[itemId])) rules.push(part('make-here'))
+      const blockRule = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : undefined
+      if (!kind && presetOf(blockRule)) rules.push(part('make-here'))
+      if (!rule.importOff && blockRule?.importOff) rules.push(part('import-on'))
     }
   }
   return rules
@@ -70,10 +75,12 @@ function noEffectReason(
   block: Block,
   gameData: GameData,
   blockIds: ReadonlySet<string>,
-  { itemId, kind }: SourceRulePart,
+  { itemId, kind, areaId }: SourceRulePart,
 ): NoEffectReason | undefined {
   if (hasProduct(block, itemId)) return 'product'
-  if (!blockMakesItem(block, gameData, itemId)) return 'not-made'
+  // An area's rule is about the rows of that area: with none making the item it changes nothing there.
+  const rows = areaId === undefined ? undefined : new Set(blockAreas(block.rootPlan)?.find(a => a.id === areaId)?.nodeIds)
+  if (!blockMakesItem(block, gameData, itemId, rows)) return 'not-made'
   if (kind === 'connections-first' && !receivesItem(block, itemId, blockIds)) return 'no-connection'
   return undefined
 }
@@ -86,6 +93,8 @@ export function itemsWithEffect(rules: readonly SourceRulePart[]): ReadonlySet<s
 const NO_ITEMS: ReadonlySet<string> = new Set()
 const NO_AREA_ITEMS: ReadonlyMap<string, ReadonlySet<string>> = new Map()
 interface RuleItems {
+  /** `rowRuleItems` per area, filled as asked. */
+  rows: Map<string, ReadonlySet<string>>
   gameData: GameData
   blocks: readonly Block[]
   /** The items whose rule of the block has an effect. */
@@ -108,7 +117,7 @@ function ruleItemsOf(block: Block, gameData: GameData, blocks: readonly Block[])
     for (const r of parts) if (r.areaId !== undefined) (byArea.get(r.areaId) ?? byArea.set(r.areaId, new Set()).get(r.areaId)!).add(r.itemId)
     areas = byArea
   }
-  const entry = { gameData, blocks, items, areas }
+  const entry = { rows: new Map<string, ReadonlySet<string>>(), gameData, blocks, items, areas }
   ruleItemsCache.set(block, entry)
   return entry
 }
@@ -134,21 +143,34 @@ export function areaRuleItems(block: Block, gameData: GameData, blocks: readonly
  * `sourceRuleItems`.
  */
 export function rowRuleItems(block: Block, gameData: GameData, blocks: readonly Block[], areaId: string | undefined): ReadonlySet<string> {
-  const base = sourceRuleItems(block, gameData, blocks)
+  const entry = ruleItemsOf(block, gameData, blocks)
+  const base = entry.items
   if (areaId === undefined) return base
   const own = findSubPlan(block.rootPlan, areaId)?.sourceRules
-  const changed = areaRuleItems(block, gameData, blocks).get(areaId)
+  const changed = entry.areas.get(areaId)
   if (!own && !changed) return base
+  // Kept per area beside the rest of the entry: RecipeRow asks on every render of every row.
+  const cached = entry.rows.get(areaId)
+  if (cached) return cached
   const items = new Set([...base].filter(id => !own || !Object.hasOwn(own, id)))
   for (const id of changed ?? []) items.add(id)
+  entry.rows.set(areaId, items)
   return items
 }
 
+/**
+ * The areas the scope control of the Comes from control offers for an item: the one it was opened for (`areaId`), the one it
+ * is on (`area`) and those with a rule of their own for the item, in table order. None: no scope control.
+ */
+export function scopeAreasOf(block: Block, itemId: string, areaId: string | undefined, area: string | undefined): SolverArea[] {
+  return (blockAreas(block.rootPlan) ?? []).filter(a => a.id === areaId || a.id === area || storedAreaRule(block.rootPlan, a.id, itemId) !== undefined)
+}
+
 /** The text shown beside a rule that has no effect. */
-export function noEffectText(reason: NoEffectReason, itemName: string): string {
+export function noEffectText(reason: NoEffectReason, itemName: string, inArea = false): string {
   switch (reason) {
     case 'product': return `${itemName} is a product of this block, so the block always makes it.`
-    case 'not-made': return `No row in this block makes ${itemName}.`
+    case 'not-made': return `No row in this ${inArea ? 'area' : 'block'} makes ${itemName}.`
     case 'no-connection': return `No connection for ${itemName}.`
   }
 }

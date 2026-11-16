@@ -24,6 +24,7 @@ describe('the vocabulary', () => {
       'byproducts-first': "Don't make more here",
       'import-off': 'Import off',
       'make-here': 'Make it here',
+      'import-on': 'Import on',
     })
     expect(areaRuleLabel('Line L', SOURCE_RULE_NAMES['connections-first'])).toBe('Line L: Receive it first')
   })

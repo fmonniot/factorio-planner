@@ -4,7 +4,7 @@ import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { exportPlan } from './support/appMenu'
 import { openRowMenu } from './support/rowMenu'
-import { pane, selectSlot, slot } from './support/summary'
+import { detail, pane, selectSlot, slot } from './support/summary'
 
 /**
  * Case 21 A of spec/test-synthetic.md on real Nullius recipes: plate is the Stone box, gear the Gravel box, "Stone boxing"
@@ -17,6 +17,7 @@ import { pane, selectSlot, slot } from './support/summary'
  *   b  the block receives it first:   L 0,  B 0, connection 20
  *   c  L receives it first:           L 0,  B 8, connection 12
  *   d  the block receives it first, B makes it here ({}):  L 0, B 8, connection 12
+ *   j  no offer (the connection removed), L: Don't make more here and Import off: L 0, B 8, 12 missing
  */
 const FIXTURE = path.resolve('e2e/fixtures/area-rules.json')
 const L_ID = 'cccc0005-0000-0000-0000-000000000001'
@@ -186,5 +187,39 @@ test.describe('area source rules (case 21 A)', () => {
     await openFromChip(page, 'L')
     await expect(popover(page).getByTestId('comes-from-scope').getByRole('button', { name: 'Line L', exact: true })).toHaveCount(0)
     // The undo of the flag is covered by ComesFrom.test.tsx: nothing in the page undoes.
+  })
+
+  test("row j: with no offer, Line L set to Don't make more here with Import off leaves 12 missing; Import on again imports them", async ({ page }) => {
+    await load(page)
+    // No offer: the block's one connection goes (the Sources list of the chip's popover has its Remove).
+    await openFromChip(page, 'L')
+    await popover(page).getByTestId('sources-button').click()
+    await popover(page).getByTestId('sources-block-remove').click()
+    await expect(popover(page).getByTestId('sources-block-name')).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    // Row g, as the starting point: L does not make it, nothing is offered, so 12 are imported and none missing.
+    await openFromChip(page, 'L')
+    await scopeButton(page, 'Line L').click()
+    await popover(page).getByRole('radio', { name: "Don't make more here" }).click()
+    await expect.poll(made(page, 'L'), { message: "Line L's Stone boxing row" }).toBeCloseTo(0, 1)
+    await expect.poll(made(page, 'B'), { message: "Line B's Stone boxing row" }).toBeCloseTo(8, 1)
+    await expect(stoneBox(page)).toHaveAccessibleName(/^Stone box, 12(\.0+)? per minute/)
+    await expect(stoneBox(page)).not.toHaveAccessibleName(/missing|short/i)
+
+    // Row j: Import off on L. Its 12 cannot come from anywhere: they are missing, the slot is short by 12.
+    await popover(page).getByTestId('import-switch').click()
+    await expect.poll(made(page, 'L'), { message: "Line L's Stone boxing row" }).toBeCloseTo(0, 1)
+    await expect.poll(made(page, 'B'), { message: "Line B's Stone boxing row" }).toBeCloseTo(8, 1)
+    await page.keyboard.press('Escape')
+    await selectSlot(page, 'Ingredients', 'Stone box')
+    const segments = detail(page, 'Ingredients')
+    await expect(slot(page, 'Ingredients', 'Stone box')).toHaveAccessibleName(/^Stone box, 12(\.0+)? per minute.*(short|missing)/i)
+    await expect(segments).toContainText(/Missing/i)
+
+    // Import on again: Line L imports its 12 (row g).
+    await openFromChip(page, 'L')
+    await popover(page).getByTestId('import-switch').click()
+    await expect(slot(page, 'Ingredients', 'Stone box')).not.toHaveAccessibleName(/missing|short/i)
+    await expect(slot(page, 'Ingredients', 'Stone box')).toHaveAccessibleName(/^Stone box, 12(\.0+)? per minute/)
   })
 })

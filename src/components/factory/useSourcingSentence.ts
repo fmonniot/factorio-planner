@@ -3,7 +3,7 @@ import type { Block, GameData } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { areaName as areaNameOf, storedAreaRule } from '../../data/subPlanTree'
+import { areaName as areaNameOf, effectiveAreaRule } from '../../data/subPlanTree'
 import { itemConnections, itemMakers, sourcingText } from './sourcingText'
 
 /**
@@ -20,7 +20,7 @@ export function useBlockSourcingSentence(block: Block | undefined, itemId: strin
 
   const name = gameData?.items[itemId]?.name ?? itemId
   const rule = block && areaId !== undefined
-    ? (storedAreaRule(block.rootPlan, areaId, itemId) ?? block.sourceRules[itemId])
+    ? effectiveAreaRule(block.rootPlan, block.sourceRules, areaId, itemId)
     : block?.sourceRules[itemId]
   const areaName = block && areaId !== undefined ? areaNameOf(block.rootPlan, areaId) : undefined
 

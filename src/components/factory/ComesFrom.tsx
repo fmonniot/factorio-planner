@@ -1,12 +1,12 @@
 import { useId, useMemo, useState } from 'react'
-import { areaIdsOf, areaName as areaNameOf, storedAreaRule } from '../../data/subPlanTree'
+import { areaIdsOf, areaName as areaNameOf, effectiveAreaRule, storedAreaRule } from '../../data/subPlanTree'
 import { blockAreas } from '../../solver/areas'
 import { Segment, Segmented } from '../SegmentedControl'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, SOURCES_BUTTON_LABEL, SOURCE_RULE_NAMES, makeHereOf, presetOf } from './itemSourcing'
-import { noEffectText, sourceRules } from './sourceRules'
+import { noEffectText, scopeAreasOf, sourceRules } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
 import { SourcesList } from './SourcesList'
@@ -81,11 +81,11 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
 
   const name = gameData.items[itemId]?.name ?? itemId
   const stored = area !== undefined ? storedAreaRule(block.rootPlan, area, itemId) : undefined
-  const rule = area !== undefined ? (stored ?? block.sourceRules[itemId]) : block.sourceRules[itemId]
+  const rule = area !== undefined ? effectiveAreaRule(block.rootPlan, block.sourceRules, area, itemId) : block.sourceRules[itemId]
   const preset = presetOf(rule)
   const importOn = !rule?.importOff
   // The areas the scope control offers: the one it was opened for, the one it is on, and those with a rule of their own for the item.
-  const scopeAreas = (blockAreas(block.rootPlan) ?? []).filter(a => a.id === areaId || a.id === area || storedAreaRule(block.rootPlan, a.id, itemId) !== undefined)
+  const scopeAreas = scopeAreasOf(block, itemId, areaId, area)
   const showScope = !listInPopover && scopeAreas.length > 0
   // The areas with a rule of their own, for the Ingredients slot's strip (table order).
   const ruledAreas = listInPopover ? (blockAreas(block.rootPlan) ?? []).filter(a => storedAreaRule(block.rootPlan, a.id, itemId) !== undefined) : []
@@ -207,7 +207,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
               data-no-effect={rule.noEffect}
               className="flex items-baseline gap-2 text-[11px] leading-snug text-gray-500"
             >
-              <span id={`${baseId}-no-effect-${rule.kind}`} className="min-w-0 flex-1">{noEffectText(rule.noEffect!, name)}</span>
+              <span id={`${baseId}-no-effect-${rule.kind}`} className="min-w-0 flex-1">{noEffectText(rule.noEffect!, name, rule.areaId !== undefined)}</span>
               <span className="shrink-0 flex items-baseline gap-1">
                 {rule.noEffect === 'no-connection' && (
                   <button

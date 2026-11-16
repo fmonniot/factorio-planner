@@ -70,7 +70,7 @@ function RuleEntry({ rule, block, gameData, expanded, onToggle, onRemove }: {
             <span data-testid="source-rule-name" className={`text-[11px] ${off ? 'text-gray-400' : 'text-teal-300'}`}>{ruleName}</span>
           </div>
           <p data-testid="source-rule-text" className={`mt-0.5 text-[11px] leading-snug break-words ${off ? 'text-gray-400' : 'text-gray-300'}`}>
-            {off ? noEffectText(rule.noEffect!, name) : sentence}
+            {off ? noEffectText(rule.noEffect!, name, rule.areaId !== undefined) : sentence}
           </p>
         </div>
         <button

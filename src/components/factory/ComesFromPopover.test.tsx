@@ -93,6 +93,20 @@ describe('ComesFromPopover', () => {
     expect(within(within(popover()).getByTestId('comes-from-scope')).getByRole('button', { name: 'Line L' })).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('keeps the whole-block header in a block with areas when no area is offered, and the list has no scope', () => {
+    const NOW = '2026-01-01T00:00:00.000Z'
+    const area = (id: string) => ({ id, name: `Line ${id}`, nodes: [makeRecipeNode('smelt')], subPlans: [], area: true as const, createdAt: NOW, updatedAt: NOW })
+    const block = mainBlock()
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [], subPlans: [area('L'), area('B')] } }, ...useBlockStore.getState().blocks.slice(1)],
+    })
+    render(<ComesFromPopover hasSlot={() => false} />)
+    act(() => useUiStore.getState().openComesFrom('plate', anchor))
+    expect(popover()).toHaveTextContent('Applies to every row of this block')
+    expect(popover()).not.toHaveTextContent('For the whole block or for one area')
+    expect(within(popover()).queryByTestId('comes-from-scope')).not.toBeInTheDocument()
+  })
+
   it('sets the rule of the block from the control', () => {
     render(<ComesFromPopover hasSlot={() => false} />)
     open('ore')

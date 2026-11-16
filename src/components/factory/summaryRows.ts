@@ -1,6 +1,6 @@
 import type { AreaRoute, BlockConnection, SourceRule, SubPlan } from '../../data/types'
 import { surplusTolerance } from '../../solver/index'
-import { areaRuleOf, blockAreas, withAreaRules } from '../../solver/areas'
+import { areaRuleOf, blockAreas, withAreaRules, type SolverArea } from '../../solver/areas'
 import { outsideLegParts } from '../../solver/areaRoutes'
 
 // Pure grouping for the summary panes: one row per item, so an item's tile and
@@ -73,7 +73,26 @@ export function areaMissingPerMin(
   rootPlan: SubPlan,
   areaRoutes: readonly AreaRoute[],
 ): number | undefined {
+  return areaMissingOf(blockRules, rootPlan, areaRoutes)(itemId, importPerMin)
+}
+
+/** `areaMissingPerMin` for one plan and one solve, the areas worked out once however many items are asked about. */
+export function areaMissingOf(
+  blockRules: Record<string, SourceRule> | undefined,
+  rootPlan: SubPlan,
+  areaRoutes: readonly AreaRoute[],
+): (itemId: string, importPerMin: number) => number | undefined {
   const areas = withAreaRules(rootPlan, blockAreas(rootPlan) ?? [])
+  return (itemId, importPerMin) => areaMissing(areas, itemId, importPerMin, blockRules, areaRoutes)
+}
+
+function areaMissing(
+  areas: readonly SolverArea[],
+  itemId: string,
+  importPerMin: number,
+  blockRules: Record<string, SourceRule> | undefined,
+  areaRoutes: readonly AreaRoute[],
+): number | undefined {
   if (!areas.some(a => a.rules && Object.hasOwn(a.rules, itemId))) return undefined
   let missing = 0
   for (const route of areaRoutes) {

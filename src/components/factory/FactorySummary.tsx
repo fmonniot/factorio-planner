@@ -29,7 +29,7 @@ import { SummaryPane } from './SummaryPane'
 import { SummaryLine } from './SummaryLine'
 import type { StripAction } from './SummaryDetailStrip'
 import { presentRecipesFor } from './recipeAreas'
-import { ingredientRows, byproductRows, isLeftover, areaMissingPerMin } from './summaryRows'
+import { ingredientRows, byproductRows, isLeftover, areaMissingOf } from './summaryRows'
 import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
 import type { ProductInfo } from './summarySegments'
 import { netBalance as computeNetBalance, grossFlow, FLOW_TOLERANCE } from '../../solver/index'
@@ -260,7 +260,7 @@ export function FactorySummary() {
   const areaRoutes = solverResult?.areaRoutes
   const ingredientRowList = ingredientRows(
     connections, ingredientItems, noImportItems,
-    activeBlock && areaRoutes ? (itemId, imported) => areaMissingPerMin(itemId, imported, activeBlock.sourceRules, activeBlock.rootPlan, areaRoutes) : undefined,
+    activeBlock && areaRoutes ? areaMissingOf(activeBlock.sourceRules, activeBlock.rootPlan, areaRoutes) : undefined,
   )
   const limitConnection =
     limitEditor && limitEditor.toBlockId === activeBlockId

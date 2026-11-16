@@ -242,9 +242,28 @@ describe('rules of areas', () => {
     expect(rules(over).filter(r => r.areaId === 'L')).toEqual([{ itemId: 'plate', kind: 'make-here', areaId: 'L' }])
     const none = areaBlock({ L: { plate: {} } })
     expect(rules(none)).toEqual([])
-    // A block rule that is only Import off has the default preset: the area's keyless rule says nothing more.
+  })
+
+  it('lists a keyless rule under a block rule that is only Import off as import-on, and an area that repeats it as nothing', () => {
     const importOnly = areaBlock({ block: { plate: { importOff: true } }, L: { plate: {} } })
-    expect(rules(importOnly).filter(r => r.areaId === 'L')).toEqual([])
+    expect(rules(importOnly).filter(r => r.areaId === 'L')).toEqual([{ itemId: 'plate', kind: 'import-on', areaId: 'L' }])
+    const both = areaBlock({ block: { plate: { makeHere: 'off', importOff: true } }, L: { plate: {} } })
+    expect(rules(both).filter(r => r.areaId === 'L').map(r => r.kind)).toEqual(['make-here', 'import-on'])
+    const same = areaBlock({ block: { plate: { importOff: true } }, L: { plate: { importOff: true } } })
+    expect(rules(same).filter(r => r.areaId === 'L').map(r => r.kind)).toEqual(['import-off'])
+  })
+
+  it('counts the import-on override as a rule of the area on its rows', () => {
+    const b = areaBlock({ block: { plate: { importOff: true } }, L: { plate: {} } })
+    expect([...rowRuleItems(b, gameData, [b], 'L')]).toEqual(['plate'])
+  })
+
+  it('judges an area part by its own rows: no row of the area making the item is not-made, though the block makes it', () => {
+    const b = areaBlock({ L: { plate: { makeHere: 'after-blocks' } } })
+    b.rootPlan.subPlans[0] = { ...b.rootPlan.subPlans[0], nodes: [] }
+    expect(rules(b)).toEqual([{ itemId: 'plate', kind: 'connections-first', areaId: 'L', noEffect: 'not-made' }])
+    expect(areaRuleItems(b, gameData, [b]).size).toBe(0)
+    expect(noEffectText('not-made', 'Plate', true)).toBe('No row in this area makes Plate.')
   })
 
   it('judges an area part at block level: a product has no effect', () => {
@@ -269,11 +288,11 @@ describe('rules of areas', () => {
     expect(rowRuleItems(b, gameData, blocks, undefined)).toBe(sourceRuleItems(b, gameData, blocks))
   })
 
-  it('drops a block item the area overrides with a rule that has no effect, and adds an area-only item', () => {
+  it('keeps a block item the area overrides (its own import-on part marks it), and adds an area-only item', () => {
     const b = areaBlock({ block: { plate: { makeHere: 'off' } }, L: { plate: {} }, B: { plate: {} } })
     expect([...rowRuleItems(b, gameData, [b], 'L')]).toEqual(['plate'])
     const dropped = areaBlock({ block: { plate: { importOff: true } }, L: { plate: {} } })
-    expect([...rowRuleItems(dropped, gameData, [dropped], 'L')]).toEqual([])
+    expect([...rowRuleItems(dropped, gameData, [dropped], 'L')]).toEqual(['plate'])
     expect([...rowRuleItems(dropped, gameData, [dropped], 'B')]).toEqual(['plate'])
     const added = areaBlock({ L: { plate: { makeHere: 'off' } } })
     expect([...rowRuleItems(added, gameData, [added], 'L')]).toEqual(['plate'])

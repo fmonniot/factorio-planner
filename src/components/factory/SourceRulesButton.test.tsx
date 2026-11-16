@@ -415,6 +415,32 @@ describe('Source rules — the rules of an area', () => {
     expect(lRules()).toEqual({ plate: {} })
   })
 
+  it('lists a keyless area rule under a block Import off, and Remove on it clears the rule (the area follows the block again)', () => {
+    setupAreas({ plate: {} }, { plate: { importOff: true } })
+    render(<SourceRulesButton />)
+    expect(button()).toHaveTextContent('Source rules (2)')
+    openPopover()
+    expect(names()).toEqual(['Import off', 'Line L: Import on'])
+    fireEvent.click(remove(entry('plate', 'import-on')))
+    expect(lRules()).toBeUndefined()
+  })
+
+  it('removes a rule that repeats the block\'s whole, and a part that leaves one, so Remove never changes what the area does', () => {
+    setupAreas({ plate: { makeHere: 'after-blocks' } }, { plate: { makeHere: 'after-blocks' } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(remove(entries().find(e => e.dataset.areaId === 'L')!))
+    expect(lRules()).toBeUndefined()
+  })
+
+  it('clears the area rule when removing its Import off leaves what the block already says', () => {
+    setupAreas({ plate: { importOff: true } }, { plate: { importOff: true } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(remove(entries().find(e => e.dataset.areaId === 'L')!))
+    expect(lRules()).toBeUndefined()
+  })
+
   it('clears the area rule from a make-here entry', () => {
     setupAreas({ plate: {} }, { plate: { makeHere: 'off' } })
     render(<SourceRulesButton />)

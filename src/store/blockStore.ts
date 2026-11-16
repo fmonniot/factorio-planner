@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
-import { areaIdsOf, findSubPlan, remapAreaRules, storedAreaRule as storedAreaRuleOf } from '../data/subPlanTree'
+import { areaIdsOf, effectiveAreaRule as effectiveAreaRuleOf, findSubPlan, remapAreaRules, storedAreaRule as storedAreaRuleOf } from '../data/subPlanTree'
 import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
 import { areaRecipeIds, blockAreas, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
@@ -307,20 +307,14 @@ function cleanAreaRule(rule: AreaSourceRule): AreaSourceRule {
   }
 }
 
-/** What an area with no rule of its own for an item starts from: the block's rule for it (its two keys), else the default. */
-function areaRuleBase(block: Block, itemId: string): AreaSourceRule {
-  if (!Object.hasOwn(block.sourceRules, itemId)) return {}
-  return cleanAreaRule(block.sourceRules[itemId])
-}
-
 /** The rule stored on the area for an item, or undefined. */
 function storedAreaRule(block: Block, areaId: string, itemId: string): AreaSourceRule | undefined {
   return storedAreaRuleOf(block.rootPlan, areaId, itemId)
 }
 
-/** The area's own rule for an item when it has one, else the block's (see `areaRuleBase`). */
+/** The area's own rule for an item when it has one, else the block's (`effectiveAreaRule` of `subPlanTree.ts`). */
 function effectiveAreaRule(block: Block, areaId: string, itemId: string): AreaSourceRule {
-  return storedAreaRule(block, areaId, itemId) ?? areaRuleBase(block, itemId)
+  return effectiveAreaRuleOf(block.rootPlan, block.sourceRules, areaId, itemId)
 }
 
 /**

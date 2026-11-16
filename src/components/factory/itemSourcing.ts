@@ -41,6 +41,7 @@ export const SOURCE_RULE_NAMES: Record<SourceRuleKind, string> = {
   'byproducts-first': ITEM_SOURCING_CHOICES[2].label,
   'import-off': `${IMPORT_SWITCH.label} off`,
   'make-here': ITEM_SOURCING_CHOICES[0].label,
+  'import-on': `${IMPORT_SWITCH.label} on`,
 }
 
 /** The name of a rule of an area, as the rule list and the remove button read it: "Line L: Receive it first". */

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
-import { areaIdsOf } from '../../data/subPlanTree'
+import { scopeAreasOf } from './sourceRules'
 import { Icon } from '../Icon'
 import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
@@ -122,7 +122,7 @@ export function ComesFromPopover({ hasSlot }: {
         <div className="min-w-0 flex-1 leading-tight">
           <div id={titleId} className="text-xs font-semibold text-gray-100 truncate">{name}</div>
           <div className="text-[11px] text-gray-400">
-            {activeBlock && areaIdsOf(activeBlock.rootPlan).size > 0 ? 'For the whole block or for one area' : 'Applies to every row of this block'}
+            {activeBlock && !popover.list && scopeAreasOf(activeBlock, popover.itemId, popover.areaId, undefined).length > 0 ? 'For the whole block or for one area' : 'Applies to every row of this block'}
           </div>
         </div>
         <button
