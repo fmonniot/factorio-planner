@@ -146,6 +146,7 @@ describe('ItemPicker — recipes mode', () => {
     expect(present).toHaveAttribute('title', 'Iron Plate (already in this area)')
     fireEvent.click(present)
     expect(onSelect).not.toHaveBeenCalled()
+    expect(slot('copper-plate')).toBeEnabled()
     expect(slot('copper-plate')).not.toHaveAttribute('aria-disabled')
   })
 
@@ -807,11 +808,16 @@ describe('ItemPicker — fuel groups', () => {
   })
 
   it('opens a partly present group and disables only the fuel already there', () => {
-    renderPower({ presentRecipes: { ids: new Set(['power:boiler:coal']), where: 'this area' } })
+    const { onSelect } = renderPower({ presentRecipes: { ids: new Set(['power:boiler:coal']), where: 'this area' } })
     expect(groupSlot('boiler')).toBeEnabled()
     fireEvent.click(groupSlot('boiler')!)
     const slots = screen.getAllByTestId('recipe-slot')
-    expect(slots.find(s => s.getAttribute('data-recipe-id') === 'power:boiler:coal')).toHaveAttribute('aria-disabled', 'true')
+    const coal = slots.find(s => s.getAttribute('data-recipe-id') === 'power:boiler:coal')!
+    expect(coal).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.mouseEnter(coal)
+    expect(screen.getByTestId('recipe-detail-panel')).toBeInTheDocument()
+    fireEvent.click(coal)
+    expect(onSelect).not.toHaveBeenCalled()
     expect(slots.find(s => s.getAttribute('data-recipe-id') === 'power:boiler:wood')).toBeEnabled()
   })
 
