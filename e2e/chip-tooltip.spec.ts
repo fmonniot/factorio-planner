@@ -83,11 +83,26 @@ test('closes when the pointer leaves, on press, on Escape and when the table scr
   await expect(tooltip(page)).toHaveCount(0)
 
   await page.mouse.move(2, 2) // Escape hides it until the pointer comes back
+  // A real scroll: the fixture is short, so stretch the table until its container (the scroll container) overflows, then scroll it.
+  const table = page.locator('main table').first()
+  await table.evaluate(t => { t.style.marginBottom = '3000px' })
+  const scroller = table.locator('xpath=ancestor::*[contains(@class,"overflow-auto") or contains(@class,"overflow-y-auto")][1]')
+  expect(await scroller.evaluate(el => el.scrollHeight > el.clientHeight), 'the table body overflows').toBe(true)
+  await scroller.evaluate(el => { el.scrollTop = 0 })
   await chip.hover()
   await expect(tooltip(page)).toBeVisible()
-  // The table body is the scroll container; a short fixture does not scroll, so fire the event the layer listens to (capture phase).
-  await page.locator('main table').first().evaluate(table => table.parentElement!.dispatchEvent(new Event('scroll')))
+  await scroller.evaluate(el => { el.scrollTop = 30 })
   await expect(tooltip(page)).toHaveCount(0)
+})
+
+test('stays visible while the pointer crosses from the chip icon to its quantity', async ({ page }) => {
+  await open(page)
+  const chip = chips(page).first()
+  const box = (await chip.boundingBox())!
+  await page.mouse.move(box.x + 4, box.y + 4)
+  await expect(tooltip(page)).toBeVisible()
+  await page.mouse.move(box.x + box.width - 3, box.y + box.height - 3, { steps: 4 })
+  await expect(tooltip(page)).toBeVisible()
 })
 
 test('opens on keyboard focus but not after a mouse click', async ({ page }) => {

@@ -9,6 +9,12 @@ describe('IconChip', () => {
     expect(screen.getByTestId('chip-pin').parentElement).toHaveClass('-top-1', '-right-1')
   })
 
+  it('gives the pin badge the instant tooltip, never a native title', () => {
+    render(<PinBadge />)
+    expect(screen.getByTestId('chip-pin')).toHaveAttribute('data-tip', 'Rate pinned')
+    expect(screen.getByTestId('chip-pin')).not.toHaveAttribute('title')
+  })
+
   it('is a span without onClick and a button with it', () => {
     const { rerender } = render(<IconChip alt="Gear" title="Gear" />)
     expect(screen.queryByRole('button')).toBeNull()

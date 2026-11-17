@@ -142,7 +142,7 @@ export function PinBadge() {
     <span
       role="img"
       aria-label="Rate pinned"
-      title="Rate pinned"
+      data-tip="Rate pinned"
       data-testid="chip-pin"
       className="w-3.5 h-3.5 box-border rounded-full bg-amber-300 border border-gray-900 flex items-center justify-center"
     >

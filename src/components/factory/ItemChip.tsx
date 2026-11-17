@@ -33,7 +33,9 @@ export function ItemChip({ item, ratePerSec, variant, onClick, onContextMenu, la
   const quantity = fmtChipQuantity(item?.id, ratePerSec, unit)
   const baseTitle = label ?? item?.name
   // The corner shows the number only: the title carries the full rate with its unit.
-  const chipTitle = baseTitle ? `${baseTitle} — ${fmtItemRateText(item?.id, ratePerSec, unit)}` : baseTitle
+  // The chip's accessible name replaces its content for assistive technology, so the pin badge's meaning goes in it.
+  const rateTitle = baseTitle ? `${baseTitle} — ${fmtItemRateText(item?.id, ratePerSec, unit)}` : baseTitle
+  const chipTitle = rateTitle && pinned ? `${rateTitle} (rate pinned)` : rateTitle
   const electricityNoIcon = item?.id === ELECTRICITY_ITEM_ID && !item?.iconPath
 
   return (

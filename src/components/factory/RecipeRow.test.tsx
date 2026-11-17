@@ -285,15 +285,12 @@ describe('RecipeRow', () => {
 
     // Slag tile is a byproduct (not primaryItemId = iron-plate)
     // The tile renders as a button for byproducts
-    const buttons = screen.getAllByRole('button')
-    const slagButton = buttons.find(b => b.title?.includes('slag') || b.getAttribute('title')?.includes('slag'))
-    if (slagButton) {
-      fireEvent.click(slagButton)
-      const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-      if (updated.kind === 'game-recipe') {
-        expect(updated.byproductPolicy['slag']).toBe('discard')
-      }
-    }
+    const slagButton = screen.getAllByRole('button').find(b => /slag/i.test(b.getAttribute('aria-label') ?? ''))
+    expect(slagButton, 'slag byproduct chip button').toBeDefined()
+    fireEvent.click(slagButton!)
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(updated.kind).toBe('game-recipe')
+    if (updated.kind === 'game-recipe') expect(updated.byproductPolicy['slag']).toBe('discard')
   })
 
   it('subplan node renders expand/collapse toggle', () => {
@@ -413,6 +410,8 @@ describe('T12 — Pin rate UI', () => {
     const pinned = setupElectrolysis(2)
     renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
     expect(screen.getByTestId('chip-pin')).toBeInTheDocument()
+    // The chip's name replaces its content for assistive technology, so it carries the pin state.
+    expect(screen.getByTestId('chip-pin').closest('[data-variant]')).toHaveAttribute('aria-label', expect.stringMatching(/\(rate pinned\)$/))
     expect(screen.queryByLabelText('Pinned rate')).not.toBeInTheDocument()
     fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
     expect(screen.getByRole('menuitem', { name: 'Unpin rate' })).toBeInTheDocument()

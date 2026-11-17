@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { TooltipLayer, tipText } from './TooltipLayer'
 
@@ -67,5 +67,69 @@ describe('TooltipLayer', () => {
     over(chip)
     fireEvent.pointerDown(chip)
     expect(screen.queryByTestId('tooltip')).toBeNull()
+  })
+
+  it('closes when a touch pointer comes over, after a mouse opened it', () => {
+    const chip = setup()
+    over(chip)
+    over(chip, 'touch')
+    expect(screen.queryByTestId('tooltip')).toBeNull()
+  })
+
+  it('stays placed when the pointer crosses from one child of the chip to another', () => {
+    render(<><button data-testid="chip" aria-label="Iron Plate — 3/s" data-tip=""><img alt="" data-testid="icon" /><span data-testid="qty">3</span></button><TooltipLayer /></>)
+    over(screen.getByTestId('icon'))
+    const tip = screen.getByTestId('tooltip')
+    expect(tip.style.visibility).not.toBe('hidden')
+    over(screen.getByTestId('qty'))
+    expect(screen.getByTestId('tooltip')).toBe(tip)
+    expect(screen.getByTestId('tooltip').style.visibility).not.toBe('hidden')
+  })
+
+  it('closes when an ancestor of the anchor is removed', async () => {
+    setup()
+    const wrap = document.createElement('div')
+    const mid = document.createElement('div')
+    const chip = document.createElement('button')
+    chip.setAttribute('data-tip', 'Plain')
+    mid.appendChild(chip)
+    wrap.appendChild(mid)
+    document.body.appendChild(wrap)
+    over(chip)
+    expect(screen.getByTestId('tooltip')).toBeInTheDocument()
+    await act(async () => { wrap.remove(); await Promise.resolve() })
+    expect(screen.queryByTestId('tooltip')).toBeNull()
+  })
+
+  describe('keyboard focus', () => {
+    afterEach(() => { vi.restoreAllMocks() })
+    const focusIn = (chip: HTMLElement, visible: boolean) => {
+      const real = chip.matches.bind(chip)
+      vi.spyOn(chip, 'matches').mockImplementation(sel => (sel === ':focus-visible' ? visible : real(sel)))
+      fireEvent.focusIn(chip)
+    }
+
+    it('opens on :focus-visible', () => {
+      focusIn(setup(), true)
+      expect(screen.getByTestId('tooltip')).toHaveTextContent('Iron Plate — 3/s')
+    })
+
+    it('does not open on focus that is not :focus-visible (a mouse click)', () => {
+      focusIn(setup(), false)
+      expect(screen.queryByTestId('tooltip')).toBeNull()
+    })
+  })
+
+  describe('closes on', () => {
+    const opened = () => { over(setup()); expect(screen.getByTestId('tooltip')).toBeInTheDocument() }
+    const gone = () => expect(screen.queryByTestId('tooltip')).toBeNull()
+
+    it('focusout', () => { opened(); fireEvent.focusOut(screen.getByTestId('chip')); gone() })
+    it('window blur', () => { opened(); fireEvent.blur(window); gone() })
+    it('resize', () => { opened(); fireEvent(window, new Event('resize')); gone() })
+    it('a scroll of any container', () => { opened(); fireEvent.scroll(screen.getByTestId('away')); gone() })
+    it('dragstart', () => { opened(); fireEvent.dragStart(screen.getByTestId('chip')); gone() })
+    it('contextmenu', () => { opened(); fireEvent.contextMenu(screen.getByTestId('chip')); gone() })
+    it('pointerout to nowhere', () => { opened(); fireEvent.pointerOut(screen.getByTestId('chip'), { relatedTarget: null }); gone() })
   })
 })

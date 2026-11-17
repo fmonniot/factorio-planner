@@ -25,18 +25,22 @@ export function TooltipLayer() {
   const [text, setText] = useState('')
   const [pos, setPos] = useState<Placement | null>(null)
   const boxRef = useRef<HTMLDivElement>(null)
+  const shownRef = useRef<{ anchor: HTMLElement | null; text: string }>({ anchor: null, text: '' })
+  useLayoutEffect(() => { shownRef.current = { anchor, text } })
 
   useEffect(() => {
     const open = (el: HTMLElement) => {
       const t = tipText(el)
       if (!t) return
+      // A move between the children of one chip re-fires pointerover: nothing changed, so keep the placed tooltip.
+      if (el === shownRef.current.anchor && t === shownRef.current.text) return
       setAnchor(el)
       setText(t)
       setPos(null)
     }
     const close = () => setAnchor(null)
     const onOver = (e: Event) => {
-      if ((e as PointerEvent).pointerType === 'touch') return
+      if ((e as PointerEvent).pointerType === 'touch') { close(); return }
       const el = anchorOf(e.target)
       if (el) open(el)
       else close()
@@ -71,8 +75,10 @@ export function TooltipLayer() {
     if (!anchor) return
     const attrs = new MutationObserver(() => setText(tipText(anchor)))
     attrs.observe(anchor, { attributes: true, attributeFilter: ['aria-label', 'data-tip'] })
+    // Removal of the anchor or of any ancestor is a child-list change of the parent of one of them: watch those parents only
+    // (direct children, no subtree), not the whole body.
     const tree = new MutationObserver(() => { if (!anchor.isConnected) setAnchor(null) })
-    tree.observe(document.body, { childList: true, subtree: true })
+    for (let n: Node = anchor; n.parentNode; n = n.parentNode) tree.observe(n.parentNode, { childList: true })
     return () => { attrs.disconnect(); tree.disconnect() }
   }, [anchor])
 
