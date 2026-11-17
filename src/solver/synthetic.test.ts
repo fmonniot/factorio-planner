@@ -2613,7 +2613,7 @@ describe('solver synthetic cases', () => {
       expectChain(solveRows(GOAL, nodesOf(['case23-saw-wood'], ['case23-grow', 'case23-make-saw', 'case23-make-plate'])))
     })
 
-    it('c: all three are flagged (unbounded before)', () => {
+    it('c: all three are flagged', () => {
       expectChain(solveRows(GOAL, nodesOf(['case23-saw-wood', 'case23-make-saw', 'case23-make-plate'], ['case23-grow'])))
     })
 
@@ -2627,7 +2627,7 @@ describe('solver synthetic cases', () => {
       expect(over?.type === 'overconstrained' ? over.surplusItems.map(i => [i.itemId, i.rate]) : undefined, 'tree is left over').toEqual([[TREE, 20]])
     })
 
-    it('e: a flagged row that takes only a raw item does not run (unbounded before)', () => {
+    it('e: a flagged row that takes only a raw item does not run', () => {
       const r = solveRows(GOAL, nodesOf(['case23-burn-roll'], ['case23-grow']))
       expect(nodeOf(r, 'case23-burn-roll').throughput, 'burn-roll').toBeCloseTo(0, 6)
       expect(nodeOf(r, 'case23-grow').throughput, 'grow').toBeCloseTo(10, 6)

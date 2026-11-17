@@ -1,39 +1,27 @@
 import { describe, it, expect } from 'vitest'
 import { absorberRoles } from './absorbers'
-import type { ClassifiedSystem } from './build'
+import { buildClassifiedSystem, type ClassifiedSystem } from './build'
+import type { GameData } from '../data/types'
 
 // Rows are written as [id, ingredients, products] with item amounts; the net coefficient S is products minus ingredients.
 type Row = [id: string, ingredients: Record<string, number>, products: Record<string, number>]
 
-/** A classified system as `buildClassifiedSystem` would classify it: made and used = intermediate, used only = raw, made only = byproduct. */
+/** The system `buildClassifiedSystem` builds for these rows, as in a block solve. */
 function systemOf(rows: Row[], goals: Record<string, number> = {}): ClassifiedSystem {
-  const S = new Map<string, Map<string, number>>()
-  const add = (itemId: string, id: string, delta: number) => {
-    if (!S.has(itemId)) S.set(itemId, new Map())
-    S.get(itemId)!.set(id, (S.get(itemId)!.get(id) ?? 0) + delta)
-  }
+  const recipes: GameData['recipes'] = {}
   for (const [id, ingredients, products] of rows) {
-    for (const [itemId, n] of Object.entries(ingredients)) add(itemId, id, -n)
-    for (const [itemId, n] of Object.entries(products)) add(itemId, id, n)
+    recipes[id] = {
+      id, name: id, category: 'crafting', craftingTime: 1,
+      ingredients: Object.entries(ingredients).map(([itemId, amount]) => ({ itemId, type: 'item' as const, amount })),
+      products: Object.entries(products).map(([itemId, amount]) => ({ itemId, type: 'item' as const, amount })),
+      madeIn: [], allowProductivity: false, mainProduct: undefined, hidden: false, subgroup: '', order: '',
+    }
   }
-  const goalItems = new Set(Object.keys(goals))
-  const intermediates = new Set<string>()
-  const raw = new Set<string>()
-  const byproducts = new Set<string>()
-  for (const [itemId, row] of S) {
-    if (goalItems.has(itemId)) continue
-    const values = [...row.values()]
-    const made = values.some(c => c > 0)
-    const used = values.some(c => c < 0)
-    if (made && used) intermediates.add(itemId)
-    else if (used) raw.add(itemId)
-    else byproducts.add(itemId)
+  const gameData: GameData = {
+    factorioVersion: '2.0.0', modSet: {}, items: {}, recipes, machines: {}, modules: {}, beacons: {}, defaultMachines: {},
+    itemGroups: {}, itemSubgroups: {}, technologies: {}, startingRecipes: [],
   }
-  return {
-    S,
-    recipes: rows.map(r => r[0]),
-    classification: { goals: new Map(Object.entries(goals)), intermediates, raw, byproducts },
-  }
+  return buildClassifiedSystem(gameData, rows.map(r => r[0]), new Map(Object.entries(goals)))
 }
 
 // Case 23's chain: G grows the goal and trees, A saws a tree (saw net -0.1), K makes a saw from a plate, H makes plates from a roll.
@@ -97,8 +85,10 @@ describe('absorberRoles', () => {
       ['R', { x: 1 }, { waste: 1 }],
     ]
     const roles = absorberRoles(systemOf(rows, { goal: 1 }), new Set(['R']), none)
-    expect(ids(roles.chain), 'chain').toEqual(['R', 'U'])
+    // R is not anchored, so nothing feeds a live row: U stays an ordinary row.
+    expect(ids(roles.chain), 'chain').toEqual(['R'])
     expect(ids(roles.rewarded), 'rewarded').toEqual([])
+    expect(ids(roles.live), 'live').toEqual([])
   })
 
   it('8: a flagged row that takes only raw items is not rewarded', () => {
@@ -111,5 +101,40 @@ describe('absorberRoles', () => {
   it('ignores a flagged id that is not a column', () => {
     const roles = absorberRoles(systemOf([grow, saw], { goal: 10 }), new Set(['A', 'ghost']), none)
     expect(ids(roles.chain), 'chain').toEqual(['A'])
+  })
+
+  it('9: a flagged row that makes what an ordinary row uses and feeds nothing live is not live, nor its feeder', () => {
+    const rows: Row[] = [
+      ['p', { ore: 1 }, { plate: 1 }],
+      ['u', { plate: 1 }, { gadget: 1 }],
+      ['rr', { x: 2 }, { plate: 1 }],
+      ['f', { roll: 1 }, { x: 1 }],
+    ]
+    const roles = absorberRoles(systemOf(rows, { gadget: 10 }), new Set(['rr']), none)
+    expect(ids(roles.chain), 'chain').toEqual(['rr'])
+    expect(ids(roles.live), 'live').toEqual([])
+  })
+
+  it('10: an item with a cheap import is not bounded, so the row taking it is not rewarded', () => {
+    const rows: Row[] = [
+      ['G', { seed: 1 }, { goal: 1, plate: 1 }],
+      ['K', { plate: 1 }, { saw: 1 }],
+      ['R', { saw: 1, log: 1 }, { wood: 8, saw: 0.9 }],
+    ]
+    const system = systemOf(rows, { goal: 10 })
+    expect(ids(absorberRoles(system, new Set(['R']), none).rewarded), 'plate imported at full price').toEqual(['R'])
+    const roles = absorberRoles(system, new Set(['R']), none, new Set(['plate']))
+    expect(ids(roles.rewarded), 'plate imported cheaply').toEqual([])
+    expect(ids(roles.live), 'live').toEqual([])
+  })
+
+  it('11: of two feeders of an item the one that takes fewer items per run costs less, whatever the row order', () => {
+    const a: Row = ['A2', { roll: 1 }, { saw: 1 }]
+    const b: Row = ['B2', { ore: 100 }, { saw: 1 }]
+    for (const rows of [[grow, saw, a, b], [grow, saw, b, a]]) {
+      const roles = absorberRoles(systemOf(rows, { goal: 10 }), new Set(['A']), none)
+      expect(roles.feederCost.get('A2')!, 'cheaper').toBeLessThan(roles.feederCost.get('B2')!)
+      expect(roles.feederCost.get('B2')!, 'tiny').toBeLessThan(1e-3)
+    }
   })
 })

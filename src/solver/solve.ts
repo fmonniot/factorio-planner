@@ -23,6 +23,8 @@ export interface LPResult {
    * `SLACK_TOLERANCE`. Empty when the plain LP was feasible.
    */
   shortfall: Map<string, number>
+  /** the absorber chains the model was built with (see `absorberRoles`) */
+  absorbers: AbsorberRoles
 }
 
 /** Sanitize a string to be a valid LP variable / constraint name. */
@@ -36,7 +38,7 @@ export const SLACK_TOLERANCE = 1e-6
  * Tiny negative coefficient applied to the rewarded recipes of an absorber chain (flagged byproduct
  * consumers that take a bounded item, see absorbers.ts) in the objective. Makes the LP prefer to run them
  * up to the surplus their intermediate constraints allow, without overriding goal-meeting decisions
- * (BIG_M slack cost dominates if the LP would have to import inputs). The rest of the chain costs 0.
+ * (BIG_M slack cost dominates if the LP would have to import inputs). The rows that only feed them cost `feederCost` (about `CHAIN_COST`, absorbers.ts).
  */
 export const BC_BONUS = -0.01
 /**
@@ -74,7 +76,7 @@ export interface LPModel {
   itemToTemperatureRows: Map<string, string[]>
   /** the least total shortfall `D` `boundShortfall` found (elastic models, once bounded) */
   leastShortfall?: number
-  /** the absorber chains of the system: which columns cost 0 or BC_BONUS and stay out of the supply-use rows */
+  /** the absorber chains of the system: which columns cost BC_BONUS or `feederCost` and which stay out of the supply-use rows */
   absorbers: AbsorberRoles
 }
 
@@ -104,7 +106,7 @@ export function pinRowName(varName: string): string {
  *     - Pinned recipes:     x_j = rate  (equality)
  *   Objective: minimize Σ c_j * x_j + Σ m_i * s_i
  *     where c_j = 1, BC_BONUS for the rewarded rows of an absorber chain (flagged byproduct consumers that take a
- *     bounded item), 0 for the other rows of the chain (see absorbers.ts), and m_i = BYPRODUCTS_FIRST_SLACK_COST
+ *     bounded item), `feederCost` for the rows that only feed them (see absorbers.ts), and m_i = BYPRODUCTS_FIRST_SLACK_COST
  *     for byproducts-first items, BIG_M otherwise; supply u_i is free,
  *     so it is used ahead of slack. Callers cap it at what own production can't cover.
  *
@@ -123,6 +125,8 @@ export function buildLPModel(
   byproductsFirst: Set<string> = new Set(),
   /** Give every goal row a shortfall variable (see `boundShortfall`). */
   elasticGoals = false,
+  /** Items imported cheaply in some other way than `byproductsFirst` (the areas' own slacks); never bounded for an absorber. */
+  extraCheapImports: ReadonlySet<string> = new Set(),
 ): LPModel {
   const { S, recipes, classification } = system
 
@@ -145,11 +149,12 @@ export function buildLPModel(
 
   // Initialize variable entries. Regular recipes contribute +1 per unit throughput; the rewarded rows of an
   // absorber chain contribute BC_BONUS (a tiny negative number) so the LP prefers to run them up to the surplus
-  // their intermediates allow, and the rest of the chain (rows that only feed them) costs 0.
-  const absorbers = absorberRoles(system, bcRecipeIds, pinnedRates)
+  // their intermediates allow, and the rows that only feed them cost `feederCost`.
+  const cheapImports = new Set([...byproductsFirst, ...extraCheapImports].filter(itemId => !noImportItems.has(itemId)))
+  const absorbers = absorberRoles(system, bcRecipeIds, pinnedRates, cheapImports)
   for (const recipeId of recipes) {
     const varName = recipeToVar.get(recipeId)!
-    variables[varName] = { __obj__: absorbers.rewarded.has(recipeId) ? BC_BONUS : absorbers.chain.has(recipeId) ? 0 : 1 }
+    variables[varName] = { __obj__: absorbers.rewarded.has(recipeId) ? BC_BONUS : (absorbers.feederCost.get(recipeId) ?? 1) }
   }
 
   // itemId → slack variable name (for post-solve extraction)
@@ -391,7 +396,7 @@ export function readLPResult(
     }
   }
 
-  return { throughput, slack, supply, warnings, feasible, shortfall }
+  return { throughput, slack, supply, warnings, feasible, shortfall, absorbers: lp.absorbers }
 }
 
 /** Does any goal have a row in `S`? Without one, an elastic model is the plain one. */

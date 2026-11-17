@@ -1093,19 +1093,19 @@ Goal: 10 `case23-goal`. Seed and roll are raw.
 |---|---|---|
 | a | S and K flagged | G 10, S 20, K 2, P 0.5, wood 160 made; no warning; seed 10 and roll 0.5 imported |
 | b | only S flagged | as a (K is a feeder) |
-| c | S, K and P flagged | as a (unbounded before) |
+| c | S, K and P flagged | as a |
 | d | as a, plus U and a goal of 4 gadget | P 1, S 0, K 0, `overconstrained` tree 20 |
-| e | G and a flagged B | B 0, G 10, no warning (unbounded before) |
+| e | G and a flagged B | B 0, G 10, no warning |
 | f | as a, S K P in an area "Wood", G in the root | the same rates; Wood receives tree 20; one route of tree from the root to Wood, 20 |
 | g | as a in a block with a take of wood by block C (50/min) and a request of roll from block M | S's rows are the same with and without C; C receives 50 wood (`ok`, a take); M is asked 0.5 roll and mines it |
 | h | as f with P in an area of its own ("Plates"), U in Wood pinned at 4, plate Receive it first with an offer of 100 | Wood receives 4 plate (the use of U), not 6: K takes none of the supply; K, S 0 |
 
 ```
-a: G runs 10 for the goal and makes 20 trees. S earns 0.01 per run and each run is covered by the 2 trees G makes anyway, so S takes all 20. The saw row is locked: -0.1 · 20 + K >= 0, K = 2 (cost 0). 4 · P >= 2, P = 0.5 (cost 0, a feeder). Wood is 8 · 20 = 160. Objective 10 · 1 = 10 less 20 · 0.01 = 9.8; the vertex is unique.
+a: G runs 10 for the goal and makes 20 trees. S earns 0.01 per run and each run is covered by the 2 trees G makes anyway, so S takes all 20. The saw row is locked: -0.1 · 20 + K >= 0, K = 2 (a feeder, about 1e-4 per run). 4 · P >= 2, P = 0.5 (a feeder). Wood is 8 · 20 = 160. Objective 10 · 1 = 10 less 20 · 0.01 = 9.8 plus the feeders' 1e-4 or so; the vertex is unique.
 b: K's only product, saw, is consumed only by S, so K is a feeder: the same chain.
-c: P is flagged too and takes only roll, which is raw, so it is not anchored and is not rewarded: it costs 0 instead of -0.01 (rewarding it made the LP unbounded: 4 plates per 1 roll for nothing).
+c: P is flagged too and takes only roll, which is raw, so it is not anchored and is not rewarded (rewarding it would make the LP unbounded: 4 plates per 1 roll for nothing). It feeds K, which feeds S, so it is live and costs the feeder cost.
 d: plate is also used by U (ordinary), so P is not a feeder: it costs 1 and K is anchored (its plate has an ordinary producer). Per run of S: -0.01 - 0.1 · 0.01 for the extra saw rows + 0.1 · 0.25 plate runs at 1 = +0.014 > 0: S does not run, the 20 trees are left over. P runs 4 / 4 = 1 for the gadgets.
-e: B takes only a raw item: not rewarded, costs 0: it does not run.
+e: B takes only a raw item and feeds nothing: not rewarded, not live, so it costs 1 like an ordinary row: it does not run.
 f: the rows of a, in an area: the same figures, and the trees cross from the root to Wood.
 g: the wood only reads S's offer: a take never makes S run harder; the roll of the chain is requested from M like any raw input.
 h: the area's supply covers what the rows outside the chain use (U, 4); the chain would use 2 more (K), and `auuse` leaves K out of that sum.
