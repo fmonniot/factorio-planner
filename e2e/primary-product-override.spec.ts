@@ -38,7 +38,7 @@ test.describe('Primary product override', () => {
     // By default Hydrogen is primary — it appears in the Products column.
     // Non-primary outputs (Oxygen, Sodium hydroxide) appear in Byproducts with
     // title="Set as primary". No ● badge — the column position is the feedback.
-    await expect(row.getByTitle(/Set as primary/).first()).toBeVisible()
+    await expect(row.getByLabel(/Set as primary/).first()).toBeVisible()
 
     // The row menu offers to pin it (not yet pinned).
     const menu = await openRowMenu(page, row)
@@ -46,15 +46,15 @@ test.describe('Primary product override', () => {
     await page.keyboard.press('Escape')
 
     // Count the "Set as primary" tiles before switching.
-    const beforeCount = await row.getByTitle(/Set as primary/).count()
+    const beforeCount = await row.getByLabel(/Set as primary/).count()
     expect(beforeCount).toBeGreaterThan(0)
 
     // Click the first "Set as primary" tile to switch the primary product.
-    await row.getByTitle(/Set as primary/).first().click()
+    await row.getByLabel(/Set as primary/).first().click()
 
     // After the switch: the same number of "Set as primary" tiles (the old primary
     // moved to Byproducts, the clicked one moved to Products).
-    await expect(row.getByTitle(/Set as primary/)).toHaveCount(beforeCount)
+    await expect(row.getByLabel(/Set as primary/)).toHaveCount(beforeCount)
   })
 
   test('single-output recipe shows no ● badge and no "Set as primary" elements', async ({ page }) => {
@@ -74,7 +74,7 @@ test.describe('Primary product override', () => {
     await expect(row).toBeVisible()
 
     // Single-output: no "Set as primary" tiles (nothing to switch to).
-    await expect(row.getByTitle(/Set as primary/)).not.toBeVisible()
+    await expect(row.getByLabel(/Set as primary/)).not.toBeVisible()
 
     // The row menu still offers pinning.
     const menu = await openRowMenu(page, row)

@@ -100,7 +100,7 @@ describe('FactorySummary — panes', () => {
   it('names a slot after its item and rate, with the item name as tooltip', () => {
     render(<FactorySummary />)
     const iron = screen.getByRole('button', { name: 'Iron Plate, 58.0 per minute, short' })
-    expect(iron).toHaveAttribute('title', 'Iron Plate')
+    expect(iron).toHaveAttribute('data-tip', 'Iron Plate')
   })
 
   it('words the slot name per second in /sec', () => {
@@ -1750,7 +1750,7 @@ describe('FactorySummary — products pane', () => {
     const ore = within(pane('Products')).getByRole('button', { name: 'Iron Ore, nothing requested yet' })
     expect(ore).toHaveAttribute('data-dimmed', 'true')
     expect(ore.className).toContain('border-dashed')
-    expect(ore).toHaveAttribute('title', 'Iron Ore — nothing requested yet')
+    expect(ore).toHaveAttribute('data-tip', 'Iron Ore — nothing requested yet')
     fireEvent.click(ore)
     expect(stripText()).toContain('nothing requested yet')
   })
@@ -2246,7 +2246,7 @@ describe('FactorySummary — collapsed summary', () => {
     render(<FactorySummary />)
     const chips = within(pane('Products')).getAllByTestId('summary-line-chip')
     expect(chips.map(c => c.dataset.itemId)).toEqual(['iron-plate'])
-    expect(chips[0]).toHaveAttribute('title', 'Iron Plate — goal 60.0/m, making 58.0/m, short by 2.00/m')
+    expect(chips[0]).toHaveAttribute('aria-label', 'Iron Plate — goal 60.0/m, making 58.0/m, short by 2.00/m')
     expect(within(chips[0]).getByTestId('summary-line-quantity')).toHaveTextContent('60.0')
     expect(chips[0]).toHaveAttribute('data-status', 'short')
     expect(chips[0]).toHaveClass('ring-amber-500')
@@ -2262,7 +2262,7 @@ describe('FactorySummary — collapsed summary', () => {
     withRoom(300)
     render(<FactorySummary />)
     const by = within(pane('Byproducts')).getByTestId('summary-line-chip')
-    expect(by).toHaveAttribute('title', 'Slag — 10.0/m')
+    expect(by).toHaveAttribute('aria-label', 'Slag — 10.0/m')
     expect(by).not.toHaveAttribute('data-status')
     expect(within(by).getByTestId('summary-line-quantity')).toHaveTextContent('10.0')
     expect(within(by).getByTestId('summary-line-quantity')).toHaveClass('text-red-300')
@@ -2278,7 +2278,7 @@ describe('FactorySummary — collapsed summary', () => {
     render(<FactorySummary />)
     const chip = within(pane('Products')).getByTestId('summary-line-chip')
     expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('58.0')
-    expect(chip).toHaveAttribute('title', 'Iron Plate — goal 58.0/m')
+    expect(chip).toHaveAttribute('aria-label', 'Iron Plate — goal 58.0/m')
     expect(chip).not.toHaveAttribute('data-status')
     expect(chip).not.toHaveClass('ring-amber-500')
   })
@@ -2290,7 +2290,7 @@ describe('FactorySummary — collapsed summary', () => {
     render(<FactorySummary />)
     const chip = within(pane('Products')).getByTestId('summary-line-chip')
     expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('50.0')
-    expect(chip).toHaveAttribute('title', 'Iron Plate — goal 50.0/m, making 58.0/m')
+    expect(chip).toHaveAttribute('aria-label', 'Iron Plate — goal 50.0/m, making 58.0/m')
     expect(chip).not.toHaveAttribute('data-status')
   })
 
@@ -2301,7 +2301,7 @@ describe('FactorySummary — collapsed summary', () => {
     render(<FactorySummary />)
     const chip = within(pane('Products')).getByTestId('summary-line-chip')
     expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('60.0')
-    expect(chip).toHaveAttribute('title', 'Iron Plate — goal 60.0/m')
+    expect(chip).toHaveAttribute('aria-label', 'Iron Plate — goal 60.0/m')
   })
 
   it('shows the actual rate of a product without a goal', () => {
@@ -2311,7 +2311,7 @@ describe('FactorySummary — collapsed summary', () => {
     render(<FactorySummary />)
     const chip = within(pane('Products')).getByTestId('summary-line-chip')
     expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('58.0')
-    expect(chip).toHaveAttribute('title', 'Iron Plate — 58.0/m')
+    expect(chip).toHaveAttribute('aria-label', 'Iron Plate — 58.0/m')
   })
 
   it('draws an empty product as a dimmed dash', () => {
@@ -2321,7 +2321,7 @@ describe('FactorySummary — collapsed summary', () => {
     render(<FactorySummary />)
     const chip = within(pane('Products')).getByTestId('summary-line-chip')
     expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('—')
-    expect(chip).toHaveAttribute('title', 'Iron Plate — nothing requested yet')
+    expect(chip).toHaveAttribute('aria-label', 'Iron Plate — nothing requested yet')
     expect(chip).toHaveClass('opacity-55')
   })
 
@@ -2332,7 +2332,7 @@ describe('FactorySummary — collapsed summary', () => {
     render(<FactorySummary />)
     const chip = within(pane('Products')).getByTestId('summary-line-chip')
     expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('1.0')
-    expect(chip.getAttribute('title')).toMatch(/\/s$/)
+    expect(chip.getAttribute('aria-label')).toMatch(/\/s$/)
   })
 
   it('shows a +N for what has no room, and it lists every item with its rate', () => {

@@ -9,6 +9,12 @@ describe('IconChip', () => {
     expect(screen.getByTestId('chip-pin').parentElement).toHaveClass('-top-1', '-right-1')
   })
 
+  it('gives the pin badge the instant tooltip, never a native title', () => {
+    render(<PinBadge />)
+    expect(screen.getByTestId('chip-pin')).toHaveAttribute('data-tip', 'Rate pinned')
+    expect(screen.getByTestId('chip-pin')).not.toHaveAttribute('title')
+  })
+
   it('is a span without onClick and a button with it', () => {
     const { rerender } = render(<IconChip alt="Gear" title="Gear" />)
     expect(screen.queryByRole('button')).toBeNull()
@@ -16,6 +22,17 @@ describe('IconChip', () => {
     rerender(<IconChip alt="Gear" title="Gear" onClick={onClick} />)
     fireEvent.click(screen.getByRole('button'))
     expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives a tip chip an aria-label and a data-tip, never a title; a span chip is an image', () => {
+    const { rerender } = render(<IconChip alt="Gear" tip="Gear — 3/s" data-testid="chip" />)
+    const chip = screen.getByTestId('chip')
+    expect(chip).toHaveAttribute('aria-label', 'Gear — 3/s')
+    expect(chip).toHaveAttribute('data-tip', '')
+    expect(chip).not.toHaveAttribute('title')
+    expect(chip).toHaveAttribute('role', 'img')
+    rerender(<IconChip alt="Gear" tip="Gear — 3/s" onClick={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Gear — 3/s' })).toHaveAttribute('data-tip', '')
   })
 
   it('draws items and entities at 32px (a 38px slot with the 6px gap)', () => {

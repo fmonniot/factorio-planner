@@ -26,7 +26,7 @@ test.describe('Byproduct: add consumer recipe', () => {
 
   test('row tile: right-click, pick a consumer, row appears', async ({ page }) => {
     const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Steam electrolysis"]') }).first()
-    await row.getByTitle(/^Oxygen — Set as primary/).click({ button: 'right' })
+    await row.getByLabel(/^Oxygen — Set as primary/).click({ button: 'right' })
     await expect(page.getByRole('menu').getByRole('menuitem', { name: 'Add consumer recipe…' })).toBeVisible()
     await page.getByRole('menuitem', { name: 'Add consumer recipe…' }).click()
 

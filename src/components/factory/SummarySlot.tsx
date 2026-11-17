@@ -121,7 +121,7 @@ export function SummarySlot({
           ? `${name}, nothing requested yet`
           : `${name}, ${ariaRate}${slot.status ? `, ${slot.status}` : ''}${slot.sourceRule ? ', has a source rule' : ''}`
       }
-      title={slot.empty ? `${name} — nothing requested yet` : name}
+      data-tip={slot.empty ? `${name} — nothing requested yet` : name}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}

@@ -52,7 +52,7 @@ test('3 chipFmt: every chip quantity is compact and the tooltip keeps the exact 
   const widths = await itemChips(page).evaluateAll(chips => chips.map(c => c.querySelector('[data-chip-quantity]')!.getBoundingClientRect().width))
   for (const w of widths) expect(w, 'quantity width').toBeLessThanOrEqual(38)
   // Exact rate in the title, with its unit.
-  const titles = await itemChips(page).evaluateAll(chips => chips.map(c => c.getAttribute('title') ?? ''))
+  const titles = await itemChips(page).evaluateAll(chips => chips.map(c => c.getAttribute('aria-label') ?? ''))
   for (const t of titles) expect(t, t).toMatch(/ — [\d.<e-]+(\/m|\/s|[kMG]?W)$/)
 })
 

@@ -152,7 +152,7 @@ test.describe('requests between blocks', () => {
     await expect(rodProduct).toHaveAccessibleName('Iron rod, nothing requested yet')
     await expect(rodProduct).toContainText('—')
     await expect(rodProduct).toHaveAttribute('data-dimmed', 'true')
-    await expect(rodProduct).toHaveAttribute('title', 'Iron rod — nothing requested yet')
+    await expect(rodProduct).toHaveAttribute('data-tip', 'Iron rod — nothing requested yet')
     await rodProduct.click()
     await expect(detail(page, 'Products')).toContainText('nothing requested yet')
     await expect(detail(page, 'Products').getByRole('button', { name: '+ Extra output' })).toBeVisible()

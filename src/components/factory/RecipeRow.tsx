@@ -817,7 +817,7 @@ export function RecipeRow({
                   variant="product"
                   pinned={showPin}
                   temperature={productTemp}
-                  title={productTemp ? `${gameData.items[itemId]?.name ?? itemId} (${productTemp})` : undefined}
+                  label={productTemp ? `${gameData.items[itemId]?.name ?? itemId} (${productTemp})` : undefined}
                 />
               </div>
             )
@@ -851,7 +851,7 @@ export function RecipeRow({
                   temperature={byproductTemp}
                   onClick={() => updateNodePrimaryProduct(planNode.id, itemId)}
                   onContextMenu={openItemMenu}
-                  title={`${itemName} — Set as primary${hasAreas ? PRIMARY_AREA_HINT : ''}${hint}`}
+                  label={`${itemName} — Set as primary${hasAreas ? PRIMARY_AREA_HINT : ''}${hint}`}
                 />
               )
             }
@@ -872,7 +872,7 @@ export function RecipeRow({
                   })
                 }
                 onContextMenu={openItemMenu}
-                title={`${itemName} — ${policy} (click to toggle)${hint}`}
+                label={`${itemName} — ${policy} (click to toggle)${hint}`}
               />
             )
           }}
@@ -913,7 +913,7 @@ export function RecipeRow({
                   ? <ItemSourceRuleMarker itemId={itemId} gameData={gameData} areaId={activeBlock && rowAreaId !== undefined && storedAreaRule(activeBlock.rootPlan, rowAreaId, itemId) !== undefined ? rowAreaId : undefined} />
                   : undefined}
                 temperature={temp}
-                title={isFuel
+                label={isFuel
                   ? `Fuel: ${label}${onIngredientClick ? ' — Find producer recipe' : ''}`
                   : onIngredientClick ? `${label} — Find producer recipe` : temp ? label : undefined}
               />

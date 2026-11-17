@@ -35,7 +35,7 @@ async function open(page: Page): Promise<void> {
 }
 
 async function pickerSlot(page: Page, from: Locator): Promise<Locator> {
-  await from.locator('[title^="Hydrogen — Find producer recipe"]').click()
+  await from.locator('[aria-label^="Hydrogen — Find producer recipe"]').click()
   await page.getByPlaceholder('Search…').fill('Steam electrolysis')
   return page.locator('[data-testid="recipe-slot"][data-recipe-id="nullius-steam-electrolysis"]')
 }
@@ -59,8 +59,8 @@ test('the badge, chips, primary-product tooltip and Go to row in… help to read
       .locator('[data-item-id="nullius-hydrogen"][data-direction="receives"]'),
   ).toHaveCount(1)
 
-  await expect(row(page, ROOT_ELEC).locator('[title^="Oxygen — Set as primary"]'))
-    .toHaveAttribute('title', /decides what this row builds for its area/)
+  await expect(row(page, ROOT_ELEC).locator('[aria-label^="Oxygen — Set as primary"]'))
+    .toHaveAttribute('aria-label', /decides what this row builds for its area/)
 
   const menu = await openRowMenu(page, row(page, ROOT_ELEC))
   await menu.getByRole('menuitem', { name: 'Go to row in…' }).click()

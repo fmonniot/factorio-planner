@@ -172,12 +172,12 @@ test.describe('Power generation', () => {
     await expect(engine.getByTitle('Steam engine', { exact: true })).toHaveText(/^\??12$/)
     // The chip's corner drops the decimal to fit the 32 px icon; the title keeps the exact value.
     await expect(engine.locator('[data-variant="product"]')).toContainText('10MW')
-    await expect(engine.locator('[data-variant="product"]')).toHaveAttribute('title', 'Electricity — 10.0MW')
+    await expect(engine.locator('[data-variant="product"]')).toHaveAttribute('aria-label', 'Electricity — 10.0MW')
     await expect(engine.locator('[data-testid="row-power"]')).toHaveCount(0)
     // Generators draw nothing, so the header shows no power total.
     await expect(page.getByTestId('block-power-total')).toHaveCount(0)
 
-    await engine.locator('button[title^="Steam ("]').first().click()
+    await engine.locator('button[aria-label^="Steam ("]').first().click()
     await pickBoilerFuel(page, 'power:boiler:coal')
     await expect(rows).toHaveCount(2)
     await expect(rows.nth(1).getByTitle('Boiler', { exact: true })).toHaveText(/^\??6$/)
@@ -188,7 +188,7 @@ test.describe('Power generation', () => {
     await addElectricityGoal(page, '10')
     await addRecipe(page, 'power:steam-engine:steam')
     const engine = page.locator('main table tbody tr').first()
-    await engine.locator('button[title^="Steam ("]').first().click()
+    await engine.locator('button[aria-label^="Steam ("]').first().click()
     await pickBoilerFuel(page, 'power:boiler:coal')
 
     await page.getByTestId('table-toolbar').getByRole('group', { name: 'Rate unit' }).getByRole('button', { name: '/sec' }).click()
@@ -271,7 +271,7 @@ test.describe('Power generation', () => {
     await addElectricityGoal(page, '10')
     await addRecipe(page, 'power:steam-engine:steam')
     const rows = page.locator('main table tbody tr')
-    await rows.first().locator('button[title^="Steam ("]').first().click()
+    await rows.first().locator('button[aria-label^="Steam ("]').first().click()
     await pickBoilerFuel(page, 'power:boiler:coal')
     await expect(slot(page, 'Ingredients', 'Coal')).toBeVisible()
 
@@ -297,7 +297,7 @@ test.describe('Heat', () => {
     await addElectricityGoal(page, '10.8')
     await addRecipe(page, 'power:steam-engine:steam')
     const rows = page.locator('main table tbody tr')
-    await rows.first().locator('button[title^="Steam ("]').first().click()
+    await rows.first().locator('button[aria-label^="Steam ("]').first().click()
     await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:heat-exchanger:power:heat"]').click()
     await expect(rows).toHaveCount(2)
     await expect(rows.nth(1).getByTitle('Heat exchanger', { exact: true })).toHaveText(/^\??3$/)
@@ -305,7 +305,7 @@ test.describe('Heat', () => {
     await expect(heat).toHaveAccessibleName('Heat, 21.6 MW')
     await expect(heat).toContainText('21.6MW')
 
-    await rows.nth(1).locator('button[title^="Heat — Find producer recipe"]').click()
+    await rows.nth(1).locator('button[aria-label^="Heat — Find producer recipe"]').click()
     await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:nuclear-reactor:uranium-fuel-cell"]').click()
     await expect(rows).toHaveCount(3)
     await expect(rows.nth(2).getByTitle('Nuclear reactor', { exact: true })).toHaveText(/^\??2$/)

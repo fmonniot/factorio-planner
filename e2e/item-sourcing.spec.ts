@@ -19,7 +19,7 @@ const oxygenSlot = (page: Page) => slot(page, 'Ingredients', 'Oxygen')
 const compressedSlot = (page: Page) => slot(page, 'Ingredients', 'Compressed oxygen')
 const acidRow = (page: Page) =>
   page.locator('main table tbody tr').filter({ has: page.locator('[title="Nitric acid"]') }).first()
-const oxygenChip = (page: Page) => acidRow(page).getByTitle(/^Oxygen/)
+const oxygenChip = (page: Page) => acidRow(page).getByLabel(/^Oxygen/)
 
 async function setup(page: Page) {
   await loadPlanFixture(page, FIXTURE)
@@ -93,7 +93,7 @@ test.describe('item sourcing', () => {
     await expect(comesFromPopover(page).getByTestId('comes-from-show-slot')).toBeVisible()
     // The rule shows on the row that uses oxygen: a marker beside its chip, named with the sentence.
     await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes \(/)
-    await expect(oxygenChip(page)).toHaveAttribute('title', /^Oxygen — Find producer recipe — /)
+    await expect(oxygenChip(page)).toHaveAttribute('aria-label', /^Oxygen — Find producer recipe — /)
 
     const acid = await exportedAcid(page)
     expect(acid.sourceRules).toEqual({ 'nullius-oxygen': { makeHere: 'off' } })

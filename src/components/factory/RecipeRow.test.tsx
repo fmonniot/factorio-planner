@@ -285,15 +285,12 @@ describe('RecipeRow', () => {
 
     // Slag tile is a byproduct (not primaryItemId = iron-plate)
     // The tile renders as a button for byproducts
-    const buttons = screen.getAllByRole('button')
-    const slagButton = buttons.find(b => b.title?.includes('slag') || b.getAttribute('title')?.includes('slag'))
-    if (slagButton) {
-      fireEvent.click(slagButton)
-      const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-      if (updated.kind === 'game-recipe') {
-        expect(updated.byproductPolicy['slag']).toBe('discard')
-      }
-    }
+    const slagButton = screen.getAllByRole('button').find(b => /slag/i.test(b.getAttribute('aria-label') ?? ''))
+    expect(slagButton, 'slag byproduct chip button').toBeDefined()
+    fireEvent.click(slagButton!)
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(updated.kind).toBe('game-recipe')
+    if (updated.kind === 'game-recipe') expect(updated.byproductPolicy['slag']).toBe('discard')
   })
 
   it('subplan node renders expand/collapse toggle', () => {
@@ -328,7 +325,7 @@ describe('RecipeRow', () => {
     const rootPlanId = block.rootPlan.id
     renderRow({ onIngredientClick })
     // Title set when onIngredientClick is provided.
-    const tile = screen.getByTitle(/^Iron Ore — Find producer recipe — \S+$/)
+    const tile = screen.getByLabelText(/^Iron Ore — Find producer recipe — \S+$/)
     fireEvent.click(tile)
     expect(onIngredientClick).toHaveBeenCalledWith('iron-ore', rootPlanId)
   })
@@ -359,7 +356,7 @@ describe('T11 — Primary product selection', () => {
     // The Byproducts cell renders a tile for Oxygen with "Set as primary".
     // No ● badge — the column position is the feedback.
     expect(screen.queryByTitle('Primary product')).not.toBeInTheDocument()
-    expect(screen.getByTitle(/Set as primary/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Set as primary/)).toBeInTheDocument()
   })
 
   it('multi-output: non-primary tiles have title "Set as primary"', () => {
@@ -368,7 +365,7 @@ describe('T11 — Primary product selection', () => {
     useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     // Oxygen is non-primary → its tile has title "Set as primary"
-    expect(screen.getByTitle(/Set as primary/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Set as primary/)).toBeInTheDocument()
   })
 
   it('clicking "Set as primary" calls updateNodePrimaryProduct', () => {
@@ -377,7 +374,7 @@ describe('T11 — Primary product selection', () => {
     useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
 
-    const setAsPrimaryBtn = screen.getByTitle(/Set as primary/)
+    const setAsPrimaryBtn = screen.getByLabelText(/Set as primary/)
     fireEvent.click(setAsPrimaryBtn)
 
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
@@ -413,6 +410,8 @@ describe('T12 — Pin rate UI', () => {
     const pinned = setupElectrolysis(2)
     renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
     expect(screen.getByTestId('chip-pin')).toBeInTheDocument()
+    // The chip's name replaces its content for assistive technology, so it carries the pin state.
+    expect(screen.getByTestId('chip-pin').closest('[data-variant]')).toHaveAttribute('aria-label', expect.stringMatching(/\(rate pinned\)$/))
     expect(screen.queryByLabelText('Pinned rate')).not.toBeInTheDocument()
     fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
     expect(screen.getByRole('menuitem', { name: 'Unpin rate' })).toBeInTheDocument()
@@ -529,7 +528,7 @@ describe('RecipeRow — v2 surplus intermediate renders as byproduct', () => {
       </RecipeDndProvider>,
     )
     // steam appears as a byproduct tile (non-primary output — button with red-950 class)
-    const steamTiles = screen.getAllByTitle(/Steam/i)
+    const steamTiles = screen.getAllByLabelText(/Steam/i)
     expect(steamTiles.length).toBeGreaterThan(0)
   })
 })
@@ -806,7 +805,7 @@ describe('RecipeRow byproduct context menu', () => {
     const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
     useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
   })
-  const oxygenTile = () => screen.getByTitle(/^Oxygen — Set as primary/)
+  const oxygenTile = () => screen.getByLabelText(/^Oxygen — Set as primary/)
 
   it('right-clicking a byproduct tile offers "Add consumer recipe…" and reports the item and sub-plan', () => {
     const onAddConsumer = vi.fn()
@@ -846,7 +845,7 @@ describe('RecipeRow byproduct context menu', () => {
   it('chip titles never end in a separator or whitespace, with or without onAddConsumer', () => {
     for (const onAddConsumer of [undefined, vi.fn()]) {
       const { unmount } = renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer })
-      const title = oxygenTile().getAttribute('title')!
+      const title = oxygenTile().getAttribute('aria-label')!
       expect(title).toBe(title.trim())
       expect(title).not.toMatch(/[;—,]$/)
       expect(title.includes('right-click')).toBe(onAddConsumer !== undefined)
@@ -888,7 +887,7 @@ describe('RecipeRow item chips: the Comes from menu', () => {
 
   it('right-clicking an ingredient chip opens a menu whose one entry opens the Comes from popover of its item', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(screen.getByTitle(/^Water/))
+    fireEvent.contextMenu(screen.getByLabelText(/^Water/))
     const items = screen.getAllByRole('menuitem')
     expect(items.map(i => i.textContent)).toEqual(['Comes from…'])
     expect(useUiStore.getState().comesFromPopover).toBeNull()
@@ -900,13 +899,13 @@ describe('RecipeRow item chips: the Comes from menu', () => {
 
   it('right-clicking a product chip opens no menu', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
+    fireEvent.contextMenu(screen.getByLabelText(/^Hydrogen/))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('the ingredient menu does not open the row menu, and the browser menu stays out', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    const notPrevented = fireEvent.contextMenu(screen.getByTitle(/^Water/))
+    const notPrevented = fireEvent.contextMenu(screen.getByLabelText(/^Water/))
     expect(notPrevented).toBe(false)
     expect(screen.getAllByRole('menu')).toHaveLength(1)
     expect(screen.queryByRole('menuitem', { name: /Duplicate|Remove/ })).not.toBeInTheDocument()
@@ -961,7 +960,7 @@ describe('RecipeRow source rule marker', () => {
     expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['oxygen'])
     const marker = markers()[0]
     // Beside the oxygen chip, in its frame, not inside the chip.
-    const chip = screen.getByTitle(/^Oxygen/)
+    const chip = screen.getByLabelText(/^Oxygen/)
     expect(chip).toHaveAttribute('data-variant', 'ingredient')
     expect(chip.parentElement).toHaveAttribute('data-chip-frame')
     expect(chip.parentElement).toContainElement(marker)
@@ -979,7 +978,7 @@ describe('RecipeRow source rule marker', () => {
     const sentence = /^Uses what this block already makes \(Electrolysis\)\. The rest is imported\.$/
     expect(screen.getByRole('img', { name: sentence })).toBe(markers()[0])
     expect(markers()[0].getAttribute('title')).toMatch(sentence)
-    expect(screen.getByTitle(/^Oxygen/).getAttribute('title')).toMatch(/^Oxygen — \S+$/)
+    expect(screen.getByLabelText(/^Oxygen/).getAttribute('aria-label')).toMatch(/^Oxygen — \S+$/)
     expect(document.querySelector('[title*="first)"]')).toBeNull()
   })
 
@@ -987,7 +986,7 @@ describe('RecipeRow source rule marker', () => {
     setBlock({ sourceRules: { oxygen: { makeHere: 'off' as const }, 'hydrogen': { importOff: true as const } } })
     // Electrolysis makes both: hydrogen is its product, oxygen its byproduct.
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, gameData })
-    expect(screen.getByTitle(/^Oxygen/)).toHaveAttribute('data-variant', 'byproduct')
+    expect(screen.getByLabelText(/^Oxygen/)).toHaveAttribute('data-variant', 'byproduct')
     expect(markers()).toHaveLength(0)
     cleanup()
     // Combustion uses both: each ingredient chip has one.
@@ -1083,7 +1082,7 @@ describe('RecipeRow source rule marker', () => {
     it("opens the Comes from popover on the row's area from the chip's menu", () => {
       const root = setAreas()
       rowIn(combustionB, root)
-      fireEvent.contextMenu(screen.getByTitle(/^Oxygen/))
+      fireEvent.contextMenu(screen.getByLabelText(/^Oxygen/))
       const item = screen.getByRole('menuitem')
       expect(item).toHaveAttribute('title', "Choose where this item comes from, for the block or for this row's area")
       fireEvent.click(item)
@@ -1093,7 +1092,7 @@ describe('RecipeRow source rule marker', () => {
     it('opens it with no area in a block without areas', () => {
       setBlock({})
       renderCombustion()
-      fireEvent.contextMenu(screen.getByTitle(/^Oxygen/))
+      fireEvent.contextMenu(screen.getByLabelText(/^Oxygen/))
       fireEvent.click(screen.getByRole('menuitem'))
       expect(useUiStore.getState().comesFromPopover).not.toHaveProperty('areaId')
     })
@@ -1108,7 +1107,7 @@ describe('RecipeRow source rule marker', () => {
     expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
     expect(useUiStore.getState().comesFromPopover).toBeNull()
     expect(onIngredientClick).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByTitle(/^Oxygen/))
+    fireEvent.click(screen.getByLabelText(/^Oxygen/))
     expect(onIngredientClick).toHaveBeenCalledWith('oxygen', expect.anything())
   })
 })
@@ -1398,7 +1397,7 @@ describe('RecipeRow sub-factory actions', () => {
   describe('ingredient temperature', () => {
     const steamProps = { solvedNode: steamCrackingSolved, planNode: steamCrackingPlanNode }
     const tileByTitle = (prefix: string) =>
-      screen.getByTitle((t) => t.startsWith(prefix))
+      screen.getByLabelText((t) => t.startsWith(prefix))
 
     it('shows the temperature range on the steam tile only', () => {
       renderRow(steamProps)
@@ -1408,13 +1407,13 @@ describe('RecipeRow sub-factory actions', () => {
 
     it('puts the temperature in the tile title when ingredients are clickable', () => {
       renderRow({ ...steamProps, onIngredientClick: vi.fn() })
-      expect(screen.getByTitle(/^Steam \(125–165°C\) — Find producer recipe — \S+$/)).toBeInTheDocument()
-      expect(screen.getByTitle(/^Water — Find producer recipe — \S+$/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/^Steam \(125–165°C\) — Find producer recipe — \S+$/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/^Water — Find producer recipe — \S+$/)).toBeInTheDocument()
     })
 
     it('puts the temperature in the tile title without onIngredientClick', () => {
       renderRow(steamProps)
-      expect(screen.getByTitle(/^Steam \(125–165°C\) — \S+$/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/^Steam \(125–165°C\) — \S+$/)).toBeInTheDocument()
     })
 
     it('renders no temperature badge for recipes without bounds', () => {
@@ -1450,13 +1449,13 @@ describe('RecipeRow sub-factory actions', () => {
 
     it('shows the explicit temperature on the product tile', () => {
       renderRow({ gameData: boilerData(), planNode: node('n-b', 'boiler-steam'), solvedNode: solved('n-b', { steam: 60 }) })
-      const tile = screen.getByTitle(/^Steam \(165°C\) — \S+$/)
+      const tile = screen.getByLabelText(/^Steam \(165°C\) — \S+$/)
       expect(within(tile).getByTestId('item-tile-temperature')).toHaveTextContent('165°C')
     })
 
     it('shows it on a byproduct tile and keeps the click hint in its title', () => {
       renderRow({ gameData: boilerData(), planNode: node('n-c', 'cogeneration'), solvedNode: solved('n-c', { hydrogen: 360, steam: 180 }) })
-      const tile = screen.getByTitle(/^Steam \(165°C\) — Set as primary/)
+      const tile = screen.getByLabelText(/^Steam \(165°C\) — Set as primary/)
       expect(within(tile).getByTestId('item-tile-temperature')).toHaveTextContent('165°C')
     })
 
@@ -1566,7 +1565,7 @@ describe('RecipeRow in a block with areas', () => {
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Build also in…' }))
     expect(labels()).toEqual(['Chlorides · uses 45.0/m'])
-    fireEvent.contextMenu(screen.getByTitle(/^Oxygen — Set as primary/))
+    fireEvent.contextMenu(screen.getByLabelText(/^Oxygen — Set as primary/))
     expect(screen.getAllByRole('menu')).toHaveLength(1)
     expect(labels()).toEqual(['Add consumer recipe…'])
     openMenu()
@@ -1640,14 +1639,14 @@ describe('RecipeRow in a block with areas', () => {
 
   it('explains in a block with areas what the primary product decides', () => {
     renderAreaRow('e-root', { onAddConsumer: vi.fn() })
-    expect(screen.getByTitle(/^Oxygen — Set as primary/).getAttribute('title')).toBe(
+    expect(screen.getByLabelText(/^Oxygen — Set as primary/).getAttribute('aria-label')).toBe(
       'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe — 30.0/m',
     )
   })
 
   it('keeps the plain primary-product tooltip without areas', () => {
     renderAreaRow('e-root', {}, { areas: false })
-    expect(screen.getByTitle(/^Oxygen — Set as primary — \S+$/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^Oxygen — Set as primary — \S+$/)).toBeInTheDocument()
   })
 
   describe('Duplicate to… on a sub-factory row', () => {
@@ -1771,11 +1770,11 @@ describe('RecipeRow in a block with areas', () => {
           { itemId: 'hydrogen', from: 'P', to: 'root', rate: 30 },
         ]),
       })
-      expect(screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')!.getAttribute('title')).toContain('from outside the block')
-      expect(screen.getByTestId('area-chips-out').querySelector('[data-item-id="hydrogen"]')!.getAttribute('title')).toContain('to the rest of the block')
+      expect(screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')!.getAttribute('aria-label')).toContain('from outside the block')
+      expect(screen.getByTestId('area-chips-out').querySelector('[data-item-id="hydrogen"]')!.getAttribute('aria-label')).toContain('to the rest of the block')
       unmount()
       renderAreaRow('h-P', { solvedNode: undefined, areaView: areaView() })
-      expect(screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')!.getAttribute('title')).toBe('Water: 60.0/m — from outside the block')
+      expect(screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')!.getAttribute('aria-label')).toBe('Water: 60.0/m — from outside the block')
     })
 
     it('puts the name across three columns, sends under Products and Byproducts and receives under Ingredients', () => {
@@ -1937,7 +1936,7 @@ describe('RecipeRow — burner fuel', () => {
     const fuel = document.querySelector('[data-fuel="true"]')
     expect(fuel).not.toBeNull()
     expect(fuel).toHaveAttribute('data-variant', 'ingredient')
-    expect(fuel).toHaveAttribute('title', expect.stringMatching(/^Fuel: coal — Find producer recipe — \S+$/))
+    expect(fuel).toHaveAttribute('aria-label', expect.stringMatching(/^Fuel: coal — Find producer recipe — \S+$/))
     expect(document.querySelectorAll('[data-fuel]')).toHaveLength(1)
     expect(screen.queryByTestId('row-power')).toBeNull()
   })
@@ -2185,7 +2184,7 @@ describe('RecipeRow on a narrow screen', () => {
       const onIngredientClick = vi.fn()
       const { list } = open('More ingredients', { onIngredientClick })
       const rootId = useBlockStore.getState().blocks[0].rootPlan.id
-      const chip = within(list).getByTitle(/^i3 — Find producer recipe — 60/)
+      const chip = within(list).getByLabelText(/^i3 — Find producer recipe — 60/)
       fireEvent.click(chip)
       expect(onIngredientClick).toHaveBeenCalledWith('i3', rootId)
       expect(dialog('More ingredients')).toBeNull()
@@ -2195,7 +2194,7 @@ describe('RecipeRow on a narrow screen', () => {
 
     it('toggles the policy of a hidden byproduct (a single-output recipe) and closes the list', () => {
       const { list } = open('More byproducts')
-      fireEvent.click(within(list).getByTitle(/^b4 — feed-back \(click to toggle\)/))
+      fireEvent.click(within(list).getByLabelText(/^b4 — feed-back \(click to toggle\)/))
       expect(useBlockStore.getState().blocks[0].rootPlan.nodes[0]).toMatchObject({ byproductPolicy: { b4: 'discard' } })
       expect(dialog('More byproducts')).toBeNull()
     })
@@ -2204,7 +2203,7 @@ describe('RecipeRow on a narrow screen', () => {
       const onAddConsumer = vi.fn()
       const { list } = open('More byproducts', { onAddConsumer })
       const rootId = useBlockStore.getState().blocks[0].rootPlan.id
-      fireEvent.contextMenu(within(list).getByTitle(/^b4 — feed-back/))
+      fireEvent.contextMenu(within(list).getByLabelText(/^b4 — feed-back/))
       expect(dialog('More byproducts')).toBeNull()
       fireEvent.click(screen.getByRole('menuitem', { name: 'Add consumer recipe…' }))
       expect(onAddConsumer).toHaveBeenCalledWith('b4', rootId)
@@ -2212,7 +2211,7 @@ describe('RecipeRow on a narrow screen', () => {
 
     it('opens the Comes from menu from a hidden ingredient, closing the list that would lie over it, and not the row menu', () => {
       const { list } = open('More ingredients', { onIngredientClick: vi.fn() })
-      fireEvent.contextMenu(within(list).getByTitle(/^i3 — Find producer recipe/))
+      fireEvent.contextMenu(within(list).getByLabelText(/^i3 — Find producer recipe/))
       expect(dialog('More ingredients')).toBeNull()
       expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Comes from…'])
     })
@@ -2223,7 +2222,7 @@ describe('RecipeRow on a narrow screen', () => {
       renderRow({ solvedNode: { ...busy, fuelItemId: 'i5' } })
       fireEvent.click(screen.getByRole('button', { name: '4 more ingredients' }))
       const list = screen.getByRole('dialog', { name: 'More ingredients' })
-      expect(within(list).getByTitle(/^Fuel: i5/).closest('[data-fuel="true"]')).not.toBeNull()
+      expect(within(list).getByLabelText(/^Fuel: i5/).closest('[data-fuel="true"]')).not.toBeNull()
     })
   })
 

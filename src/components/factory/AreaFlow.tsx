@@ -28,7 +28,7 @@ export function FlowChip({ itemId, rate, boundary, otherEnd, direction, items, r
       fallback={name}
       quantity={fmtChipQuantity(itemId, rate / 60, rateUnit)}
       tone={direction === 'receives' ? 'ingredient' : 'product'}
-      title={title}
+      tip={title}
       data-item-id={itemId}
       data-direction={direction}
       data-boundary={boundary ? 'true' : 'false'}

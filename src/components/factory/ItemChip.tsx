@@ -14,7 +14,8 @@ interface ItemChipProps {
   variant: ItemChipVariant
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
-  title?: string
+  /** The text before " — rate" in the chip's name and tooltip; defaults to the item name. */
+  label?: string
   /** Pre-formatted temperature requirement (e.g. "≥95°C"), shown in the top-left corner. */
   temperature?: string
   /** The source rule marker (`SourceRuleMarker.tsx`) of an ingredient whose item has a rule with an effect. */
@@ -26,13 +27,15 @@ interface ItemChipProps {
 }
 
 /** An item and its rate in the production table: an `IconChip` with the rate in the bottom-right corner. */
-export function ItemChip({ item, ratePerSec, variant, onClick, onContextMenu, title, temperature, marker, pinned, fuel }: ItemChipProps) {
+export function ItemChip({ item, ratePerSec, variant, onClick, onContextMenu, label, temperature, marker, pinned, fuel }: ItemChipProps) {
   const unit = useUiStore(s => s.rateUnit)
   // Energy is always in power units, which the rate unit does not tell; item rates follow the toolbar's unit.
   const quantity = fmtChipQuantity(item?.id, ratePerSec, unit)
-  const baseTitle = title ?? item?.name
+  const baseTitle = label ?? item?.name
   // The corner shows the number only: the title carries the full rate with its unit.
-  const chipTitle = baseTitle ? `${baseTitle} — ${fmtItemRateText(item?.id, ratePerSec, unit)}` : baseTitle
+  // The chip's accessible name replaces its content for assistive technology, so the pin badge's meaning goes in it.
+  const rateTitle = baseTitle ? `${baseTitle} — ${fmtItemRateText(item?.id, ratePerSec, unit)}` : baseTitle
+  const chipTitle = rateTitle && pinned ? `${rateTitle} (rate pinned)` : rateTitle
   const electricityNoIcon = item?.id === ELECTRICITY_ITEM_ID && !item?.iconPath
 
   return (
@@ -47,7 +50,7 @@ export function ItemChip({ item, ratePerSec, variant, onClick, onContextMenu, ti
       marker={marker}
       onClick={onClick}
       onContextMenu={onContextMenu}
-      title={chipTitle}
+      tip={chipTitle}
       data-variant={variant}
       data-fuel={fuel ? 'true' : undefined}
     />

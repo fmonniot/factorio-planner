@@ -1,6 +1,7 @@
 import { TopBar } from './TopBar'
 import { FactorySummary } from './FactorySummary'
 import { ProductionTable } from './ProductionTable'
+import { TooltipLayer } from '../TooltipLayer'
 
 export function FactoryShell() {
   return (
@@ -10,6 +11,7 @@ export function FactoryShell() {
         <FactorySummary />
         <ProductionTable />
       </main>
+      <TooltipLayer />
     </div>
   )
 }

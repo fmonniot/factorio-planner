@@ -168,7 +168,7 @@ describe('ProductionTable', () => {
     } as never)
 
     render(<ProductionTable />)
-    const ingredient = screen.getByTitle(/^Iron Ore — Find producer recipe — \S+$/)
+    const ingredient = screen.getByLabelText(/^Iron Ore — Find producer recipe — \S+$/)
     fireEvent.click(ingredient)
 
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
@@ -213,7 +213,7 @@ describe('ProductionTable', () => {
     })
 
     async function openConsumerPicker() {
-      fireEvent.contextMenu(screen.getByTitle(/^Slag — /))
+      fireEvent.contextMenu(screen.getByLabelText(/^Slag — /))
       fireEvent.click(screen.getByRole('menuitem', { name: 'Add consumer recipe…' }))
       await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
       expect(screen.getByText("Choose a recipe that consumes 'Slag'")).toBeInTheDocument()

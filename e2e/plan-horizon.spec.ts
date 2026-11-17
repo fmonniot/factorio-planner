@@ -474,7 +474,7 @@ test.describe('Plan horizon: default fuel', () => {
     await addRecipe(page, 'iron-plate')
     const row = page.locator('main table tbody tr').first()
     const fuel = row.locator('[data-fuel="true"]')
-    await expect(fuel).toHaveAttribute('title', /^Fuel: Coal/)
+    await expect(fuel).toHaveAttribute('aria-label', /^Fuel: Coal/)
 
     await selectRow(page, row)
     await page.getByTestId('fuel-button').click()
@@ -482,13 +482,13 @@ test.describe('Plan horizon: default fuel', () => {
     await page.keyboard.press('Escape')
 
     await setHorizon(page, 'electronics', 'smelting', 'forestry')
-    await expect(fuel).toHaveAttribute('title', /^Fuel: Wood/)
+    await expect(fuel).toHaveAttribute('aria-label', /^Fuel: Wood/)
     await selectRow(page, row)
     await page.getByTestId('fuel-button').click()
     await expect(page.getByTestId('fuel-default')).toHaveText(/Default \(Wood\)/)
     await page.keyboard.press('Escape')
 
     await setHorizon(page)
-    await expect(fuel).toHaveAttribute('title', /^Fuel: Wood/)
+    await expect(fuel).toHaveAttribute('aria-label', /^Fuel: Wood/)
   })
 })

@@ -37,7 +37,7 @@ const boxing = (page: Page, n: 1 | 2) => rows(page).filter({ hasText: 'Stone box
 const made = (page: Page, n: 1 | 2) => async (): Promise<number> => {
   const chip = boxing(page, n).locator('[data-variant="product"]').first()
   if ((await chip.count()) === 0) return 0
-  const match = /([\d.]+)\/m$/.exec((await chip.getAttribute('title')) ?? '')
+  const match = /([\d.]+)\/m$/.exec((await chip.getAttribute('aria-label')) ?? '')
   return match ? parseFloat(match[1]) : Number.NaN
 }
 const popover = (page: Page) => page.getByTestId('comes-from-popover')
@@ -46,7 +46,7 @@ const areaLine = (page: Page, id: string) => popover(page).locator(`[data-line="
 const reading = (page: Page, line: ReturnType<typeof areaLine>) => line.getByTestId('sources-reading')
 
 async function openList(page: Page) {
-  await using(page).getByTitle(/^Stone box/).click({ button: 'right' })
+  await using(page).getByLabel(/^Stone box/).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Comes from…' }).click()
   await expect(popover(page)).toBeVisible()
   await popover(page).getByTestId('comes-from-scope').getByRole('button', { name: 'Line L', exact: true }).click()
@@ -82,7 +82,7 @@ test.describe('choosing the supplying area (case 21 B)', () => {
   test('rows a to c: one switch per supplying area; the list, the rows, the pane, the sentence, the rule list and the matrix agree', async ({ page }, testInfo) => {
     await load(page)
     // No offer: the block's connection goes, through the Sources list of the block.
-    await using(page).getByTitle(/^Stone box/).click({ button: 'right' })
+    await using(page).getByLabel(/^Stone box/).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Comes from…' }).click()
     await popover(page).getByTestId('sources-button').click()
     await popover(page).getByTestId('sources-block-remove').click()
@@ -195,11 +195,11 @@ test('case 21 C, rows c and d: the area that takes nothing from T leaves the sid
   const ranAt = async (): Promise<number> => {
     const chip = page.locator('main tr[data-node-id="dddd0008-0000-0000-0000-000000000002"] [data-variant="product"]').first()
     if ((await chip.count()) === 0) return 0
-    const match = /([\d.]+)\/m$/.exec((await chip.getAttribute('title')) ?? '')
+    const match = /([\d.]+)\/m$/.exec((await chip.getAttribute('aria-label')) ?? '')
     return match ? parseFloat(match[1]) : Number.NaN
   }
   const open = async (n: 0 | 1, area: string) => {
-    await dust(n).getByTitle(/^Gravel/).click({ button: 'right' })
+    await dust(n).getByLabel(/^Gravel/).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Comes from…' }).click()
     await expect(popover(page)).toBeVisible()
     await popover(page).getByTestId('comes-from-scope').getByRole('button', { name: area, exact: true }).click()

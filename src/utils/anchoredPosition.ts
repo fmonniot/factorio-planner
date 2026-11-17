@@ -44,3 +44,20 @@ export function anchoredBelow(
     ? { left, top: anchor.bottom + gap, maxHeight: Math.max(0, roomBelow) }
     : { left, top: margin, maxHeight: Math.max(0, roomAbove) }
 }
+
+/**
+ * Where to put a fixed-position tooltip of `size` over `anchor` (a chip): centred on it, a 6px gap above, clamped inside the
+ * viewport horizontally and flipped below the anchor when it would leave less than `margin` above.
+ */
+export function anchoredAbove(
+  anchor: Box,
+  size: { width: number; height: number },
+  viewport: { width: number; height: number },
+  gap = 6,
+  margin = 8,
+): Placement {
+  const centre = (anchor.left + anchor.right) / 2
+  const left = Math.max(margin, Math.min(centre - size.width / 2, viewport.width - size.width - margin))
+  const above = anchor.top - gap - size.height
+  return { left, top: above < margin ? anchor.bottom + gap : above }
+}

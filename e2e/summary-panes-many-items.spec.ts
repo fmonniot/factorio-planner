@@ -67,7 +67,7 @@ test.describe('summary panes with many items', () => {
     await expect(productSlots).toHaveCount(16)
     let exportCount = 0
     for (const s of await productSlots.all()) {
-      const itemName = (await s.getAttribute('title'))!
+      const itemName = (await s.getAttribute('data-tip'))!
       await s.click()
       await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'selected')
       const entries = detail(page, 'Products').locator('[data-testid="summary-segment"][data-kind="export"]')
@@ -97,7 +97,7 @@ test.describe('summary panes with many items', () => {
   test('hovering a slot previews it and leaving returns to the overview', async ({ page }) => {
     await setup(page)
     const first = slots(page, 'Products').first()
-    const name = (await first.getAttribute('title'))!
+    const name = (await first.getAttribute('data-tip'))!
     await first.hover()
     await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'preview')
     await expect(detail(page, 'Products')).toContainText(name)
@@ -149,7 +149,7 @@ test.describe('summary panes with many items', () => {
     // Item names by id, read from the Metals product slots before leaving the block.
     const names = new Map<string, string>()
     for (const s of await slots(page, 'Products').all()) {
-      names.set((await s.getAttribute('data-item-id'))!, (await s.getAttribute('title'))!)
+      names.set((await s.getAttribute('data-item-id'))!, (await s.getAttribute('data-tip'))!)
     }
     await slotById(page, 'Products', 'nullius-iron-sheet').click()
     await detail(page, 'Products')
