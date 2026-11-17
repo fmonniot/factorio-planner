@@ -481,3 +481,60 @@ describe('SidePanel — drawer focus', () => {
     opener.remove()
   })
 })
+
+describe('SidePanel — Research needed', () => {
+  function withTechs() {
+    const data = makeGameData()
+    data.items['pack'] = { id: 'pack', name: 'Red Pack', type: 'item', iconPath: '', hidden: false } as GameData['items'][string]
+    data.technologies = {
+      smelting: {
+        id: 'smelting', name: 'Smelting', prerequisites: [], unlockedRecipes: ['r-plate'], iconPath: '',
+        cost: { ingredients: [{ itemId: 'pack', amount: 1 }], count: 10, time: 5 },
+      },
+    } as unknown as GameData['technologies']
+    data.startingRecipes = ['r-gear']
+    return data
+  }
+  function open(data: GameData, nodeId: string) {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select(nodeId)
+    render(<SidePanel blockId={block.id} rootPlan={block.rootPlan} result={undefined} gameData={data} />)
+    return screen.getByTestId('panel-research')
+  }
+
+  it('lists the unlocking technology with its pack types and no counts or time', () => {
+    const section = open(withTechs(), 'n1')
+    const rows = within(section).getAllByTestId('research-tech')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('Smelting')
+    expect(within(rows[0]).getByTitle('Red Pack ×1')).toBeInTheDocument()
+    expect(rows[0].textContent).not.toContain('×10')
+    expect(rows[0].textContent).not.toContain('5s')
+  })
+
+  it('reads "Available from the start" for a starting recipe', () => {
+    expect(open(withTechs(), 'n2')).toHaveTextContent('Available from the start')
+  })
+
+  it('says so when no technology unlocks the recipe, and shows a trigger for a trigger technology', () => {
+    const data = withTechs()
+    data.technologies.smelting.unlockedRecipes = []
+    expect(open(data, 'n1')).toHaveTextContent('No technology unlocks this recipe')
+  })
+
+  it('shows the trigger of a research-trigger technology', () => {
+    const data = withTechs()
+    data.technologies.smelting.cost = null
+    data.technologies.smelting.trigger = { type: 'craft-item', item: 'plate', count: 10 } as never
+    const rows = within(open(data, 'n1')).getAllByTestId('research-tech')
+    expect(rows[0]).toHaveTextContent('Smelting')
+    expect(within(rows[0]).getByTestId('tech-cost')).toBeInTheDocument()
+  })
+
+  it('is absent without technology data', () => {
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    renderPanel()
+    expect(screen.queryByTestId('panel-research')).toBeNull()
+  })
+})

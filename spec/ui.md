@@ -1024,6 +1024,8 @@ Sections in order, each a `section` with a heading:
 
 A chip shortcut (the filled module or beacon chips) selects the row and highlights one section of its panel: it scrolls into view and shows a teal ring (`data-highlighted="true"`) for about two seconds. The highlight (`uiStore.panelHighlight`) is transient, belongs to the row that asked for it, and ends when another row is selected.
 
+7. **Research needed.** Only when the data set has technology data (`panel-research`). The technologies that unlock the row's recipe (`research-tech`, `data-tech-id`), in the order of the recipe picker's **Unlocked by:** section (`recipeUnlock`): the technology icon, its name and its science pack icons, with no pack count and no research time (a research-trigger technology shows its short trigger condition). Starting, extraction and power recipes read "Available from the start"; a recipe no technology unlocks reads "No technology unlocks this recipe". Read-only, and not limited by the research horizon.
+
 #### Group panel
 
 `sidePanel/GroupPanel.tsx`, read only. Selecting a group row (anywhere that is not its chevron button or a field) shows:
