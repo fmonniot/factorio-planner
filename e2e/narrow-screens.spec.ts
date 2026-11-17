@@ -190,7 +190,7 @@ test.describe('narrowStack: Machine and Beacons under the recipe name, below 768
     const dialog = page.getByRole('dialog', { name: 'More ingredients' })
     await expect(dialog).toBeVisible()
     const chip = dialog.locator('button[data-variant="ingredient"]').first()
-    await expect(chip).toHaveAttribute('title', /^.+ — Find producer recipe — \S+$/)
+    await expect(chip).toHaveAttribute('aria-label', /^.+ — Find producer recipe — \S+$/)
     await chip.click()
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
     await expect(dialog).toBeHidden()

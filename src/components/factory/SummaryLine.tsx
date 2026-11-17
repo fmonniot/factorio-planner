@@ -82,9 +82,7 @@ function LineChip({ pane, slot, items, rateUnit }: { pane: SummaryPaneKind; slot
       quantityTestId="summary-line-quantity"
       tone={CHIP_TONE[pane]}
       warn={short}
-      title={title}
-      role="img"
-      aria-label={title}
+      tip={title}
       badges={short ? <span aria-hidden className="text-[9px] leading-none text-amber-400" style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}>▼</span> : undefined}
       // Nothing else on the line leads to the item's Comes from control, so the marker does: it expands the summary on the slot.
       marker={slot.sourceRule ? <SummarySourceRuleMarker itemId={slot.itemId} /> : undefined}

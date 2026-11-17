@@ -18,6 +18,17 @@ describe('IconChip', () => {
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
+  it('gives a tip chip an aria-label and a data-tip, never a title; a span chip is an image', () => {
+    const { rerender } = render(<IconChip alt="Gear" tip="Gear — 3/s" data-testid="chip" />)
+    const chip = screen.getByTestId('chip')
+    expect(chip).toHaveAttribute('aria-label', 'Gear — 3/s')
+    expect(chip).toHaveAttribute('data-tip', '')
+    expect(chip).not.toHaveAttribute('title')
+    expect(chip).toHaveAttribute('role', 'img')
+    rerender(<IconChip alt="Gear" tip="Gear — 3/s" onClick={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Gear — 3/s' })).toHaveAttribute('data-tip', '')
+  })
+
   it('draws items and entities at 32px (a 38px slot with the 6px gap)', () => {
     const { rerender, container } = render(<IconChip alt="Gear" />)
     expect(container.querySelector('.w-8.h-8')).not.toBeNull()

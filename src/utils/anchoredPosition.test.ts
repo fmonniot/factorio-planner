@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { anchoredBelow, anchoredPosition } from './anchoredPosition'
+import { anchoredAbove, anchoredBelow, anchoredPosition } from './anchoredPosition'
 
 const size = { width: 100, height: 50 }
 const viewport = { width: 1000, height: 600 }
@@ -57,5 +57,19 @@ describe('anchoredBelow', () => {
   it('stays inside the viewport horizontally', () => {
     expect(anchoredBelow({ left: 5, top: 100, right: 37, bottom: 132 }, size, viewport).left).toBe(8)
     expect(anchoredBelow({ left: 990, top: 100, right: 1022, bottom: 132 }, size, viewport).left).toBe(1000 - 100 - 8)
+  })
+})
+
+describe('anchoredAbove', () => {
+  it('is centred over the anchor with a 6px gap', () => {
+    expect(anchoredAbove(anchor, size, viewport)).toEqual({ left: 200, top: 100 - 6 - 50 })
+  })
+  it('flips below the anchor when there is no room above', () => {
+    const a = { left: 200, top: 20, right: 300, bottom: 60 }
+    expect(anchoredAbove(a, size, viewport)).toEqual({ left: 200, top: 66 })
+  })
+  it('clamps to the margin on the left and on the right', () => {
+    expect(anchoredAbove({ left: 0, top: 100, right: 20, bottom: 140 }, size, viewport).left).toBe(8)
+    expect(anchoredAbove({ left: 980, top: 100, right: 1000, bottom: 140 }, size, viewport).left).toBe(1000 - 100 - 8)
   })
 })

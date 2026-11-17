@@ -39,7 +39,7 @@ const using = (page: Page, area: 'L' | 'B') => rows(page).filter({ hasText: 'Gra
 const made = (page: Page, area: 'L' | 'B') => async (): Promise<number> => {
   const chip = boxing(page, area).locator('[data-variant="product"]').first()
   if ((await chip.count()) === 0) return 0
-  const match = /([\d.]+)\/m$/.exec((await chip.getAttribute('title')) ?? '')
+  const match = /([\d.]+)\/m$/.exec((await chip.getAttribute('aria-label')) ?? '')
   return match ? parseFloat(match[1]) : Number.NaN
 }
 const stoneBox = (page: Page) => slot(page, 'Ingredients', 'Stone box')
@@ -60,7 +60,7 @@ async function expectFigures(page: Page, f: { l: number; b: number; connection: 
 
 /** Right-click the Stone box ingredient chip of an area's Gravel (boxed) row and open Comes from…. */
 async function openFromChip(page: Page, area: 'L' | 'B') {
-  await using(page, area).getByTitle(/^Stone box/).click({ button: 'right' })
+  await using(page, area).getByLabel(/^Stone box/).click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Comes from…' }).click()
   await expect(popover(page)).toBeVisible()
 }

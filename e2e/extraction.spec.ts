@@ -69,7 +69,7 @@ test.describe('Extraction recipes', () => {
   test('an ore is mined from the ingredient tile', async ({ page }) => {
     await addGoal(page, 'iron-plate', '60')
     await addRecipe(page, 'iron-plate')
-    await page.locator('main table tbody tr').first().locator('button[title^="Iron ore"]').first().click()
+    await page.locator('main table tbody tr').first().locator('button[aria-label^="Iron ore"]').first().click()
     await page.locator('[data-testid="recipe-slot"][data-recipe-id="mining:iron-ore"]').click()
 
     const rows = page.locator('main table tbody tr')

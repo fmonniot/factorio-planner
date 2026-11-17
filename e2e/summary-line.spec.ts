@@ -100,7 +100,7 @@ test.describe('collapsed summary', () => {
     expect(n).toBeLessThan(16)
     for (const chip of await chips.all()) {
       await expect(chip.getByTestId('summary-line-quantity')).toHaveText(/\S/)
-      await expect(chip).toHaveAttribute('title', / — /)
+      await expect(chip).toHaveAttribute('aria-label', / — /)
     }
     const moreBox = (await more.boundingBox())!
     const paneBox = (await products.boundingBox())!
@@ -135,7 +135,7 @@ test.describe('collapsed summary', () => {
     // The ingredients come from the solver: once they are there, the products have their final numbers.
     await expect(pane(page, 'Ingredients').getByTestId('summary-line-chip').first()).toBeVisible()
     await products.getByRole('button', { name: 'Show all 16 products' }).click()
-    const titles = await chips.evaluateAll(l => l.map(e => e.getAttribute('title')!))
+    const titles = await chips.evaluateAll(l => l.map(e => e.getAttribute('aria-label')!))
     const rows = page.getByTestId('summary-line-popup').locator('li')
     for (let i = 0; i < titles.length; i++) {
       const row = (await rows.nth(i).innerText()).replace(/\s+/g, ' ')

@@ -53,11 +53,13 @@ interface IconChipProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   /** With `onClick`: the button is disabled. */
   disabled?: boolean
   quantityTestId?: string
+  /** The chip's accessible name and its instant tooltip (`TooltipLayer`): sets `aria-label` and `data-tip`, never `title`. */
+  tip?: string
 }
 
 export function IconChip({
   iconPath, alt, fallback, size = 'item', quantity, tone = 'neutral', badges, marker, empty = false, quiet = false, warn = false,
-  corner, onClick, disabled, quantityTestId, className = '', ...rest
+  corner, onClick, disabled, quantityTestId, tip, className = '', ...rest
 }: IconChipProps) {
   const item = size === 'item'
   const quietEmpty = empty && quiet
@@ -97,12 +99,13 @@ export function IconChip({
   )
   const plate = item ? 'rounded-[5px] bg-[rgba(148,163,184,0.09)] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.10)]' : 'rounded'
   const base = `relative inline-flex shrink-0 group/chip ${plate} ${ring} ${quietEmpty ? quietText(!locked) : ''} ${className}`
+  const tipProps = tip === undefined ? {} : { 'aria-label': tip, 'data-tip': '' }
   const chip = onClick ? (
-    <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${disabled ? '' : 'hover:ring-1 hover:ring-gray-500 cursor-pointer'}`} {...rest}>
+    <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${disabled ? '' : 'hover:ring-1 hover:ring-gray-500 cursor-pointer'}`} {...tipProps} {...rest}>
       {body}
     </button>
   ) : (
-    <span className={base} {...rest}>{body}</span>
+    <span className={base} {...(tip === undefined ? {} : { role: 'img' })} {...tipProps} {...rest}>{body}</span>
   )
   if (!marker) return chip
   return (

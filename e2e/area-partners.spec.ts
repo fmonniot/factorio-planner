@@ -36,15 +36,15 @@ test('the chips of case 7 name the partner of each route', async ({ page }) => {
   await open(page, PARTNERS, PLATE_HANDLE)
 
   const plateIn = row(page, PLATE_HANDLE).getByTestId('area-chips-in')
-  await expect(plateIn.locator('[data-item-id="iron-ore"]')).toHaveAttribute('title', / — from outside the block$/)
+  await expect(plateIn.locator('[data-item-id="iron-ore"]')).toHaveAttribute('aria-label', / — from outside the block$/)
   const plateOut = row(page, PLATE_HANDLE).getByTestId('area-chips-out')
-  await expect(plateOut.locator('[data-item-id="nullius-iron-plate"]')).toHaveAttribute('title', / — to the rest of the block$/)
-  await expect(plateOut.locator('[data-item-id="nullius-gravel"]')).toHaveAttribute('title', / — to outside the block$/)
+  await expect(plateOut.locator('[data-item-id="nullius-iron-plate"]')).toHaveAttribute('aria-label', / — to the rest of the block$/)
+  await expect(plateOut.locator('[data-item-id="nullius-gravel"]')).toHaveAttribute('aria-label', / — to outside the block$/)
 
   const rodIn = row(page, ROD_HANDLE).getByTestId('area-chips-in')
-  await expect(rodIn.locator('[data-item-id="nullius-iron-ingot"]')).toHaveAttribute('title', / — from the rest of the block$/)
+  await expect(rodIn.locator('[data-item-id="nullius-iron-ingot"]')).toHaveAttribute('aria-label', / — from the rest of the block$/)
   const rodOut = row(page, ROD_HANDLE).getByTestId('area-chips-out')
-  await expect(rodOut.locator('[data-item-id="nullius-iron-rod"]')).toHaveAttribute('title', / — to the rest of the block$/)
+  await expect(rodOut.locator('[data-item-id="nullius-iron-rod"]')).toHaveAttribute('aria-label', / — to the rest of the block$/)
 })
 
 test('Trades with lists the items each partner exchanges', async ({ page }) => {
@@ -87,9 +87,9 @@ test('several partners are joined in the title and listed apart in Trades with',
   await open(page, ROUTES, COMPRESSION_HANDLE)
 
   await expect(row(page, COMPRESSION_HANDLE).getByTestId('area-chips-in').locator('[data-item-id="nullius-hydrogen"]'))
-    .toHaveAttribute('title', / — from the rest of the block, Backup$/)
+    .toHaveAttribute('aria-label', / — from the rest of the block, Backup$/)
   await expect(row(page, BACKUP_HANDLE).getByTestId('area-chips-out').locator('[data-item-id="nullius-hydrogen"]'))
-    .toHaveAttribute('title', / — to Compression, Chlorides$/)
+    .toHaveAttribute('aria-label', / — to Compression, Chlorides$/)
 
   await focus(page, 'Hydrogen', 'Compression')
   const panel = page.getByRole('complementary', { name: 'Compression' })

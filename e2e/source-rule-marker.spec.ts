@@ -44,12 +44,12 @@ function markerPlan(outPath: string, itemSourcing: Record<string, string> = {}, 
 const table = (page: Page) => page.locator('main table')
 const rows = (page: Page) => table(page).locator('tbody tr')
 /** The rows that use oxygen: nitric acid synthesis at the top level, methanol in the sub-factory. */
-const userRows = (page: Page) => rows(page).filter({ has: page.locator('[data-variant="ingredient"][title^="Oxygen"]') })
+const userRows = (page: Page) => rows(page).filter({ has: page.locator('[data-variant="ingredient"][aria-label^="Oxygen"]') })
 const acidRow = (page: Page) => rows(page).filter({ has: page.locator('[title="Nitric acid"]') })
 const methanolRow = (page: Page) => rows(page).filter({ has: page.locator('[title="Methanol"]') })
 const markers = (scope: Page | Locator) => scope.getByTestId('source-rule-marker')
 /** Every chip of oxygen in the table, whatever its column. */
-const oxygenChips = (page: Page) => table(page).locator('[data-variant][title^="Oxygen"]')
+const oxygenChips = (page: Page) => table(page).locator('[data-variant][aria-label^="Oxygen"]')
 const oxygenSlot = (page: Page) => slot(page, 'Ingredients', 'Oxygen')
 /** The search box of the producer picker an ingredient chip opens. */
 const picker = (page: Page) => page.getByPlaceholder('Search…')
@@ -82,7 +82,7 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   for (const row of await userRows(page).all()) {
     const frame = row.locator('[data-chip-frame]')
     await expect(frame).toHaveCount(1)
-    await expect(frame.locator('[data-variant="ingredient"]')).toHaveAttribute('title', /^Oxygen — Find producer recipe — /)
+    await expect(frame.locator('[data-variant="ingredient"]')).toHaveAttribute('aria-label', /^Oxygen — Find producer recipe — /)
     await expect(markers(frame)).toHaveAttribute('data-item-id', OXYGEN)
   }
   // No other chip of the table has one: not the oxygen the electrolysis and the decompression make, and no other item.
@@ -120,7 +120,7 @@ test('the marker only shows the rule: a click on it opens nothing, and a right-c
   await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'false')
 
   // The dot is 6px in the top-right corner of the chip, in a larger box that carries the tooltip.
-  const chip = row.locator('[data-variant="ingredient"][title^="Oxygen"]')
+  const chip = row.locator('[data-variant="ingredient"][aria-label^="Oxygen"]')
   const chipBox = (await chip.boundingBox())!
   const dotBox = (await marker.locator('span').boundingBox())!
   const hitBox = (await marker.boundingBox())!
