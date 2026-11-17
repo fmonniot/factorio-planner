@@ -308,9 +308,9 @@ describe('solveBlock — own production first', () => {
     expect(rate(result.unsatisfied, 'ingot')).toBeCloseTo(50, 4)
   })
 
-  // Pins today's behaviour of the "own production that needs an import" rule, which
-  // depends on the recipe ratio (see spec/solver.md). `ingotFromOre` is pinned at 10,
-  // so ingot is short, and plate can only come from the ingot.
+  // "Own production that needs an import": `ingotFromOre` is pinned at 10, so ingot is short,
+  // and plate can only come from the ingot. Whatever the ratio, the plate connection replaces the
+  // ingot import (case 22 A, rows a and b; connectionOrder.ts).
   describe('own production that needs an upstream import', () => {
     const gd = (ingotPerPlate: number, platesPerRun: number): GameData => {
       const data = connectionGameData()
@@ -332,10 +332,10 @@ describe('solveBlock — own production first', () => {
       expect(rate(result.unsatisfied, 'ingot')).toBe(0)
     })
 
-    it('1 ingot -> 2 plates: the upstream import stays and the supply is not used', () => {
+    it('1 ingot -> 2 plates: the 10 ingots make 20 plates and the supply replaces the ingot import', () => {
       const { result, received } = solveBlock(plan, gd(1, 2), new Map([['plate', 100]]))
-      expect(received.size).toBe(0)
-      expect(rate(result.unsatisfied, 'ingot')).toBeCloseTo(15, 4)
+      expect(received.get('plate')).toBeCloseTo(30, 4)
+      expect(rate(result.unsatisfied, 'ingot')).toBe(0)
     })
   })
 
@@ -472,9 +472,9 @@ describe('solveBlock — connections first', () => {
   })
 
   it('mixes a connections-first item with an item that keeps the default order', () => {
-    // 1 ingot -> 2 plates, so a plate shortfall is cheaper to cover with ingots (see "own production
-    // that needs an upstream import"): plate takes 30 first, the own recipe makes 20 from 10 ingots,
-    // the pinned recipe makes 5 and the 5 missing come from the (default-order) ingot supply.
+    // Plate takes 30 first (connections first), the own recipe makes 20 from 10 ingots, the pinned recipe
+    // makes 5, and the 5 missing come from the (default-order) ingot supply. The block imports nothing, so
+    // the order of connectionOrder.ts does not run and the values are those of the two passes.
     const data = connectionGameData()
     data.recipes.plateFromIngot = recipe(
       'plateFromIngot', 1, [{ itemId: 'ingot', type: 'item', amount: 1 }], [product('plate', 2)],

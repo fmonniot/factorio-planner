@@ -18,6 +18,7 @@ import type {
 import { blockAreas, explicitMainProduct, solveAreaBlock, withAreaRules } from './areas'
 import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount } from './build'
 import { solveLP } from './solve'
+import { connectionOrder, needsConnectionOrder } from './connectionOrder'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
@@ -291,6 +292,11 @@ export function solveBlock(
       new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst,
     )
   }
+
+  // A connection replaces an import: when the two passes still import an intermediate while a connection
+  // has offer to spare, the order of connectionOrder.ts decides (least import, least received, fill).
+  const order = { system, pinnedRates, bcRecipeIds, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp }
+  if (needsConnectionOrder(order)) lp = connectionOrder(order) ?? lp
 
   const { throughput: throughputMap, warnings } = lp
 
