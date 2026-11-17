@@ -7,7 +7,7 @@ import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
 import { sourceRulesOf } from '../../test/sourceRulesOf'
-import type { Block, GameData } from '../../data/types'
+import type { AreaSourceRule, Block, GameData, SourceRule } from '../../data/types'
 
 // Smelt turns Ore into Plate; Ore Synth makes Ore. So Ore and Plate are made by the block, Water is not.
 function gameData(): GameData {
@@ -353,5 +353,109 @@ describe('Source rules — a rule\'s item', () => {
     openPopover()
     openPopover()
     expect(within(popover()).queryByTestId('comes-from')).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The rules of an area
+// ---------------------------------------------------------------------------
+
+describe('Source rules — the rules of an area', () => {
+  const NOW = '2026-01-01T00:00:00.000Z'
+  const area = (id: string, rules?: Record<string, AreaSourceRule>) => ({
+    id, name: `Line ${id}`, nodes: [makeRecipeNode('smelt')], subPlans: [], area: true as const, createdAt: NOW, updatedAt: NOW,
+    ...(rules ? { sourceRules: rules } : {}),
+  })
+  function setupAreas(L?: Record<string, AreaSourceRule>, block: Record<string, SourceRule> = {}) {
+    setup()
+    const main = mainBlock()
+    useBlockStore.setState({
+      blocks: [{ ...main, sourceRules: block, rootPlan: { ...main.rootPlan, nodes: [], subPlans: [area('L', L), area('B')] } }, ...useBlockStore.getState().blocks.slice(1)],
+    })
+  }
+  const lRules = () => mainBlock().rootPlan.subPlans.find(sp => sp.id === 'L')?.sourceRules
+  const names = () => entries().map(e => within(e).getByTestId('source-rule-name').textContent)
+
+  it('has one entry per part, named after the area, and counts them', () => {
+    setupAreas({ plate: { makeHere: 'after-blocks', importOff: true } })
+    render(<SourceRulesButton />)
+    expect(button()).toHaveTextContent('Source rules (2)')
+    openPopover()
+    expect(names()).toEqual(['Line L: Receive it first', 'Line L: Import off'])
+    expect(entries().map(e => e.dataset.areaId)).toEqual(['L', 'L'])
+    expect(text(entries()[1])).toMatch(/^Line L: /)
+    expect(within(entries()[1]).getByRole('button', { name: 'Remove the Line L: Import off rule of Plate' })).toBeInTheDocument()
+  })
+
+  it('removes one part of the area rule and leaves the other', () => {
+    setupAreas({ plate: { makeHere: 'after-blocks', importOff: true } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(remove(entry('plate', 'import-off')))
+    expect(lRules()).toEqual({ plate: { makeHere: 'after-blocks' } })
+    expect(button()).toHaveTextContent('Source rules (1)')
+  })
+
+  it('removes the area rule altogether when its last part goes and the block has no rule to override', () => {
+    setupAreas({ plate: { importOff: true } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(remove(entry('plate', 'import-off')))
+    expect(lRules()).toBeUndefined()
+    expect(screen.queryByTestId('source-rules')).not.toBeInTheDocument()
+  })
+
+  it('keeps a keyless rule when the block has a rule it overrides', () => {
+    setupAreas({ plate: { importOff: true } }, { plate: { makeHere: 'off' } })
+    render(<SourceRulesButton />)
+    openPopover()
+    // The block's own entry, then the area's Import off and its make-here override.
+    expect(names()).toEqual(["Don't make more here", 'Line L: Import off', 'Line L: Make it here'])
+    fireEvent.click(remove(entries().find(e => e.dataset.areaId === 'L' && e.dataset.rule === 'import-off')!))
+    expect(lRules()).toEqual({ plate: {} })
+  })
+
+  it('lists a keyless area rule under a block Import off, and Remove on it clears the rule (the area follows the block again)', () => {
+    setupAreas({ plate: {} }, { plate: { importOff: true } })
+    render(<SourceRulesButton />)
+    expect(button()).toHaveTextContent('Source rules (2)')
+    openPopover()
+    expect(names()).toEqual(['Import off', 'Line L: Import on'])
+    fireEvent.click(remove(entry('plate', 'import-on')))
+    expect(lRules()).toBeUndefined()
+  })
+
+  it('removes a rule that repeats the block\'s whole, and a part that leaves one, so Remove never changes what the area does', () => {
+    setupAreas({ plate: { makeHere: 'after-blocks' } }, { plate: { makeHere: 'after-blocks' } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(remove(entries().find(e => e.dataset.areaId === 'L')!))
+    expect(lRules()).toBeUndefined()
+  })
+
+  it('clears the area rule when removing its Import off leaves what the block already says', () => {
+    setupAreas({ plate: { importOff: true } }, { plate: { importOff: true } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(remove(entries().find(e => e.dataset.areaId === 'L')!))
+    expect(lRules()).toBeUndefined()
+  })
+
+  it('clears the area rule from a make-here entry', () => {
+    setupAreas({ plate: {} }, { plate: { makeHere: 'off' } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(remove(entry('plate', 'make-here')))
+    expect(lRules()).toBeUndefined()
+    expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'off' } })
+  })
+
+  it('expands the Comes from control on the scope of the area', () => {
+    setupAreas({ plate: { importOff: true } })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(within(entries()[0]).getByTestId('source-rule-item'))
+    const scope = within(entries()[0]).getByTestId('comes-from-scope')
+    expect(within(scope).getByRole('button', { name: 'Line L' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

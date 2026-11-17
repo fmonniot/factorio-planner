@@ -324,12 +324,17 @@ export function ingredientSlot(
       overlays.push({ key, kind: status, blockId: c.fromBlockId, connectionId: c.id })
     }
   }
-  // With Import off, what the other sources leave is not imported: it is missing, and the slot is short.
-  const missing = row.locked && row.importPerMin !== undefined && row.importPerMin > FLOW_TOLERANCE
-  if (row.importPerMin !== undefined && row.importPerMin > 0) {
-    segments.push(missing
-      ? { key: 'missing', kind: 'short', amount: row.importPerMin, missing: true }
-      : { key: 'import', kind: 'import', amount: row.importPerMin })
+  // With Import off, what the other sources leave is not imported: it is missing, and the slot is short. Areas with
+  // rules of their own say how much of the import that is (`missingPerMin`); else the block's lock decides, all of it or none.
+  const imported = row.importPerMin ?? 0
+  const missingRate = row.missingPerMin ?? (row.locked ? imported : 0)
+  const missing = missingRate > FLOW_TOLERANCE
+  if (imported > 0) {
+    if (!missing) segments.push({ key: 'import', kind: 'import', amount: imported })
+    else {
+      if (imported - missingRate > FLOW_TOLERANCE) segments.push({ key: 'import', kind: 'import', amount: imported - missingRate })
+      segments.push({ key: 'missing', kind: 'short', amount: missingRate, missing: true })
+    }
   }
   if (row.locked) overlays.push({ key: 'locked', kind: 'locked' })
 

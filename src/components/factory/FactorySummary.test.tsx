@@ -450,6 +450,48 @@ describe('FactorySummary — electricity', () => {
   })
 })
 
+describe('FactorySummary — the missing part of an import in a block with areas', () => {
+  const NOW = '2026-01-01T00:00:00.000Z'
+  const area = (id: string, rules?: Record<string, { makeHere?: 'off' | 'after-blocks'; importOff?: true }>) => ({
+    id, name: `Line ${id}`, nodes: [makeRecipeNode('smelt')], subPlans: [], area: true as const, createdAt: NOW, updatedAt: NOW,
+    ...(rules ? { sourceRules: rules } : {}),
+  })
+  function setupAreas(L: Parameters<typeof area>[1], routes: { to: string; rate: number }[]) {
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({
+      blocks: [{ ...block, products: [ironGoal], rootPlan: { ...block.rootPlan, nodes: [], subPlans: [area('L', L), area('B')] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    useSolverStore.setState({
+      lastResult: { ...mockSolverResult, areaRoutes: routes.map(r => ({ itemId: 'iron-ore', ...r })) },
+    })
+  }
+
+  it('reads the missing part from the areas whose rule has Import off: the slot is short, and the rest is still imported', () => {
+    setupAreas({ 'iron-ore': { makeHere: 'off', importOff: true } }, [{ to: 'L', rate: 50 }, { to: 'B', rate: 70 }])
+    render(<FactorySummary />)
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute, short')
+    select('Ingredients', 'Iron Ore')
+    expect(segments('Ingredients', 'import').map(entryText)).toEqual([expect.stringContaining('70')])
+    expect(segments('Ingredients', 'short').map(entryText)).toEqual([expect.stringContaining('50')])
+  })
+
+  it('is not short when the area with its own rule keeps Import on', () => {
+    setupAreas({ 'iron-ore': { makeHere: 'off' } }, [{ to: 'L', rate: 50 }, { to: 'B', rate: 70 }])
+    render(<FactorySummary />)
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute')
+  })
+
+  it('caps the missing part at what the block imports', () => {
+    setupAreas({ 'iron-ore': { importOff: true } }, [{ to: 'L', rate: 500 }])
+    render(<FactorySummary />)
+    select('Ingredients', 'Iron Ore')
+    expect(segments('Ingredients', 'short').map(entryText)).toEqual([expect.stringContaining('120')])
+    expect(segments('Ingredients', 'import')).toEqual([])
+  })
+})
+
 describe('FactorySummary — heat', () => {
   const heat = { id: 'power:heat', name: 'Heat', type: 'fluid', iconPath: '', hidden: false }
 

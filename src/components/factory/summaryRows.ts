@@ -1,5 +1,7 @@
-import type { BlockConnection } from '../../data/types'
+import type { AreaRoute, BlockConnection, SourceRule, SubPlan } from '../../data/types'
 import { surplusTolerance } from '../../solver/index'
+import { areaRuleOf, blockAreas, withAreaRules, type SolverArea } from '../../solver/areas'
+import { outsideLegParts } from '../../solver/areaRoutes'
 
 // Pure grouping for the summary panes: one row per item, so an item's tile and
 // its connection chips sit together.
@@ -19,6 +21,11 @@ export interface IngredientRow {
   /** items/min still imported; undefined when nothing is imported */
   importPerMin: number | undefined
   locked: boolean
+  /**
+   * items/min of `importPerMin` that is missing (Import is off in the areas that import it), when the rows of the block's areas
+   * say so (`areaMissingPerMin`); undefined: the block's lock decides, all of it or none.
+   */
+  missingPerMin?: number
 }
 
 /**
@@ -30,6 +37,8 @@ export function ingredientRows(
   connections: BlockConnection[],
   unsatisfied: { itemId: string; rate: number }[],
   noImportItems: string[],
+  /** The part of an item's import that is missing, for an item whose areas have rules of their own. */
+  missingOf?: (itemId: string, importPerMin: number) => number | undefined,
 ): IngredientRow[] {
   const rows = new Map<string, IngredientRow>()
   const row = (itemId: string): IngredientRow => {
@@ -42,10 +51,56 @@ export function ingredientRows(
   }
   for (const c of connections) row(c.itemId).connections.push(c)
   for (const u of unsatisfied) {
-    if (u.rate > 0) row(u.itemId).importPerMin = u.rate
+    if (u.rate <= 0) continue
+    const r = row(u.itemId)
+    r.importPerMin = u.rate
+    const missing = missingOf?.(u.itemId, u.rate)
+    if (missing !== undefined) r.missingPerMin = missing
   }
   for (const itemId of noImportItems) row(itemId)
   return [...rows.values()]
+}
+
+/**
+ * How much of what the block imports of `itemId` is missing when some area has a rule of its own for it: the outside legs
+ * into the areas whose rule has Import off, less what is supplied (`outsideLegParts`), at most `importPerMin`. Undefined when
+ * no area has a rule of its own for the item, so the block's rule alone decides.
+ */
+export function areaMissingPerMin(
+  itemId: string,
+  importPerMin: number,
+  blockRules: Record<string, SourceRule> | undefined,
+  rootPlan: SubPlan,
+  areaRoutes: readonly AreaRoute[],
+): number | undefined {
+  return areaMissingOf(blockRules, rootPlan, areaRoutes)(itemId, importPerMin)
+}
+
+/** `areaMissingPerMin` for one plan and one solve, the areas worked out once however many items are asked about. */
+export function areaMissingOf(
+  blockRules: Record<string, SourceRule> | undefined,
+  rootPlan: SubPlan,
+  areaRoutes: readonly AreaRoute[],
+): (itemId: string, importPerMin: number) => number | undefined {
+  const areas = withAreaRules(rootPlan, blockAreas(rootPlan) ?? [])
+  return (itemId, importPerMin) => areaMissing(areas, itemId, importPerMin, blockRules, areaRoutes)
+}
+
+function areaMissing(
+  areas: readonly SolverArea[],
+  itemId: string,
+  importPerMin: number,
+  blockRules: Record<string, SourceRule> | undefined,
+  areaRoutes: readonly AreaRoute[],
+): number | undefined {
+  if (!areas.some(a => a.rules && Object.hasOwn(a.rules, itemId))) return undefined
+  let missing = 0
+  for (const route of areaRoutes) {
+    if (route.itemId !== itemId || route.from !== undefined || route.to === undefined) continue
+    const area = areas.find(a => a.id === route.to)
+    if (area) missing += outsideLegParts(route, areaRuleOf(area, blockRules, itemId)).missing
+  }
+  return Math.min(importPerMin, missing)
 }
 
 export interface ByproductRow {

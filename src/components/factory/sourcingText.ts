@@ -1,6 +1,6 @@
 import type { Block, GameData, SolverResult, ConnectionFlow, SourceRule } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
-import { dedicatedProduct } from '../../solver/areas'
+import { blockAreas, dedicatedProduct } from '../../solver/areas'
 import { rowMachine } from '../../solver/effects'
 import { fmtItemRateText } from './ItemTile'
 import { presetOf } from '../../data/sourceRules'
@@ -42,6 +42,8 @@ export interface SourcingTextInput {
   unit: RateUnit
   /** There is a solve for the block; without one the rows' rates are unknown. */
   solved?: boolean
+  /** The sentence is an area's (its rule, its rows): the name of the area, which starts it. */
+  areaName?: string
 }
 
 const EPS = 1e-6
@@ -55,8 +57,15 @@ function makerLabel(m: ItemMaker): string {
   return `${m.recipeName} (${m.machineCount} × ${m.machineName})`
 }
 
+/** How the block, or one of its areas (`input.areaName`), gets the item; an area's sentence starts with its name. */
 export function sourcingText(input: SourcingTextInput): string {
-  const { itemName, itemId, rule, makers, connections, unit, solved = true } = input
+  const text = blockText(input)
+  return input.areaName === undefined ? text : `${input.areaName}: ${text}`
+}
+
+function blockText(input: SourcingTextInput): string {
+  const { itemName, itemId, rule, makers, connections, unit, solved = true, areaName } = input
+  const where = areaName === undefined ? 'this block' : 'this area'
   const mode = presetOf(rule)
   const noImport = rule?.importOff === true
   const primaries = makers.filter(m => !m.byproduct)
@@ -74,8 +83,8 @@ export function sourcingText(input: SourcingTextInput): string {
     const blocks = list(connections.map(c => c.blockName))
     if (used) {
       return connections.length > 0
-        ? `Uses what this block already makes (${used}), then takes from ${blocks}. The rest is ${rest('imported')}.`
-        : `Uses what this block already makes (${used}). The rest is ${rest('imported')}.`
+        ? `Uses what ${where} already makes (${used}), then takes from ${blocks}. The rest is ${rest('imported')}.`
+        : `Uses what ${where} already makes (${used}). The rest is ${rest('imported')}.`
     }
     return connections.length > 0
       ? `No row here already makes ${itemName}; it is taken from ${blocks}, and the rest is ${rest('imported')}.`
@@ -109,8 +118,10 @@ export function sourcingText(input: SourcingTextInput): string {
 // Gathering the inputs from the plan and the solve
 // ---------------------------------------------------------------------------
 
-/** The block's recipe rows that make `itemId`, with what the solver ran them at. */
-export function itemMakers(block: Block, gameData: GameData, result: SolverResult | undefined, itemId: string): ItemMaker[] {
+/** The block's recipe rows that make `itemId`, with what the solver ran them at; with `areaId`, those of that area. */
+export function itemMakers(block: Block, gameData: GameData, result: SolverResult | undefined, itemId: string, areaId?: string): ItemMaker[] {
+  // With an area, only the rows it holds (the rows of its sub-plans that are not areas themselves included).
+  const inArea = areaId === undefined ? undefined : new Set(blockAreas(block.rootPlan)?.find(a => a.id === areaId)?.nodeIds)
   const solved = new Map(result?.nodes.map(n => [n.recipeNodeId, n]) ?? [])
   const makers: ItemMaker[] = []
   const visit = (plan: Block['rootPlan']) => {
@@ -118,6 +129,7 @@ export function itemMakers(block: Block, gameData: GameData, result: SolverResul
       if (n.kind !== 'game-recipe') continue
       const recipe = gameData.recipes[n.recipeId]
       if (!recipe || !recipe.products.some(p => p.itemId === itemId)) continue
+      if (inArea && !inArea.has(n.id)) continue
       const s = solved.get(n.id)
       makers.push({
         recipeName: recipe.name,

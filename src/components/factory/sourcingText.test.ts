@@ -149,6 +149,56 @@ describe('sourcingText — Import is off', () => {
   })
 })
 
+describe('sourcingText of an area', () => {
+  const area = (over: Partial<SourcingTextInput> = {}) => sourcingText(input({ areaName: 'Line L', ...over }))
+  const conns = [{ blockName: 'Cheap', offered: 30, taken: 30 }]
+
+  it('starts every preset with the area name', () => {
+    expect(area({ makers: [maker()] })).toBe('Line L: Made here by Plastic bar (1 × Chemical plant).')
+    expect(area({ rule: { makeHere: 'after-blocks' }, connections: conns, makers: [maker()] })).toMatch(/^Line L: Taken from Cheap first/)
+    expect(area({ rule: { makeHere: 'off' }, makers: [maker({ byproduct: true })] })).toMatch(/^Line L: Uses what /)
+    expect(area({ rule: { makeHere: 'off' } })).toMatch(/^Line L: /)
+    expect(area({ rule: { makeHere: 'after-blocks' } })).toMatch(/^Line L: No connection/)
+  })
+
+  it("says this area in Don't make more here", () => {
+    const used = [maker({ recipeName: 'Coal liquefaction', byproduct: true, rate: 30 })]
+    expect(area({ rule: { makeHere: 'off' }, makers: used })).toBe('Line L: Uses what this area already makes (Coal liquefaction 30.0/m). The rest is imported.')
+    expect(area({ rule: { makeHere: 'off' } })).toBe('Line L: No row here already makes Plastic bar; it is imported.')
+    expect(sourcingText(input({ rule: { makeHere: 'off' }, makers: used }))).toContain('this block already makes')
+  })
+})
+
+describe('itemMakers of an area', () => {
+  const recipe = (id: string) => ({
+    id, name: id, category: 'c', craftingTime: 1, ingredients: [], madeIn: [], allowProductivity: false, hidden: false,
+    mainProduct: undefined, subgroup: '', order: '', products: [{ itemId: 'x', type: 'item' as const, amount: 1 }],
+  })
+  const data = {
+    factorioVersion: '2.0.0', modSet: {}, items: {}, recipes: { a: recipe('a'), b: recipe('b') },
+    machines: { m: { id: 'm', name: 'Machine', type: 'assembling-machine', craftingSpeed: 1, energyUsageKw: 1, energyType: 'electric', drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['c'], iconPath: '', hidden: false } },
+    modules: {}, beacons: {}, defaultMachines: { c: 'm' }, itemGroups: {}, itemSubgroups: {}, technologies: {}, startingRecipes: [],
+  } as unknown as GameData
+  const row = (id: string, recipeId: string): GameRecipeNode => ({ kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {} })
+  const sub = (id: string, nodes: GameRecipeNode[]) => ({ id, name: id, nodes, subPlans: [], area: true, createdAt: '', updatedAt: '' })
+
+  function block() {
+    const b = makeEmptyBlock('B')
+    b.rootPlan.subPlans = [sub('L', [row('l1', 'a')]), sub('M', [row('m1', 'b')])]
+    return b
+  }
+
+  it('keeps only the rows of the area', () => {
+    expect(itemMakers(block(), data, undefined, 'x', 'L').map(m => m.recipeName)).toEqual(['a'])
+    expect(itemMakers(block(), data, undefined, 'x', 'M').map(m => m.recipeName)).toEqual(['b'])
+    expect(itemMakers(block(), data, undefined, 'x').map(m => m.recipeName)).toEqual(['a', 'b'])
+  })
+
+  it('is empty for an unknown area', () => {
+    expect(itemMakers(block(), data, undefined, 'x', 'nope')).toEqual([])
+  })
+})
+
 describe('itemMakers and itemConnections', () => {
   function gameData(): GameData {
     return {

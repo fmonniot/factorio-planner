@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { BlockConnection } from '../../data/types'
-import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
+import { ingredientRows, byproductRows, isLeftover, areaMissingPerMin } from './summaryRows'
+import type { AreaRoute, AreaSourceRule, SubPlan } from '../../data/types'
 
 function conn(overrides: Partial<BlockConnection> = {}): BlockConnection {
   return { id: 'c1', itemId: 'iron-ore', fromBlockId: 'b1', ...overrides } as BlockConnection
@@ -93,5 +94,57 @@ describe('isLeftover', () => {
   it('gates on the relative tolerance even when the rate would display', () => {
     expect(isLeftover(5, 1e9)).toBe(false)
     expect(isLeftover(5, 1e6)).toBe(true)
+  })
+})
+
+describe('ingredientRows with a missing amount', () => {
+  it('asks for the missing amount of each imported item and keeps it on the row', () => {
+    const rows = ingredientRows([], [unsat('plate', 20)], [], (itemId, imported) => (itemId === 'plate' ? imported - 8 : undefined))
+    expect(rows[0]).toMatchObject({ itemId: 'plate', importPerMin: 20, missingPerMin: 12 })
+  })
+
+  it('leaves it off when the callback has no answer, and for items with nothing imported', () => {
+    const rows = ingredientRows([], [unsat('plate', 20)], ['gear'], () => undefined)
+    expect(rows.every(r => !('missingPerMin' in r) || r.missingPerMin === undefined)).toBe(true)
+  })
+})
+
+describe('areaMissingPerMin', () => {
+  const sub = (id: string, rules?: Record<string, AreaSourceRule>): SubPlan => ({
+    id, name: id, nodes: [], subPlans: [], area: true, createdAt: '', updatedAt: '', ...(rules ? { sourceRules: rules } : {}),
+  })
+  const root = (...areas: SubPlan[]): SubPlan => ({ id: 'root', name: 'root', nodes: [], subPlans: areas, createdAt: '', updatedAt: '' })
+  const leg = (to: string, rate: number, supplied?: number): AreaRoute => ({ itemId: 'plate', to, rate, ...(supplied ? { supplied } : {}) })
+  const inner: AreaRoute = { itemId: 'plate', from: 'L', to: 'B', rate: 5 }
+
+  it('is the outside leg into an area whose rule has Import off', () => {
+    const tree = root(sub('L', { plate: { makeHere: 'off', importOff: true } }), sub('B'))
+    expect(areaMissingPerMin('plate', 20, {}, tree, [leg('L', 12), leg('B', 8)])).toBe(12)
+  })
+
+  it('is 0 for an area with its own rule that keeps Import on', () => {
+    const tree = root(sub('L', { plate: { makeHere: 'off' } }), sub('B'))
+    expect(areaMissingPerMin('plate', 20, {}, tree, [leg('L', 12), leg('B', 8)])).toBe(0)
+  })
+
+  it('counts only the legs of areas with Import off, and not the supplied part of a leg', () => {
+    const tree = root(sub('L', { plate: { importOff: true } }), sub('B', { plate: {} }))
+    expect(areaMissingPerMin('plate', 30, {}, tree, [leg('L', 12, 5), leg('B', 8), inner])).toBe(7)
+  })
+
+  it('reads the block rule for an area with none of its own', () => {
+    const tree = root(sub('L', { plate: {} }), sub('B'))
+    expect(areaMissingPerMin('plate', 30, { plate: { importOff: true } }, tree, [leg('L', 12), leg('B', 8)])).toBe(8)
+  })
+
+  it('is capped at what the block imports', () => {
+    const tree = root(sub('L', { plate: { importOff: true } }), sub('B', { plate: { importOff: true } }))
+    expect(areaMissingPerMin('plate', 10, {}, tree, [leg('L', 12), leg('B', 8)])).toBe(10)
+  })
+
+  it('is undefined when no area has a rule of its own for the item', () => {
+    const tree = root(sub('L', { gear: { importOff: true } }), sub('B'))
+    expect(areaMissingPerMin('plate', 20, { plate: { importOff: true } }, tree, [leg('L', 12)])).toBeUndefined()
+    expect(areaMissingPerMin('plate', 20, {}, root(), [])).toBeUndefined()
   })
 })

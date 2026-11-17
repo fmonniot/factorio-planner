@@ -33,6 +33,8 @@ export interface BlockAreaMatrixProps {
   onOpenArea: (area: MatrixArea) => void
   /** The source rule marker of an item of the block, or nothing for an item without a rule that has an effect. */
   sourceRuleMarker?: (itemId: string) => ReactNode
+  /** The marker of an area's column: the area has source rules of its own, or nothing. */
+  areaRuleMarker?: (areaId: string) => ReactNode
 }
 
 /** Appended to the counterpart tooltips: how the solver pairs senders and receivers. */
@@ -68,7 +70,7 @@ function headerNote(inRate: number, outRate: number, items: number): string {
 export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   const {
     matrix, gameData, rateUnit, rowMode, columnMode, query, focusedAreaId, onFocus, showAllAreas, onShowAll,
-    groupOverrides, onToggleGroup, closedTails, onToggleTail, onOpenArea, sourceRuleMarker,
+    groupOverrides, onToggleGroup, closedTails, onToggleTail, onOpenArea, sourceRuleMarker, areaRuleMarker,
   } = props
   const groups = useMemo(() => itemGroupMap(gameData), [gameData])
   const areaById = useMemo(() => new Map(matrix.areas.map(a => [a.areaId, a])), [matrix])
@@ -325,6 +327,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
                   {columns.map(a => {
                     const focused = a.areaId === focusedAreaId
                     const trade = counterpartMode && !focused ? focus?.trades.find(t => t.partyId === a.areaId) : undefined
+                    const ruleMarker = areaRuleMarker?.(a.areaId)
                     return (
                       <th
                         key={a.areaId}
@@ -337,10 +340,11 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
                           aria-pressed={focused}
                           title={`Focus ${a.name}`}
                           onClick={() => onFocus(focused ? null : a.areaId)}
-                          className={`block mx-auto max-w-full truncate text-xs font-semibold hover:text-white ${focused ? 'text-teal-200' : 'text-gray-200'}`}
+                          className={`${ruleMarker ? 'inline-block align-middle max-w-[calc(100%-1.25rem)]' : 'block mx-auto max-w-full'} truncate text-xs font-semibold hover:text-white ${focused ? 'text-teal-200' : 'text-gray-200'}`}
                         >
                           {a.name}
                         </button>
+                        {ruleMarker && <span className="inline-flex align-middle ml-1">{ruleMarker}</span>}
                         <small className="block text-[11px] font-normal text-gray-400">
                           {trade
                             ? headerNote(trade.inRate + trade.inEnergy, trade.outRate + trade.outEnergy, trade.items)

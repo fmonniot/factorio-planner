@@ -1,7 +1,7 @@
 // Sub-plan tree invariant: a sub-plan is stored in the `subPlans` of the plan that holds its
 // handle (a `SubPlanNode`). Pure; no React or store imports.
 
-import type { AreaSourceRule, SubPlan } from './schema'
+import type { AreaSourceRule, SourceRule, SubPlan } from './schema'
 
 export function findSubPlan(plan: SubPlan, id: string): SubPlan | undefined {
   if (plan.id === id) return plan
@@ -103,6 +103,23 @@ export function areaIdsOf(root: SubPlan): Set<string> {
   walk(root)
   if (ids.size > 0) ids.add(root.id)
   return ids
+}
+
+/** The rule stored on the area `areaId` of the block `root` for an item, or undefined (an own key only; a keyless `{}` is kept). */
+export function storedAreaRule(root: SubPlan, areaId: string, itemId: string): AreaSourceRule | undefined {
+  const rules = findSubPlan(root, areaId)?.sourceRules
+  return rules !== undefined && Object.hasOwn(rules, itemId) ? rules[itemId] : undefined
+}
+
+/**
+ * The rule the area `areaId` applies to an item: its own when it has one (a keyless `{}` is a rule), else the block's
+ * rule for the item (`blockRules`, `Block.sourceRules`), else `{}`. The one reading every layer shares; the solver's
+ * `areaRuleOf` is the same test on a `SolverArea`.
+ */
+export function effectiveAreaRule(root: SubPlan, blockRules: Record<string, SourceRule> | undefined, areaId: string, itemId: string): AreaSourceRule {
+  const own = storedAreaRule(root, areaId, itemId)
+  if (own !== undefined) return own
+  return blockRules !== undefined && Object.hasOwn(blockRules, itemId) ? blockRules[itemId] : {}
 }
 
 /**
