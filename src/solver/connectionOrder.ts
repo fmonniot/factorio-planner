@@ -11,7 +11,11 @@ import { BIG_M, buildLPModel, readLPResult, runLP, type LPModel, type LPResult }
  * value to 1e-8 (absolute), so a sum of n returned values is off by up to n·5e-9; the bound must stay above
  * the true least value. It is absolute only: the next step takes supply at no cost and runs cost 1, so it
  * spends all the room the bound leaves (a relative 1e-9 on 1e5 received let an item made at 200 runs per
- * unit be received at 4e-4). With n·1e-8 the drift stays below FLOW_TOLERANCE.
+ * unit be received at 4e-4). Below r·k = BIG_M (r the ratio of a loop, k the runs per unit of another chain)
+ * the drift stays below FLOW_TOLERANCE. Limit, measured by the T1 investigator (report, point 5): from
+ * r·k >= BIG_M a step trades the room of the bound for runs and the result drifts by about n·1e-8·r, above
+ * FLOW_TOLERANCE (3e-4 of 1e5 W at r = 1e4). The two 1e4:1 blocks of connectionOrder.test.ts (r·k = 2e6 on the
+ * second) show no drift, so the shape that drifts is not pinned by any test.
  */
 const ORDER_ABS = 1e-8
 /** If a step is infeasible at the tight bound (solver rounding), it is retried once with the bound this much looser. */
@@ -83,12 +87,21 @@ export function boundOf(least: number, terms: number, looser = 1): number {
   return least + ORDER_ABS * Math.max(1, terms) * looser
 }
 
-/** Runs `optimize`, retrying once with the bound row `row` loosened when the tight bound is infeasible (rounding). */
-function runBounded(lp: LPModel, optimize: string, row: string, least: number, terms: number): ReturnType<typeof runLP> {
-  const first = runLP(optimize, lp.constraints, lp.variables)
+/**
+ * Runs a bounded step: `run(1)` with the tight bounds, then once `run(ORDER_RETRY)` with every bound of the
+ * step loosened when the tight one is infeasible (solver rounding). Returns the feasible result, or undefined.
+ * The plain path and the area path both go through it, so a step never retries in one and not in the other.
+ */
+export function boundedStep<R extends { feasible?: boolean }>(run: (looser: number) => R): R | undefined {
+  const first = run(1)
   if (first.feasible === true) return first
-  lp.constraints[row] = { max: boundOf(least, terms, ORDER_RETRY) }
-  return runLP(optimize, lp.constraints, lp.variables)
+  const retry = run(ORDER_RETRY)
+  return retry.feasible === true ? retry : undefined
+}
+
+/** Whether a least import found by step 2 is a gain over the import of today's result (D3). */
+export function improvesImport(least: number, todayImport: number): boolean {
+  return least < todayImport - surplusTolerance(todayImport)
 }
 
 /**
@@ -140,22 +153,23 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
   if (step2.feasible !== true) return undefined
   const leastImport = sumOf(step2, importSlacks)
   const todayImport = importOf(today, byproductsFirst)
-  if (leastImport >= todayImport - surplusTolerance(todayImport)) return undefined
+  if (!improvesImport(leastImport, todayImport)) return undefined
 
   // Step 3: least received, with the import at its least.
   tag(lp, importSlacks, '__impcap')
-  lp.constraints.__impcap = { max: boundOf(leastImport, importSlacks.length) }
   tag(lp, defaultSupplies, '__rec')
   // The bound leaves the import a few 1e-8 of room; at BIG_M per unit the step never spends it to save
   // supply (with 100 W per X, 1e-8 X would otherwise save 1e-6 W). It only acts inside that room.
   for (const name of importSlacks) lp.variables[name].__rec = BIG_M
-  const step3 = runBounded(lp, '__rec', '__impcap', leastImport, importSlacks.length)
-  if (step3.feasible !== true) return undefined
+  const step3 = boundedStep(looser => {
+    lp.constraints.__impcap = { max: boundOf(leastImport, importSlacks.length, looser) }
+    return runLP('__rec', lp.constraints, lp.variables)
+  })
+  if (!step3) return undefined
   const leastReceived = sumOf(step3, defaultSupplies)
 
   // Step 4: fill, both totals bounded, today's objective.
   tag(lp, defaultSupplies, '__reccap')
-  lp.constraints.__reccap = { max: boundOf(leastReceived, defaultSupplies.length) }
   for (const itemId of locked) {
     const slack = lp.itemToSlack.get(itemId)
     if (!slack || sumOf(step3, [slack]) > FLOW_TOLERANCE) continue
@@ -163,8 +177,15 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
     lp.constraints[row] = { max: 0 }
     lp.variables[slack][row] = 1
   }
-  let step4 = runBounded(lp, '__obj__', '__reccap', leastReceived, defaultSupplies.length)
-  if (step4.feasible !== true) return undefined
+  // Both bounds are loosened by a retry: step 3's retry may have left `__impcap` loose, and a rounding that
+  // made step 3 infeasible can make step 4 infeasible through either row.
+  const fill = () => boundedStep(looser => {
+    lp.constraints.__impcap = { max: boundOf(leastImport, importSlacks.length, looser) }
+    lp.constraints.__reccap = { max: boundOf(leastReceived, defaultSupplies.length, looser) }
+    return runLP('__obj__', lp.constraints, lp.variables)
+  })
+  let step4 = fill()
+  if (!step4) return undefined
   // A Don't make more here item: steps 2 and 3 leave its slack arbitrary (runs and its slack are both free
   // there), so step 4 is today's two passes for it: its residual is measured first, with no supply and the
   // runs priced, then its supply fills that residual (min(offer, residual), as `pass2Plan`).
@@ -176,8 +197,8 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
     refill = true
   }
   if (refill) {
-    step4 = runBounded(lp, '__obj__', '__reccap', leastReceived, defaultSupplies.length)
-    if (step4.feasible !== true) return undefined
+    step4 = fill()
+    if (!step4) return undefined
   }
   return readLPResult(step4, lp, system.recipes, pinnedRates, true)
 }

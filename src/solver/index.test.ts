@@ -472,9 +472,9 @@ describe('solveBlock — connections first', () => {
   })
 
   it('mixes a connections-first item with an item that keeps the default order', () => {
-    // 1 ingot -> 2 plates, so a plate shortfall is cheaper to cover with ingots (see "own production
-    // that needs an upstream import"): plate takes 30 first, the own recipe makes 20 from 10 ingots,
-    // the pinned recipe makes 5 and the 5 missing come from the (default-order) ingot supply.
+    // Plate takes 30 first (connections first), the own recipe makes 20 from 10 ingots, the pinned recipe
+    // makes 5, and the 5 missing come from the (default-order) ingot supply. The block imports nothing, so
+    // the order of connectionOrder.ts does not run and the values are those of the two passes.
     const data = connectionGameData()
     data.recipes.plateFromIngot = recipe(
       'plateFromIngot', 1, [{ itemId: 'ingot', type: 'item', amount: 1 }], [product('plate', 2)],

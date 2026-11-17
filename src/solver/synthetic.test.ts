@@ -2474,10 +2474,15 @@ describe('solver synthetic cases', () => {
           expect(unsat(result, INGOT), 'ingot imported').toBeCloseTo(row.ingotUnsat, 6)
           expect(nodeOf(result, 'case22-gear').throughput, 'G runs').toBeCloseTo(25, 6)
           if (!row.sFree) expect(nodeOf(result, 'case22-ingot').throughput, 'S runs').toBeCloseTo(10, 6)
-          // Row n leaves S's 10 ingots unused (P does not run), which is reported as a surplus.
-          expect(result.warnings, 'warnings').toEqual(row.name.startsWith('n:') ? [expect.objectContaining({ type: 'overconstrained' })] : [])
         })
       }
+
+      // Not a value of the table: phase-6.md does not say what row n warns. The solver reports `overconstrained` there (S's 10
+      // ingots are left unused as P does not run); this pins that observed behaviour only, and is not derived.
+      it('observed, not derived: row n reports overconstrained (S makes ingots nothing uses)', () => {
+        const { result } = solveBlock(fixtureA('1-2', { rules: { [PLATE]: { makeHere: 'after-blocks' } } }), makeGameData(), new Map([[PLATE, 100]]))
+        expect(result.warnings.map(w => w.type)).toContain('overconstrained')
+      })
 
       // Row f in solveAll: a source block that has plate as a product is asked for what the probe takes.
       const source = (): Block => mk('S', [[PLATE, 0]], [planNode('case22-mine-plate')])

@@ -20,7 +20,7 @@ import {
   type LPModel, type LPResult,
 } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
-import { boundOf } from './connectionOrder'
+import { boundOf, boundedStep, improvesImport } from './connectionOrder'
 import {
   FLOW_TOLERANCE,
   blockDiagnostics,
@@ -322,6 +322,8 @@ export interface AreaOrder {
 export type AreaLPResult = LPResult & {
   /** the sum `AreaOrder.measure` asked for */
   measured?: number
+  /** how many variables that sum ran over (the bound of the next step leaves n·1e-8 of room, see `boundOf`) */
+  measuredTerms?: number
   /** what areas with their own row for an item still take from other areas' dedicated rows */
   dedicatedIn: { area: number; itemId: string; rate: number }[]
   /** per area item and area: the slack and the supply */
@@ -694,7 +696,7 @@ function solveAreaLPOnce(
     const result = runLP(order.measure, constraints, variables)
     const names = order.measure === '__imp' ? orderNames.imp : orderNames.rec
     const measured = names.reduce((t, name) => t + (typeof result[name] === 'number' ? Math.max(0, result[name] as number) : 0), 0)
-    return { ...finish(result, base), measured }
+    return { ...finish(result, base), measured, measuredTerms: names.length }
   }
 
   // Elastic: the least total shortfall comes first, before stage 1 (pools included, so a goal another
@@ -1216,13 +1218,19 @@ export function solveAreaBlock(
    * The order of connectionOrder.ts on the area LP (a spike): when the passes end with an import (a slack at BIG_M,
    * per area for an area item) while a default-rule connected intermediate has offer to spare, measure the least
    * import with every such supply capped by the offer, then the least received at that import, then solve both
-   * stages with the two sums bounded. Undefined: today's result stands. Not built here, unlike the plain path:
-   * a Don't make more here item's or area's supply in the fill, and locking a connected item again.
+   * stages with the two sums bounded. Undefined: today's result stands. Not built here, unlike the plain path (T3,
+   * phase-6.md, T1 report point 9): the supply of a Don't make more here item or area in the fill, and locking a
+   * connected Import-off item again after step 3. So a touched block with such a rule loses it here: the item gets
+   * no supply in any step, and a connected Import-off item can be imported by step 4. The retry and the "least import is a
+   * gain" test are shared with the plain path (connectionOrder.ts); the gate and the steps stay two copies, because
+   * each solves a different model (one mutable LP there, `solveAreaLP`'s two stages here).
    */
   const areaConnectionOrder = (today: AreaLPResult): AreaLPResult | undefined => {
     if (!today.feasible || today.shortfall.size > 0 || today.warnings.some(w => w.type === 'infeasible-pins')) return undefined
     const tol = (itemId: string) => surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput))
     const ruleOff = (a: number, itemId: string) => ruleOf(a, itemId).makeHere === 'off'
+    // Counted as the LP's `__imp` sum counts: every slack at BIG_M. An area on Don't make more here has the cheap slack,
+    // except for a byproduct consumer's ingredient, whose slack stays at BIG_M.
     let todayImport = 0
     let imports = false
     for (const [itemId, rate] of today.slack) {
@@ -1231,7 +1239,7 @@ export function solveAreaBlock(
       if (rate > tol(itemId)) imports = true
     }
     for (const o of today.outside) {
-      if (ruleOff(o.area, o.itemId)) continue
+      if (ruleOff(o.area, o.itemId) && !consumerIngredients.has(o.itemId)) continue
       todayImport += o.slack
       if (o.slack > tol(o.itemId)) imports = true
     }
@@ -1252,12 +1260,17 @@ export function solveAreaBlock(
     const base = { defaults: plainDefaults, byproductsFirst }
     const step2 = step({ ...base, measure: '__imp' })
     if (!step2.feasible || step2.measured === undefined) return undefined
-    if (step2.measured >= todayImport - surplusTolerance(todayImport)) return undefined
-    const importCap = boundOf(step2.measured, specs.length + plainDefaults.size)
-    const step3 = step({ ...base, measure: '__rec', importCap })
-    if (!step3.feasible || step3.measured === undefined) return undefined
-    const step4 = step({ ...base, importCap, receivedCap: boundOf(step3.measured, specs.length + plainDefaults.size) })
-    return step4.feasible ? step4 : undefined
+    if (!improvesImport(step2.measured, todayImport)) return undefined
+    // The bounds count the variables their sum runs over (the LP reports it), and a tight bound that comes back
+    // infeasible is retried once looser, as on the plain path (boundedStep).
+    const step3 = boundedStep(looser =>
+      step({ ...base, measure: '__rec', importCap: boundOf(step2.measured!, step2.measuredTerms!, looser) }))
+    if (!step3 || step3.measured === undefined) return undefined
+    return boundedStep(looser => step({
+      ...base,
+      importCap: boundOf(step2.measured!, step2.measuredTerms!, looser),
+      receivedCap: boundOf(step3.measured!, step3.measuredTerms!, looser),
+    }))
   }
 
   const pass2 = pass2Plan({

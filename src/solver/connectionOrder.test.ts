@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { solveAll, solveBlock } from './index'
+import { boundOf, boundedStep, improvesImport } from './connectionOrder'
 import type { Block, GameData, GameRecipeNode, RecipeNode, SolverGoal, SolverResult, SourceRule } from '../data/types'
 
 // The rules the order of connectionOrder.ts must keep (sourcing priority phase 6, T1's points 6 to 8).
@@ -34,6 +35,10 @@ function gameData(): GameData {
     recipe('turbine', [steam(2, { minimumTemperature: 400 })], [item('power', 1)]),
     recipe('mine-plate', [item('ore', 1)], [item('plate', 1)]),
     recipe('make-coin', [item('ore', 1)], [item('coin', 1)]),
+    recipe('use-x', [item('x', 2)], [item('goal', 1), item('w', 10000)]),
+    recipe('recycle', [item('w', 10000)], [item('x', 1)]),
+    recipe('make-q', [item('ore3', 200)], [item('q', 1)]),
+    recipe('use-q', [item('q', 1)], [item('qgoal', 1)]),
     recipe('use-coin', [item('coin', 1)], [item('token', 1)]),
   ]
   return {
@@ -190,4 +195,53 @@ describe('connectionOrder: a touched block in a cycle of requests', () => {
       expect(all.loops[0].converged, 'converged').toBe(true)
     })
   }
+})
+
+describe('connectionOrder: the retry of a bounded step', () => {
+  it('runs the tight bound first, then once with every bound looser, and gives up after that', () => {
+    const loosers: number[] = []
+    const result = boundedStep(looser => { loosers.push(looser); return { feasible: looser > 1, looser } })
+    expect(result?.looser, 'the retry is feasible').toBe(100)
+    expect(loosers, 'tight, then looser').toEqual([1, 100])
+    expect(boundedStep(() => ({ feasible: false })), 'infeasible twice').toBeUndefined()
+    expect(boundedStep(() => ({ feasible: true })), 'feasible at once').toEqual({ feasible: true })
+    expect(boundOf(5, 3, 100), 'the looser bound counts the terms').toBeGreaterThan(boundOf(5, 3))
+  })
+
+  it('counts a least import as a gain only above the noise', () => {
+    expect(improvesImport(10, 10)).toBe(false)
+    expect(improvesImport(0, 15)).toBe(true)
+  })
+  // Not exercised through a solve: no block of the suite makes the tight bound infeasible, so the retry of
+  // steps 3 and 4 in the plain path and in the area path is tested only through `boundedStep` itself.
+})
+
+describe('connectionOrder: a ratio above 100:1 (T1 report, point 5)', () => {
+  // case 22 B with 10000 W per run of use-x instead of 100: 10 goals need 20 X, recycled from 2e5 W (10000 W per X),
+  // 1e5 W come from the 10 runs of use-x, the other 1e5 W from the connection. r·k reaches BIG_M here.
+  it('1e4:1, W (5e5): the connection covers the 1e5 W, no drift', () => {
+    const p = { goals: [{ id: 'g', itemId: 'goal', rate: 10 }], nodes: [row('U', 'use-x'), row('R', 'recycle')], sourceRules: {} }
+    const { result, received } = solveBlock(p, gameData(), new Map([['w', 5e5]]))
+    expect(runs(result, 'U'), 'U runs').toBeCloseTo(10, 6)
+    expect(runs(result, 'R'), 'R runs').toBeCloseTo(20, 6)
+    expect(got(received, 'w'), 'W received').toBeCloseTo(1e5, 6)
+    expect(unsat(result, 'x'), 'X imported').toBeCloseTo(0, 6)
+  })
+
+  it('1e4:1 beside a second chain made at 200 runs per unit (r·k = 2e6 >= BIG_M), q (100) and W (5e5)', () => {
+    // 5 qgoal need 5 q: make-q (200 raw ore3 each, 4e-6 of rounding of the solver library on the 1000 imported) or the
+    // connection. Raw is no import the order counts, so q keeps being made (own production first) and the W
+    // connection replaces the X and W imports. The drift the report predicts for r·k >= BIG_M is not reproduced here.
+    const p = {
+      goals: [{ id: 'g', itemId: 'goal', rate: 10 }, { id: 'q', itemId: 'qgoal', rate: 5 }],
+      nodes: [row('U', 'use-x'), row('R', 'recycle'), row('Q', 'use-q'), row('M', 'make-q')], sourceRules: {},
+    }
+    const { result, received } = solveBlock(p, gameData(), new Map([['w', 5e5], ['q', 100]]))
+    expect(got(received, 'w'), 'W received').toBeCloseTo(1e5, 6)
+    expect(got(received, 'q'), 'q received').toBeCloseTo(0, 6)
+    expect(runs(result, 'R'), 'R runs').toBeCloseTo(20, 6)
+    expect(runs(result, 'M'), 'make-q runs').toBeCloseTo(5, 6)
+    expect(unsat(result, 'x') + unsat(result, 'w'), 'no X or W imported').toBeCloseTo(0, 6)
+    expect(unsat(result, 'ore3'), 'raw ore3 imported').toBeCloseTo(1000, 5)
+  })
 })
