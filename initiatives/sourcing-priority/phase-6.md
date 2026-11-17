@@ -2,7 +2,7 @@
 
 Phase 6 of [plan.md](plan.md), and its last. It depends on no other phase. It stands alone and ships alone, with a release note, because it changes numbers in existing plans.
 
-The three questions of the first draft were answered from the code, two throwaway `solveBlock` runs and a measurement on 36 plans on 2026-11-16 ([What the code says](#what-the-code-says)). Two answers shape the phase. The item the block "imports" in this rule is never a raw input: it is an intermediate the block is short of, and in real plans that is a loop that loses, not a pin. And the literal reading of *Make it here* breaks such a loop in the author's plan, while the other reading moves no plan measured. The [decisions](#decisions-for-the-author) are **proposed, not yet confirmed by the author**; the [tickets](#tickets) are written against them and D1 has to be confirmed before T1 starts. Nothing of the new solve was prototyped: the phase starts with a spike (T1), as phases 3 and 5 did.
+The three questions of the first draft were answered from the code, two throwaway `solveBlock` runs and a measurement on 36 plans on 2026-11-16 ([What the code says](#what-the-code-says)). Two answers shape the phase. The item the block "imports" in this rule is never a raw input: it is an intermediate the block is short of, and in real plans that is a loop that loses, not a pin. And the literal reading of *Make it here* breaks such a loop in the author's plan, while the other reading moves no plan measured. The [decisions](#decisions-for-the-author) were confirmed by the author on 2026-11-16; the [tickets](#tickets) are written against them. Nothing of the new solve was prototyped: the phase starts with a spike (T1), as phases 3 and 5 did.
 
 ## Scope
 
@@ -84,9 +84,9 @@ A throwaway script (not kept) solved every plan in `e2e/fixtures`, the Extra Sul
 
 ## Decisions for the author
 
-Proposed on 2026-11-16. **Not confirmed yet.** D1 departs from plan.md, whose [Keeping the power](plan.md#keeping-the-power) table says "*Make more here* above *Other blocks* always makes it here".
+Proposed on 2026-11-16 and confirmed by the author the same day, D1 after a check on the author's plan exported on 2026-11-17: solved block by block with `scripts/inspect-plan.mjs`, none of its 15 blocks imports an item one of its rows makes, so D1 has nothing to move in it. Sludge's pass 1 leaves sulfur short beside its sulfur connections, so it runs the extra solves of D3 and keeps today's result. D1 departs from plan.md, whose [Keeping the power](plan.md#keeping-the-power) table says "*Make more here* above *Other blocks* always makes it here".
 
-| # | Question | Proposed decision | Why |
+| # | Question | Decision | Why |
 | --- | --- | --- | --- |
 | D1 | Which way does the default go? | **A connection replaces the import.** With *Make it here*, the block's rows run for an item as far as they can without importing an intermediate; a connection then covers what is missing; imports come last, for the whole block. The reverse of the first draft's "literal" reading. | The literal reading is not "make it here" where it matters: a block on a loop that loses cannot make X, it can only turn an imported Y into X. Sludge would swap 47 sulfur received for 2,429 acid imported. The proposed reading is what the solver already does on one side of the ratio, what the backlog item asked for, and it moves no plan measured. |
 | D2 | Is a raw input an import for this rule? | No. A row fed by raw inputs is the block's own production, as today: a block that makes plate from ore keeps making it, with a plate connection idle. | Everything is made from raw inputs in the end; counting them would turn the default into *Receive it first*. |
@@ -171,7 +171,7 @@ Today's values of these two rows were not measured; T1 measures them. If the are
 
 ## Tickets
 
-T1 comes first and the run stops after it. T2 needs T1; T3 needs T2 and changes the area solve only; T4 is last. D1 is confirmed by the author before T1 starts.
+T1 comes first and the run stops after it. T2 needs T1; T3 needs T2 and changes the area solve only; T4 is last.
 
 - [ ] **T1. Spike: an exact order in the measure step.** Prototype [The order in the solve](#the-order-in-the-solve) in `solveBlock` on a branch, and try it in `solveAreaBlock`. No stored field, no UI. Report in this file:
   1. The rows of case 22 A and B that are not *measured*: which hold as derived, and for any that does not, why. A row that disagrees stops the phase until the author has seen it.
