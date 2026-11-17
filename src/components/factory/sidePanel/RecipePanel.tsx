@@ -8,8 +8,9 @@ import { MachineSection } from './MachineSection'
 import { BeaconsSection } from './BeaconsSection'
 import { EffectsSection } from './EffectsSection'
 import { SourcingSection } from './SourcingSection'
+import { ResearchSection } from './ResearchSection'
 
-/** The panel of a recipe row: header, Rate, Machine, Beacons, Effects on this row (once a module or a beacon is set), and Where inputs come from. */
+/** The panel of a recipe row: header, Rate, Machine, Beacons, Effects on this row (once a module or a beacon is set), Where inputs come from, and Research (data sets with technology data). */
 export function RecipePanel({ node, solved, gameData, onClose }: {
   node: GameRecipeNode
   solved: SolvedNode | undefined
@@ -45,6 +46,7 @@ export function RecipePanel({ node, solved, gameData, onClose }: {
       {/* Nothing to add up before a module or a beacon is set: the empty table would only push the sourcing down. */}
       {(node.modules.length > 0 || beacons.length > 0) && <EffectsSection node={node} beacons={beacons} gameData={gameData} />}
       <SourcingSection node={node} solved={solved} gameData={gameData} />
+      <ResearchSection recipeId={node.recipeId} gameData={gameData} />
     </>
   )
 }

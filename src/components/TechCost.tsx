@@ -14,9 +14,11 @@ interface TechCostProps {
   tooltip?: boolean
   /** Append "· <time>s" after the count. Default true (tech-tree cards). */
   showTime?: boolean
+  /** Append "×<count>" after the pack icons. Default true; false lists the pack types only. */
+  showCount?: boolean
 }
 
-export function TechCost({ cost, lookup, trigger, triggerText = 'short', tooltip = false, showTime = true }: TechCostProps) {
+export function TechCost({ cost, lookup, trigger, triggerText = 'short', tooltip = false, showTime = true, showCount = true }: TechCostProps) {
   if (cost === undefined) return null
   if (cost === null) {
     const described = describeTrigger(trigger, lookup)
@@ -51,7 +53,9 @@ export function TechCost({ cost, lookup, trigger, triggerText = 'short', tooltip
           </span>
         )
       })}
-      <span>×{cost.count ?? '?'}{showTime ? ` · ${cost.time}s` : ''}</span>
+      {(showCount || showTime) && (
+        <span>{showCount ? `×${cost.count ?? '?'}` : ''}{showTime ? `${showCount ? ' · ' : ''}${cost.time}s` : ''}</span>
+      )}
     </span>
   )
 }
