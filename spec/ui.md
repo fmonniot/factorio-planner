@@ -904,14 +904,14 @@ Below 768px (`md`; `useNarrowTable.ts` follows the media query `(min-width: 768p
 
 **Reorder cell.** ▲/▼ move the node within its sub-plan (disabled at the ends). They are `text-gray-400`, 3:1 on the row.
 
-**Recipe cell.** The icon of the primary product (falls back to the first two letters of the recipe name) and the recipe name (ellipsis, the name as tooltip), indented by one 12px guide per nesting level (`data-guide-levels`; see [sub-factory rows](#sub-factory-rows)). Byproduct-consumer rows carry a small amber "↓" badge at the icon's bottom-right corner, whose tooltip explains the mode. In a block with areas, a recipe that has rows in two or more areas also carries a count badge (`data-testid="multi-area-badge"`, teal, the number of areas) after the name. Its tooltip names the recipe and splits its buildings per area: "Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5 Rocket fuel" ("here" is the row's own area and comes first, the others follow in table order, the root is "Top level"; several rows in one area are summed, a row with no solve result counts as 0). The badge is display-only.
+**Recipe cell.** The icon of the primary product (falls back to the first two letters of the recipe name) and the recipe name (ellipsis, the name as tooltip), indented by one 12px guide per nesting level (`data-guide-levels`; see [sub-factory rows](#sub-factory-rows)). Byproduct-consumer rows carry a small amber "↓" badge at the icon's bottom-right corner, whose tooltip explains the mode: "Absorbs byproduct: runs only to consume surplus from other recipes and never imports what it absorbs. Rows that only feed it run along with it. Right-click the row to stop absorbing." The rows that only feed an absorber carry no badge. In a block with areas, a recipe that has rows in two or more areas also carries a count badge (`data-testid="multi-area-badge"`, teal, the number of areas) after the name. Its tooltip names the recipe and splits its buildings per area: "Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5 Rocket fuel" ("here" is the row's own area and comes first, the others follow in table order, the root is "Top level"; several rows in one area are summed, a row with no solve result counts as 0). The badge is display-only.
 
 Right-clicking anywhere in the recipe cell opens a context menu
 (`RowActionsMenu.tsx`, portalled to `document.body`, sized to its content and
 clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` with a leading ✓, or a `menuitemradio` with a leading • when it is one of a set of exclusive choices; an item can have a separator above it) with:
 
 - **Absorb byproduct** / **Stop absorbing byproduct** — "only run to absorb
-  byproduct from other recipes" (sets `byproductConsumer`).
+  byproduct from other recipes" (sets `byproductConsumer`); the rows that only feed the absorber run along with it (see [solver.md, Absorber chains](solver.md#absorber-chains)).
 - **Pin rate** / **Unpin rate** — pins the recipe at its current throughput (at
   least 1); omitted on byproduct-consumer rows. The product chip then carries the pin badge, and the rate is edited in the panel's [Rate section](#rate).
 - **Wrap in subfactory…** — opens a name dialog ("Subfactory name", pre-filled with the recipe name; submit **Wrap**) and

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
 import { buildClassifiedSystem } from './build'
-import { BIG_M, BYPRODUCTS_FIRST_SLACK_COST, buildLPModel, PIN_PROBE_LIMIT, solveLP } from './solve'
+import { BC_BONUS, BIG_M, BYPRODUCTS_FIRST_SLACK_COST, buildLPModel, PIN_PROBE_LIMIT, solveLP } from './solve'
 import type { GameData, GameRecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -691,5 +691,39 @@ describe('byproducts first', () => {
   it('creates no slack for a locked item', () => {
     const lp = buildLPModel(system(), new Map(), new Set(), new Set(['plate']), new Map(), new Set(), new Set(['plate']))
     expect(lp.variables.slack_plate).toBeUndefined()
+  })
+})
+
+describe('absorber chains', () => {
+  // grow makes the goal and trees; saw (flagged) takes a tree and a saw and gives back most of the saw; make-saw (a feeder) makes a saw
+  // from a plate; make-plate makes plates from a roll; use-plate (ordinary) takes a plate.
+  function system() {
+    const gameData = makeGameData({
+      recipes: {
+        grow: recipe('grow', 1, [item('seed', 1)], [product('goal', 1), product('tree', 2)]),
+        saw: recipe('saw', 1, [item('tree', 1), item('saw', 1)], [product('wood', 8), product('saw', 0.9)]),
+        'make-saw': recipe('make-saw', 1, [item('plate', 1)], [product('saw', 1)]),
+        'make-plate': recipe('make-plate', 1, [item('roll', 1)], [product('plate', 4)]),
+        'use-plate': recipe('use-plate', 1, [item('plate', 1)], [product('gadget', 1)]),
+      },
+    })
+    return buildClassifiedSystem(gameData, ['grow', 'saw', 'make-saw', 'make-plate', 'use-plate'], new Map([['goal', 10], ['gadget', 1]]))
+  }
+
+  it('rewards the flagged row, charges the rest of the chain nothing and every other row 1', () => {
+    const lp = buildLPModel(system(), new Map(), new Set(['saw']))
+    expect(lp.absorbers.chain.has('saw'), 'saw in the chain').toBe(true)
+    const cost = (id: string) => lp.variables[lp.recipeToVar.get(id)!].__obj__
+    expect(cost('saw')).toBe(BC_BONUS)
+    expect(cost('make-saw')).toBe(0)
+    expect(cost('make-plate'), 'an ordinary row also uses the plate').toBe(1)
+    expect(cost('grow')).toBe(1)
+  })
+
+  it('leaves the chain out of the supply-use row of a connections-first item', () => {
+    const lp = buildLPModel(system(), new Map(), new Set(['saw']), new Set(), new Map([['plate', 100]]), new Set(['plate']))
+    const useOf = (id: string) => lp.variables[lp.recipeToVar.get(id)!].supuse_plate
+    expect(useOf('make-saw'), 'the feeder').toBeUndefined()
+    expect(useOf('use-plate'), 'an ordinary row').toBe(-1)
   })
 })

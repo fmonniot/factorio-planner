@@ -2,6 +2,7 @@ import solver, { type SolveResult } from 'javascript-lp-solver'
 import type { ClassifiedSystem } from './build'
 import type { SolverWarning } from '../data/types'
 import { temperatureRows } from './temperatureRows'
+import { absorberRoles, type AbsorberRoles } from './absorbers'
 
 // ---------------------------------------------------------------------------
 // LP construction and solve
@@ -32,10 +33,10 @@ function lpName(id: string): string {
 export const BIG_M = 1e6
 export const SLACK_TOLERANCE = 1e-6
 /**
- * Tiny negative coefficient applied to byproduct-consumer recipes in the
- * objective. Makes the LP prefer to run them up to the surplus their
- * intermediate constraints allow, without overriding goal-meeting decisions
- * (BIG_M slack cost dominates if the LP would have to import inputs).
+ * Tiny negative coefficient applied to the rewarded recipes of an absorber chain (flagged byproduct
+ * consumers that take a bounded item, see absorbers.ts) in the objective. Makes the LP prefer to run them
+ * up to the surplus their intermediate constraints allow, without overriding goal-meeting decisions
+ * (BIG_M slack cost dominates if the LP would have to import inputs). The rest of the chain costs 0.
  */
 export const BC_BONUS = -0.01
 /**
@@ -73,6 +74,8 @@ export interface LPModel {
   itemToTemperatureRows: Map<string, string[]>
   /** the least total shortfall `D` `boundShortfall` found (elastic models, once bounded) */
   leastShortfall?: number
+  /** the absorber chains of the system: which columns cost 0 or BC_BONUS and stay out of the supply-use rows */
+  absorbers: AbsorberRoles
 }
 
 /** At most this many pins are probed one by one to tell which bind (see `bindingPins`). */
@@ -97,10 +100,11 @@ export function pinRowName(varName: string): string {
  *     - Intermediate items with a cap: Σ S_ij * x_j + s_i + u_i ≥ 0,  u_i ≤ cap_i
  *       (no cap row when the cap is infinite)
  *     - Connections-first items: u_i + Σ_{j∉BC, S_ij<0} S_ij * x_j ≤ 0
- *       (supply covers at most what non-byproduct-consumer recipes use)
+ *       (supply covers at most what recipes outside the absorber chains use)
  *     - Pinned recipes:     x_j = rate  (equality)
  *   Objective: minimize Σ c_j * x_j + Σ m_i * s_i
- *     where c_j = 1, or BC_BONUS for byproduct-consumer recipes, and m_i = BYPRODUCTS_FIRST_SLACK_COST
+ *     where c_j = 1, BC_BONUS for the rewarded rows of an absorber chain (flagged byproduct consumers that take a
+ *     bounded item), 0 for the other rows of the chain (see absorbers.ts), and m_i = BYPRODUCTS_FIRST_SLACK_COST
  *     for byproducts-first items, BIG_M otherwise; supply u_i is free,
  *     so it is used ahead of slack. Callers cap it at what own production can't cover.
  *
@@ -139,13 +143,13 @@ export function buildLPModel(
   const constraints: Record<string, { min?: number; max?: number; equal?: number }> = {}
   const variables: Record<string, Record<string, number>> = {}
 
-  // Initialize variable entries. Regular recipes contribute +1 per unit
-  // throughput; byproduct-consumer recipes contribute BC_BONUS (a tiny
-  // negative number) so the LP prefers to run them up to the surplus their
-  // intermediates allow.
+  // Initialize variable entries. Regular recipes contribute +1 per unit throughput; the rewarded rows of an
+  // absorber chain contribute BC_BONUS (a tiny negative number) so the LP prefers to run them up to the surplus
+  // their intermediates allow, and the rest of the chain (rows that only feed them) costs 0.
+  const absorbers = absorberRoles(system, bcRecipeIds, pinnedRates)
   for (const recipeId of recipes) {
     const varName = recipeToVar.get(recipeId)!
-    variables[varName] = { __obj__: bcRecipeIds.has(recipeId) ? BC_BONUS : 1 }
+    variables[varName] = { __obj__: absorbers.rewarded.has(recipeId) ? BC_BONUS : absorbers.chain.has(recipeId) ? 0 : 1 }
   }
 
   // itemId → slack variable name (for post-solve extraction)
@@ -217,14 +221,14 @@ export function buildLPModel(
         variables[supplyName][capName] = 1
       }
       if (connectionsFirst.has(itemId)) {
-        // Supply covers at most what the non-byproduct-consumer recipes use.
-        // Without this row a free u_i could feed a byproduct consumer for its
-        // bonus, and be unbounded when the cap is infinite.
+        // Supply covers at most what the recipes outside the absorber chains use.
+        // Without this row a free u_i could feed a chain for its bonus, and be
+        // unbounded when the cap is infinite.
         const useName = `supuse_${lpName(itemId)}`
         constraints[useName] = { max: 0 }
         variables[supplyName][useName] = 1
         for (const [recipeId, coeff] of S.get(itemId) ?? []) {
-          if (coeff < 0 && !bcRecipeIds.has(recipeId)) {
+          if (coeff < 0 && !absorbers.chain.has(recipeId)) {
             const varName = recipeToVar.get(recipeId)
             if (varName) variables[varName][useName] = coeff
           }
@@ -267,7 +271,7 @@ export function buildLPModel(
     variables[varName][cName] = 1
   }
 
-  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, goalToShort, itemToTemperatureRows }
+  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, goalToShort, itemToTemperatureRows, absorbers }
 }
 
 type LPConstraints = LPModel['constraints']

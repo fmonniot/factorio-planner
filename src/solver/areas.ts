@@ -469,7 +469,7 @@ function solveAreaLPOnce(
           constraints[`auuse${i}`] = { max: 0 }
           u[`auuse${i}`] = 1
           for (const { col, coeff } of cols) {
-            if (coeff < 0 && !bcColumns.has(col.id)) variables[colVar.get(col.id)!][`auuse${i}`] = coeff
+            if (coeff < 0 && !base.absorbers.chain.has(col.id)) variables[colVar.get(col.id)!][`auuse${i}`] = coeff
           }
         }
         variables[names.supply] = u
