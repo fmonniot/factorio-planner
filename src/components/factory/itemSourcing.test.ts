@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { areaRuleLabel, ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL, SOURCE_RULE_NAMES, SOURCES_BUTTON_LABEL, SOURCES_LINES } from './itemSourcing'
+import { makeEmptyBlock } from '../../store/blockStore'
+import { areaRuleLabel, ruleLabel, sourcesLineOrder, ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL, SOURCE_RULE_NAMES, SOURCES_BUTTON_LABEL, SOURCES_LINES } from './itemSourcing'
 
 describe('the vocabulary', () => {
   it('names the three presets and gives each its help text', () => {
@@ -25,6 +26,7 @@ describe('the vocabulary', () => {
       'import-off': 'Import off',
       'make-here': 'Make it here',
       'import-on': 'Import on',
+      'takes-nothing': 'Takes nothing',
     })
     expect(areaRuleLabel('Line L', SOURCE_RULE_NAMES['connections-first'])).toBe('Line L: Receive it first')
   })
@@ -49,5 +51,30 @@ describe('the vocabulary', () => {
     for (const old of ['own recipes first', 'byproducts first', 'connections first', 'forbid imports', 'allow imports']) {
       expect(words).not.toContain(old)
     }
+  })
+})
+
+describe('sourcesLineOrder, one line per supplying area', () => {
+  const M = ['M1', 'M2']
+  it('puts one area line per supplier where Other areas was', () => {
+    expect(sourcesLineOrder(undefined, true, 'above', M)).toEqual(['made-here', 'make-here', 'area:M1', 'area:M2', 'block', 'import'])
+    expect(sourcesLineOrder('after-blocks', true, 'below', M)).toEqual(['made-here', 'block', 'make-here', 'area:M1', 'area:M2', 'import'])
+    expect(sourcesLineOrder('off', true, 'above', M)).toEqual(['made-here', 'area:M1', 'area:M2', 'make-here', 'block', 'import'])
+    expect(sourcesLineOrder('off', true, 'below', M)).toEqual(['made-here', 'area:M1', 'area:M2', 'block', 'make-here', 'import'])
+  })
+  it('keeps the single Other areas line without suppliers', () => {
+    expect(sourcesLineOrder(undefined, true, 'above', [])).toEqual(['made-here', 'make-here', 'other-areas', 'block', 'import'])
+    expect(sourcesLineOrder(undefined, true, 'above', undefined)).toEqual(['made-here', 'make-here', 'other-areas', 'block', 'import'])
+  })
+})
+
+describe('ruleLabel', () => {
+  const root = makeEmptyBlock('B').rootPlan
+  const sub = (id: string) => ({ id, name: `Line ${id}`, nodes: [], subPlans: [], area: true as const, createdAt: '', updatedAt: '' })
+  const plan = { ...root, subPlans: [sub('L'), sub('M1')] }
+  it('names a block part, an area part and a switch', () => {
+    expect(ruleLabel({ kind: 'import-off' }, plan)).toBe('Import off')
+    expect(ruleLabel({ kind: 'connections-first', areaId: 'L' }, plan)).toBe('Line L: Receive it first')
+    expect(ruleLabel({ kind: 'takes-nothing', areaId: 'L', otherAreaId: 'M1' }, plan)).toBe('Line L: takes nothing from Line M1')
   })
 })

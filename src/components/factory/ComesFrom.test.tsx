@@ -140,11 +140,32 @@ describe('ComesFrom, an area with no rule', () => {
     expect(preset('Receive it first')).toHaveAttribute('aria-checked', 'true')
   })
 
-  it('has no Sources… button and no list at area scope, and has the button at block scope', () => {
+  it('has the Sources… button and a list of the area at area scope', () => {
     render(<ComesFrom itemId="plate" areaId="L" />)
-    expect(screen.getByTestId('sources-button')).toBeInTheDocument()
     fireEvent.click(scope('Line L'))
-    expect(screen.queryByTestId('sources-button')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('sources-button'))
+    const list = screen.getByTestId('sources-list')
+    expect(within(list).getAllByTestId('sources-line').map(l => l.getAttribute('data-line'))).toContain('other-area')
+    expect(list.querySelector('[data-line="other-area"]')).toHaveAttribute('data-area-id', 'B')
+    // The list stays open when the scope changes back to the block.
+    fireEvent.click(scope('Whole block'))
+    expect(within(screen.getByTestId('sources-list')).queryByTestId('sources-area-switch')).not.toBeInTheDocument()
+  })
+
+  it('writes the area rule from a switch, and says what the area takes nothing from', () => {
+    openOnArea()
+    fireEvent.click(screen.getByTestId('sources-button'))
+    expect(screen.getByTestId('follows-block-rule')).toBeInTheDocument()
+    expect(screen.getByTestId('sourcing-sentence').textContent).not.toContain('Takes nothing')
+    fireEvent.click(screen.getByTestId('sources-area-switch'))
+    expect(areaRules('L')).toEqual({ plate: { makeHere: 'after-blocks', areasOff: ['B'] } })
+    expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'after-blocks' } })
+    expect(screen.queryByTestId('follows-block-rule')).not.toBeInTheDocument()
+    expect(screen.getByTestId('sourcing-sentence').textContent).toMatch(/^Line L: .* Takes nothing from Line B\.$/)
+    fireEvent.click(screen.getByTestId('use-block-rule'))
+    expect(areaRules('L')).toBeUndefined()
+    expect(screen.getByTestId('follows-block-rule')).toBeInTheDocument()
+    expect(screen.getByTestId('sourcing-sentence').textContent).not.toContain('Takes nothing')
   })
 
   it('writes the block rule again from the whole block scope', () => {

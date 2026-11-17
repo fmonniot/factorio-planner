@@ -253,6 +253,41 @@ describe('rules of areas', () => {
     expect(rules(same).filter(r => r.areaId === 'L').map(r => r.kind)).toEqual(['import-off'])
   })
 
+  it('lists one takes-nothing part per area switched off, after the rest of the rule, in stored order', () => {
+    const only = areaBlock({ L: { plate: { areasOff: ['B'] } } })
+    expect(rules(only)).toEqual([{ itemId: 'plate', kind: 'takes-nothing', areaId: 'L', otherAreaId: 'B' }])
+    const preset = areaBlock({ block: { gear: { makeHere: 'off' } }, L: { plate: { makeHere: 'after-blocks', areasOff: ['B', 'L2'] } }, B: { plate: { importOff: true } } })
+    expect(rules(preset).map(r => [r.areaId, r.kind, r.otherAreaId])).toEqual([
+      [undefined, 'byproducts-first', undefined],
+      ['L', 'connections-first', undefined],
+      ['L', 'takes-nothing', 'B'],
+      ['L', 'takes-nothing', 'L2'],
+      ['B', 'import-off', undefined],
+    ])
+  })
+
+  it('judges a switch by the rows of the other area only: not-made when it has none, never for a product', () => {
+    const b = areaBlock({ L: { plate: { areasOff: ['B'] } } })
+    b.rootPlan.subPlans[1].nodes = []
+    expect(rules(b)).toEqual([{ itemId: 'plate', kind: 'takes-nothing', areaId: 'L', otherAreaId: 'B', noEffect: 'not-made' }])
+    const product = areaBlock({ L: { plate: { areasOff: ['B'] } }, product: 'plate' })
+    expect(rules(product)).toEqual([{ itemId: 'plate', kind: 'takes-nothing', areaId: 'L', otherAreaId: 'B' }])
+    expect(noEffectText('not-made', 'Plate', false, 'Line B')).toBe('No row in Line B makes Plate.')
+  })
+
+  it('keeps a switch on an area that only uses the item (a relay): not-made needs no row making it and none using it', () => {
+    const relay = areaBlock({ L: { ore: { areasOff: ['B'] } } })
+    expect(rules(relay)).toEqual([{ itemId: 'ore', kind: 'takes-nothing', areaId: 'L', otherAreaId: 'B' }])
+    const unrelated = areaBlock({ L: { gear: { areasOff: ['B'] } } })
+    expect(rules(unrelated)[0].noEffect).toBe('not-made')
+  })
+
+  it('marks the area and its rows for an item that has only switches', () => {
+    const b = areaBlock({ L: { plate: { areasOff: ['B'] } } })
+    expect([...rowRuleItems(b, gameData, [b], 'L')]).toEqual(['plate'])
+    expect([...areaRuleItems(b, gameData, [b]).get('L')!]).toEqual(['plate'])
+  })
+
   it('counts the import-on override as a rule of the area on its rows', () => {
     const b = areaBlock({ block: { plate: { importOff: true } }, L: { plate: {} } })
     expect([...rowRuleItems(b, gameData, [b], 'L')]).toEqual(['plate'])

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
-import { areaIdsOf, effectiveAreaRule as effectiveAreaRuleOf, findSubPlan, remapAreaRules, storedAreaRule as storedAreaRuleOf } from '../data/subPlanTree'
+import { areaIdsOf, effectiveAreaRule as effectiveAreaRuleOf, findSubPlan, repeatsBlockRule, remapAreaRules, storedAreaRule as storedAreaRuleOf } from '../data/subPlanTree'
 import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
 import { areaRecipeIds, blockAreas, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
@@ -1345,8 +1345,14 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       const effective = effectiveAreaRule(block, areaId, itemId)
       const off = effective.areasOff ?? []
       const areasOff = off.includes(otherAreaId) ? off.filter(id => id !== otherAreaId) : [...off, otherAreaId]
+      const stored = storedAreaRule(block, areaId, itemId)
       const after = cleanAreaRule({ ...effective, areasOff })
-      return applyCommand(state, areaRuleCommand(block, areaId, itemId, storedAreaRule(block, areaId, itemId), after))
+      // The last switch back on leaves a rule that only repeats the block's: the area follows the block again (a rule of its own would not).
+      if (repeatsBlockRule(after, block.sourceRules, itemId)) {
+        if (stored === undefined) return state
+        return applyCommand(state, areaRuleCommand(block, areaId, itemId, stored, undefined))
+      }
+      return applyCommand(state, areaRuleCommand(block, areaId, itemId, stored, after))
     }),
 
   clearAreaRule: (areaId, itemId) =>

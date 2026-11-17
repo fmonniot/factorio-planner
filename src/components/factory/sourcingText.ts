@@ -44,6 +44,8 @@ export interface SourcingTextInput {
   solved?: boolean
   /** The sentence is an area's (its rule, its rows): the name of the area, which starts it. */
   areaName?: string
+  /** An area's sentence: the names of the areas switched off as suppliers of the item (`areasOff`). */
+  takesNothingFrom?: string[]
 }
 
 const EPS = 1e-6
@@ -60,7 +62,9 @@ function makerLabel(m: ItemMaker): string {
 /** How the block, or one of its areas (`input.areaName`), gets the item; an area's sentence starts with its name. */
 export function sourcingText(input: SourcingTextInput): string {
   const text = blockText(input)
-  return input.areaName === undefined ? text : `${input.areaName}: ${text}`
+  if (input.areaName === undefined) return text
+  const off = input.takesNothingFrom ?? []
+  return `${input.areaName}: ${text}${off.length > 0 ? ` Takes nothing from ${list(off)}.` : ''}`
 }
 
 function blockText(input: SourcingTextInput): string {

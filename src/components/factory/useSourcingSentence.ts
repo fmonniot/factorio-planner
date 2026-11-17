@@ -19,9 +19,9 @@ export function useBlockSourcingSentence(block: Block | undefined, itemId: strin
   const unit = useUiStore(s => s.rateUnit)
 
   const name = gameData?.items[itemId]?.name ?? itemId
-  const rule = block && areaId !== undefined
-    ? effectiveAreaRule(block.rootPlan, block.sourceRules, areaId, itemId)
-    : block?.sourceRules[itemId]
+  const areaRule = block && areaId !== undefined ? effectiveAreaRule(block.rootPlan, block.sourceRules, areaId, itemId) : undefined
+  const rule = areaRule ?? block?.sourceRules[itemId]
+  const areasOff = areaRule?.areasOff
   const areaName = block && areaId !== undefined ? areaNameOf(block.rootPlan, areaId) : undefined
 
   return useMemo(
@@ -29,11 +29,12 @@ export function useBlockSourcingSentence(block: Block | undefined, itemId: strin
       ? sourcingText({
           itemId, itemName: name, rule, unit, solved: result !== undefined,
           areaName,
+          ...(block && areasOff?.length ? { takesNothingFrom: areasOff.map(id => areaNameOf(block.rootPlan, id)) } : {}),
           makers: itemMakers(block, gameData, result, itemId, areaId),
           connections: itemConnections(block, blocks, flows, itemId),
         })
       : '',
-    [block, blocks, flows, gameData, result, itemId, name, rule, unit, areaId, areaName],
+    [block, blocks, flows, gameData, result, itemId, name, rule, areasOff, unit, areaId, areaName],
   )
 }
 

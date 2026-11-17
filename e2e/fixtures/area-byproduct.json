@@ -1,0 +1,111 @@
+{
+  "blocks": [
+    {
+      "id": "dddd0001-0000-0000-0000-000000000001",
+      "name": "Dust",
+      "color": "#60a5fa",
+      "products": [
+        {
+          "id": "dddd0001-0000-0000-0000-000000000002",
+          "itemId": "nullius-iron-ingot",
+          "extraRate": 30
+        },
+        {
+          "id": "dddd0001-0000-0000-0000-000000000003",
+          "itemId": "nullius-mineral-dust",
+          "extraRate": 45
+        }
+      ],
+      "noImportItems": [],
+      "sourceRules": {},
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "dddd0002-0000-0000-0000-000000000001",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "subplan",
+            "id": "dddd0004-0000-0000-0000-000000000001",
+            "subPlanId": "dddd0005-0000-0000-0000-000000000001"
+          },
+          {
+            "kind": "subplan",
+            "id": "dddd0004-0000-0000-0000-000000000002",
+            "subPlanId": "dddd0005-0000-0000-0000-000000000002"
+          },
+          {
+            "kind": "subplan",
+            "id": "dddd0004-0000-0000-0000-000000000003",
+            "subPlanId": "dddd0005-0000-0000-0000-000000000003"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "dddd0005-0000-0000-0000-000000000001",
+            "name": "Line T",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "dddd0006-0000-0000-0000-000000000001",
+                "recipeId": "nullius-iron-ingot",
+                "modules": [],
+                "byproductPolicy": {},
+                "pinnedRate": 15
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-11-16T00:00:00.000Z",
+            "updatedAt": "2026-11-16T00:00:00.000Z"
+          },
+          {
+            "id": "dddd0005-0000-0000-0000-000000000002",
+            "name": "Line C1",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "dddd0007-0000-0000-0000-000000000001",
+                "recipeId": "nullius-mineral-dust",
+                "modules": [],
+                "byproductPolicy": {},
+                "pinnedRate": 4
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-11-16T00:00:00.000Z",
+            "updatedAt": "2026-11-16T00:00:00.000Z"
+          },
+          {
+            "id": "dddd0005-0000-0000-0000-000000000003",
+            "name": "Line C2",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "dddd0008-0000-0000-0000-000000000001",
+                "recipeId": "nullius-mineral-dust",
+                "modules": [],
+                "byproductPolicy": {},
+                "pinnedRate": 5
+              },
+              {
+                "kind": "game-recipe",
+                "id": "dddd0008-0000-0000-0000-000000000002",
+                "recipeId": "nullius-gravel",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-11-16T00:00:00.000Z",
+            "updatedAt": "2026-11-16T00:00:00.000Z"
+          }
+        ],
+        "createdAt": "2026-11-16T00:00:00.000Z",
+        "updatedAt": "2026-11-16T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "dddd0001-0000-0000-0000-000000000001"
+}
