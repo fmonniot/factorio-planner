@@ -20,6 +20,7 @@ import {
   type LPModel, type LPResult,
 } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
+import { boundOf } from './connectionOrder'
 import {
   FLOW_TOLERANCE,
   blockDiagnostics,
@@ -281,6 +282,8 @@ export interface AreaItemArea {
   supplyCap?: number
   /** `u_a` covers at most what the area's own non-byproduct-consumer columns use (connections first) */
   supUse: boolean
+  /** `u_a` counts in the least received of the order of a connection replacing an import (see `AreaOrder`) */
+  received?: boolean
   /** the areas this one takes nothing from (read only when the item is a pair item: `AreaItemSpec.pairs`) */
   off: Set<number>
 }
@@ -301,7 +304,24 @@ export interface AreaOutside { itemId: string; area: number; slack: number; supp
 /** What a pair item sends from one area, in the LP's solution: to another area, or (`to` absent) out of the block. */
 export interface AreaPair { itemId: string; from: number; to?: number; rate: number }
 
+/**
+ * The steps of `connectionOrder.ts` in the area LP (sourcing priority phase 6, a spike). `measure` runs one LP on that
+ * objective (`__imp`: every slack that costs `BIG_M`; `__rec`: the supplies of `defaults` and of the areas whose spec says
+ * `received`) and returns its sum as `measured`; without it the two stages run as usual. `importCap` and `receivedCap`
+ * bound the two sums in every stage.
+ */
+export interface AreaOrder {
+  /** The plain (not per-area) connected items whose supply counts as received. */
+  defaults: Set<string>
+  byproductsFirst: Set<string>
+  measure?: '__imp' | '__rec'
+  importCap?: number
+  receivedCap?: number
+}
+
 export type AreaLPResult = LPResult & {
+  /** the sum `AreaOrder.measure` asked for */
+  measured?: number
   /** what areas with their own row for an item still take from other areas' dedicated rows */
   dedicatedIn: { area: number; itemId: string; rate: number }[]
   /** per area item and area: the slack and the supply */
@@ -335,10 +355,12 @@ function solveAreaLP(
   connectionsFirst: Set<string>,
   byproductsFirst: Set<string>,
   areaItems: AreaItemSpec[],
+  order?: AreaOrder,
 ): AreaLPResult {
   const args = [system, columns, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, areaItems] as const
-  const plain = solveAreaLPOnce(...args, false)
-  if (plain.feasible || !hasGoalRow(system)) return plain
+  const plain = solveAreaLPOnce(...args, false, order)
+  // The order runs only on a block whose passes were feasible; it never goes elastic.
+  if (plain.feasible || !hasGoalRow(system) || order) return plain
   // As in `solveLP`: an infeasible plan is solved again with elastic goal rows, kept only if that is feasible.
   const elastic = solveAreaLPOnce(...args, true)
   return elastic.feasible ? elastic : plain
@@ -355,6 +377,7 @@ function solveAreaLPOnce(
   byproductsFirst: Set<string>,
   areaItems: AreaItemSpec[],
   elasticGoals: boolean,
+  order?: AreaOrder,
 ): AreaLPResult {
   const { S, classification } = system
   const specOf = new Map(areaItems.map(s => [s.itemId, s]))
@@ -389,6 +412,8 @@ function solveAreaLPOnce(
   // An area item. Each area gets its own slack `s_a` and supply `u_a` in its balance row, in place of the item's one
   // slack and supply in the other pool; the pools carry only the flows between areas.
   const areaNames: { itemId: string; area: number; slack?: string; supply?: string }[] = []
+  // The variables the order's two sums run over (see `AreaOrder`).
+  const orderNames: { imp: string[]; rec: string[] } = { imp: [], rec: [] }
   const pairNames: { itemId: string; from: number; to?: number; names: string[] }[] = []
   function addAreaItem(spec: AreaItemSpec, byArea: Map<number, { col: Column; coeff: number }[]>): void {
     const { itemId } = spec
@@ -423,6 +448,7 @@ function solveAreaLPOnce(
         names.slack = `as${i}`
         created++
         variables[names.slack] = { ...rows, __obj__: sa.slackCost, __s2: sa.slackCost, __s1: BIG_M, [row]: 1 }
+        if (order && sa.slackCost === BIG_M) orderNames.imp.push(names.slack)
       }
       if (sa?.supplyCap !== undefined && tmplName && spec.offer > 0) {
         names.supply = `au${i}`
@@ -445,6 +471,7 @@ function solveAreaLPOnce(
           }
         }
         variables[names.supply] = u
+        if (order && sa.received) orderNames.rec.push(names.supply)
       }
       areaNames.push(names)
     }
@@ -582,6 +609,26 @@ function solveAreaLPOnce(
     }
   }
 
+  if (order) {
+    for (const [itemId, name] of base.itemToSlack) if (!order.byproductsFirst.has(itemId)) orderNames.imp.push(name)
+    for (const [itemId, name] of base.itemToSupply) if (order.defaults.has(itemId)) orderNames.rec.push(name)
+    for (const [names, attr] of [[orderNames.imp, '__imp'], [orderNames.rec, '__rec']] as const) {
+      for (const name of names) variables[name][attr] = 1
+    }
+    if (order.importCap !== undefined) {
+      constraints.__impcap = { max: order.importCap }
+      for (const name of orderNames.imp) variables[name].__impcap = 1
+    }
+    if (order.receivedCap !== undefined) {
+      constraints.__reccap = { max: order.receivedCap }
+      for (const name of orderNames.rec) variables[name].__reccap = 1
+    }
+    if (order.measure === '__rec') {
+      // Within the import bound's room, an import costs BIG_M (see connectionOrder.ts, step 3).
+      for (const name of orderNames.imp) variables[name].__rec = BIG_M
+    }
+  }
+
   // `local` bounds the dedicated imports in total.
   const run = (optimize: string, local?: number): SolveResult => {
     const cs = structuredClone(constraints)
@@ -641,6 +688,13 @@ function solveAreaLPOnce(
       rate: p.names.reduce((t, name) => t + value(name), 0),
     }))
     return { ...lp, slack, supply, warnings, dedicatedIn, outside, pairs }
+  }
+
+  if (order?.measure) {
+    const result = runLP(order.measure, constraints, variables)
+    const names = order.measure === '__imp' ? orderNames.imp : orderNames.rec
+    const measured = names.reduce((t, name) => t + (typeof result[name] === 'number' ? Math.max(0, result[name] as number) : 0), 0)
+    return { ...finish(result, base), measured }
   }
 
   // Elastic: the least total shortfall comes first, before stage 1 (pools included, so a goal another
@@ -1117,7 +1171,9 @@ export function solveAreaBlock(
   }
   // A goal that is a pair item gets a spec too (no slack, no supply: only the flows between areas).
   const specItems = [...areaItems, ...[...pairItems].filter(id => !areaItems.has(id))]
-  const areaItemSpecs = (residual?: Map<string, Map<number, number>>): AreaItemSpec[] => specItems.map(itemId => {
+  // `ordered`: the specs of the order's steps (connectionOrder.ts): as pass 1, plus a supply capped by the offer only in
+  // every area that is not Receive it first nor Don't make more here, bounded by its own use and counted as received.
+  const areaItemSpecs = (residual?: Map<string, Map<number, number>>, ordered = false): AreaItemSpec[] => specItems.map(itemId => {
     const cap = totalCaps.get(itemId)
     const res = residual?.get(itemId) ?? new Map<number, number>()
     let resTotal = 0
@@ -1136,13 +1192,17 @@ export function solveAreaBlock(
         else if (cap === undefined) slack = false
         else if (residual === undefined) slack = true
         else slack = first ? r > FLOW_TOLERANCE : cap < resTotal - FLOW_TOLERANCE
+        const orderSupply = ordered && !first && cap !== undefined && rule.makeHere !== 'off'
+          && system.classification.intermediates.has(itemId)
         const supplyCap = first ? Infinity
+          : orderSupply ? Infinity
           : residual !== undefined && cap !== undefined && r > FLOW_TOLERANCE ? Math.min(cap, r) : undefined
         return {
           area: a,
           ...(slack ? { slackCost: rule.makeHere === 'off' && !bcIngredient ? BYPRODUCTS_FIRST_SLACK_COST : BIG_M } : {}),
           ...(supplyCap !== undefined ? { supplyCap } : {}),
-          supUse: first,
+          supUse: first || orderSupply,
+          ...(orderSupply ? { received: true } : {}),
           off: pairItems.has(itemId) ? offOf(a, itemId) : new Set(),
         }
       }),
@@ -1151,6 +1211,54 @@ export function solveAreaBlock(
   })
 
   let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs())
+
+  /**
+   * The order of connectionOrder.ts on the area LP (a spike): when the passes end with an import (a slack at BIG_M,
+   * per area for an area item) while a default-rule connected intermediate has offer to spare, measure the least
+   * import with every such supply capped by the offer, then the least received at that import, then solve both
+   * stages with the two sums bounded. Undefined: today's result stands. Not built here, unlike the plain path:
+   * a Don't make more here item's or area's supply in the fill, and locking a connected item again.
+   */
+  const areaConnectionOrder = (today: AreaLPResult): AreaLPResult | undefined => {
+    if (!today.feasible || today.shortfall.size > 0 || today.warnings.some(w => w.type === 'infeasible-pins')) return undefined
+    const tol = (itemId: string) => surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput))
+    const ruleOff = (a: number, itemId: string) => ruleOf(a, itemId).makeHere === 'off'
+    let todayImport = 0
+    let imports = false
+    for (const [itemId, rate] of today.slack) {
+      if (areaItems.has(itemId) || byproductsFirst.has(itemId)) continue
+      todayImport += rate
+      if (rate > tol(itemId)) imports = true
+    }
+    for (const o of today.outside) {
+      if (ruleOff(o.area, o.itemId)) continue
+      todayImport += o.slack
+      if (o.slack > tol(o.itemId)) imports = true
+    }
+    if (!imports) return undefined
+    const intermediate = (itemId: string) => system.classification.intermediates.has(itemId)
+    const plainDefaults = new Set([...plainCaps.keys()].filter(itemId =>
+      intermediate(itemId) && !firstItems.has(itemId) && !byproductsFirst.has(itemId)))
+    const spare = (itemId: string) => totalCaps.get(itemId)! - (today.supply.get(itemId) ?? 0) > FLOW_TOLERANCE
+    const areaDefault = (itemId: string) => areaItems.has(itemId) && totalCaps.has(itemId) && intermediate(itemId)
+      && touching.get(itemId)!.some(a => !isFirst(a, itemId) && !ruleOff(a, itemId))
+    if (![...plainDefaults].some(spare) && ![...areaItems].some(itemId => areaDefault(itemId) && spare(itemId))) return undefined
+
+    const caps = new Map([...firstCaps, ...[...plainDefaults].map(itemId => [itemId, plainCaps.get(itemId)!] as const)])
+    const specs = areaItemSpecs(undefined, true)
+    const step = (order: AreaOrder) => solveAreaLP(
+      system, columns, pinnedRates, bcColumns, pass1NoImport, caps, new Set([...firstItems, ...plainDefaults]), byproductsFirst, specs, order,
+    )
+    const base = { defaults: plainDefaults, byproductsFirst }
+    const step2 = step({ ...base, measure: '__imp' })
+    if (!step2.feasible || step2.measured === undefined) return undefined
+    if (step2.measured >= todayImport - surplusTolerance(todayImport)) return undefined
+    const importCap = boundOf(step2.measured, specs.length + plainDefaults.size)
+    const step3 = step({ ...base, measure: '__rec', importCap })
+    if (!step3.feasible || step3.measured === undefined) return undefined
+    const step4 = step({ ...base, importCap, receivedCap: boundOf(step3.measured, specs.length + plainDefaults.size) })
+    return step4.feasible ? step4 : undefined
+  }
 
   const pass2 = pass2Plan({
     totalCaps: plainCaps, intermediates: system.classification.intermediates, firstItems, locked,
@@ -1174,6 +1282,8 @@ export function solveAreaBlock(
       new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual),
     )
   }
+
+  lp = areaConnectionOrder(lp) ?? lp
 
   const { throughput, warnings } = lp
   const columnOf = new Map(columns.map(c => [c.node.id, c]))

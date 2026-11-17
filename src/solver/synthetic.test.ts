@@ -131,6 +131,17 @@ function recipes(): GameRecipe[] {
     recipe('case21-use-y', 'smelting', 1, [item('case21-y', 1)], [item('case21-z', 1)]),
     recipe('case21-make-coin', 'smelting', 1, [item('case21-ore', 1)], [item('case21-coin', 1)]),
     recipe('case21-use-coin', 'smelting', 1, [item('case21-coin', 1)], [item('case21-token', 1)]),
+    // Case 22 (a connection replaces an import). A: G turns 2 plates into a gear, P turns ingots into plates at
+    // three ratios, S turns 1 ore into 1 ingot; a source block mines plate from ore. B: U turns 2 X into the goal
+    // and 100 W, R turns 100 W back into 1 X (a loop that loses).
+    recipe('case22-gear', 'smelting', 1, [item('case22-plate', 2)], [item('case22-gear', 1)]),
+    recipe('case22-plate-1-1', 'smelting', 1, [item('case22-ingot', 1)], [item('case22-plate', 1)]),
+    recipe('case22-plate-1-2', 'smelting', 1, [item('case22-ingot', 1)], [item('case22-plate', 2)]),
+    recipe('case22-plate-2-1', 'smelting', 1, [item('case22-ingot', 2)], [item('case22-plate', 1)]),
+    recipe('case22-ingot', 'smelting', 1, [item('case22-ore', 1)], [item('case22-ingot', 1)]),
+    recipe('case22-mine-plate', 'smelting', 1, [item('case22-ore', 1)], [item('case22-plate', 1)]),
+    recipe('case22-use-x', 'smelting', 1, [item('case22-x', 2)], [item('case22-goal', 1), item('case22-w', 100)]),
+    recipe('case22-recycle', 'smelting', 1, [item('case22-w', 100)], [item('case22-x', 1)]),
   ]
 }
 
@@ -2408,6 +2419,151 @@ describe('solver synthetic cases', () => {
           })
         }
       })
+    })
+  })
+
+  describe('case 22: a connection replaces an import', () => {
+    // With the default rule a block does not import an intermediate while a connection could replace that
+    // import, whichever of the two items the connection is on (initiatives/sourcing-priority/phase-6.md, D1 and D4).
+    // Values are derived by hand in phase-6.md; the rows marked measured are the solver of before the phase.
+    // None is edited to match the solver.
+    const PLATE = 'case22-plate'
+    const INGOT = 'case22-ingot'
+    type Ratio = '1-1' | '1-2' | '2-1'
+    const unsat = (result: SolverResult, itemId: string) => unsatisfiedRate(result, itemId) ?? 0
+
+    // Fixture A: product 25 gears (50 plates); P at `ratio`; S pinned at 10 unless `sFree`.
+    const fixtureA = (ratio: Ratio, opts: { sFree?: boolean; rules?: Block['sourceRules'] } = {}): { goals: SolverGoal[]; nodes: RecipeNode[]; sourceRules: Block['sourceRules'] } => ({
+      goals: [{ id: 'g0', itemId: 'case22-gear', rate: 25 }],
+      nodes: [
+        planNode('case22-gear'),
+        { ...planNode(`case22-plate-${ratio}`), id: 'P' },
+        opts.sFree ? planNode('case22-ingot') : planNode('case22-ingot', [], { pinnedRate: 10 }),
+      ],
+      sourceRules: opts.rules ?? {},
+    })
+
+    describe('A: a pinned upstream row', () => {
+      type Row = {
+        name: string; ratio: Ratio; offers: Array<[string, number]>; sFree?: boolean; rules?: Block['sourceRules']
+        plate: number; ingot: number; p: number; plateUnsat: number; ingotUnsat: number
+      }
+      const rows: Row[] = [
+        { name: 'a: 1 makes 1, plate (100) (measured)', ratio: '1-1', offers: [[PLATE, 100]], plate: 40, ingot: 0, p: 10, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'b: 1 makes 2, plate (100)', ratio: '1-2', offers: [[PLATE, 100]], plate: 30, ingot: 0, p: 10, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'c: 2 make 1, plate (100) (measured)', ratio: '2-1', offers: [[PLATE, 100]], plate: 45, ingot: 0, p: 5, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'd: 1 makes 2, plate (12)', ratio: '1-2', offers: [[PLATE, 12]], plate: 12, ingot: 0, p: 19, plateUnsat: 0, ingotUnsat: 9 },
+        { name: 'e: 1 makes 2, none (measured)', ratio: '1-2', offers: [], plate: 0, ingot: 0, p: 25, plateUnsat: 0, ingotUnsat: 15 },
+        { name: 'f: 1 makes 2, plate (unlimited, the probe)', ratio: '1-2', offers: [[PLATE, Infinity]], plate: 30, ingot: 0, p: 10, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'g: 1 makes 1, ingot (100)', ratio: '1-1', offers: [[INGOT, 100]], plate: 0, ingot: 40, p: 50, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'h: 1 makes 2, ingot (100) (measured)', ratio: '1-2', offers: [[INGOT, 100]], plate: 0, ingot: 15, p: 25, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'i: 2 make 1, ingot (100)', ratio: '2-1', offers: [[INGOT, 100]], plate: 0, ingot: 90, p: 50, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'j: 1 makes 2, plate (100) and ingot (100) (measured)', ratio: '1-2', offers: [[PLATE, 100], [INGOT, 100]], plate: 0, ingot: 15, p: 25, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'k: 1 makes 1, plate (100) and ingot (100) (measured)', ratio: '1-1', offers: [[PLATE, 100], [INGOT, 100]], plate: 40, ingot: 0, p: 10, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'l: 1 makes 2, Import off on ingot, plate (100) (measured)', ratio: '1-2', offers: [[PLATE, 100]], rules: { [INGOT]: { importOff: true } }, plate: 30, ingot: 0, p: 10, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'm: 1 makes 2, S not pinned, plate (100) (measured)', ratio: '1-2', offers: [[PLATE, 100]], sFree: true, plate: 0, ingot: 0, p: 25, plateUnsat: 0, ingotUnsat: 0 },
+        { name: 'n: 1 makes 2, plate on Receive it first, plate (100) (measured)', ratio: '1-2', offers: [[PLATE, 100]], rules: { [PLATE]: { makeHere: 'after-blocks' } }, plate: 50, ingot: 0, p: 0, plateUnsat: 0, ingotUnsat: 0 },
+      ]
+      for (const row of rows) {
+        it(row.name, () => {
+          const { result, received } = solveBlock(fixtureA(row.ratio, { sFree: row.sFree, rules: row.rules }), makeGameData(), new Map(row.offers))
+          expect(received.get(PLATE) ?? 0, 'plate received').toBeCloseTo(row.plate, 6)
+          expect(received.get(INGOT) ?? 0, 'ingot received').toBeCloseTo(row.ingot, 6)
+          expect(nodeOf(result, 'P').throughput, 'P runs').toBeCloseTo(row.p, 6)
+          expect(unsat(result, PLATE), 'plate imported').toBeCloseTo(row.plateUnsat, 6)
+          expect(unsat(result, INGOT), 'ingot imported').toBeCloseTo(row.ingotUnsat, 6)
+          expect(nodeOf(result, 'case22-gear').throughput, 'G runs').toBeCloseTo(25, 6)
+          if (!row.sFree) expect(nodeOf(result, 'case22-ingot').throughput, 'S runs').toBeCloseTo(10, 6)
+          // Row n leaves S's 10 ingots unused (P does not run), which is reported as a surplus.
+          expect(result.warnings, 'warnings').toEqual(row.name.startsWith('n:') ? [expect.objectContaining({ type: 'overconstrained' })] : [])
+        })
+      }
+
+      // Row f in solveAll: a source block that has plate as a product is asked for what the probe takes.
+      const source = (): Block => mk('S', [[PLATE, 0]], [planNode('case22-mine-plate')])
+      const consumer = (): Block => ({
+        id: 'H', name: 'H', color: '#60a5fa',
+        products: [{ id: 'p-H-0', itemId: 'case22-gear', extraRate: 25 }],
+        sourceRules: {},
+        inputConnections: [{ id: 'c-H', itemId: PLATE, fromBlockId: 'S' }],
+        rootPlan: subPlan('root-H', fixtureA('1-2').nodes),
+      })
+      for (const order of [['S', 'H'], ['H', 'S']]) {
+        it(`f as a request: the source is asked for 30, tabs ${order.join(' ')}`, () => {
+          const byId: Record<string, Block> = { S: source(), H: consumer() }
+          const all = solveAll(order.map(t => byId[t]), makeGameData())
+          const f = flowIn(all, 'c-H')
+          expect(f.kind).toBe('request')
+          expect(f.requested, 'requested').toBeCloseTo(30, 6)
+          expect(f.rate, 'rate').toBeCloseTo(30, 6)
+          expect(nodeOf(all.results.S, 'case22-mine-plate').throughput, 'S mines').toBeCloseTo(30, 6)
+          expect(nodeOf(all.results.H, 'P').throughput, 'P runs').toBeCloseTo(10, 6)
+          expect(unsat(all.results.H, INGOT), 'ingot imported').toBeCloseTo(0, 6)
+        })
+      }
+    })
+
+    describe('C: areas', () => {
+      // Fixture A with G in area L and P and S in area M: plate is touched by both areas, ingot by M only.
+      const block = (ratio: Ratio): Block => {
+        const a = fixtureA(ratio)
+        const sp = (id: string, nodes: RecipeNode[]) => subPlan(id, nodes, [], true)
+        return {
+          id: 'H', name: 'H', color: '#60a5fa',
+          products: [{ id: 'p-H-0', itemId: 'case22-gear', extraRate: 25 }],
+          sourceRules: {}, inputConnections: [],
+          rootPlan: subPlan('root', [], [sp('L', [a.nodes[0]]), sp('M', [a.nodes[1], a.nodes[2]])]),
+        }
+      }
+      type Row = { name: string; ratio: Ratio; offers: Array<[string, number]>; plate: number; ingot: number; p: number; leg?: number }
+      const rows: Row[] = [
+        { name: 'a: 1 makes 2, plate (100)', ratio: '1-2', offers: [[PLATE, 100]], plate: 30, ingot: 0, p: 10, leg: 30 },
+        { name: 'b: 1 makes 1, ingot (100)', ratio: '1-1', offers: [[INGOT, 100]], plate: 0, ingot: 40, p: 50 },
+      ]
+      for (const row of rows) {
+        it(row.name, () => {
+          const { result, received } = solveBlock(flattenBlock(block(row.ratio)), makeGameData(), new Map(row.offers))
+          expect(received.get(PLATE) ?? 0, 'plate received').toBeCloseTo(row.plate, 6)
+          expect(received.get(INGOT) ?? 0, 'ingot received').toBeCloseTo(row.ingot, 6)
+          expect(nodeOf(result, 'P').throughput, 'P runs').toBeCloseTo(row.p, 6)
+          expect(unsat(result, PLATE), 'plate imported').toBeCloseTo(0, 6)
+          expect(unsat(result, INGOT), 'ingot imported').toBeCloseTo(0, 6)
+          const leg = (result.areaRoutes ?? []).find(r => r.itemId === PLATE && r.from === undefined && r.to === 'L')
+          if (row.leg === undefined) expect(leg, 'no outside leg of plate into L').toBeUndefined()
+          else {
+            expect(leg?.rate, 'outside leg of plate into L').toBeCloseTo(row.leg, 6)
+            expect(leg?.supplied, 'all of it supplied').toBeCloseTo(row.leg, 6)
+          }
+        })
+      }
+    })
+
+    describe('B: a loop that loses', () => {
+      const X = 'case22-x'
+      const W = 'case22-w'
+      const fixtureB = () => ({
+        goals: [{ id: 'g0', itemId: 'case22-goal', rate: 10 }],
+        nodes: [planNode('case22-use-x'), planNode('case22-recycle')],
+      })
+      type Row = { name: string; offers: Array<[string, number]>; x: number; w: number; r: number; xUnsat: number; wUnsat: number }
+      const rows: Row[] = [
+        { name: 'a: none (measured)', offers: [], x: 0, w: 0, r: 10, xUnsat: 10, wUnsat: 0 },
+        { name: 'b: X (100) (measured)', offers: [[X, 100]], x: 10, w: 0, r: 10, xUnsat: 0, wUnsat: 0 },
+        { name: 'c: X (4) (measured)', offers: [[X, 4]], x: 4, w: 0, r: 10, xUnsat: 6, wUnsat: 0 },
+        { name: 'd: W (5000)', offers: [[W, 5000]], x: 0, w: 1000, r: 20, xUnsat: 0, wUnsat: 0 },
+        { name: 'e: X (100) and W (5000) (measured)', offers: [[X, 100], [W, 5000]], x: 10, w: 0, r: 10, xUnsat: 0, wUnsat: 0 },
+      ]
+      for (const row of rows) {
+        it(row.name, () => {
+          const { result, received } = solveBlock(fixtureB(), makeGameData(), new Map(row.offers))
+          expect(received.get(X) ?? 0, 'X received').toBeCloseTo(row.x, 6)
+          expect(received.get(W) ?? 0, 'W received').toBeCloseTo(row.w, 6)
+          expect(nodeOf(result, 'case22-recycle').throughput, 'R runs').toBeCloseTo(row.r, 6)
+          expect(nodeOf(result, 'case22-use-x').throughput, 'U runs').toBeCloseTo(10, 6)
+          expect(unsat(result, X), 'X imported').toBeCloseTo(row.xUnsat, 6)
+          expect(unsat(result, W), 'W imported').toBeCloseTo(row.wUnsat, 6)
+        })
+      }
     })
   })
 })

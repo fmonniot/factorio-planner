@@ -1,0 +1,193 @@
+import { describe, it, expect } from 'vitest'
+import { solveAll, solveBlock } from './index'
+import type { Block, GameData, GameRecipeNode, RecipeNode, SolverGoal, SolverResult, SourceRule } from '../data/types'
+
+// The rules the order of connectionOrder.ts must keep (sourcing priority phase 6, T1's points 6 to 8).
+// Every block here is touched: its two passes end with an import of an intermediate while a connection has
+// offer to spare. Fixture A of case 22 unless said otherwise: G turns 2 plates into a gear (product 25), P turns
+// 1 ingot into 2 plates, S turns 1 ore into 1 ingot and is pinned at 10. Each value is derived in its comment.
+
+type GameRecipe = GameData['recipes'][string]
+type Part = GameRecipe['ingredients'][number] & GameRecipe['products'][number]
+
+const item = (itemId: string, amount: number): Part => ({ itemId, type: 'item', amount })
+const steam = (amount: number, extra: Partial<Part> = {}): Part => ({ itemId: 'steam', type: 'fluid', amount, ...extra })
+
+function recipe(id: string, ingredients: GameRecipe['ingredients'], products: GameRecipe['products']): GameRecipe {
+  return {
+    id, name: id, category: 'crafting', craftingTime: 1, ingredients, products, madeIn: [],
+    allowProductivity: false, mainProduct: undefined, hidden: false, subgroup: '', order: '',
+  }
+}
+
+function gameData(): GameData {
+  const recipes = [
+    recipe('gear', [item('plate', 2)], [item('gear', 1)]),
+    recipe('p12', [item('ingot', 1)], [item('plate', 2)]),
+    recipe('p11', [item('ingot', 1)], [item('plate', 1)]),
+    recipe('ingot', [item('ore', 1)], [item('ingot', 1)]),
+    recipe('burn', [item('plate', 1)], [item('ash', 1)]),
+    recipe('make-rod', [item('ore2', 1)], [item('rod', 1)]),
+    recipe('widget', [item('rod', 1)], [item('widget', 1)]),
+    recipe('hot', [item('ingot', 1)], [steam(2, { temperature: 500 })]),
+    recipe('cold', [item('water', 1)], [steam(10, { temperature: 200 })]),
+    recipe('turbine', [steam(2, { minimumTemperature: 400 })], [item('power', 1)]),
+    recipe('mine-plate', [item('ore', 1)], [item('plate', 1)]),
+    recipe('make-coin', [item('ore', 1)], [item('coin', 1)]),
+    recipe('use-coin', [item('coin', 1)], [item('token', 1)]),
+  ]
+  return {
+    factorioVersion: '2.0.0', modSet: {},
+    items: { steam: { id: 'steam', name: 'Steam' } as GameData['items'][string] },
+    recipes: Object.fromEntries(recipes.map(r => [r.id, r])),
+    machines: {}, modules: {}, beacons: {}, defaultMachines: {}, itemGroups: {}, itemSubgroups: {}, technologies: {}, startingRecipes: [],
+  }
+}
+
+const row = (id: string, recipeId = id, extra: Partial<GameRecipeNode> = {}): GameRecipeNode =>
+  ({ kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {}, ...extra })
+
+function plan(opts: { p?: 'p12' | 'p11'; extra?: RecipeNode[]; goals?: SolverGoal[]; rules?: Record<string, SourceRule> } = {}) {
+  return {
+    goals: opts.goals ?? [{ id: 'g', itemId: 'gear', rate: 25 }],
+    nodes: [row('G', 'gear'), row('P', opts.p ?? 'p12'), row('S', 'ingot', { pinnedRate: 10 }), ...(opts.extra ?? [])],
+    sourceRules: opts.rules ?? {},
+  }
+}
+
+const runs = (r: SolverResult, id: string) => r.nodes.find(n => n.recipeNodeId === id)!.throughput
+const unsat = (r: SolverResult, itemId: string) => r.unsatisfied.find(u => u.itemId === itemId)?.rate ?? 0
+const got = (received: Map<string, number>, itemId: string) => received.get(itemId) ?? 0
+
+describe('connectionOrder: the rules it keeps', () => {
+  it('never feeds a byproduct consumer from the supply, with an offer and with an unlimited one', () => {
+    // burn (1 plate makes 1 ash) is a byproduct consumer: plate is its ingredient. The 10 ingots make 20 plates,
+    // the connection gives the other 30; burn gets no plate, and the unlimited offer stays bounded.
+    for (const offer of [100, Infinity]) {
+      const { result, received } = solveBlock(plan({ extra: [row('B', 'burn', { byproductConsumer: true })] }), gameData(), new Map([['plate', offer]]))
+      expect(got(received, 'plate'), `plate received, offer ${offer}`).toBeCloseTo(30, 6)
+      expect(runs(result, 'B'), `burn, offer ${offer}`).toBeCloseTo(0, 6)
+      expect(runs(result, 'P'), `P, offer ${offer}`).toBeCloseTo(10, 6)
+      expect(unsat(result, 'ingot'), `ingot imported, offer ${offer}`).toBeCloseTo(0, 6)
+    }
+  })
+
+  it('keeps Receive it first: its supply is used whole, the default connection covers the rest', () => {
+    // Ingot on Receive it first, offer 4: 10 + 4 ingots make 28 plates; the plate connection gives 22. Today the
+    // block imports 11 ingots and leaves the plate connection idle.
+    const { result, received } = solveBlock(plan({ rules: { ingot: { makeHere: 'after-blocks' } } }), gameData(), new Map([['ingot', 4], ['plate', 100]]))
+    expect(got(received, 'ingot'), 'ingot received').toBeCloseTo(4, 6)
+    expect(got(received, 'plate'), 'plate received').toBeCloseTo(22, 6)
+    expect(runs(result, 'P'), 'P').toBeCloseTo(14, 6)
+    expect(unsat(result, 'ingot') + unsat(result, 'plate'), 'nothing imported').toBeCloseTo(0, 6)
+  })
+
+  it("keeps Don't make more here on another connected item of a touched block", () => {
+    // Rod on Don't make more here, 5 widgets: make-rod does not run for it; the rod connection (3) delivers, 2 are
+    // imported. The plate side is case 22 A, row b.
+    const p = plan({
+      goals: [{ id: 'g', itemId: 'gear', rate: 25 }, { id: 'w', itemId: 'widget', rate: 5 }],
+      extra: [row('W', 'widget'), row('R', 'make-rod')],
+      rules: { rod: { makeHere: 'off' } },
+    })
+    const { result, received } = solveBlock(p, gameData(), new Map([['plate', 100], ['rod', 3]]))
+    expect(got(received, 'plate'), 'plate received').toBeCloseTo(30, 6)
+    expect(got(received, 'rod'), 'rod received').toBeCloseTo(3, 6)
+    expect(unsat(result, 'rod'), 'rod imported').toBeCloseTo(2, 6)
+    expect(runs(result, 'R'), 'make-rod').toBeCloseTo(0, 6)
+    expect(unsat(result, 'ingot'), 'ingot imported').toBeCloseTo(0, 6)
+  })
+
+  it("leaves a block whose only import is a Don't make more here item as it is, Import on and off", () => {
+    // Ingot on Don't make more here: its import is the rule's own (a cheap slack), not an import the order counts,
+    // so the block is not touched: 15 ingots imported (or missing with Import off), the plate connection idle.
+    for (const importOff of [false, true]) {
+      const rule: SourceRule = importOff ? { makeHere: 'off', importOff: true } : { makeHere: 'off' }
+      const { result, received } = solveBlock(plan({ rules: { ingot: rule } }), gameData(), new Map([['plate', 100]]))
+      expect(got(received, 'plate'), `plate received, Import off ${importOff}`).toBeCloseTo(0, 6)
+      expect(unsat(result, 'ingot'), `ingot imported or missing, Import off ${importOff}`).toBeCloseTo(15, 6)
+      expect(runs(result, 'P'), `P, Import off ${importOff}`).toBeCloseTo(25, 6)
+    }
+  })
+
+  it('keeps a lock on the connected item (Import off on plate, offer 12: case 22 A, row d)', () => {
+    // 12 plates received, the other 38 need 19 runs and 19 ingots, 9 imported; plate is not imported.
+    const { result, received } = solveBlock(plan({ rules: { plate: { importOff: true } } }), gameData(), new Map([['plate', 12]]))
+    expect(got(received, 'plate'), 'plate received').toBeCloseTo(12, 6)
+    expect(runs(result, 'P'), 'P').toBeCloseTo(19, 6)
+    expect(unsat(result, 'ingot'), 'ingot imported').toBeCloseTo(9, 6)
+    expect(unsat(result, 'plate'), 'plate not imported').toBeCloseTo(0, 6)
+  })
+
+  it('keeps a lock on the connected upstream item (Import off on ingot, 1 makes 1: case 22 A, row g)', () => {
+    const { result, received } = solveBlock(plan({ p: 'p11', rules: { ingot: { importOff: true } } }), gameData(), new Map([['ingot', 100]]))
+    expect(got(received, 'ingot'), 'ingot received').toBeCloseTo(40, 6)
+    expect(runs(result, 'P'), 'P').toBeCloseTo(50, 6)
+    expect(unsat(result, 'ingot') + unsat(result, 'plate'), 'nothing imported').toBeCloseTo(0, 6)
+  })
+
+  it('keeps the temperature rows: cold steam does not replace the connection', () => {
+    // 25 power need 50 steam at 400 or more. hot (1 ingot makes 2 steam at 500) makes 20 from the 10 ingots; cold
+    // (1 water makes 10 steam at 200) is too cold, so the connection gives 30. Without the rows cold would make all of it.
+    const p = plan({ goals: [{ id: 'g', itemId: 'power', rate: 25 }] })
+    const nodes = [row('T', 'turbine'), row('H', 'hot'), row('C', 'cold'), row('S', 'ingot', { pinnedRate: 10 })]
+    const { result, received } = solveBlock({ ...p, nodes }, gameData(), new Map([['steam', 100]]))
+    expect(got(received, 'steam'), 'steam received').toBeCloseTo(30, 6)
+    expect(runs(result, 'H'), 'hot').toBeCloseTo(10, 6)
+    expect(runs(result, 'C'), 'cold').toBeCloseTo(0, 6)
+    expect(unsat(result, 'ingot') + unsat(result, 'steam'), 'nothing imported').toBeCloseTo(0, 6)
+  })
+})
+
+describe('connectionOrder: ties', () => {
+  type Tie = { name: string; p: 'p12' | 'p11'; offers: Array<[string, number]>; plate: number; ingot: number; P: number; plateUnsat: number }
+  const ties: Tie[] = [
+    // 1 makes 1, 30 and 30: no import with 40 received either way; the runs decide, plate first (P 20 against 40).
+    { name: 'equal units: 1 makes 1, plate (30) and ingot (30)', p: 'p11', offers: [['plate', 30], ['ingot', 30]], plate: 30, ingot: 10, P: 20, plateUnsat: 0 },
+    // 1 makes 2, 12 and 12: 50 = 2·(10 + ingot) + plate, so plate = 30 − 2·ingot; the total 30 − ingot is least at ingot 12.
+    { name: 'a short offer on two connections: 1 makes 2, plate (12) and ingot (12)', p: 'p12', offers: [['plate', 12], ['ingot', 12]], plate: 6, ingot: 12, P: 22, plateUnsat: 0 },
+    // 1 makes 1, 12 and 12: both used, 16 short; importing plate saves the runs.
+    { name: 'both short: 1 makes 1, plate (12) and ingot (12)', p: 'p11', offers: [['plate', 12], ['ingot', 12]], plate: 12, ingot: 12, P: 22, plateUnsat: 16 },
+  ]
+  for (const t of ties) {
+    it(`${t.name}, the same solved twice and with the offers in the other order`, () => {
+      const solves = [t.offers, t.offers, [...t.offers].reverse()].map(o => solveBlock(plan({ p: t.p }), gameData(), new Map(o)))
+      for (const [i, { result, received }] of solves.entries()) {
+        expect(got(received, 'plate'), `plate received, solve ${i}`).toBeCloseTo(t.plate, 6)
+        expect(got(received, 'ingot'), `ingot received, solve ${i}`).toBeCloseTo(t.ingot, 6)
+        expect(runs(result, 'P'), `P, solve ${i}`).toBeCloseTo(t.P, 6)
+        expect(unsat(result, 'plate'), `plate imported, solve ${i}`).toBeCloseTo(t.plateUnsat, 6)
+        expect(unsat(result, 'ingot'), `ingot imported, solve ${i}`).toBeCloseTo(0, 6)
+      }
+      expect(solves[1].result, 'solved twice').toEqual(solves[0].result)
+    })
+  }
+})
+
+describe('connectionOrder: a touched block in a cycle of requests', () => {
+  // H (fixture A) requests plate from S; S requests a coin from H. H's need is 30 (case 22 A, row f), S's is 1.
+  const now = new Date().toISOString()
+  const block = (id: string, products: Array<[string, number]>, nodes: RecipeNode[], links: Block['inputConnections']): Block => ({
+    id, name: id, color: '#60a5fa',
+    products: products.map(([itemId, extraRate], i) => ({ id: `p-${id}-${i}`, itemId, extraRate })),
+    sourceRules: {}, inputConnections: links,
+    rootPlan: { id: `root-${id}`, name: id, nodes, subPlans: [], createdAt: now, updatedAt: now },
+  })
+  const H = () => block('H', [['gear', 25], ['coin', 0]], [...plan().nodes, row('M', 'make-coin')], [{ id: 'c-H', itemId: 'plate', fromBlockId: 'S' }])
+  const S = () => block('S', [['plate', 0], ['token', 1]], [row('MP', 'mine-plate'), row('U', 'use-coin')], [{ id: 'c-S', itemId: 'coin', fromBlockId: 'H' }])
+  for (const order of [['H', 'S'], ['S', 'H']]) {
+    it(`both requests are met and the cycle settles, tabs ${order.join(' ')}`, () => {
+      const byId: Record<string, Block> = { H: H(), S: S() }
+      const all = solveAll(order.map(t => byId[t]), gameData())
+      const flow = (id: string) => all.flows.find(f => f.connectionId === id)!
+      expect(flow('c-H').requested, 'plate requested').toBeCloseTo(30, 6)
+      expect(flow('c-H').rate, 'plate delivered').toBeCloseTo(30, 6)
+      expect(flow('c-S').requested, 'coin requested').toBeCloseTo(1, 6)
+      expect(flow('c-S').rate, 'coin delivered').toBeCloseTo(1, 6)
+      expect(runs(all.results.H, 'P'), 'P').toBeCloseTo(10, 6)
+      expect(unsat(all.results.H, 'ingot'), 'ingot imported').toBeCloseTo(0, 6)
+      expect(all.loops).toHaveLength(1)
+      expect(all.loops[0].converged, 'converged').toBe(true)
+    })
+  }
+})
