@@ -397,9 +397,10 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
         data-recipe-id={r.id}
         data-beyond-horizon={beyond ? 'true' : undefined}
         data-in-area={present ? 'true' : undefined}
-        disabled={present}
+        // aria-disabled, not disabled: a disabled button gets no hover or focus, so the detail panel would never open.
+        aria-disabled={present || undefined}
         title={present ? `${r.name} (already in ${presentRecipes.where})` : beyond ? `${r.name} (beyond research horizon)` : r.name}
-        onClick={() => { onSelect(r.id); onClose() }}
+        onClick={() => { if (present) return; onSelect(r.id); onClose() }}
         onMouseEnter={() => setHoveredRecipeId(r.id)}
         onMouseLeave={() => setHoveredRecipeId(null)}
         onFocus={() => setHoveredRecipeId(r.id)}

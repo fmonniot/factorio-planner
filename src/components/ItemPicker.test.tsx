@@ -141,12 +141,29 @@ describe('ItemPicker — recipes mode', () => {
     )
     const slot = (id: string) => screen.getAllByTestId('recipe-slot').find(e => e.getAttribute('data-recipe-id') === id)!
     const present = slot('iron-plate')
-    expect(present).toBeDisabled()
+    expect(present).toHaveAttribute('aria-disabled', 'true')
     expect(present).toHaveAttribute('data-in-area', 'true')
     expect(present).toHaveAttribute('title', 'Iron Plate (already in this area)')
     fireEvent.click(present)
     expect(onSelect).not.toHaveBeenCalled()
-    expect(slot('copper-plate')).toBeEnabled()
+    expect(slot('copper-plate')).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('still shows the full detail panel for a recipe already present', () => {
+    render(
+      <ItemPicker
+        source="recipes"
+        presentRecipes={{ ids: new Set(['iron-plate']), where: 'this area' }}
+        onSelect={() => {}}
+        onClose={() => {}}
+      />,
+    )
+    const present = screen.getAllByTestId('recipe-slot').find(e => e.getAttribute('data-recipe-id') === 'iron-plate')!
+    fireEvent.mouseEnter(present)
+    expect(screen.getByTestId('recipe-detail-panel')).toBeInTheDocument()
+    fireEvent.mouseLeave(present)
+    fireEvent.focus(present)
+    expect(screen.getByTestId('recipe-detail-panel')).toBeInTheDocument()
   })
 
   it('groups recipes by subgroup within the selected tab', () => {
@@ -794,7 +811,7 @@ describe('ItemPicker — fuel groups', () => {
     expect(groupSlot('boiler')).toBeEnabled()
     fireEvent.click(groupSlot('boiler')!)
     const slots = screen.getAllByTestId('recipe-slot')
-    expect(slots.find(s => s.getAttribute('data-recipe-id') === 'power:boiler:coal')).toBeDisabled()
+    expect(slots.find(s => s.getAttribute('data-recipe-id') === 'power:boiler:coal')).toHaveAttribute('aria-disabled', 'true')
     expect(slots.find(s => s.getAttribute('data-recipe-id') === 'power:boiler:wood')).toBeEnabled()
   })
 

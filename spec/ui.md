@@ -1197,7 +1197,8 @@ The same component in recipes mode (`source="recipes"`).
   tooltip suffix, and are selected like any other slot. Hidden recipes are
   unaffected. While it is ticked the "outside it" empty-state message never appears.
 - A recipe that already has a row where the new one would go is disabled: dimmed,
-  `data-in-area="true"`, title "<name> (already in this area)" (or "this block" in a block
+  `aria-disabled="true"` (not the `disabled` attribute, so hover and focus still open the full
+  detail panel), `data-in-area="true"`, title "<name> (already in this area)" (or "this block" in a block
   without areas), and clicking it does nothing. The target is the area that encloses the
   sub-plan the row will be added to (the root for the header button and the summary's
   Find recipe). Other routes (dragging a row into an area, **Alternate recipe**, turning an
