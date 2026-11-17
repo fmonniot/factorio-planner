@@ -424,7 +424,7 @@ describe('ProductionTable — recipe picker', () => {
     render(<ProductionTable />)
     fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
     const slot = screen.getAllByTestId('recipe-slot').find(e => e.getAttribute('data-recipe-id') === 'iron-plate')!
-    expect(slot).toBeDisabled()
+    expect(slot).toHaveAttribute('aria-disabled', 'true')
     expect(slot).toHaveAttribute('title', 'Iron Plate (already in this block)')
   })
 })
