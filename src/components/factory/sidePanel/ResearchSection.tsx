@@ -6,7 +6,7 @@ import { PanelSection } from './PanelParts'
 
 /**
  * Research needed for the row's recipe: the technologies that unlock it, with their science pack types (no counts).
- * Absent when the data set has no technology data. Read-only, like the picker's "Unlocked by".
+ * Absent when the data set has no technology data. The horizon is not applied, so a power recipe is never "fuel"-gated here. Read-only, like the picker's "Unlocked by".
  */
 export function ResearchSection({ recipeId, gameData }: { recipeId: string; gameData: GameData }) {
   const unlock = recipeUnlock(gameData, recipeId)
@@ -14,7 +14,6 @@ export function ResearchSection({ recipeId, gameData }: { recipeId: string; game
   return (
     <PanelSection title="Research needed" testId="panel-research">
       {unlock.kind === 'start' && <p className="text-[11px] text-gray-400">Available from the start</p>}
-      {unlock.kind === 'fuel' && <p className="text-[11px] text-gray-400">Not yet available</p>}
       {unlock.kind === 'none' && <p className="text-[11px] text-gray-400">No technology unlocks this recipe</p>}
       {unlock.kind === 'technologies' && (
         <ul className="space-y-1">

@@ -516,6 +516,21 @@ describe('SidePanel — Research needed', () => {
     expect(open(withTechs(), 'n2')).toHaveTextContent('Available from the start')
   })
 
+  it('says so when no technology unlocks the recipe, and shows a trigger for a trigger technology', () => {
+    const data = withTechs()
+    data.technologies.smelting.unlockedRecipes = []
+    expect(open(data, 'n1')).toHaveTextContent('No technology unlocks this recipe')
+  })
+
+  it('shows the trigger of a research-trigger technology', () => {
+    const data = withTechs()
+    data.technologies.smelting.cost = null
+    data.technologies.smelting.trigger = { type: 'craft-item', item: 'plate', count: 10 } as never
+    const rows = within(open(data, 'n1')).getAllByTestId('research-tech')
+    expect(rows[0]).toHaveTextContent('Smelting')
+    expect(within(rows[0]).getByTestId('tech-cost')).toBeInTheDocument()
+  })
+
   it('is absent without technology data', () => {
     setPlan([row('n1', 'r-plate')])
     select('n1')

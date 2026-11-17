@@ -40,6 +40,7 @@ export function TechCost({ cost, lookup, trigger, triggerText = 'short', tooltip
     )
   }
   const { items } = lookup
+  const text = [showCount && `×${cost.count ?? '?'}`, showTime && `${cost.time}s`].filter(Boolean).join(' · ')
   return (
     <span data-testid="tech-cost" className="flex flex-wrap items-center gap-x-1 text-[11px] text-gray-400">
       {cost.ingredients.map(ing => {
@@ -53,9 +54,7 @@ export function TechCost({ cost, lookup, trigger, triggerText = 'short', tooltip
           </span>
         )
       })}
-      {(showCount || showTime) && (
-        <span>{showCount ? `×${cost.count ?? '?'}` : ''}{showTime ? `${showCount ? ' · ' : ''}${cost.time}s` : ''}</span>
-      )}
+      {text && <span>{text}</span>}
     </span>
   )
 }
