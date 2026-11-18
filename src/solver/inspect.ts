@@ -1,4 +1,5 @@
 import { solveAll, flattenBlock, surplusTolerance } from './index'
+import { createSolveCache } from './solveCache'
 import { areaLPItems, areaRuleOf, blockAreas } from './areas'
 import { outsideLegParts } from './areaRoutes'
 import { makeHereOf } from '../data/sourceRules'
@@ -164,7 +165,11 @@ export interface InspectReport {
   rows: RowReport[]
   items: ItemReport[]
   unsatisfied: UnsatisfiedItem[]
-  /** Imports the block's input connections replaced: it imports `without` items/min with its input connections removed, `now` with them. */
+  /**
+   * Imports the block's input connections replaced: it imports `without` items/min with its input connections removed, `now` with them.
+   * Approximate for a block in a loop: removing its input connections also changes what its consumers request of it, so the
+   * `without` solve runs at different goals and its import may be smaller than the block's own production would need.
+   */
   replacedImports: { itemId: string; without: number; now: number }[]
   warnings: SolverWarning[]
   /** Connections into and out of the block. */
@@ -360,7 +365,9 @@ export function inspectPlan(appState: AppState, gameData: GameData, blockName: s
   const found = findBlock(appState, blockName)
   const state = applyWhatIf(appState, found.id, whatIf)
   const block = findBlock(state, found.id)
-  const solved = solveAll(state.blocks, gameData)
+  // One cache for both solves: the blocks the removed connections do not reach are solved once.
+  const cache = createSolveCache()
+  const solved = solveAll(state.blocks, gameData, cache)
   const empty: InspectReport = {
     block: { id: block.id, name: block.name },
     rows: [],
@@ -383,7 +390,7 @@ export function inspectPlan(appState: AppState, gameData: GameData, blockName: s
   // block solve would not do); what it imported then and no longer imports is what its connections replaced.
   let replacedImports: InspectReport['replacedImports'] = []
   if (block.inputConnections.length > 0) {
-    const alone = solveAll(state.blocks.map(b => (b.id === block.id ? { ...b, inputConnections: [] } : b)), gameData)
+    const alone = solveAll(state.blocks.map(b => (b.id === block.id ? { ...b, inputConnections: [] } : b)), gameData, cache)
     const now = new Map(result.unsatisfied.map(u => [u.itemId, u.rate]))
     replacedImports = (alone.results[block.id]?.unsatisfied ?? [])
       .map(u => ({ itemId: u.itemId, without: u.rate, now: now.get(u.itemId) ?? 0 }))
@@ -502,7 +509,7 @@ export function formatReport(report: InspectReport, options: FormatOptions = {})
   if (report.unsatisfied.length === 0) out.push('  none')
 
   if (report.replacedImports.length > 0) {
-    out.push('', 'Imports the connections replaced (item, imported with no connection, imported now):')
+    out.push('', 'Imports the connections replaced (item, imported with no connection, imported now; approximate in a loop, where removing them also changes the goals):')
     for (const r of report.replacedImports) out.push(`  ${r.itemId}  ${num(r.without)}  ${num(r.now)}`)
   }
 

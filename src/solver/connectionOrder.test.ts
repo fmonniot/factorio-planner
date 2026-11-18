@@ -261,8 +261,18 @@ describe('connectionOrder: the gate', () => {
     const p = plan({ p: 'p12' })
     return { ...p, nodes: [row('G', 'gear'), row('P', 'p12'), row('S', 'ingot')] }
   }
-  // Case 22 A. A block whose two passes end with no import of an intermediate keeps its pre-phase count; a touched
-  // block (rows b and g) runs the three steps on top of the two passes' four.
+  // Case 22 A. LP calls: pass 1 is 1 call, pass 2 (when a connected intermediate has a residual) 1 more. A block whose
+  // two passes end with no import of an intermediate, or whose only import is the rule of Don't make more here, keeps
+  // that count. A touched block adds the least-import step (1) and, when it finds a gain, the least-received and fill
+  // steps (2 more): rows b and g are 1 + 3 = 4 (pass 2 did not run), row p is 2 + 3 = 5 (pass 2 ran), the
+  // Don't make more here row adds one refill solve to that (2 + 3 + 1 = 6). A gate that opens and finds no gain
+  // stops after the least-import step: 1 + 1 = 2.
+  const dmmh = (): ReturnType<typeof plan> => plan({
+    goals: [{ id: 'g', itemId: 'gear', rate: 25 }, { id: 'w', itemId: 'widget', rate: 5 }],
+    extra: [row('W', 'widget'), row('R', 'make-rod')],
+    rules: { rod: { makeHere: 'off' } },
+  })
+  const coinOnly = (): ReturnType<typeof plan> => plan({ extra: [row('C', 'make-coin'), row('K', 'use-coin')] })
   const rows: Array<[string, () => ReturnType<typeof plan>, Array<[string, number]>, number]> = [
     ['e: no offers', () => plan(), [], 1],
     ['m: S not pinned, plate (100)', free, [['plate', 100]], 1],
@@ -271,8 +281,17 @@ describe('connectionOrder: the gate', () => {
     ['j: 1 makes 2, plate (100) and ingot (100)', () => plan(), [['plate', 100], ['ingot', 100]], 2],
     ['b: 1 makes 2, plate (100)', () => plan(), [['plate', 100]], 4],
     ['g: 1 makes 1, ingot (100)', () => plan({ p: 'p11' }), [['ingot', 100]], 4],
+    // Pass 1 imports 40 plates (P runs 10 on S's ingots); pass 2 takes 12, 28 plates stay imported while the ingot offer
+    // is untouched: the gate opens, the least import is 0 (P runs 38, 28 ingots from the connection): 2 + 3.
+    ['p: 1 makes 1, plate (12) and ingot (100): pass 2 ran, then the three steps', () => plan({ p: 'p11' }), [['plate', 12], ['ingot', 100]], 5],
+    // Rod on Don't make more here (5 widgets): pass 1 has a rod residual of 5, so pass 2 runs (3 delivered); the plate
+    // connection replaces the 15 ingots (3 steps); the rod slack left in step 4 is measured and refilled (1): 2 + 3 + 1.
+    ["q: Don't make more here on rod (3), plate (100): pass 2, three steps and the refill", dmmh, [['plate', 100], ['rod', 3]], 6],
+    // The gate opens (15 ingots imported, a coin connection with offer to spare) but coin cannot replace an ingot: the
+    // least import is 15 again, no gain, the steps stop after the first: 1 + 1.
+    ['r: coin (100), no plate or ingot connection: the gate opens, no gain', coinOnly, [['coin', 100]], 2],
   ]
-  it('a block whose two passes end with no import of an intermediate runs no step, and a touched block runs three', () => {
+  it('a block the gate does not open keeps its count, and a touched block adds the least-import step and, with a gain, two more', () => {
     for (const [name, make, offers, calls] of rows) expect(lpCalls(make(), offers), `LP calls, ${name}`).toBe(calls)
   })
 })

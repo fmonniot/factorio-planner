@@ -308,7 +308,7 @@ describe('solveBlock — own production first', () => {
     expect(rate(result.unsatisfied, 'ingot')).toBeCloseTo(50, 4)
   })
 
-  // "Own production that needs an import": `ingotFromOre` is pinned at 10, so ingot is short,
+  // "A connection replaces an import": `ingotFromOre` is pinned at 10, so ingot is short,
   // and plate can only come from the ingot. Whatever the ratio, the plate connection replaces the
   // ingot import (case 22 A, rows a and b; connectionOrder.ts).
   describe('own production that needs an upstream import', () => {

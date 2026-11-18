@@ -991,7 +991,7 @@ M1: T's list `[K2, K1]` -> `[K2, K1 tied]` (case 17): the cycle is solved again,
 
 **Exercises:** an area's own rule for an item (`SubPlan.sourceRules`) in the area LP: Receive it first, Don't make more here and Import off set on one area while the block's rule and the other areas keep theirs; a keyless `{}` rule that overrides the block's; the outside leg into an area and its connected part (`AreaRoute.supplied`); the split of that leg into received, imported and missing (`outsideLegParts`); a second item that no rule names and that two areas trade (the one-path pin); the rule as a request, in a served list's needs and in a cycle of requests; the byproduct that goes where it saves the most runs; and the supplier switch (`areasOff`): an area that takes an item from one supplying area and not another, from none (imported, or missing when Import is off), and a byproduct that only one consumer may take.
 
-**Recipes:** case 13's (`case13-make-plate`: 1 ore makes 1 plate; `case13-use-plate`: 1 plate makes 1 gear) and case 11's (`case11-make-goal`, `case11-use-x`, `case11-make-x`), plus `case21-make-y` (1 `case21-ore` makes 1 Y), `case21-use-y` (1 Y makes 1 `case21-z`), `case21-make-coin` and `case21-use-coin` (1 `case21-ore` makes 1 coin; 1 coin makes 1 token). The values were derived by hand before the solver change; no row was edited to match the solver. Rows marked *measured* are what the solver gave before area rules.
+**Recipes:** case 13's (`case13-make-plate`: 1 ore makes 1 plate; `case13-use-plate`: 1 plate makes 1 gear) and case 11's (`case11-make-goal`, `case11-use-x`, `case11-make-x`), plus `case21-make-y` (1 `case21-ore` makes 1 Y), `case21-use-y` (1 Y makes 1 `case21-z`), `case21-make-coin` and `case21-use-coin` (1 `case21-ore` makes 1 coin; 1 coin makes 1 token). The values were derived by hand before the solver change; no row was edited to match the solver. Rows marked *measured* do not depend on the area rules: they hold with or without them.
 
 ### A — a central block and an area with its own row
 
@@ -1066,7 +1066,7 @@ Case 11's recipes. Block H, products 30 `case11-goal` and 90 `case11-other`. Are
 
 ```
 a: 90 used, 30 made on the side, R makes 60 / 2 = 30. (measured)
-b: no row runs for X: T's 30 are used, the other 60 are imported. Which receiver takes the byproduct is not decided by the LP (the nets and the total import are the same); the per-area imports go to the receivers lower in the table, so T goes to C1 (30) and the imports are C1 10 and C2 50. (Before area rules the pairing gave T to C2 30, outside to C1 40, outside to C2 20.)
+b: no row runs for X: T's 30 are used, the other 60 are imported. Which receiver takes the byproduct is not decided by the LP (the nets and the total import are the same); the per-area imports go to the receivers lower in the table, so T goes to C1 (30) and the imports are C1 10 and C2 50.
 c: C1 does not make X, but the byproduct still goes where it saves the most runs: C2 takes T's 30 and R makes (50 - 30) / 2 = 10; C1 imports its 40.
 d: T's 30 X are a byproduct of the fixed goal and cannot be avoided. C2 switched T off, so its 50 come from R (25 runs); T's 30 can reach only C1. C1's other 10 are cheaper imported (1e-5 each) than made by 5 more runs of R: R 25, X imported 10, legs T to C1 30 and outside to C1 10. No flow is penalised (no area has a dedicated row that takes from another), so stage 1 is skipped.
 e: the same LP (`makeHere: 'off'` keeps the cheap slack); with Import off the 10 are missing, not imported: parts 0/0/10.
@@ -1076,7 +1076,7 @@ The second item Y (T makes it, C1 uses it) is the same pin as in A: the plate (X
 
 ## Case 22 — A connection replaces an import
 
-**Exercises:** the connection order ([A connection replaces an import](solver.md#connections-between-blocks)): a block that imports an intermediate while one of its connections has offer to spare takes from the connection instead, whichever item the connection is on and whatever the recipe ratio; own production first, the default-rule gate and the rules the steps keep; the same rule in a loop that loses, in areas, and in a loop of blocks and a served list. Rows marked *measured* are the solver before the connection order existed and must not move.
+**Exercises:** the connection order ([A connection replaces an import](solver.md#connections-between-blocks)): a block that imports an intermediate while one of its connections has offer to spare takes from the connection instead, whichever item the connection is on and whatever the recipe ratio; own production first, the default-rule gate and the rules the steps keep; the same rule in a loop that loses, in areas, and in a loop of blocks and a served list. Rows marked *measured* do not depend on the order: they hold with or without it.
 
 **Recipes:** `case22-gear` (2 plate makes 1 gear, G), `case22-plate-1-1`, `case22-plate-1-2`, `case22-plate-2-1` (P: 1 ingot makes 1 plate, 1 ingot makes 2 plates, 2 ingots make 1 plate), `case22-ingot` (S: 1 ore makes 1 ingot), `case22-mine-plate` (1 ore makes 1 plate, a source block's row), `case22-use-x` (U: 2 X make 1 goal and 100 W), `case22-recycle` (R: 100 W make 1 X), `case22-tool` (H: 2 plate make 1 tool and 2 z), `case22-press` (Q: 1 z and 1 ore make 1 coin and 1 plate). Values are derived by hand; no row is edited to match the solver.
 
@@ -1102,12 +1102,12 @@ Fixture A: product 25 gears (G needs 50 plates); P at the ratio of the row; S pi
 | n | 1 makes 2, plate on *Receive it first* (*measured*) | plate (100) | plate 50 | 0 | none |
 
 ```
-b: the 10 ingots make 20 plates (x runs of P, x <= 10 without an import); the connection gives the other 30. The least import is 0 (x <= 10) and the least received is 30 at x = 10. Before: nothing received, 15 ingots imported.
+b: the 10 ingots make 20 plates (x runs of P, x <= 10 without an import); the connection gives the other 30. The least import is 0 (x <= 10) and the least received is 30 at x = 10.
 d: the offer 12 bounds the plates received (u <= 12), so 2x >= 38, x >= 19: 19 ingots, 9 of them imported (importing plate instead would be 18 units).
-f: as a solveAll row, a source block that has plate as a product is asked for 30 (the probe's need); before, nothing.
+f: as a solveAll row, a source block that has plate as a product is asked for 30 (the probe's need).
 g: 1 ingot makes 1 plate: 50 plates need x = 50 and 50 ingots, 10 of them the block's own, so u = 40.
 i: 2 ingots make 1 plate: x = 50 and 100 ingots = 10 + u, u = 90.
-e, j, k: no offer on the replacing item, or two connections that tie: the fewest units, then the fewest runs, as before.
+e, j, k: no offer on the replacing item, or two connections that tie: the fewest units, then the fewest runs.
 m: S is not pinned, so P runs on raw ore (25) and no import is left: own production first, the gate stays closed.
 n: plate on Receive it first is received whole (50); P does not run. The solver also reports overconstrained (S's 10 ingots are unused); that warning is what the solver gives, not a derived value.
 ```
