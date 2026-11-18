@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
 import { buildClassifiedSystem } from './build'
-import { BIG_M, BYPRODUCTS_FIRST_SLACK_COST, buildLPModel, PIN_PROBE_LIMIT, solveLP } from './solve'
+import { BC_BONUS, BIG_M, BYPRODUCTS_FIRST_SLACK_COST, buildLPModel, PIN_PROBE_LIMIT, runLP, solveLP } from './solve'
 import type { GameData, GameRecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -691,5 +691,96 @@ describe('byproducts first', () => {
   it('creates no slack for a locked item', () => {
     const lp = buildLPModel(system(), new Map(), new Set(), new Set(['plate']), new Map(), new Set(), new Set(['plate']))
     expect(lp.variables.slack_plate).toBeUndefined()
+  })
+})
+
+describe('absorber chains', () => {
+  // grow makes the goal and trees; saw (flagged) takes a tree and a saw and gives back most of the saw; make-saw (a feeder) makes a saw
+  // from a plate; make-plate makes plates from a roll; use-plate (ordinary) takes a plate.
+  function system() {
+    const gameData = makeGameData({
+      recipes: {
+        grow: recipe('grow', 1, [item('seed', 1)], [product('goal', 1), product('tree', 2)]),
+        saw: recipe('saw', 1, [item('tree', 1), item('saw', 1)], [product('wood', 8), product('saw', 0.9)]),
+        'make-saw': recipe('make-saw', 1, [item('plate', 1)], [product('saw', 1)]),
+        'make-plate': recipe('make-plate', 1, [item('roll', 1)], [product('plate', 4)]),
+        'use-plate': recipe('use-plate', 1, [item('plate', 1)], [product('gadget', 1)]),
+      },
+    })
+    return buildClassifiedSystem(gameData, ['grow', 'saw', 'make-saw', 'make-plate', 'use-plate'], new Map([['goal', 10], ['gadget', 1]]))
+  }
+
+  it('rewards the flagged row, charges a tiny cost to the rows that only feed it and every other row 1', () => {
+    const lp = buildLPModel(system(), new Map(), new Set(['saw']))
+    expect(lp.absorbers.chain.has('saw'), 'saw in the chain').toBe(true)
+    const cost = (id: string) => lp.variables[lp.recipeToVar.get(id)!].__obj__
+    expect(cost('saw')).toBe(BC_BONUS)
+    expect(cost('make-saw'), 'feeder').toBeGreaterThan(0)
+    expect(cost('make-saw'), 'feeder').toBeLessThan(-BC_BONUS / 10)
+    expect(cost('make-plate'), 'an ordinary row also uses the plate').toBe(1)
+    expect(cost('grow')).toBe(1)
+  })
+
+  it('leaves the chain out of the supply-use row of a connections-first item', () => {
+    const lp = buildLPModel(system(), new Map(), new Set(['saw']), new Set(), new Map([['plate', 100]]), new Set(['plate']))
+    const useOf = (id: string) => lp.variables[lp.recipeToVar.get(id)!].supuse_plate
+    expect(useOf('make-saw'), 'the feeder').toBeUndefined()
+    expect(useOf('use-plate'), 'an ordinary row').toBe(-1)
+  })
+  // Rows as [id, ingredients, products]; the system is classified by `buildClassifiedSystem`, as in a block solve.
+  type Row = [id: string, ingredients: Record<string, number>, products: Record<string, number>]
+  function lpOf(rows: Row[], goals: Record<string, number>, flagged: string[], byproductsFirst: string[] = []) {
+    const recipes: GameData['recipes'] = {}
+    for (const [id, ing, prod] of rows) {
+      recipes[id] = recipe(id, 1, Object.entries(ing).map(([i, n]) => item(i, n)), Object.entries(prod).map(([i, n]) => product(i, n)))
+    }
+    const system = buildClassifiedSystem(makeGameData({ recipes }), rows.map(r => r[0]), new Map(Object.entries(goals)))
+    const bf = new Set(byproductsFirst)
+    const lp = buildLPModel(system, new Map(), new Set(flagged), new Set(), new Map(), new Set(), bf)
+    const raw = runLP('__obj__', lp.constraints, lp.variables)
+    const result = solveLP(system, new Map(), new Set(flagged), new Set(), new Map(), new Set(), bf)
+    return { raw, result }
+  }
+  const GROW: Row = ['grow', { seed: 1 }, { goal: 1, tree: 2 }]
+  const SAWING: Row = ['sawr', { tree: 1, saw: 1 }, { wood: 8, saw: 0.9 }]
+
+  it('stays bounded when an item with a byproducts-first rule feeds the chain', () => {
+    const rows: Row[] = [
+      ['grow', { seed: 1 }, { goal: 1, plate: 1 }],
+      ['make-saw', { plate: 1 }, { saw: 1 }],
+      ['sawr', { saw: 1, log: 1 }, { wood: 8, saw: 0.9 }],
+    ]
+    const { raw, result } = lpOf(rows, { goal: 10 }, ['sawr'], ['plate'])
+    expect(raw.bounded, 'bounded').not.toBe(false)
+    expect(result.throughput.get('sawr'), 'sawr').toBeCloseTo(0, 6)
+  })
+
+  it('a flagged row that makes what an ordinary row uses does not pull its feeders ahead of ordinary production', () => {
+    const rows: Row[] = [
+      ['p', { ore: 1 }, { plate: 1 }],
+      ['u', { plate: 1 }, { gadget: 1 }],
+      ['rr', { x: 2 }, { plate: 1 }],
+      ['f', { roll: 1 }, { x: 1 }],
+    ]
+    const { result } = lpOf(rows, { gadget: 10 }, ['rr'])
+    expect(result.throughput.get('p'), 'p').toBeCloseTo(10, 6)
+    expect(result.throughput.get('rr'), 'rr').toBeCloseTo(0, 6)
+    expect(result.throughput.get('f'), 'f').toBeCloseTo(0, 6)
+  })
+
+  it('hands the chain to the diagnostics through the result', () => {
+    const { result } = lpOf([GROW, SAWING, ['make-saw', { roll: 1 }, { saw: 1 }]], { goal: 10 }, ['sawr'])
+    expect([...result.absorbers.chain].sort()).toEqual(['make-saw', 'sawr'])
+  })
+
+  it('picks the same feeder whatever the order of the rows', () => {
+    const a: Row = ['make-saw-a', { roll: 1 }, { saw: 1 }]
+    const b: Row = ['make-saw-b', { ore: 100 }, { saw: 1 }]
+    for (const rows of [[GROW, SAWING, a, b], [GROW, SAWING, b, a]]) {
+      const { result } = lpOf(rows, { goal: 10 }, ['sawr'])
+      expect(result.throughput.get('sawr'), 'sawr').toBeCloseTo(20, 6)
+      expect(result.throughput.get('make-saw-a'), 'a').toBeCloseTo(2, 6)
+      expect(result.throughput.get('make-saw-b'), 'b').toBeCloseTo(0, 6)
+    }
   })
 })

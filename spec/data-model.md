@@ -725,7 +725,7 @@ interface GameRecipeNode {
   fuelItemId?: string           // burner rows: the fuel item burnt; absent or not accepted = the machine's default fuel (horizon-aware)
   byproductPolicy: Record<string, 'discard' | 'feed-back'>   // per product item id
   primaryProduct?: string       // which output the UI treats as the product
-  byproductConsumer?: boolean   // run only to absorb surplus, see solver.md
+  byproductConsumer?: boolean   // run only to absorb surplus, see solver.md, Absorber chains
 }
 
 interface SubPlanNode {

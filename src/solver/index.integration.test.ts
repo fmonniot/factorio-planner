@@ -570,3 +570,33 @@ describe('power generation on the real Seablock data', () => {
     expectSane(r, plan, 'power')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Seablock: an absorber chain
+// ---------------------------------------------------------------------------
+
+describe('an absorber chain on the real Seablock data', () => {
+  // Bio plastic leaves trees over. Sawing them needs a saw, which a plate makes (roll-iron is raw): the saw row is
+  // flagged, the saw and plate rows only feed it and run along with it.
+  const BASE = ['angels-bio-plastic']
+  const CHAIN = ['angels-wood-sawing-1', 'angels-solid-saw', 'angels-plate-iron-2']
+  function solveBio(recipeIds: string[]) {
+    const plan = makePlan([['angels-bio-plastic', 40]], recipeIds)
+    plan.nodes = plan.nodes.map(n =>
+      n.kind === 'game-recipe' && n.recipeId === 'angels-wood-sawing-1' ? { ...n, byproductConsumer: true } : n,
+    )
+    return solve(plan, seablock)
+  }
+
+  it('runs the saw row on the surplus and the rows that feed it, without changing the product rows', () => {
+    const r = solveBio([...BASE, ...CHAIN])
+    const base = solveBio(BASE)
+    expect(nodeOf(r, 'angels-bio-plastic').throughput, 'bio plastic').toBeCloseTo(10, 6)
+    expect(nodeOf(r, 'angels-bio-plastic').throughput, 'as without the chain').toBeCloseTo(nodeOf(base, 'angels-bio-plastic').throughput, 6)
+    expect(nodeOf(r, 'angels-wood-sawing-1').throughput, 'sawing').toBeCloseTo(20, 6)
+    expect(nodeOf(r, 'angels-solid-saw').throughput, 'saws').toBeCloseTo(2, 6)
+    expect(nodeOf(r, 'angels-plate-iron-2').throughput, 'plates').toBeCloseTo(0.5, 6)
+    expect(nodeOf(r, 'angels-wood-sawing-1').outputRates.wood, 'wood').toBeCloseTo(160, 6)
+    expect(r.warnings.map(w => w.type), 'no warning').not.toContain('overconstrained')
+  })
+})

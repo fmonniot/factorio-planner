@@ -280,7 +280,7 @@ export interface AreaItemArea {
   slackCost?: number
   /** cap of the area's supply `u_a` (Infinity: only the shared offer); undefined: no supply variable */
   supplyCap?: number
-  /** `u_a` covers at most what the area's own non-byproduct-consumer columns use (connections first) */
+  /** `u_a` covers at most what the area's own columns outside the absorber chains use (connections first) */
   supUse: boolean
   /** `u_a` counts in the least received of the order of a connection replacing an import (see `AreaOrder`) */
   received?: boolean
@@ -389,6 +389,8 @@ function solveAreaLPOnce(
     specOf.size === 0 ? noImportItems : new Set([...noImportItems].filter(id => !specOf.has(id))),
     specOf.size === 0 ? supplyCaps : new Map([...supplyCaps].filter(([id]) => !specOf.has(id))),
     connectionsFirst, byproductsFirst, elasticGoals,
+    // An area whose rule is Don't make more here has a cheap slack of its own for the item.
+    new Set(areaItems.filter(s => s.areas.some(a => a.slackCost !== undefined && a.slackCost < BIG_M)).map(s => s.itemId)),
   )
   const { constraints, variables } = base
   const colVar = new Map(columns.map(c => [c.id, base.recipeToVar.get(c.id)!]))
@@ -469,7 +471,7 @@ function solveAreaLPOnce(
           constraints[`auuse${i}`] = { max: 0 }
           u[`auuse${i}`] = 1
           for (const { col, coeff } of cols) {
-            if (coeff < 0 && !bcColumns.has(col.id)) variables[colVar.get(col.id)!][`auuse${i}`] = coeff
+            if (coeff < 0 && !base.absorbers.chain.has(col.id)) variables[colVar.get(col.id)!][`auuse${i}`] = coeff
           }
         }
         variables[names.supply] = u
@@ -1326,7 +1328,7 @@ export function solveAreaBlock(
   // Pins that cannot be met make the flows meaningless for this check.
   const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
     goals: plan.goals, system, throughput, slack: lp.slack, itemSurplus, itemGross,
-    fixed: new Set([...pinnedRates.keys(), ...bcColumns]), noImportItems: cannotImport, recipeOf: id => recipeOfCol.get(id) ?? id,
+    fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.chain]), noImportItems: cannotImport, recipeOf: id => recipeOfCol.get(id) ?? id,
     mainItemOf: id => mainItemOfCol.get(id),
   })
   if (coproductDriven) warnings.push(coproductDriven)
@@ -1355,7 +1357,7 @@ export function solveAreaBlock(
       }
     }
     const needed = (area: number, itemId: string) => columns.some(col =>
-      col.area === area && !col.node.byproductConsumer && (system.S.get(itemId)?.get(col.id) ?? 0) < 0 &&
+      col.area === area && !lp.absorbers.chain.has(col.id) && (system.S.get(itemId)?.get(col.id) ?? 0) < 0 &&
       [...neededItems].some(id => (system.S.get(id)?.get(col.id) ?? 0) > 0))
     const cut: { area: number; itemId: string }[] = []
     for (const itemId of pairItems) {

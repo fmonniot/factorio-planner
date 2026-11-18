@@ -114,8 +114,8 @@ export function improvesImport(least: number, todayImport: number): boolean {
  *   4. Fill: both totals bounded, today's objective (runs, `BIG_M` per unit imported). The bound is on the
  *      total received, not per item, so when two connections tie on units the runs decide (D5).
  *
- * Every supply has the `supuse` row of connections first (supply covers at most what the
- * non-byproduct-consumer recipes use), so a free supply never feeds a byproduct consumer and is bounded
+ * Every supply has the `supuse` row of connections first (supply covers at most what the recipes
+ * outside the absorber chains use), so a free supply never feeds an absorber chain and is bounded
  * with an unlimited offer. *Don't make more here* items get no supply in steps 2 and 3 (their slack is
  * free there) and, in step 4, a supply capped at step 4's own residual for them: one more LP, today's
  * pass 2 on the bounded model, only when such an item is short.

@@ -142,6 +142,16 @@ function recipes(): GameRecipe[] {
     recipe('case22-mine-plate', 'smelting', 1, [item('case22-ore', 1)], [item('case22-plate', 1)]),
     recipe('case22-use-x', 'smelting', 1, [item('case22-x', 2)], [item('case22-goal', 1), item('case22-w', 100)]),
     recipe('case22-recycle', 'smelting', 1, [item('case22-w', 100)], [item('case22-x', 1)]),
+    // Case 23 (an absorber chain): G grows the goal and 2 trees from a seed, S saws a tree into 8 wood and gives back 0.9 of the saw it
+    // takes, K makes a saw from a plate, P makes 4 plates from a roll; U turns a plate into a gadget, B burns a roll into ash.
+    recipe('case23-grow', 'smelting', 1, [item('case23-seed', 1)], [item('case23-goal', 1), item('case23-tree', 2)]),
+    recipe('case23-saw-wood', 'smelting', 1, [item('case23-tree', 1), item('case23-saw', 1)], [item('case23-wood', 8), { ...item('case23-saw', 1), probability: 0.9 }]),
+    recipe('case23-make-saw', 'smelting', 1, [item('case23-plate', 1)], [item('case23-saw', 1)]),
+    recipe('case23-make-plate', 'smelting', 1, [item('case23-roll', 1)], [item('case23-plate', 4)]),
+    recipe('case23-use-plate', 'smelting', 1, [item('case23-plate', 1)], [item('case23-gadget', 1)]),
+    recipe('case23-burn-roll', 'smelting', 1, [item('case23-roll', 1)], [item('case23-ash', 1)]),
+    recipe('case23-mine-roll', 'smelting', 1, [item('case23-rock', 1)], [item('case23-roll', 1)]),
+    recipe('case23-use-wood', 'smelting', 1, [item('case23-wood', 1)], [item('case23-lumber', 1)]),
   ]
 }
 
@@ -2569,6 +2579,136 @@ describe('solver synthetic cases', () => {
           expect(unsat(result, W), 'W imported').toBeCloseTo(row.wUnsat, 6)
         })
       }
+    })
+  })
+
+  describe('case 23: an absorber chain', () => {
+    // A row that absorbs a byproduct (S, the saw) runs on the surplus of tree; the rows that only feed it (K, P) run along with it, and
+    // wood, which only S makes, is a pure byproduct. Values are derived by hand in spec/test-synthetic.md; none is edited to match the solver.
+    const TREE = 'case23-tree'
+    const flag = (recipeId: string): GameRecipeNode => planNode(recipeId, [], { byproductConsumer: true })
+    const unsat = (result: SolverResult, itemId: string) => unsatisfiedRate(result, itemId) ?? 0
+    const GOAL: Array<[string, number]> = [['case23-goal', 10]]
+    const nodesOf = (flagged: string[], rest: string[]): RecipeNode[] =>
+      [...flagged.map(flag), ...rest.map(id => planNode(id))]
+    const solveRows = (goals: Array<[string, number]>, nodes: RecipeNode[]): SolverResult =>
+      solve({ goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })), nodes }, makeGameData())
+
+    const expectChain = (r: SolverResult) => {
+      expect(nodeOf(r, 'case23-grow').throughput, 'grow').toBeCloseTo(10, 6)
+      expect(nodeOf(r, 'case23-saw-wood').throughput, 'saw-wood').toBeCloseTo(20, 6)
+      expect(nodeOf(r, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(2, 6)
+      expect(nodeOf(r, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(0.5, 6)
+      expect(nodeOf(r, 'case23-saw-wood').outputRates['case23-wood'], 'wood').toBeCloseTo(160, 6)
+      expect(r.warnings.map(w => w.type), 'no warning').toEqual([])
+      expect(unsat(r, 'case23-seed'), 'seed').toBeCloseTo(10, 6)
+      expect(unsat(r, 'case23-roll'), 'roll').toBeCloseTo(0.5, 6)
+    }
+
+    it('a: the saw row and the saw maker are flagged', () => {
+      expectChain(solveRows(GOAL, nodesOf(['case23-saw-wood', 'case23-make-saw'], ['case23-grow', 'case23-make-plate'])))
+    })
+
+    it('b: only the saw row is flagged, the saw maker is a feeder', () => {
+      expectChain(solveRows(GOAL, nodesOf(['case23-saw-wood'], ['case23-grow', 'case23-make-saw', 'case23-make-plate'])))
+    })
+
+    it('c: all three are flagged', () => {
+      expectChain(solveRows(GOAL, nodesOf(['case23-saw-wood', 'case23-make-saw', 'case23-make-plate'], ['case23-grow'])))
+    })
+
+    it('d: an ordinary row also uses the plate, so the plate row is not a feeder', () => {
+      const r = solveRows([...GOAL, ['case23-gadget', 4]],
+        nodesOf(['case23-saw-wood', 'case23-make-saw'], ['case23-grow', 'case23-make-plate', 'case23-use-plate']))
+      expect(nodeOf(r, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(1, 6)
+      expect(nodeOf(r, 'case23-saw-wood').throughput, 'saw-wood').toBeCloseTo(0, 6)
+      expect(nodeOf(r, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(0, 6)
+      const over = r.warnings.find(w => w.type === 'overconstrained')
+      expect(over?.type === 'overconstrained' ? over.surplusItems.map(i => [i.itemId, i.rate]) : undefined, 'tree is left over').toEqual([[TREE, 20]])
+    })
+
+    it('e: a flagged row that takes only a raw item does not run', () => {
+      const r = solveRows(GOAL, nodesOf(['case23-burn-roll'], ['case23-grow']))
+      expect(nodeOf(r, 'case23-burn-roll').throughput, 'burn-roll').toBeCloseTo(0, 6)
+      expect(nodeOf(r, 'case23-grow').throughput, 'grow').toBeCloseTo(10, 6)
+      expect(r.warnings.map(w => w.type), 'no warning').toEqual([])
+    })
+
+    it('f: the three rows in an area of their own', () => {
+      const wood = subPlan('Wood', [
+        { ...rowIn('case23-saw-wood', 'Wood'), byproductConsumer: true },
+        { ...rowIn('case23-make-saw', 'Wood'), byproductConsumer: true },
+        rowIn('case23-make-plate', 'Wood'),
+      ], [], true)
+      const block: Block = {
+        id: 'H', name: 'H', color: '#60a5fa',
+        products: [{ id: 'p0', itemId: 'case23-goal', extraRate: 10 }],
+        sourceRules: {}, inputConnections: [],
+        rootPlan: subPlan('root', [rowIn('case23-grow', 'root')], [wood]),
+      }
+      const r = solve(flattenBlock(block), makeGameData())
+      expect(nodeOf(r, 'case23-grow@root').throughput, 'grow').toBeCloseTo(10, 6)
+      expect(nodeOf(r, 'case23-saw-wood@Wood').throughput, 'saw-wood').toBeCloseTo(20, 6)
+      expect(nodeOf(r, 'case23-make-saw@Wood').throughput, 'make-saw').toBeCloseTo(2, 6)
+      expect(nodeOf(r, 'case23-make-plate@Wood').throughput, 'make-plate').toBeCloseTo(0.5, 6)
+      const area = r.areas!.find(a => a.areaId === 'Wood')!
+      expect(area.receives.find(f => f.itemId === TREE)?.rate, 'Wood receives tree').toBeCloseTo(20, 6)
+      const leg = (r.areaRoutes ?? []).find(x => x.itemId === TREE && x.to === 'Wood')
+      expect(leg?.from, 'tree comes from the root').toBe('root')
+      expect(leg?.rate, 'tree leg').toBeCloseTo(20, 6)
+      expect(r.warnings.map(w => w.type), 'no warning').toEqual([])
+    })
+
+    describe('g: between blocks', () => {
+      // S is row a with a connection from M for roll; C takes wood from S. The wood only reads S's offer: the rows of S are the same with and without C.
+      const block = (id: string, products: Array<[string, number]>, nodes: RecipeNode[], links: Block['inputConnections'] = []): Block => ({
+        id, name: id, color: '#60a5fa',
+        products: products.map(([itemId, extraRate], i) => ({ id: `p-${id}-${i}`, itemId, extraRate })),
+        sourceRules: {}, inputConnections: links, rootPlan: subPlan(`root-${id}`, nodes),
+      })
+      const source = () => block('S', [['case23-goal', 10]],
+        nodesOf(['case23-saw-wood', 'case23-make-saw'], ['case23-grow', 'case23-make-plate']),
+        [{ id: 'c-roll', itemId: 'case23-roll', fromBlockId: 'M' }])
+      const mine = () => block('M', [['case23-roll', 0]], [planNode('case23-mine-roll')])
+      const consumer = () => block('C', [['case23-lumber', 50]], [planNode('case23-use-wood')],
+        [{ id: 'c-wood', itemId: 'case23-wood', fromBlockId: 'S' }])
+      const rowsOf = (all: ReturnType<typeof solveAll>) =>
+        all.results.S.nodes.map(n => [n.recipeNodeId, n.throughput] as const).sort(([a], [b]) => a.localeCompare(b))
+
+      it('the source runs the same rows with and without a taker of wood; wood and roll flow', () => {
+        const without = solveAll([source(), mine()], makeGameData())
+        const all = solveAll([source(), mine(), consumer()], makeGameData())
+        expect(rowsOf(all), 'rows of S').toEqual(rowsOf(without))
+        expect(nodeOf(all.results.S, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(0.5, 6)
+        const wood = all.flows.find(f => f.connectionId === 'c-wood')!
+        expect(wood.status, 'wood').toBe('ok')
+        expect(wood.kind, 'wood is a take').toBe('take')
+        expect(wood.rate, 'wood rate').toBeCloseTo(50, 6)
+        const roll = all.flows.find(f => f.connectionId === 'c-roll')!
+        expect(roll.kind, 'roll is a request').toBe('request')
+        expect(roll.requested, 'roll requested').toBeCloseTo(0.5, 6)
+        expect(nodeOf(all.results.M, 'case23-mine-roll').throughput, 'M mines').toBeCloseTo(0.5, 6)
+      })
+    })
+
+    it('h: connected supply of an item two areas trade does not feed the chain', () => {
+      // The block receives plate first (offer 100): the supply covers what ordinary rows use (U, pinned at 4), not what the feeder K takes.
+      const wood = subPlan('Wood', [
+        { ...rowIn('case23-saw-wood', 'Wood'), byproductConsumer: true },
+        rowIn('case23-make-saw', 'Wood'),
+        { ...rowIn('case23-use-plate', 'Wood'), pinnedRate: 4 },
+      ], [], true)
+      const plates = subPlan('Plates', [rowIn('case23-make-plate', 'Plates')], [], true)
+      const block: Block = {
+        id: 'H', name: 'H', color: '#60a5fa',
+        products: [{ id: 'p0', itemId: 'case23-goal', extraRate: 10 }],
+        sourceRules: { 'case23-plate': { makeHere: 'after-blocks' } }, inputConnections: [],
+        rootPlan: subPlan('root', [rowIn('case23-grow', 'root')], [wood, plates]),
+      }
+      const { result, received } = solveBlock(flattenBlock(block), makeGameData(), new Map([['case23-plate', 100]]))
+      expect(received.get('case23-plate') ?? 0, 'plate received').toBeCloseTo(4, 6)
+      expect(nodeOf(result, 'case23-make-saw@Wood').throughput, 'make-saw').toBeCloseTo(0, 6)
+      expect(nodeOf(result, 'case23-saw-wood@Wood').throughput, 'saw-wood').toBeCloseTo(0, 6)
     })
   })
 })

@@ -174,7 +174,8 @@ export function solveBlock(
   // byproductConsumer is a flag that applies a small negative bonus to the
   // recipe's objective coefficient, making the LP prefer to run it up to
   // whatever surplus the intermediate constraints allow — without overriding
-  // goal-meeting decisions.
+  // goal-meeting decisions. The rows that only feed a flagged row run along
+  // with it at no cost (`absorberRoles`, see spec/solver.md, "Absorber chains").
   const gameRecipeNodes = plan.nodes.filter(n => n.kind === 'game-recipe') as
     Extract<(typeof plan.nodes)[number], { kind: 'game-recipe' }>[]
 
@@ -244,7 +245,7 @@ export function solveBlock(
     }
   }
 
-  // Ingredients of byproduct consumers: locked (no import slack) whatever the rule of the item.
+  // Ingredients of byproduct consumers (not of the rows that only feed them): locked (no import slack) whatever the rule of the item.
   // Auto-adding bc ingredients preserves the "consume surplus only, don't
   // trigger new ingredient production" semantics: with no slack allowed on
   // a bc ingredient, the LP can't import it just to fire the bc bonus —
@@ -330,7 +331,7 @@ export function solveBlock(
   // Pins that cannot be met make the flows meaningless for this check.
   const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
     goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, itemSurplus, itemGross,
-    fixed: new Set([...pinnedRates.keys(), ...bcRecipeIds]), noImportItems: cannotImport, recipeOf: id => id,
+    fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.chain]), noImportItems: cannotImport, recipeOf: id => id,
     mainItemOf: id => mainItemOfRecipe.get(id),
   })
   if (coproductDriven) warnings.push(coproductDriven)

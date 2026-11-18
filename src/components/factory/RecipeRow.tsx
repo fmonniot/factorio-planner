@@ -47,7 +47,7 @@ import { ingredientTemperatureLabels, productTemperatureLabels } from './tempera
 // ---------------------------------------------------------------------------
 
 const BYPRODUCT_CONSUMER_HINT =
-  'Absorbs byproduct: runs only to consume surplus from other recipes and never imports its own inputs. Right-click the row to stop absorbing.'
+  'Absorbs byproduct: runs only to consume surplus from other recipes and never imports what it absorbs. Rows that only feed it run along with it. Right-click the row to stop absorbing.'
 
 const PRIMARY_AREA_HINT = '; the primary product decides what this row builds for its area'
 
