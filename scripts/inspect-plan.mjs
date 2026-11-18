@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Solves an exported plan (the JSON from the workspace menu's "Export plan") with the app's own
-// solver and prints what one block came out as: rows, left-over items, imports, warnings and
+// solver and prints what one block came out as: rows, left-over items, imports, the imports its connections replaced, warnings and
 // connection flows, the served lists and, for a block with areas, each area's rules and what each receives, imports and misses.
 // Optional what-if edits (pin, drop, sourcing, import-off, area-sourcing, area-import-off, area-off, no-area) answer "what would it
 // do if...?" without touching the file. The logic is src/solver/inspect.ts; this file only reads

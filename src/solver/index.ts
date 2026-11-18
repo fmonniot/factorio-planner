@@ -160,8 +160,14 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
  * what the byproducts don't cover, and the passes are otherwise unchanged. Locked items and
  * byproduct consumers' ingredients keep the default cost.
  *
+ * A third step lets a connection replace an import: when the two passes still import an
+ * intermediate while a connected one on the default rule has offer left, `connectionOrder`
+ * decides what is taken (up to three more LP solves; a Don't make more here item adds a refill solve, and each bounded step
+ * (least received, fill, refill) may retry once with looser bounds, so at most seven in all; see connectionOrder.ts).
+ *
  * The solve cache key (see solveCache.ts) must grow if this ever reads
- * anything beyond `plan`, `gameData` and `supplyCaps`.
+ * anything beyond `plan`, `gameData` and `supplyCaps`; `connectionOrder` reads only those
+ * (the plan, the game data and the offers), so the key is unchanged.
  */
 export function solveBlock(
   plan: SolverPlan,

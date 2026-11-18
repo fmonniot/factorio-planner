@@ -122,6 +122,9 @@ export function improvesImport(least: number, todayImport: number): boolean {
  * Connections-first items keep their supply, capped by the offer, in every step. A locked connected item
  * whose step-3 slack is zero is locked again in step 4, as `pass2Plan` does.
  *
+ * LP solves: step 2 alone when it finds no gain (1); otherwise steps 2 to 4 (3), plus 1 for a refill, plus 1 per
+ * bounded step that is retried (at most 7). A retry has not been seen on any test fixture.
+ *
  * Returns undefined when today's result stands: step 2 finds no smaller import, or a step is infeasible.
  */
 export function connectionOrder(input: ConnectionOrderInput): LPResult | undefined {

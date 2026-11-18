@@ -158,7 +158,7 @@ describe('servedReportOf', () => {
 describe('formatReport served lists', () => {
   it('prints groups, lines the list does not name and the unranked header', () => {
     const report: InspectReport = {
-      block: { id: 'A', name: 'A' }, rows: [], items: [], unsatisfied: [], warnings: [], flows: [], areaRoutes: [], areas: [], areaItems: [],
+      block: { id: 'A', name: 'A' }, rows: [], items: [], unsatisfied: [], replacedImports: [], warnings: [], flows: [], areaRoutes: [], areas: [], areaItems: [],
       totals: { executions: 0, machineCountExact: 0, machineCountCeil: 0, powerKw: 0 },
       served: [
         { itemId: 'plate', ranked: true, lines: [
@@ -371,5 +371,56 @@ describe('area what-ifs', () => {
       expect(text).toContain('Top level  follows the block')
       expect(text).not.toContain('Area items from outside')
     })
+  })
+})
+
+describe('imports the connections replaced', () => {
+  // Case 22 A, row b as two blocks: H (25 gears, P turns 1 ingot into 2 plates, the ingot row pinned at 10) takes plate from S.
+  // Alone H imports 15 ingots (ore is raw, imported either way); with the connection it imports none.
+  const recipe = (id: string, from: string, fromAmount: number, to: string, toAmount: number): GameData['recipes'][string] => ({
+    id, name: id, category: 'crafting', craftingTime: 1,
+    ingredients: [{ itemId: from, type: 'item', amount: fromAmount }], products: [{ itemId: to, type: 'item', amount: toAmount }],
+    madeIn: [], allowProductivity: false, mainProduct: undefined, hidden: false, subgroup: '', order: '',
+  })
+  const data = (): GameData => ({
+    factorioVersion: '2.0.0', modSet: {}, items: {},
+    recipes: {
+      gear: recipe('gear', 'plate', 2, 'gear', 1),
+      'plate-12': recipe('plate-12', 'ingot', 1, 'plate', 2),
+      ingot: recipe('ingot', 'ore', 1, 'ingot', 1),
+      'mine-plate': recipe('mine-plate', 'ore', 1, 'plate', 1),
+    },
+    machines: {}, modules: {}, beacons: {}, defaultMachines: {}, itemGroups: {}, itemSubgroups: {}, technologies: {}, startingRecipes: [],
+  })
+  const now = new Date().toISOString()
+  const row = (id: string, recipeId = id, pinnedRate?: number): GameRecipeNode =>
+    ({ kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {}, ...(pinnedRate === undefined ? {} : { pinnedRate }) })
+  const block = (id: string, products: Array<[string, number]>, nodes: GameRecipeNode[], inputConnections: Block['inputConnections'] = []): Block => ({
+    id, name: id, color: '#60a5fa',
+    products: products.map(([itemId, extraRate], i) => ({ id: `p-${id}-${i}`, itemId, extraRate })),
+    sourceRules: {}, inputConnections,
+    rootPlan: { id: `root-${id}`, name: id, nodes, subPlans: [], createdAt: now, updatedAt: now },
+  })
+  const state = (): AppState => ({
+    blocks: [
+      block('S', [['plate', 0]], [row('mine-plate')]),
+      block('H', [['gear', 25]], [row('gear'), row('plate-12'), row('ingot', 'ingot', 10)], [{ id: 'c-H', itemId: 'plate', fromBlockId: 'S' }]),
+    ],
+    activeBlockId: 'H', horizonTechnologyIds: [], defaultMachineOverrides: {},
+  })
+
+  it('lists the ingot import the plate connection replaced, and not the raw ore imported both ways', () => {
+    const report = inspectPlan(state(), data(), 'H')
+    expect(report.replacedImports.map(r => ({ ...r, without: Math.round(r.without * 1e6) / 1e6, now: Math.round(r.now * 1e6) / 1e6 })))
+      .toEqual([{ itemId: 'ingot', without: 15, now: 0 }])
+    const text = formatReport(report)
+    expect(text).toContain('Imports the connections replaced')
+    expect(text).toContain('ingot  15.00  0')
+  })
+
+  it('says nothing for a block without input connections', () => {
+    const report = inspectPlan(state(), data(), 'S')
+    expect(report.replacedImports).toEqual([])
+    expect(formatReport(report)).not.toContain('Imports the connections replaced')
   })
 })
