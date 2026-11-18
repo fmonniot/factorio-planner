@@ -1074,6 +1074,90 @@ e: the same LP (`makeHere: 'off'` keeps the cheap slack); with Import off the 10
 
 The second item Y (T makes it, C1 uses it) is the same pin as in A: the plate (X) figures with Y equal those without it.
 
+## Case 22 — A connection replaces an import
+
+**Exercises:** the connection order ([A connection replaces an import](solver.md#connections-between-blocks)): a block that imports an intermediate while one of its connections has offer to spare takes from the connection instead, whichever item the connection is on and whatever the recipe ratio; own production first, the default-rule gate and the rules the steps keep; the same rule in a loop that loses, in areas, and in a loop of blocks and a served list. Rows marked *measured* are the solver before the connection order existed and must not move.
+
+**Recipes:** `case22-gear` (2 plate makes 1 gear, G), `case22-plate-1-1`, `case22-plate-1-2`, `case22-plate-2-1` (P: 1 ingot makes 1 plate, 1 ingot makes 2 plates, 2 ingots make 1 plate), `case22-ingot` (S: 1 ore makes 1 ingot), `case22-mine-plate` (1 ore makes 1 plate, a source block's row), `case22-use-x` (U: 2 X make 1 goal and 100 W), `case22-recycle` (R: 100 W make 1 X), `case22-tool` (H: 2 plate make 1 tool and 2 z), `case22-press` (Q: 1 z and 1 ore make 1 coin and 1 plate). Values are derived by hand; no row is edited to match the solver.
+
+### A — a pinned upstream row
+
+Fixture A: product 25 gears (G needs 50 plates); P at the ratio of the row; S pinned at 10 ingots.
+
+| Row | P | Connection (offer) | Received | P runs | Intermediates imported |
+|---|---|---|---|---|---|
+| a | 1 makes 1 (*measured*) | plate (100) | plate 40 | 10 | none |
+| b | 1 makes 2 | plate (100) | plate 30 | 10 | none |
+| c | 2 make 1 (*measured*) | plate (100) | plate 45 | 5 | none |
+| d | 1 makes 2 | plate (12) | plate 12 | 19 | ingot 9 |
+| e | 1 makes 2 (*measured*) | none | nothing | 25 | ingot 15 |
+| f | 1 makes 2 | plate (unlimited, the probe) | plate 30 | 10 | none |
+| g | 1 makes 1 | ingot (100) | ingot 40 | 50 | none |
+| h | 1 makes 2 (*measured*) | ingot (100) | ingot 15 | 25 | none |
+| i | 2 make 1 | ingot (100) | ingot 90 | 50 | none |
+| j | 1 makes 2 (*measured*) | plate (100) and ingot (100) | ingot 15 | 25 | none |
+| k | 1 makes 1 (*measured*) | plate (100) and ingot (100) | plate 40 | 10 | none |
+| l | 1 makes 2, Import off on ingot (*measured*) | plate (100) | plate 30 | 10 | none |
+| m | 1 makes 2, S not pinned (*measured*) | plate (100) | nothing | 25 | none |
+| n | 1 makes 2, plate on *Receive it first* (*measured*) | plate (100) | plate 50 | 0 | none |
+
+```
+b: the 10 ingots make 20 plates (x runs of P, x <= 10 without an import); the connection gives the other 30. The least import is 0 (x <= 10) and the least received is 30 at x = 10. Before: nothing received, 15 ingots imported.
+d: the offer 12 bounds the plates received (u <= 12), so 2x >= 38, x >= 19: 19 ingots, 9 of them imported (importing plate instead would be 18 units).
+f: as a solveAll row, a source block that has plate as a product is asked for 30 (the probe's need); before, nothing.
+g: 1 ingot makes 1 plate: 50 plates need x = 50 and 50 ingots, 10 of them the block's own, so u = 40.
+i: 2 ingots make 1 plate: x = 50 and 100 ingots = 10 + u, u = 90.
+e, j, k: no offer on the replacing item, or two connections that tie: the fewest units, then the fewest runs, as before.
+m: S is not pinned, so P runs on raw ore (25) and no import is left: own production first, the gate stays closed.
+n: plate on Receive it first is received whole (50); P does not run. The solver also reports overconstrained (S's 10 ingots are unused); that warning is what the solver gives, not a derived value.
+```
+
+### B — a loop that loses
+
+Fixture B: product 10 goal; U (2 X make 1 goal and 100 W) and R (100 W make 1 X).
+
+| Row | Connection (offer) | Received | R runs | Imported |
+|---|---|---|---|---|
+| a | none (*measured*) | nothing | 10 | X 10 |
+| b | X (100) (*measured*) | X 10 | 10 | none |
+| c | X (4) (*measured*) | X 4 | 10 | X 6 |
+| d | W (5000) | W 1000 | 20 | none |
+| e | X (100) and W (5000) (*measured*) | X 10 | 10 | none |
+
+```
+b: 10 goals need 20 X; U makes 10 runs, so 1000 W, enough for 10 X from R; the connection gives the other 10 X.
+c: 4 X received; the 6 X left could be 600 W, but fewer units are imported (6 X).
+d: U's 20 X need 20 runs of R and 2000 W; U makes 1000 W, so the connection gives 1000 W and X imported is 0.
+```
+
+### C — areas
+
+Fixture A with G in area L and P and S in area M; plate is touched by both areas, ingot by M only.
+
+| Row | P | Connection (offer) | Received | P runs | Imported | Outside leg of plate into L |
+|---|---|---|---|---|---|---|
+| a | 1 makes 2 | plate (100) | plate 30 | 10 | none | 30, all of it supplied |
+| b | 1 makes 1 | ingot (100) | ingot 40 | 50 | none | none |
+
+Same derivations as A, rows b and g.
+
+### D — a loop of blocks and a served list
+
+Block H: product 25 tools, rows tool, P (1 ingot makes 2 plates) and S pinned at 10 ingots; connection `c-H` takes plate from Q. Block Q: product coin, row press; connection `c-Q` takes z from H. Neither item is a product of its source, so both are takes and H and Q form a loop of blocks.
+
+```
+a (coin 30): the tool runs 25 (50 plates for the tools, 50 z); z on offer 50 >= 30. The press runs 30 and offers 30 plates. H: 2x + u = 50 with plate received u = 30, x = 10 (the pinned ingots), no ingot or plate imported. Tab orders H Q and Q H: both flows 30, one loop of H and Q, converged.
+b (warm solve): solving row a twice through one cache gives the same result objects. Coin 12: the press runs 12 and offers 12 plates, so 2x + u = 50 with u <= 12, x >= 19: P 19, ingot imported 9, both flows 12, H's result is a new object.
+```
+
+A served list on a source whose consumer is touched: S mines plate pinned at 35 (product plate 10), with a list of H, C (then C, H) and the extra after them; H is fixture A, row b, taking plate from S; C needs 5 gears, taking plate from S. H asks 30 (row f), C 10, the extra 10: 50 against 35, so S reports `infeasible-pins`.
+
+```
+List H, C: H gets 30 (P 10, no ingot or plate import); C gets 5 of the 10 it asked and imports 5. The extra gets 0.
+List C, H: C gets 10 and imports nothing. H gets 25: with 25 offered, 2x + u + s = 50, u <= 25, x <= 10 + i (i ingots imported), s plates imported; the least import is s + i, s = 5 - 2i, total 5 - i, so i = 2.5 and s = 0; then the least received is u = 50 - 2x with x = 12.5 and u = 25. P 12.5, ingot imported 2.5, plate imported 0.
+Both orders of tabs (S H C and C H S) give the same.
+```
+
 ## Case 23 — An absorber chain
 
 Plain made-up ids, 1 s recipes. A flagged byproduct consumer runs on the surplus of another row; the rows that only feed it run along with it ([solver.md, Absorber chains](solver.md#absorber-chains)). Wood is made only by the sawing row and nothing in the block uses it: a pure byproduct, never a goal.

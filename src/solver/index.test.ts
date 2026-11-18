@@ -326,15 +326,21 @@ describe('solveBlock — own production first', () => {
       nodes: [planNode('g', 'gear'), planNode('p', 'plateFromIngot'), pinned('i', 'ingotFromOre', 10)],
     }
 
-    it('1 ingot -> 1 plate: slack on plate is cheaper, so supply replaces the import', () => {
+    const runsOf = (r: { nodes: { recipeNodeId: string; throughput: number }[] }, id: string) => r.nodes.find(n => n.recipeNodeId === id)!.throughput
+
+    it('case 22 A, row a: 1 ingot -> 1 plate: slack on plate is cheaper, so supply replaces the import', () => {
       const { result, received } = solveBlock(plan, gd(1, 1), new Map([['plate', 100]]))
       expect(received.get('plate')).toBeCloseTo(40, 4)
+      expect(runsOf(result, 'p'), 'P runs').toBeCloseTo(10, 4)
+      expect(rate(result.unsatisfied, 'plate'), 'plate imported').toBe(0)
       expect(rate(result.unsatisfied, 'ingot')).toBe(0)
     })
 
-    it('1 ingot -> 2 plates: the 10 ingots make 20 plates and the supply replaces the ingot import', () => {
+    it('case 22 A, row b: 1 ingot -> 2 plates: the 10 ingots make 20 plates and the supply replaces the ingot import', () => {
       const { result, received } = solveBlock(plan, gd(1, 2), new Map([['plate', 100]]))
       expect(received.get('plate')).toBeCloseTo(30, 4)
+      expect(runsOf(result, 'p'), 'P runs').toBeCloseTo(10, 4)
+      expect(rate(result.unsatisfied, 'plate'), 'plate imported').toBe(0)
       expect(rate(result.unsatisfied, 'ingot')).toBe(0)
     })
   })

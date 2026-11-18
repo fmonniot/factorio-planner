@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import solver from 'javascript-lp-solver'
 import { solveAll, solveBlock } from './index'
 import { boundOf, boundedStep, improvesImport } from './connectionOrder'
 import type { Block, GameData, GameRecipeNode, RecipeNode, SolverGoal, SolverResult, SourceRule } from '../data/types'
@@ -243,5 +244,35 @@ describe('connectionOrder: a ratio above 100:1 (T1 report, point 5)', () => {
     expect(runs(result, 'M'), 'make-q runs').toBeCloseTo(5, 6)
     expect(unsat(result, 'x') + unsat(result, 'w'), 'no X or W imported').toBeCloseTo(0, 6)
     expect(unsat(result, 'ore3'), 'raw ore3 imported').toBeCloseTo(1000, 5)
+  })
+})
+
+describe('connectionOrder: the gate', () => {
+  const lpCalls = (p: ReturnType<typeof plan>, offers: Array<[string, number]>) => {
+    const spy = vi.spyOn(solver, 'Solve')
+    try {
+      solveBlock(p, gameData(), new Map(offers))
+      return spy.mock.calls.length
+    } finally {
+      spy.mockRestore()
+    }
+  }
+  const free = (): ReturnType<typeof plan> => {
+    const p = plan({ p: 'p12' })
+    return { ...p, nodes: [row('G', 'gear'), row('P', 'p12'), row('S', 'ingot')] }
+  }
+  // Case 22 A. A block whose two passes end with no import of an intermediate keeps its pre-phase count; a touched
+  // block (rows b and g) runs the three steps on top of the two passes' four.
+  const rows: Array<[string, () => ReturnType<typeof plan>, Array<[string, number]>, number]> = [
+    ['e: no offers', () => plan(), [], 1],
+    ['m: S not pinned, plate (100)', free, [['plate', 100]], 1],
+    ["ingot on Don't make more here only, plate (100)", () => plan({ rules: { ingot: { makeHere: 'off' } } }), [['plate', 100]], 1],
+    ['a: 1 makes 1, plate (100)', () => plan({ p: 'p11' }), [['plate', 100]], 2],
+    ['j: 1 makes 2, plate (100) and ingot (100)', () => plan(), [['plate', 100], ['ingot', 100]], 2],
+    ['b: 1 makes 2, plate (100)', () => plan(), [['plate', 100]], 4],
+    ['g: 1 makes 1, ingot (100)', () => plan({ p: 'p11' }), [['ingot', 100]], 4],
+  ]
+  it('a block whose two passes end with no import of an intermediate runs no step, and a touched block runs three', () => {
+    for (const [name, make, offers, calls] of rows) expect(lpCalls(make(), offers), `LP calls, ${name}`).toBe(calls)
   })
 })

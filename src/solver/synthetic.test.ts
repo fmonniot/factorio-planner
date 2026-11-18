@@ -133,7 +133,7 @@ function recipes(): GameRecipe[] {
     recipe('case21-use-coin', 'smelting', 1, [item('case21-coin', 1)], [item('case21-token', 1)]),
     // Case 22 (a connection replaces an import). A: G turns 2 plates into a gear, P turns ingots into plates at
     // three ratios, S turns 1 ore into 1 ingot; a source block mines plate from ore. B: U turns 2 X into the goal
-    // and 100 W, R turns 100 W back into 1 X (a loop that loses).
+    // and 100 W, R turns 100 W back into 1 X (a loop that loses). D: H makes tools and a z byproduct, Q presses z into coin and plate.
     recipe('case22-gear', 'smelting', 1, [item('case22-plate', 2)], [item('case22-gear', 1)]),
     recipe('case22-plate-1-1', 'smelting', 1, [item('case22-ingot', 1)], [item('case22-plate', 1)]),
     recipe('case22-plate-1-2', 'smelting', 1, [item('case22-ingot', 1)], [item('case22-plate', 2)]),
@@ -142,6 +142,8 @@ function recipes(): GameRecipe[] {
     recipe('case22-mine-plate', 'smelting', 1, [item('case22-ore', 1)], [item('case22-plate', 1)]),
     recipe('case22-use-x', 'smelting', 1, [item('case22-x', 2)], [item('case22-goal', 1), item('case22-w', 100)]),
     recipe('case22-recycle', 'smelting', 1, [item('case22-w', 100)], [item('case22-x', 1)]),
+    recipe('case22-tool', 'smelting', 1, [item('case22-plate', 2)], [item('case22-tool', 1), item('case22-z', 2)]),
+    recipe('case22-press', 'smelting', 1, [item('case22-z', 1), item('case22-ore', 1)], [item('case22-coin', 1), item('case22-plate', 1)]),
     // Case 23 (an absorber chain): G grows the goal and 2 trees from a seed, S saws a tree into 8 wood and gives back 0.9 of the saw it
     // takes, K makes a saw from a plate, P makes 4 plates from a roll; U turns a plate into a gadget, B burns a roll into ash.
     recipe('case23-grow', 'smelting', 1, [item('case23-seed', 1)], [item('case23-goal', 1), item('case23-tree', 2)]),
@@ -2577,6 +2579,93 @@ describe('solver synthetic cases', () => {
           expect(nodeOf(result, 'case22-use-x').throughput, 'U runs').toBeCloseTo(10, 6)
           expect(unsat(result, X), 'X imported').toBeCloseTo(row.xUnsat, 6)
           expect(unsat(result, W), 'W imported').toBeCloseTo(row.wUnsat, 6)
+        })
+      }
+    })
+
+    describe('D: a touched block among other blocks', () => {
+      const Z = 'case22-z'
+      const H = (): Block => mk('H', [['case22-tool', 25]],
+        [planNode('case22-tool'), { ...planNode('case22-plate-1-2'), id: 'P' }, planNode('case22-ingot', [], { pinnedRate: 10 })],
+        [{ id: 'c-H', itemId: PLATE, fromBlockId: 'Q' }])
+      const Q = (coin: number): Block => mk('Q', [['case22-coin', coin]], [planNode('case22-press')],
+        [{ id: 'c-Q', itemId: Z, fromBlockId: 'H' }])
+      const check = (all: ReturnType<typeof solveAll>, rate: number, p: number, ingot: number) => {
+        expect(flowIn(all, 'c-H').kind, 'plate is a take').toBe('take')
+        expect(flowIn(all, 'c-Q').kind, 'z is a take').toBe('take')
+        expect(flowIn(all, 'c-H').rate, 'plate taken').toBeCloseTo(rate, 6)
+        expect(flowIn(all, 'c-Q').rate, 'z taken').toBeCloseTo(rate, 6)
+        expect(nodeOf(all.results.H, 'P').throughput, 'P runs').toBeCloseTo(p, 6)
+        expect(nodeOf(all.results.H, 'case22-tool').throughput, 'tool runs').toBeCloseTo(25, 6)
+        expect(nodeOf(all.results.Q, 'case22-press').throughput, 'press runs').toBeCloseTo(rate, 6)
+        expect(unsat(all.results.H, INGOT), 'ingot imported').toBeCloseTo(ingot, 6)
+        expect(unsat(all.results.H, PLATE), 'plate imported').toBeCloseTo(0, 6)
+      }
+      // Row a (coin 30): the tool runs 25 (50 plates, 50 z); the press takes 30 z and offers 30 plates. H takes 30 (P 10 makes 20, the
+      // 10 ingots), imports no ingot and no plate.
+      for (const order of [['H', 'Q'], ['Q', 'H']]) {
+        it(`a: coin 30, the loop settles, tabs ${order.join(' ')}`, () => {
+          const byId: Record<string, Block> = { H: H(), Q: Q(30) }
+          const all = solveAll(order.map(t => byId[t]), makeGameData())
+          check(all, 30, 10, 0)
+          expect(all.loops).toHaveLength(1)
+          expect([...all.loops[0].blockIds].sort()).toEqual(['H', 'Q'])
+          expect(all.loops[0].converged, 'converged').toBe(true)
+        })
+      }
+
+      // Row b: a warm solve reuses both results; coin 12 offers 12 plates, so 2x + u = 50, u <= 12 => P 19 and 9 ingots imported.
+      it('b: warm solve reuses the results; coin 12 changes them (row d: P 19, ingot 9)', () => {
+        const cache = createSolveCache()
+        const gd = makeGameData()
+        const first = solveAll([H(), Q(30)], gd, cache)
+        const second = solveAll([H(), Q(30)], gd, cache)
+        expect(second.results.H).toBe(first.results.H)
+        expect(second.results.Q).toBe(first.results.Q)
+        const third = solveAll([H(), Q(12)], gd, cache)
+        check(third, 12, 19, 9)
+        expect(third.results.H).not.toBe(first.results.H)
+      })
+    })
+
+    describe('D: a served list on a source whose consumer is touched', () => {
+      const S = (list: ServedEntry[]): Block =>
+        mk('S', [[PLATE, 10]], [{ ...planNode('case22-mine-plate'), pinnedRate: 35 }], [], list, PLATE)
+      const H = (): Block => mk('H', [['case22-gear', 25]],
+        [planNode('case22-gear'), { ...planNode('case22-plate-1-2'), id: 'P' }, planNode('case22-ingot', [], { pinnedRate: 10 })],
+        [{ id: 'c-H', itemId: PLATE, fromBlockId: 'S' }])
+      const C = (): Block => mk('C', [['case22-gear', 5]], [planNode('case22-gear')], [{ id: 'c-C', itemId: PLATE, fromBlockId: 'S' }])
+      // H asks 30 (row f), C 10, the extra 10: 50 against S's 35.
+      const cases: Array<[string, string[], string[], { h: [number, number, number, number]; c: [number, number, number]; got: [number, number] }]> = [
+        // h: requested, rate, P, ingot imported; c: requested, rate, plate imported; got: H then C in the list's order
+        ['list H, C', ['H', 'C'], ['S', 'H', 'C'], { h: [30, 30, 10, 0], c: [10, 5, 5], got: [30, 5] }],
+        ['list H, C', ['H', 'C'], ['C', 'H', 'S'], { h: [30, 30, 10, 0], c: [10, 5, 5], got: [30, 5] }],
+        // With 25 offered: 2x + u + s = 50, u <= 25, x <= 10 + i; least import 5 - i at i = 2.5, s 0; then u = 25 and P 12.5.
+        ['list C, H', ['C', 'H'], ['S', 'H', 'C'], { h: [30, 25, 12.5, 2.5], c: [10, 10, 0], got: [10, 25] }],
+        ['list C, H', ['C', 'H'], ['C', 'H', 'S'], { h: [30, 25, 12.5, 2.5], c: [10, 10, 0], got: [10, 25] }],
+      ]
+      for (const [name, list, tabs, want] of cases) {
+        it(`${name}, tabs ${tabs.join(' ')}`, () => {
+          const byId: Record<string, Block> = { S: S(listOf(...list, 'extra')), H: H(), C: C() }
+          const all = solveAll(tabs.map(t => byId[t]), makeGameData())
+          expect(nodeOf(all.results.S, 'case22-mine-plate').throughput, 'S at its pin').toBeCloseTo(35, 6)
+          expect(all.results.S.warnings).toContainEqual({ type: 'infeasible-pins', recipeIds: ['case22-mine-plate'] })
+          const h = flowIn(all, 'c-H')
+          expect(h.requested, 'H requested').toBeCloseTo(want.h[0], 6)
+          expect(h.rate, 'H rate').toBeCloseTo(want.h[1], 6)
+          expect(nodeOf(all.results.H, 'P').throughput, 'P runs').toBeCloseTo(want.h[2], 6)
+          expect(unsat(all.results.H, INGOT), 'H ingot imported').toBeCloseTo(want.h[3], 6)
+          expect(unsat(all.results.H, PLATE), 'H plate imported').toBeCloseTo(0, 6)
+          const c = flowIn(all, 'c-C')
+          expect(c.requested, 'C requested').toBeCloseTo(want.c[0], 6)
+          expect(c.rate, 'C rate').toBeCloseTo(want.c[1], 6)
+          expect(unsat(all.results.C, PLATE), 'C plate imported').toBeCloseTo(want.c[2], 6)
+          const served = all.served.S[PLATE]
+          expect(served.consumers.map(x => x.blockId)).toEqual(list)
+          const shares = list[0] === 'H' ? [30, 10] : [10, 30]
+          expect(served.consumers.map(x => x.share).map(x => Math.round(x * 1e6) / 1e6)).toEqual(shares)
+          expect(served.consumers.map(x => Math.round(x.got * 1e6) / 1e6)).toEqual(want.got)
+          expect(served.extra?.got, 'extra got').toBeCloseTo(0, 6)
         })
       }
     })
