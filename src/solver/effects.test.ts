@@ -154,6 +154,7 @@ describe('computeNodeEffects — beacon', () => {
   it('a beacon configuration without a module contributes nothing', () => {
     const gd = makeGameData({}, { 'speed-module-3': SPEED3_MODULE })
     const n = node('n1', 'r1', [], [{
+      modules: [],
       beaconCount: 8,
       modulesPerBeacon: 2,
       distributionEfficiency: 0.5,
@@ -167,7 +168,7 @@ describe('computeNodeEffects — beacon', () => {
   it('a module-less beacon leaves machine module effects unchanged', () => {
     const gd = makeGameData({}, { 'speed-module-3': SPEED3_MODULE })
     const withBeacon = node('n1', 'r1', [{ moduleId: 'speed-module-3', count: 2 }], [{
-      beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5,
+      modules: [], beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5,
     }])
     const without = node('n1', 'r1', [{ moduleId: 'speed-module-3', count: 2 }])
     expect(computeNodeEffects(withBeacon, gd)).toEqual(computeNodeEffects(without, gd))
@@ -176,7 +177,7 @@ describe('computeNodeEffects — beacon', () => {
   it('1 beacon with 2 speed-3, 50% efficiency → +50% speed', () => {
     const gd = makeGameData({}, { 'speed-module-3': SPEED3_MODULE })
     const n = node('n1', 'r1', [], [{
-      moduleId: 'speed-module-3',
+      modules: [{ moduleId: 'speed-module-3', count: 2 }],
       beaconCount: 1,
       modulesPerBeacon: 2,
       distributionEfficiency: 0.5,
@@ -196,7 +197,7 @@ describe('computeNodeEffects — beacon', () => {
       'r1',
       [{ moduleId: 'productivity-module-3', count: 4 }],
       [{
-        moduleId: 'speed-module-3',
+        modules: [{ moduleId: 'speed-module-3', count: 2 }],
         beaconCount: 8,
         modulesPerBeacon: 2,
         distributionEfficiency: 0.5,
@@ -212,7 +213,7 @@ describe('computeNodeEffects — beacon', () => {
   it('drops beacon productivity when the recipe disallows it', () => {
     const gd = makeGameData({ r1: recipe(false) }, { 'productivity-module-3': PROD3_MODULE })
     const n = node('n1', 'r1', [], [{
-      moduleId: 'productivity-module-3',
+      modules: [{ moduleId: 'productivity-module-3', count: 2 }],
       beaconCount: 1,
       modulesPerBeacon: 2,
       distributionEfficiency: 0.5,
@@ -225,7 +226,7 @@ describe('computeNodeEffects — beacon', () => {
 
 describe('computeNodeEffects — several beacon configurations', () => {
   const cfg = (moduleId: string, overrides: Partial<BeaconConfig> = {}): BeaconConfig => ({
-    moduleId, beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5, ...overrides,
+    modules: [{ moduleId, count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5, ...overrides,
   })
   const gd = () => makeGameData(
     { r1: recipe(true) },
@@ -261,7 +262,7 @@ describe('computeNodeEffects — several beacon configurations', () => {
 
   it('counts only the speed configuration when another has no module', () => {
     const speed = cfg('speed-module-3')
-    const empty: BeaconConfig = { beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const empty: BeaconConfig = { modules: [], beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
     expect(computeNodeEffects(node('n1', 'r1', [], [empty, speed]), gd()))
       .toEqual(computeNodeEffects(node('n1', 'r1', [], [speed]), gd()))
   })
@@ -272,10 +273,69 @@ describe('computeNodeEffects — several beacon configurations', () => {
   })
 })
 
+describe('computeNodeEffects — modules in each beacon slot', () => {
+  const EFF_MODULE: GameData['modules'][string] = {
+    id: 'effectivity-module', name: 'effectivity-module', iconPath: '', category: 'efficiency', tier: 1,
+    effects: { consumption: -0.3 }, limitation: [], limitationBlacklist: [],
+  }
+  const gd = (recipeAllowsProductivity = true) => makeGameData(
+    { r1: recipe(recipeAllowsProductivity) },
+    { 'speed-module-3': SPEED3_MODULE, 'effectivity-module': EFF_MODULE, 'productivity-module-3': PROD3_MODULE },
+  )
+  const cfg = (modules: BeaconConfig['modules']): BeaconConfig =>
+    ({ modules, beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 })
+
+  it('sums the effect of every module of a mixed beacon', () => {
+    const n = node('n1', 'r1', [], [cfg([{ moduleId: 'speed-module-3', count: 1 }, { moduleId: 'effectivity-module', count: 1 }])])
+    const fx = computeNodeEffects(n, gd())
+    // Per module: effect × 0.5 (efficiency) × 1 (module) × 2 (beacons)
+    expect(fx.speedBonus).toBeCloseTo(0.5)
+    expect(fx.consumptionBonus).toBeCloseTo(0.7 - 0.3)
+  })
+
+  it('a half-filled beacon gives half the value of a full one', () => {
+    const half = computeNodeEffects(node('n1', 'r1', [], [cfg([{ moduleId: 'speed-module-3', count: 1 }])]), gd())
+    const full = computeNodeEffects(node('n1', 'r1', [], [cfg([{ moduleId: 'speed-module-3', count: 2 }])]), gd())
+    expect(half.speedBonus).toBeCloseTo(full.speedBonus / 2)
+  })
+
+  it('an empty module list contributes nothing', () => {
+    const fx = computeNodeEffects(node('n1', 'r1', [], [cfg([])]), gd())
+    expect(fx).toEqual(computeNodeEffects(node('n1', 'r1'), gd()))
+  })
+
+  it('ignores a module the data set does not know and keeps the others', () => {
+    const n = node('n1', 'r1', [], [cfg([{ moduleId: 'gone', count: 1 }, { moduleId: 'speed-module-3', count: 1 }])])
+    expect(computeNodeEffects(n, gd()).speedBonus).toBeCloseTo(0.5)
+  })
+
+  it('filters each module by the beacon entity and the machine', () => {
+    const data = gd()
+    data.beacons = {
+      b1: {
+        id: 'b1', name: 'b1', iconPath: '', hidden: false, moduleSlots: 2, distributionEfficiency: 0.5,
+        allowedEffects: ['speed', 'consumption'],
+      },
+    }
+    const n = node('n1', 'r1', [], [{
+      ...cfg([{ moduleId: 'productivity-module-3', count: 1 }, { moduleId: 'speed-module-3', count: 1 }]), beaconId: 'b1',
+    }])
+    const fx = computeNodeEffects(n, data)
+    expect(fx.productivityBonus).toBe(0)
+    // speed: prod-3 -0.15 + speed-3 0.5, each × 0.5 × 2
+    expect(fx.speedBonus).toBeCloseTo(0.35)
+  })
+
+  it('is bit-identical to the former single-module expression for a full beacon', () => {
+    const n = node('n1', 'r1', [], [{ modules: [{ moduleId: 'speed-module-3', count: 2 }], beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5 }])
+    expect(computeNodeEffects(n, gd()).speedBonus).toBe(0.5 * (0.5 * 2 * 8))
+  })
+})
+
 describe('computeNodeEffects — allowed effects', () => {
   const beaconCfg = (beaconId?: string): BeaconConfig => ({
     ...(beaconId ? { beaconId } : {}),
-    moduleId: 'productivity-module-3',
+    modules: [{ moduleId: 'productivity-module-3', count: 2 }],
     beaconCount: 1,
     modulesPerBeacon: 2,
     distributionEfficiency: 0.5,

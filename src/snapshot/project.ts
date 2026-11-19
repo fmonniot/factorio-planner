@@ -65,11 +65,19 @@ function outputRates(rates: Record<string, number>, ref: (id: string) => Snapsho
 /** The keys of a row that come from the plan's node: its machine modules and its first sendable beacon, each left out when there is nothing to place. */
 function nodeValues(node: GameRecipeNode): { modules?: SnapshotModule[]; beacon?: SnapshotBeacon } {
   const modules = node.modules.filter(m => m.moduleId !== '').map(m => ({ id: m.moduleId, count: m.count }))
-  // The wire format carries one beacon: the first configuration that has something to place.
-  const cfg = (node.beaconConfigs ?? []).find(c => c.beaconId && c.moduleId && c.beaconCount > 0)
-  const beacon = cfg?.beaconId && cfg.moduleId
-    ? { id: cfg.beaconId, count: cfg.beaconCount, module: cfg.moduleId, modules: cfg.modulesPerBeacon }
-    : undefined
+  // The wire format carries one beacon: the first configuration that has something to place. Its slots hold
+  // one module in the wire shape, so a beacon with mixed slots is sent as the module most of them hold.
+  let beacon: SnapshotBeacon | undefined
+  for (const c of node.beaconConfigs ?? []) {
+    if (!c.beaconId || c.beaconCount <= 0) continue
+    const sums = new Map<string, number>()
+    for (const m of c.modules) if (m.moduleId !== '' && m.count > 0) sums.set(m.moduleId, (sums.get(m.moduleId) ?? 0) + m.count)
+    let best: [string, number] | undefined
+    for (const entry of sums) if (!best || entry[1] > best[1]) best = entry
+    if (!best) continue
+    beacon = { id: c.beaconId, count: c.beaconCount, module: best[0], modules: best[1] }
+    break
+  }
   return {
     ...(modules.length > 0 ? { modules } : {}),
     ...(beacon ? { beacon } : {}),

@@ -31,20 +31,22 @@ export function beaconAddBlockedReason(gameData: GameData, horizon: Horizon, noM
 
 /**
  * The configuration "add a beacon" creates: the first beacon type within the horizon (by name; legacy defaults
- * when the data has none) and 4 beacons, with `moduleId` in its slots, or the first module the beacon accepts for the recipe
+ * when the data has none) and 4 beacons, with `moduleId` in every slot, or the first module the beacon accepts for the recipe
  * when none is given. Undefined when no module fits.
  */
 export function defaultBeaconConfig(gameData: GameData, horizon: Horizon, recipeId: string, moduleId?: string): BeaconConfig | undefined {
   const firstBeacon = availableBeacons(gameData, horizon)[0]
   const chosen = moduleId ?? beaconModuleOptions(gameData, horizon, firstBeacon, recipeId)[0]?.id
   if (!chosen) return undefined
+  const slots = firstBeacon?.moduleSlots ?? 2
+  const modules = slots > 0 ? [{ moduleId: chosen, count: slots }] : []
   return firstBeacon
     ? {
         beaconId: firstBeacon.id,
-        moduleId: chosen,
+        modules,
         beaconCount: DEFAULT_BEACON_COUNT,
         modulesPerBeacon: firstBeacon.moduleSlots,
         distributionEfficiency: firstBeacon.distributionEfficiency,
       }
-    : { moduleId: chosen, beaconCount: DEFAULT_BEACON_COUNT, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    : { modules, beaconCount: DEFAULT_BEACON_COUNT, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
 }

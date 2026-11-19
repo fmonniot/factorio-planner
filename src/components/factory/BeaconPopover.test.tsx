@@ -46,7 +46,7 @@ const mockGameData: GameData = {
 }
 
 const beacon: BeaconConfig = {
-  moduleId: 'speed-3',
+  modules: [{ moduleId: 'speed-3', count: 2 }],
   beaconCount: 4,
   modulesPerBeacon: 2,
   distributionEfficiency: 0.5,
@@ -134,7 +134,7 @@ describe('BeaconCell — creating a beacon', () => {
     expect(screen.getAllByTestId('module-fill-option').map(o => o.getAttribute('data-module-id'))).toEqual(['speed-3'])
     fireEvent.click(screen.getByText('Speed 3'))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    expect(updated.kind === 'game-recipe' && updated.beaconConfigs?.[0]?.moduleId).toBe('speed-3')
+    expect(updated.kind === 'game-recipe' && updated.beaconConfigs?.[0]?.modules).toEqual([{ moduleId: 'speed-3', count: 2 }])
   })
 })
 
@@ -204,8 +204,8 @@ describe('BeaconCell — beyond the horizon over several configurations', () => 
     const gd = horizonData()
     gd.technologies.base.unlockedRecipes = ['iron-plate', 'r-am1', 'r-beacon']
     gd.technologies.mods.unlockedRecipes = ['r-speed']
-    const inside: BeaconConfig = { beaconId: 'beacon', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
-    const outside: BeaconConfig = { ...inside, moduleId: 'speed-3' }
+    const inside: BeaconConfig = { beaconId: 'beacon', modules: [], beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
+    const outside: BeaconConfig = { ...inside, modules: [{ moduleId: 'speed-3', count: 2 }] }
     const renderWith = (beacons: BeaconConfig[]) =>
       render(
         <BeaconCell nodeId="n1" beacons={beacons} gameData={gd} recipeId="iron-plate"
@@ -244,17 +244,46 @@ describe('BeaconCell — chips over a list of configurations', () => {
   })
 
   it('shows a beacon without a module as a beacon chip plus a dashed module chip', () => {
-    renderList([{ ...beacon, moduleId: undefined }])
+    renderList([{ ...beacon, modules: [] }])
     expect(screen.getByTestId('beacon-module-chip')).toHaveTextContent('0/2')
     expect(screen.getByTestId('beacon-module-chip').querySelector('.border-dashed')).not.toBeNull()
   })
 
   it('keeps the count and names the id of a module the loaded data set does not know', () => {
-    renderList([{ ...beacon, moduleId: 'gone-module' }])
+    renderList([{ ...beacon, modules: [{ moduleId: 'gone-module', count: 2 }] }])
     const chip = screen.getByLabelText('Edit beacon modules')
     expect(chip).toHaveTextContent('2/2')
     expect(chip.getAttribute('title')).toContain('gone-module')
     expect(chip.querySelector('.border-dashed')).toBeNull()
+  })
+
+  it('shows a partly filled beacon as used over slots, named by its module', () => {
+    renderList([{ ...beacon, modules: [{ moduleId: 'speed-3', count: 1 }] }])
+    const chip = screen.getByTestId('beacon-module-chip')
+    expect(chip).toHaveTextContent('1/2')
+    expect(chip.getAttribute('title')).toBe('Speed 3 × 1 per beacon')
+  })
+
+  it('shows the most used module of a mixed beacon and lists every module in the title', () => {
+    const gd = structuredClone(mockGameData)
+    gd.modules['eff-1'] = { ...speedModule, id: 'eff-1', name: 'Eff 1', category: 'efficiency', effects: { consumption: -0.3 } }
+    render(
+      <BeaconCell nodeId="n1" beacons={[{ ...beacon, modules: [{ moduleId: 'speed-3', count: 1 }, { moduleId: 'eff-1', count: 1 }] }]}
+        gameData={gd} recipeId="iron-plate" machineId={undefined} recipeCategory="crafting" onOpenEdit={() => {}} />,
+    )
+    const chip = screen.getByTestId('beacon-module-chip')
+    expect(chip).toHaveTextContent('2/2')
+    expect(chip.getAttribute('title')).toBe('Speed 3 × 1 + Eff 1 × 1 per beacon')
+  })
+
+  it('rings the module chip when a module is unknown or there are more modules than slots', () => {
+    const { unmount } = renderList([{ ...beacon, modules: [{ moduleId: 'gone-module', count: 1 }] }])
+    expect(screen.getByTestId('beacon-module-chip')).toHaveTextContent('?')
+    expect(screen.getByTestId('beacon-module-chip').className).toContain('ring')
+    unmount()
+    renderList([{ ...beacon, modules: [{ moduleId: 'speed-3', count: 3 }] }])
+    expect(screen.getByTestId('beacon-module-chip')).toHaveTextContent('3/2')
+    expect(screen.getByTestId('beacon-module-chip').className).toContain('ring')
   })
 
   it('shows two dashed placeholders when there is none: the beacon and its module slots', () => {
@@ -275,7 +304,7 @@ describe('BeaconCell — chips over a list of configurations', () => {
     expect(screen.getByTestId('picker-heading')).toHaveTextContent('Add 4 × Beacon, fill its slots with')
     fireEvent.click(screen.getByText('Speed 3'))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ moduleId: 'speed-3', beaconCount: 4 }])
+    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 4 }])
   })
 
   it('opens the side panel from the beacon chip and the module chip', () => {
@@ -303,7 +332,7 @@ describe('BeaconCell — chips over a list of configurations', () => {
     expect(screen.queryByTestId('picker')).toBeNull()
     expect(onOpenEdit).not.toHaveBeenCalled()
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ moduleId: 'speed-3', beaconCount: 4 }])
+    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 4 }])
     useBlockStore.getState().undo()
     const undone = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(undone.kind === 'game-recipe' && undone.beaconConfigs).toBeUndefined()
@@ -327,21 +356,21 @@ describe('BeaconCell — chips over a list of configurations', () => {
 
   it('fills the slots of an existing beacon from the dashed module chip', () => {
     const onOpenEdit = vi.fn()
-    useBlockStore.getState().updateNodeBeacons('n1', [{ ...beacon, moduleId: undefined }])
+    useBlockStore.getState().updateNodeBeacons('n1', [{ ...beacon, modules: [] }])
     render(
-      <BeaconCell nodeId="n1" beacons={[{ ...beacon, moduleId: undefined }]} gameData={mockGameData} recipeId="iron-plate"
+      <BeaconCell nodeId="n1" beacons={[{ ...beacon, modules: [] }]} gameData={mockGameData} recipeId="iron-plate"
         machineId={undefined} recipeCategory="crafting" onOpenEdit={onOpenEdit} />,
     )
     fireEvent.click(screen.getByTestId('beacon-module-chip'))
     expect(onOpenEdit).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('Speed 3'))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2 }])
+    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 4, modulesPerBeacon: 2 }])
   })
 
   it('fills only the first configuration and keeps the second', () => {
-    const second: BeaconConfig = { ...beacon, moduleId: 'speed-3', beaconCount: 7 }
-    const list = [{ ...beacon, moduleId: undefined }, second]
+    const second: BeaconConfig = { ...beacon, beaconCount: 7 }
+    const list = [{ ...beacon, modules: [] }, second]
     useBlockStore.getState().updateNodeBeacons('n1', list)
     render(
       <BeaconCell nodeId="n1" beacons={list} gameData={mockGameData} recipeId="iron-plate"
@@ -350,7 +379,7 @@ describe('BeaconCell — chips over a list of configurations', () => {
     fireEvent.click(screen.getByTestId('beacon-module-chip'))
     fireEvent.click(screen.getByText('Speed 3'))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toEqual([{ ...beacon, moduleId: 'speed-3' }, second])
+    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toEqual([{ ...beacon, modules: [{ moduleId: 'speed-3', count: 2 }] }, second])
   })
 
   it('does not open the other chip\'s picker when the row changes from no beacon to a beacon without a module', () => {
@@ -358,7 +387,7 @@ describe('BeaconCell — chips over a list of configurations', () => {
     const { rerender } = render(<BeaconCell {...props} beacons={[]} />)
     fireEvent.click(screen.getByLabelText('Add beacon'))
     expect(screen.getByTestId('picker')).toBeInTheDocument()
-    rerender(<BeaconCell {...props} beacons={[{ ...beacon, moduleId: undefined }]} />)
+    rerender(<BeaconCell {...props} beacons={[{ ...beacon, modules: [] }]} />)
     expect(screen.queryByTestId('picker')).toBeNull()
   })
 })

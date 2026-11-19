@@ -5,6 +5,7 @@ import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { IconChip, MoreBadge } from './IconChip'
 import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
+import { mostUsedModule } from './ModuleCell'
 import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig, DEFAULT_BEACON_COUNT } from './sidePanel/beaconDefaults'
 import { beaconModuleOptions } from './sidePanel/moduleOptions'
 
@@ -102,22 +103,26 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   }
 
   const beaconEntity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
-  const moduleData = beacon.moduleId ? gameData.modules[beacon.moduleId] : undefined
+  const slots = beaconEntity?.moduleSlots ?? beacon.modulesPerBeacon
+  const used = beacon.modules.reduce((n, m) => n + m.count, 0)
+  const shown = mostUsedModule(beacon.modules)
+  const moduleData = shown ? gameData.modules[shown] : undefined
   // A module id the loaded data set does not know (after switching data sets): the solver still counts it.
-  const unknownModuleId = beacon.moduleId && !moduleData ? beacon.moduleId : undefined
+  const unknownModule = beacon.modules.some(m => !gameData.modules[m.moduleId])
   // Any configuration with a beacon type or module outside the horizon rings the chip.
   const beyondHorizon = beacons.some(b =>
     (b.beaconId !== undefined && !withinHorizon(horizon.beaconIds, b.beaconId)) ||
-    (b.moduleId !== undefined && !withinHorizon(horizon.moduleIds, b.moduleId)))
+    b.modules.some(m => !withinHorizon(horizon.moduleIds, m.moduleId)))
 
   // The dashed module chip is the fill-all shortcut; one holding a module opens the panel.
-  const fillBeacon = !moduleData && !unknownModuleId
-  const slots = beaconEntity?.moduleSlots ?? beacon.modulesPerBeacon
+  const fillBeacon = beacon.modules.length === 0
   const more = beacons.length - 1
   const describe = (b: BeaconConfig) => {
     const name = (b.beaconId && gameData.beacons[b.beaconId]?.name) || 'Beacon'
-    const mod = b.moduleId ? gameData.modules[b.moduleId]?.name ?? b.moduleId : 'no module'
-    return `${b.beaconCount} × ${name}, ${b.modulesPerBeacon} × ${mod}`
+    const mods = b.modules.length > 0
+      ? b.modules.map(m => `${m.count} × ${gameData.modules[m.moduleId]?.name ?? m.moduleId}`).join(' + ')
+      : 'no module'
+    return `${b.beaconCount} × ${name}, ${mods}`
   }
   const chipTitle = beacons.map(describe).join('; ')
   const editTitle = beyondHorizon ? 'Edit beacon (beyond research horizon)' : 'Edit beacon'
@@ -127,17 +132,20 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
       onClick={toggle ?? onOpenEdit}
       aria-expanded={toggle ? open : undefined}
       size="entity"
-      empty={!moduleData && !unknownModuleId}
-      warn={unknownModuleId !== undefined}
+      empty={beacon.modules.length === 0}
+      warn={unknownModule || used > slots}
       iconPath={moduleData?.iconPath || undefined}
       quiet
-      alt={moduleData?.name ?? unknownModuleId ?? 'module'}
-      fallback={unknownModuleId !== undefined ? '?' : '+'}
-      quantity={`${moduleData || unknownModuleId ? beacon.modulesPerBeacon : 0}/${slots}`}
+      alt={moduleData?.name ?? shown ?? 'module'}
+      fallback={shown ? '?' : '+'}
+      quantity={`${used}/${slots}`}
       title={
-        moduleData ? `${moduleData.name} × ${beacon.modulesPerBeacon} per beacon`
-        : unknownModuleId ? `Unknown module "${unknownModuleId}" × ${beacon.modulesPerBeacon} per beacon (not in the loaded game data)`
-        : 'Beacon without a module'
+        beacon.modules.length > 0
+          ? `${beacon.modules.map(m => {
+              const name = gameData.modules[m.moduleId]?.name
+              return `${name ?? `Unknown module "${m.moduleId}"`} × ${m.count}`
+            }).join(' + ')} per beacon`
+          : 'Beacon without a module'
       }
       aria-label="Edit beacon modules"
       data-testid="beacon-module-chip"
@@ -167,7 +175,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
               <ModuleFillPicker
                 heading="Fill its slots with"
                 options={beaconModuleOptions(gameData, horizon, beaconEntity, recipeId)}
-                onPick={moduleId => updateNodeBeacons(nodeId, beacons.map((b, i) => (i === 0 ? { ...b, moduleId } : b)))}
+                onPick={moduleId => updateNodeBeacons(nodeId, beacons.map((b, i) => (i === 0 ? { ...b, modules: [{ moduleId, count: slots }] } : b)))}
                 onClose={close}
               />
             )}

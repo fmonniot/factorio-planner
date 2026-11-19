@@ -259,11 +259,31 @@ export const ModuleConfigSchema = z.object({
 
 export const BeaconConfigSchema = z.object({
   beaconId: z.string().optional(),
-  moduleId: z.string().optional(),
+  // The modules in each beacon's slots, a multiset like GameRecipeNode.modules; [] = no module. Plans saved with
+  // the former single `moduleId` are migrated on load (see migrateBeaconConfig).
+  modules: z.array(ModuleConfigSchema),
   beaconCount: z.number().int().nonnegative(),
+  // Module slots per beacon, read when the beacon type is unknown.
   modulesPerBeacon: z.number().int().positive(),
   distributionEfficiency: z.number().min(0),
 })
+
+/**
+ * Load-time migration of one beacon configuration, pure and idempotent. Turns the former single `moduleId`
+ * (one module type filling every slot) into `modules: [{ moduleId, count: modulesPerBeacon }]`; an absent or
+ * empty `moduleId` becomes `[]`. A `modules` list that is present wins and `moduleId` is dropped. Invalid
+ * legacy values are wrapped as they are, so the schema rejects them as it did before.
+ */
+export function migrateBeaconConfig(data: unknown): unknown {
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return data
+  const cfg: Record<string, unknown> = { ...data }
+  const legacy = cfg.moduleId
+  delete cfg.moduleId
+  if (cfg.modules === undefined) {
+    cfg.modules = legacy === undefined || legacy === '' ? [] : [{ moduleId: legacy, count: cfg.modulesPerBeacon }]
+  }
+  return cfg
+}
 
 export const GameRecipeNodeSchema = z.object({
   kind: z.literal('game-recipe'),
@@ -299,7 +319,8 @@ export const SubPlanNodeSchema = z.object({
  * Load-time migration of one recipe node, pure and idempotent. Injects `kind: 'game-recipe'` on legacy
  * data that lacks the field, and turns the former single `beaconConfig` into the one-element list
  * `beaconConfigs` (a non-empty list wins when both are present). An empty list is dropped, so "no beacon"
- * is always an absent key, and it does not hide a legacy value. Invalid legacy values are wrapped as they
+ * is always an absent key, and it does not hide a legacy value. Each beacon configuration is then migrated
+ * by `migrateBeaconConfig`. Invalid legacy values are wrapped as they
  * are, so the schema rejects them as it did before.
  */
 export function migrateRecipeNode(data: unknown): unknown {
@@ -312,6 +333,7 @@ export function migrateRecipeNode(data: unknown): unknown {
     delete node.beaconConfig
     if (node.beaconConfigs === undefined && legacy !== undefined) node.beaconConfigs = [legacy]
   }
+  if (Array.isArray(node.beaconConfigs)) node.beaconConfigs = node.beaconConfigs.map(migrateBeaconConfig)
   return node
 }
 
