@@ -57,6 +57,11 @@ describe('moduleEffects and beaconEffects', () => {
     expect(beaconEffects(beacon(), gameData()).speed).toBeCloseTo(0.2 * 0.5 * 2 * 4)
   })
 
+  it('keeps the factor order of the former expression for values that are not powers of two', () => {
+    const b = beacon({ modules: [{ moduleId: 'speed', count: 3 }], beaconCount: 7, modulesPerBeacon: 3, distributionEfficiency: 1.5 })
+    expect(beaconEffects(b, gameData()).speed).toBe(0.2 * (7 * 3 * 1.5))
+  })
+
   it('sums every module of a mixed beacon', () => {
     const mixed = beacon({ modules: [{ moduleId: 'speed', count: 1 }, { moduleId: 'prod', count: 1 }] })
     const fx = beaconEffects(mixed, gameData())

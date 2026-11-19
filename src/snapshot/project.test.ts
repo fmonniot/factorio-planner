@@ -481,9 +481,14 @@ describe('projectSnapshot', () => {
       expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [mixed] }))).toMatchObject({ beacon: { module: 'efficiency-module', modules: 2 } })
     })
 
-    it('sends the first module in list order on a tie', () => {
+    it('sends the lowest module id on a tie, as the table chips show it', () => {
       const tie = { ...beacon(), modules: [{ moduleId: 'speed-module', count: 1 }, { moduleId: 'efficiency-module', count: 1 }] }
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [tie] }))).toMatchObject({ beacon: { module: 'speed-module', modules: 1 } })
+      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [tie] }))).toMatchObject({ beacon: { module: 'efficiency-module', modules: 1 } })
+    })
+
+    it('caps the count at the slots of the beacon', () => {
+      const over = { ...beacon(), modulesPerBeacon: 1, modules: [{ moduleId: 'speed-module', count: 2 }] }
+      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [over] }))).toMatchObject({ beacon: { module: 'speed-module', modules: 1 } })
     })
 
     it('does not send a configuration whose only module has an empty id', () => {

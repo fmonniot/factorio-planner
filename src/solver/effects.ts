@@ -101,17 +101,17 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
   // Beacon contributions, summed over the configurations: capped by both the beacon entity's and the machine's allowed effects.
   for (const beacon of node.beaconConfigs ?? []) {
     const beaconAllowed = beacon.beaconId ? gameData.beacons[beacon.beaconId]?.allowedEffects : undefined
+    // The allowed-effect checks depend on the configuration only, not on the module.
+    const countsProductivity = allowProductivity && allowed('productivity', beaconAllowed, machineAllowed)
+    const countsSpeed = allowed('speed', beaconAllowed, machineAllowed)
+    const countsConsumption = allowed('consumption', beaconAllowed, machineAllowed)
     for (const mc of beacon.modules) {
       const mod = gameData.modules[mc.moduleId]
       if (!mod) continue
       const multiplier = beacon.distributionEfficiency * mc.count * beacon.beaconCount
-      if (allowProductivity && allowed('productivity', beaconAllowed, machineAllowed)) {
-        productivityBonus += (mod.effects.productivity ?? 0) * multiplier
-      }
-      if (allowed('speed', beaconAllowed, machineAllowed)) speedBonus += (mod.effects.speed ?? 0) * multiplier
-      if (allowed('consumption', beaconAllowed, machineAllowed)) {
-        consumptionBonus += (mod.effects.consumption ?? 0) * multiplier
-      }
+      if (countsProductivity) productivityBonus += (mod.effects.productivity ?? 0) * multiplier
+      if (countsSpeed) speedBonus += (mod.effects.speed ?? 0) * multiplier
+      if (countsConsumption) consumptionBonus += (mod.effects.consumption ?? 0) * multiplier
     }
   }
 

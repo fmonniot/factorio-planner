@@ -5,7 +5,7 @@ import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { IconChip, MoreBadge } from './IconChip'
 import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
-import { mostUsedModule } from './ModuleCell'
+import { mostUsedModule } from '../../data/mostUsedModule'
 import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig, DEFAULT_BEACON_COUNT } from './sidePanel/beaconDefaults'
 import { beaconModuleOptions } from './sidePanel/moduleOptions'
 
@@ -175,7 +175,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
               <ModuleFillPicker
                 heading="Fill its slots with"
                 options={beaconModuleOptions(gameData, horizon, beaconEntity, recipeId)}
-                onPick={moduleId => updateNodeBeacons(nodeId, beacons.map((b, i) => (i === 0 ? { ...b, modules: [{ moduleId, count: slots }] } : b)))}
+                onPick={moduleId => updateNodeBeacons(nodeId, beacons.map((b, i) => (i === 0 ? { ...b, modules: slots > 0 ? [{ moduleId, count: slots }] : [] } : b)))}
                 onClose={close}
               />
             )}

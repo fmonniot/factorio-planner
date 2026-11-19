@@ -713,6 +713,23 @@ describe('beacon configuration migration', () => {
     expect(computeNodeEffects(node, gd).speedBonus).toBe(0.5 * (0.5 * 2 * 8))
   })
 
+  it('loads a legacy configuration with the numbers of the former expression for values that are not powers of two', () => {
+    const gd = { modules: { 'speed-module-3': { effects: { speed: 0.4 } } }, beacons: {}, recipes: {}, machines: {}, defaultMachines: {} } as unknown as GameData
+    const odd = { moduleId: 'speed-module-3', beaconCount: 7, modulesPerBeacon: 3, distributionEfficiency: 1.5 }
+    const node = firstNode(planJson([nodeJson({ beaconConfigs: [odd] })]))
+    expect(computeNodeEffects(node, gd).speedBonus).toBe(0.4 * (1.5 * 3 * 7))
+  })
+
+  it('migrates a legacy beacon configuration through parseAppState', () => {
+    const block = {
+      id: 'b1', name: 'Block', products: [], noImportItems: [],
+      rootPlan: planJson([nodeJson({ beaconConfigs: [{ moduleId: 'speed-module-2', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }] })]),
+    }
+    const state = parseAppState({ blocks: [block], activeBlockId: 'b1' })
+    const node = state.blocks[0].rootPlan.nodes[0] as GameRecipeNode
+    expect(node.beaconConfigs?.[0].modules).toEqual([{ moduleId: 'speed-module-2', count: 2 }])
+  })
+
   it('still rejects an invalid legacy beaconConfig, null included', () => {
     const block = (beaconConfig: unknown) => ({
       id: 'b1', name: 'Block', products: [], noImportItems: [], rootPlan: planJson([nodeJson({ beaconConfig })]),

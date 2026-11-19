@@ -93,7 +93,7 @@ export function EffectsSection({ node, beacons, gameData }: {
         </p>
       )}
       <p className="mt-2 text-[10px] text-gray-400">
-        Beacon effect = module effect × efficiency × modules per beacon × beacons. All sources add up.
+        Beacon effect = for each module, its effect × efficiency × its count × beacons, added up. All sources add up.
       </p>
     </PanelSection>
   )

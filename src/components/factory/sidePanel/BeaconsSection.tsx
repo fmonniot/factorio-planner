@@ -11,7 +11,7 @@ import { Picker, PickerRow, PickerEmpty } from '../Picker'
 import { PickerTrigger } from '../PickerTrigger'
 import { PanelSection, BeyondTag, Chevron } from './PanelParts'
 import { ModuleSlotRow } from './ModuleSlotRow'
-import { setSlot, slotsOf } from './moduleSlots'
+import { fitModules, setSlot, slotsOf } from './moduleSlots'
 import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig } from './beaconDefaults'
 import { beaconEffects, applyRecipeConstraints, fmtEffect } from './effects'
 import { resolveRowMachine } from '../../../data/horizon'
@@ -59,7 +59,12 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
   function selectBeacon(beaconId: string) {
     const e = gameData.beacons[beaconId]
     if (!e) return
-    update({ beaconId, modulesPerBeacon: e.moduleSlots, distributionEfficiency: e.distributionEfficiency })
+    update({
+      beaconId,
+      modulesPerBeacon: e.moduleSlots,
+      distributionEfficiency: e.distributionEfficiency,
+      modules: fitModules(beacon.modules, slotCount, e.moduleSlots),
+    })
   }
 
   function selectModule(slot: number, moduleId: string | undefined) {

@@ -138,6 +138,23 @@ describe('BeaconCell — creating a beacon', () => {
   })
 })
 
+describe('BeaconCell — filling a beacon without slots', () => {
+  it('stores no module when the beacon type has no slot, since a count of 0 is not a valid plan', () => {
+    useBlockStore.setState({ horizonTechnologyIds: [] })
+    const gd = horizonData()
+    gd.beacons.beacon.moduleSlots = 0
+    const empty: BeaconConfig = { beaconId: 'beacon', modules: [], beaconCount: 4, modulesPerBeacon: 0, distributionEfficiency: 1.5 }
+    render(
+      <BeaconCell nodeId="n1" beacons={[empty]} gameData={gd} recipeId="iron-plate"
+        machineId={undefined} recipeCategory="crafting" onOpenEdit={() => {}} />,
+    )
+    fireEvent.click(screen.getByTestId('beacon-module-chip'))
+    fireEvent.click(screen.getByTestId('module-fill-option'))
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(updated.kind === 'game-recipe' && updated.beaconConfigs?.[0]?.modules).toEqual([])
+  })
+})
+
 describe('BeaconCell — research horizon', () => {
   function renderCell(gameData: GameData) {
     return render(

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { BeaconsSection } from './BeaconsSection'
+import { fitModules } from './moduleSlots'
 import { EffectsSection } from './EffectsSection'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
 import type { BeaconConfig, GameData, GameRecipeNode } from '../../../data/types'
@@ -354,7 +355,7 @@ describe('EffectsSection', () => {
     expect(screen.getAllByRole('columnheader').map(h => h.textContent)).toEqual(['', 'Machine', 'Beacons', 'Total'])
     // 0.5 speed × 1.5 efficiency × 2 modules × 4 beacons
     expect(screen.getByTestId('effect-total-speed')).toHaveTextContent('+600%')
-    expect(screen.getByText('Beacon effect = module effect × efficiency × modules per beacon × beacons. All sources add up.', { exact: false })).toBeInTheDocument()
+    expect(screen.getByText('Beacon effect = for each module, its effect × efficiency × its count × beacons, added up. All sources add up.', { exact: false })).toBeInTheDocument()
   })
 
   it('shows one Beacons column per configuration', () => {
@@ -385,5 +386,39 @@ describe('EffectsSection', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['base'] })
     renderEffects(gd, rowNode({ beaconConfigs: [beacon()] }))
     expect(screen.getByTestId('effect-total-speed')).toHaveTextContent('+600%')
+  })
+})
+
+describe('BeaconsSection — switching the beacon type', () => {
+  function switchTo(slots: number, config: BeaconConfig) {
+    const gd = makeGameData()
+    gd.beacons.other = { ...gd.beacons.beacon, id: 'other', name: 'Other', moduleSlots: slots }
+    renderBeacons(gd, rowNode({ beaconConfigs: [config] }))
+    fireEvent.click(screen.getByTestId('beacon-type-button'))
+    fireEvent.click(screen.getAllByTestId('beacon-option').find(e => e.getAttribute('data-beacon-id') === 'other')!)
+    return storedBeacon()
+  }
+
+  it('trims a full beacon to the slots of a smaller type', () => {
+    expect(switchTo(1, beacon())).toMatchObject({ beaconId: 'other', modulesPerBeacon: 1, modules: [{ moduleId: 'speed-3', count: 1 }] })
+  })
+
+  it('refills every slot of a larger type when one module filled the old ones', () => {
+    expect(switchTo(4, beacon())?.modules).toEqual([{ moduleId: 'speed-3', count: 4 }])
+  })
+
+  it('keeps mixed modules and trims their overflow from the end', () => {
+    const mixed = beacon({ modules: [{ moduleId: 'speed-3', count: 1 }, { moduleId: 'eff-1', count: 1 }] })
+    expect(switchTo(1, mixed)?.modules).toEqual([{ moduleId: 'speed-3', count: 1 }])
+  })
+
+  it('keeps mixed modules when the slots grow', () => {
+    const mixed = beacon({ modules: [{ moduleId: 'speed-3', count: 1 }, { moduleId: 'eff-1', count: 1 }] })
+    expect(switchTo(4, mixed)?.modules).toEqual([{ moduleId: 'speed-3', count: 1 }, { moduleId: 'eff-1', count: 1 }])
+  })
+
+  it('fitModules leaves a partly filled beacon as it is when the slots grow', () => {
+    expect(fitModules([{ moduleId: 'speed-3', count: 1 }], 2, 4)).toEqual([{ moduleId: 'speed-3', count: 1 }])
+    expect(fitModules([{ moduleId: 'speed-3', count: 2 }], 2, 0)).toEqual([])
   })
 })

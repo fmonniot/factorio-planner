@@ -330,6 +330,13 @@ describe('computeNodeEffects — modules in each beacon slot', () => {
     const n = node('n1', 'r1', [], [{ modules: [{ moduleId: 'speed-module-3', count: 2 }], beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5 }])
     expect(computeNodeEffects(n, gd()).speedBonus).toBe(0.5 * (0.5 * 2 * 8))
   })
+
+  it('keeps the factor order of the former expression for values that are not powers of two', () => {
+    const data = gd()
+    data.modules['speed-module-3'] = { ...SPEED3_MODULE, effects: { speed: 0.4 } }
+    const n = node('n1', 'r1', [], [{ modules: [{ moduleId: 'speed-module-3', count: 3 }], beaconCount: 7, modulesPerBeacon: 3, distributionEfficiency: 1.5 }])
+    expect(computeNodeEffects(n, data).speedBonus).toBe(0.4 * (1.5 * 3 * 7))
+  })
 })
 
 describe('computeNodeEffects — allowed effects', () => {
