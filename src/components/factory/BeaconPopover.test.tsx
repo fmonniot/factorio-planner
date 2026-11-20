@@ -318,10 +318,10 @@ describe('BeaconCell — chips over a list of configurations', () => {
     useBlockStore.getState().updateNodeBeacons('n1', [])
     renderList([])
     fireEvent.click(screen.getByLabelText('Add beacon module'))
-    expect(screen.getByTestId('picker-heading')).toHaveTextContent('Add 4 × Beacon, fill its slots with')
+    expect(screen.getByTestId('picker-heading')).toHaveTextContent('Add 1 × Beacon, fill its slots with')
     fireEvent.click(screen.getByText('Speed 3'))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 4 }])
+    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 1 }])
   })
 
   it('opens the side panel from the beacon chip and the module chip', () => {
@@ -344,12 +344,12 @@ describe('BeaconCell — chips over a list of configurations', () => {
         machineId={undefined} recipeCategory="crafting" onOpenEdit={onOpenEdit} />,
     )
     fireEvent.click(screen.getByLabelText('Add beacon'))
-    expect(screen.getByTestId('picker-heading')).toHaveTextContent('Add 4 × Beacon, fill its slots with')
+    expect(screen.getByTestId('picker-heading')).toHaveTextContent('Add 1 × Beacon, fill its slots with')
     fireEvent.click(screen.getByText('Speed 3'))
     expect(screen.queryByTestId('picker')).toBeNull()
     expect(onOpenEdit).not.toHaveBeenCalled()
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 4 }])
+    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 1 }])
     useBlockStore.getState().undo()
     const undone = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(undone.kind === 'game-recipe' && undone.beaconConfigs).toBeUndefined()

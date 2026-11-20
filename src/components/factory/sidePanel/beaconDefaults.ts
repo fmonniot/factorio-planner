@@ -4,7 +4,7 @@ import type { Horizon } from '../../../data/horizon'
 import { beaconModuleOptions } from './moduleOptions'
 
 /** Beacons a new configuration starts with. */
-export const DEFAULT_BEACON_COUNT = 4
+export const DEFAULT_BEACON_COUNT = 1
 
 /** The beacon types a row may use: visible and within the research horizon, by name. */
 export function availableBeacons(gameData: GameData, horizon: Horizon) {
