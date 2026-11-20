@@ -98,7 +98,7 @@ describe('SidePanel — selection', () => {
     const { rerender } = renderPanel()
     expect(screen.queryByTestId('panel-effects')).not.toBeInTheDocument()
     act(() => {
-      useBlockStore.getState().updateNodeBeacons('n1', [{ beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 }])
+      useBlockStore.getState().updateNodeBeacons('n1', [{ modules: [], beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 }])
     })
     const b = useBlockStore.getState().blocks[0]
     rerender(<SidePanel blockId={b.id} rootPlan={b.rootPlan} result={undefined} gameData={gd} />)

@@ -11,6 +11,7 @@ import { Picker, PickerRow, PickerEmpty } from '../Picker'
 import { PickerTrigger } from '../PickerTrigger'
 import { PanelSection, BeyondTag, Chevron } from './PanelParts'
 import { ModuleSlotRow } from './ModuleSlotRow'
+import { fitModules, setSlot, slotsOf } from './moduleSlots'
 import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig } from './beaconDefaults'
 import { beaconEffects, applyRecipeConstraints, fmtEffect } from './effects'
 import { resolveRowMachine } from '../../../data/horizon'
@@ -38,17 +39,16 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
   const recipe = gameData.recipes[node.recipeId]
   const allowProductivity = recipe?.allowProductivity ?? false
   const entity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
-  const selectedModule = beacon.moduleId ? gameData.modules[beacon.moduleId] : undefined
   const hasBeaconData = Object.keys(gameData.beacons).length > 0
   const beacons = availableBeacons(gameData, horizon)
   const fits = (m: GameData['modules'][string]) => isModuleAllowedForBeaconRow(m, entity, node.recipeId, allowProductivity)
   const moduleOptions = beaconModuleOptions(gameData, horizon, entity, node.recipeId)
-  const moduleNotAllowed = !!selectedModule && !fits(selectedModule)
+  const misfits = [...new Set(beacon.modules.map(m => m.moduleId))]
+    .map(id => gameData.modules[id])
+    .filter(m => m !== undefined && !fits(m))
 
   const slotCount = entity?.moduleSlots ?? beacon.modulesPerBeacon
-  // The data model holds one module type per beacon: every slot of the configuration shows it.
-  const filled = beacon.moduleId ? Math.min(beacon.modulesPerBeacon, slotCount) : 0
-  const slots = Array.from({ length: Math.max(slotCount, 0) }, (_, i) => (i < filled ? beacon.moduleId : undefined))
+  const slots = slotsOf(beacon.modules, slotCount)
 
   const machineAllowed = rowMachine(node, gameData)?.allowedEffects
   const applied = applyRecipeConstraints(beaconEffects(beacon, gameData), [entity?.allowedEffects, machineAllowed], allowProductivity)
@@ -59,12 +59,16 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
   function selectBeacon(beaconId: string) {
     const e = gameData.beacons[beaconId]
     if (!e) return
-    update({ beaconId, modulesPerBeacon: e.moduleSlots, distributionEfficiency: e.distributionEfficiency })
+    update({
+      beaconId,
+      modulesPerBeacon: e.moduleSlots,
+      distributionEfficiency: e.distributionEfficiency,
+      modules: fitModules(beacon.modules, slotCount, e.moduleSlots),
+    })
   }
 
-  function selectModule(_slot: number, moduleId: string | undefined) {
-    // Every slot of a configuration holds the same module: choosing in one slot sets them all.
-    update({ moduleId })
+  function selectModule(slot: number, moduleId: string | undefined) {
+    update({ modules: setSlot(beacon.modules, slotCount, slot, moduleId) })
   }
 
   return (
@@ -149,19 +153,16 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
         testIdPrefix="beacon-module"
         label="Beacon module slot"
       />
-      <p data-testid="beacon-module-hint" className="text-[11px] text-gray-400">
-        A beacon holds one module type: choosing a module fills every slot, and emptying a slot removes it from all.
-      </p>
-      {moduleNotAllowed && (
+      {misfits.length > 0 && (
         <div data-testid="module-not-allowed" className="text-xs text-amber-400">
-          {selectedModule?.name} cannot be inserted in {entity?.name ?? 'this beacon'}; pick another module.
+          {misfits.map(m => m.name).join(', ')} cannot be inserted in {entity?.name ?? 'this beacon'}; pick another module.
         </div>
       )}
 
       {!hasBeaconData && (
         <div className="space-y-1.5 pt-1 border-t border-gray-700">
           <label className="flex items-center gap-2 text-xs text-gray-400">
-            <span className="w-32 shrink-0">Modules/beacon</span>
+            <span className="w-32 shrink-0">Slots/beacon</span>
             <input
               type="number" min={1} step={1} value={beacon.modulesPerBeacon}
               onChange={e => {
@@ -186,7 +187,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
       )}
 
       <div data-testid="beacon-summary" className="text-[11px] text-gray-400">
-        {efficiency}% efficiency · {beacon.moduleId ? contribution(applied) : 'no module, so no effect'}
+        {efficiency}% efficiency · {beacon.modules.length > 0 ? contribution(applied) : 'no module, so no effect'}
       </div>
     </div>
   )

@@ -2076,7 +2076,7 @@ describe('solve — a node with no resolvable machine', () => {
     const node: RecipeNode = {
       ...(planNode('n1', 'iron-plate') as GameRecipeNode),
       modules: [{ moduleId: 'speed', count: 1 }],
-      beaconConfigs: [{ moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }],
+      beaconConfigs: [{ modules: [{ moduleId: 'speed', count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }],
     }
     const n = solve({ goals: [ironGoal], nodes: [node] }, data(false)).nodes[0]
     expect(n.machineCountExact).toBe(0)

@@ -46,7 +46,7 @@ function gameData(): GameData {
 }
 
 const beacon = (over: Partial<BeaconConfig> = {}): BeaconConfig =>
-  ({ moduleId: 'speed', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5, ...over })
+  ({ modules: [{ moduleId: 'speed', count: 2 }], beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5, ...over })
 
 describe('moduleEffects and beaconEffects', () => {
   it('multiplies a module by its count', () => {
@@ -57,8 +57,20 @@ describe('moduleEffects and beaconEffects', () => {
     expect(beaconEffects(beacon(), gameData()).speed).toBeCloseTo(0.2 * 0.5 * 2 * 4)
   })
 
+  it('keeps the factor order of the former expression for values that are not powers of two', () => {
+    const b = beacon({ modules: [{ moduleId: 'speed', count: 3 }], beaconCount: 7, modulesPerBeacon: 3, distributionEfficiency: 1.5 })
+    expect(beaconEffects(b, gameData()).speed).toBe(0.2 * (7 * 3 * 1.5))
+  })
+
+  it('sums every module of a mixed beacon', () => {
+    const mixed = beacon({ modules: [{ moduleId: 'speed', count: 1 }, { moduleId: 'prod', count: 1 }] })
+    const fx = beaconEffects(mixed, gameData())
+    expect(fx.speed).toBeCloseTo((0.2 - 0.1) * 0.5 * 4)
+    expect(fx.productivity).toBeCloseTo(0.1 * 0.5 * 4)
+  })
+
   it('contributes nothing without a module', () => {
-    expect(beaconEffects(beacon({ moduleId: undefined }), gameData()).speed).toBe(0)
+    expect(beaconEffects(beacon({ modules: [] }), gameData()).speed).toBe(0)
   })
 })
 
@@ -82,6 +94,12 @@ describe('rowEffects', () => {
     expect(fx.beacons.length).toBe(2)
     expect(fx.total.speed).toBeCloseTo(fx.beacons[0].applied.speed + fx.beacons[1].applied.speed)
     expect(fx.beacons[1].applied.speed).toBeCloseTo(0.2 * 0.5 * 2 * 2)
+  })
+
+  it('totals the beacon columns of a mixed beacon', () => {
+    const mixed = beacon({ modules: [{ moduleId: 'speed', count: 1 }, { moduleId: 'prod', count: 1 }] })
+    const fx = rowEffects(node({ beaconConfigs: [mixed, beacon()] }), [mixed, beacon()], gameData())
+    expect(fx.total.speed).toBeCloseTo(fx.beacons[0].applied.speed + fx.beacons[1].applied.speed)
   })
 
   it('keeps the raw value of an effect the machine does not allow but counts none of it', () => {

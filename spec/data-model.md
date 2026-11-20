@@ -746,7 +746,10 @@ interface SubPlanNode {
   sub-plan depth) always drops `beaconConfig` and, when `beaconConfigs` is absent, sets it to
   `[beaconConfig]`. The migration is pure and idempotent, a non-empty `beaconConfigs` wins when both keys are
   present (an empty one is dropped first, so it does not hide the legacy value), and an invalid legacy value (including `null`) is wrapped as it is, so the schema
-  rejects it as before.
+  rejects it as before. The same preprocess then migrates each configuration (`migrateBeaconConfig`): the former
+  single `moduleId` becomes `modules: [{ moduleId, count: modulesPerBeacon }]` (an absent or empty `moduleId` becomes `[]`),
+  a `modules` list that is present wins over `moduleId`, and `moduleId` is always dropped. Old plans load with the same numbers;
+  plans saved by this version lose their modules when loaded by an older build (it ignores `modules`).
 - **`pinnedRate`.** The solver uses it as an equality constraint on the recipe's
   throughput (executions per minute). The preprocess coerces `0` to `undefined`
   so a plan saved with a zero pin still loads. The unit is runs, not items: the UI
@@ -774,16 +777,17 @@ interface ModuleConfig {
 
 interface BeaconConfig {
   beaconId?: string               // BeaconEntity id; absent on configs made without beacon data
-  moduleId?: string               // absent: a beacon with no module, which contributes nothing
+  modules: ModuleConfig[]         // the modules in each beacon's slots, a multiset; [] = no module
   beaconCount: number             // int >= 0
-  modulesPerBeacon: number        // int > 0
+  modulesPerBeacon: number        // int > 0; the slots per beacon, read when beaconId is unknown
   distributionEfficiency: number  // >= 0
 }
 ```
 
-A `BeaconConfig` without a `moduleId` is valid (older plans always have one and load unchanged): the
-beacon is placed but holds no module, so the solver ignores it and the snapshot does not send it.
-A node holds a list of them (`beaconConfigs`).
+A `BeaconConfig` with an empty `modules` list is valid: the beacon is placed but holds no module, so the solver
+ignores it and the snapshot does not send it. `modules` works like `GameRecipeNode.modules`: slots fill in list order
+(the side panel shows one button per slot over that list), a count above the slots (overflow) is allowed and counted, and
+each module is edited on its own. A node holds a list of configurations (`beaconConfigs`).
 
 The total module count on a node is kept within the machine's `moduleSlots` by the
 UI, not by the schema. When `beaconId` is set, the beacon modal copies the
@@ -975,7 +979,7 @@ interface SnapshotRowBase {
   inputs?: SnapshotItemRate[]         // SolvedNode.inputRates: items/min consumed; omitted when empty or unsolved
   outputs?: SnapshotOutputRate[]      // SolvedNode.outputRates: items/min produced (gross); same rules
   modules?: { id: string; count: number }[]   // the machine's own modules, in order; omitted when none
-  beacon?: { id: string; count: number; module: string; modules: number }   // beacon entity, beacons per machine, the module each holds and how many of it
+  beacon?: { id: string; count: number; module: string; modules: number }   // beacon entity, beacons per machine, the module most of each beacon's slots hold and how many of its slots hold it
 }
 interface SnapshotGameRow extends SnapshotRowBase { recipe: string }   // the id as in the plan, even when the data set lacks it
 interface SnapshotSyntheticRow extends SnapshotRowBase {               // a mining:, offshore: or power: recipe
@@ -990,7 +994,7 @@ Rules:
 - **Rates** (rates, machine counts, throughput) are rounded to three decimals. A solved value that is not a finite non-negative number (or, for `machinesCeil`, not an integer) is omitted from its row; a required rate (product, import) with such a value is sent as 0, so one bad value never invalidates the snapshot.
 - **No exporter-invented ids.** The `mining:*`, `offshore:*` and `power:*` recipes (`src/data/syntheticRecipes.ts`) and the `power:electricity` and `power:heat` items (`src/data/electricity.ts`) are not game prototypes, so no game-id field contains `:`. A row of such a recipe has `kind` and `product` instead of `recipe`; electricity and heat are sent as `{ id: 'electricity', type: 'virtual' }` and `{ id: 'heat', type: 'virtual' }` everywhere an item appears, and the reader exempts `virtual` from its id check and draws it itself.
 - **Item rates per row.** `inputs` and `outputs` come from the solver's `inputRates` and `outputRates`, in the solver's order, rounded to three decimals. Rates that are zero (also after rounding) or not a finite non-negative number are dropped, and so are the electricity and heat items (their rate is MJ per minute, not an item count). A solar panel or other electricity-only power row therefore has neither list, while a boiler or steam-engine row of the Seablock data set keeps its water, fuel and steam. A list with nothing left, and a row with no solved node, omit the key. In `outputs`, the item the row is built for (`dedicatedProduct`: the node's `primaryProduct`, else the recipe's `mainProduct`, else its first product) carries `primary: true` (none is flagged when the recipe's `mainProduct` is `null`, explicitly multi-output, and the node has no `primaryProduct`; a synthetic row's `product` is the same item, falling back to the first product); the other outputs, the byproducts, do not, and neither does any input. A row with no recipe in the data set or no solved node flags nothing, and neither does a dedicated product dropped for a zero rate. The key is optional and `v` stays 1: the mod ignores keys it does not know, and without any flag it ranks a sub-factory's net products by rate only, as it did before the key existed. The mod ranks a sub-factory's net products with those flagged in any of its rows (nested ones too) first, then by rate; its icon is the first of them. Limitation: the flag is not netted against consumption, so an item one row makes as its product and another row nearly consumes entirely still ranks as a product at its small net rate, ahead of a larger byproduct.
-- **Modules and beacon.** `modules` is the node's own modules (`moduleId` as `id`). `beacon` is the node's first sendable beacon configuration (not necessarily index 0) as `{ id: beaconId, count: beaconCount, module: moduleId, modules: modulesPerBeacon }`; a config with no `beaconId` (made without beacon data), no `moduleId` or a `beaconCount` of 0 is not sendable, since there is nothing to place, and a row with no sendable configuration sends no `beacon`. The wire format carries one beacon, so the other configurations are not sent. A module entry with an empty `moduleId` (an empty slot) is skipped. Both keys are sent for solved and unsolved rows alike, since they come from the plan.
+- **Modules and beacon.** `modules` is the node's own modules (`moduleId` as `id`). `beacon` is the node's first sendable beacon configuration (not necessarily index 0) as `{ id: beaconId, count: beaconCount, module, modules }`, where `module` is the module id with the largest total count in the configuration's `modules` (the lowest module id on a tie, the rule of the table's module chips, `mostUsedModule` in `src/data/mostUsedModule.ts`) and `modules` is that total, so a partly filled beacon sends its real count (capped at the beacon type's slot count) and a beacon with mixed modules sends only its majority module; a config with no `beaconId` (made without beacon data), no module with a non-empty id and a positive count, or a `beaconCount` of 0 is not sendable, since there is nothing to place, and a row with no sendable configuration sends no `beacon`. The wire format carries one beacon, so the other configurations are not sent. A module entry with an empty `moduleId` (an empty slot) is skipped. Both keys are sent for solved and unsolved rows alike, since they come from the plan.
 - **Sub-factory groups.** A sub-plan that holds a recipe row at any depth becomes a group, numbered on entering it while walking in table order, so a parent has a lower index than its children. `parent` is the enclosing sub-plan's group (absent at the top level, where the root plan is not a group) and `area: true` marks a separate area. A sub-plan with no rows at any depth is not sent, and a block without any sends no `groups`. Rows stay in table order, which is not contiguous per group: a sub-factory's rows sit where its handle is, so the plan `P[a, S, b]` gives the rows' groups `P, S, P`. A group's rows are only ever interrupted by its own descendants. `group` on a row is the innermost group it sits in.
 - **Item types** come from the loaded game data; an item id it does not know is sent as `item`.
 - **The machine** of a row is resolved as the solver wiring does (`resolveRowMachine`, over the plan's `horizonTechnologyIds` and `defaultMachineOverrides`), so it is the machine the solve used.

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
-import { ModuleCell, mostUsedModule } from './ModuleCell'
+import { ModuleCell } from './ModuleCell'
+import { mostUsedModule } from '../../data/mostUsedModule'
 import type { GameData, GameRecipeNode } from '../../data/types'
 
 const makeSpeedModule = () => ({

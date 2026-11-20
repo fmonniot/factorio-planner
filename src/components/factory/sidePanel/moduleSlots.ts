@@ -40,3 +40,22 @@ export function setSlot(
   }
   return next.filter(m => m.count > 0)
 }
+
+/**
+ * The modules of a beacon after its type changes from `oldSlots` to `newSlots` slots. One module type filling every old slot
+ * keeps filling every slot of the new type; anything else keeps its modules from the start of the list, dropping the overflow.
+ */
+export function fitModules(modules: readonly ModuleConfig[], oldSlots: number, newSlots: number): ModuleConfig[] {
+  const used = modules.filter(m => m.count > 0)
+  const total = used.reduce((n, m) => n + m.count, 0)
+  if (used.length === 1 && total === oldSlots) return newSlots > 0 ? [{ ...used[0], count: newSlots }] : []
+  let room = newSlots
+  const out: ModuleConfig[] = []
+  for (const m of used) {
+    const count = Math.min(m.count, room)
+    if (count <= 0) break
+    out.push({ ...m, count })
+    room -= count
+  }
+  return out
+}

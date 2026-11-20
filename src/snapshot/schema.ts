@@ -63,7 +63,7 @@ export const SnapshotModuleSchema = z.strictObject({
   count: z.number().int().positive(),
 })
 
-/** The beacons of a row: the beacon entity, how many per machine, and the module and how many of it each beacon holds. */
+/** The beacons of a row: the beacon entity, how many per machine, and the module most of each beacon's slots hold and how many of its slots hold it (a beacon with mixed modules is sent as that one module). */
 export const SnapshotBeaconSchema = z.strictObject({
   id: z.string().min(1),
   count: z.number().int().positive(),
@@ -93,7 +93,7 @@ const rowShape = {
   outputs: z.array(SnapshotOutputRateSchema).optional(),
   /** The machine's own modules (slots with an empty module id are skipped); omitted when it holds none. */
   modules: z.array(SnapshotModuleSchema).optional(),
-  /** The row's first beacon configuration with a beacon entity, a module and a beacon; omitted when none has. */
+  /** The row's first beacon configuration with a beacon entity, a module and a beacon (its most-used module); omitted when none has. */
   beacon: SnapshotBeaconSchema.optional(),
 }
 

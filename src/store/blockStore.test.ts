@@ -2949,7 +2949,7 @@ const treePlan = (id: string) => findSubPlan(useBlockStore.getState().blocks[0].
 const rowIn = (planId: string, nodeId: string) => treePlan(planId).nodes.find(n => n.id === nodeId) as GameRecipeNode
 
 describe('buildRowAlsoIn', () => {
-  const beacon: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+  const beacon: BeaconConfig = { modules: [{ moduleId: 'speed', count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
   function setup(): string {
     const src = gameRow('src', 'electrolysis', {
       machineId: 'm2',
@@ -3043,7 +3043,7 @@ describe('duplicateSubPlanTo', () => {
     const a1 = gameRow('a1', 'electrolysis', {
       machineId: 'm2',
       modules: [{ moduleId: 'speed', count: 2 }],
-      beaconConfigs: [{ moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }],
+      beaconConfigs: [{ modules: [{ moduleId: 'speed', count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }],
       pinnedRate: 10,
       byproductPolicy: { oxygen: 'discard' },
       primaryProduct: 'hydrogen',
@@ -3131,8 +3131,8 @@ describe('duplicateSubPlanTo', () => {
 })
 
 describe('updateNodeBeacons', () => {
-  const a: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
-  const b: BeaconConfig = { moduleId: 'eff', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+  const a: BeaconConfig = { modules: [{ moduleId: 'speed', count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+  const b: BeaconConfig = { modules: [{ moduleId: 'eff', count: 2 }], beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
   const setup = () => loadRoot(planOf('root', [gameRow('r1', 'smelt')]))
   const node = () => rowIn('root', 'r1')
   const undoDepth = (blockId: string) => useBlockStore.getState().history[blockId]?.undoStack.length ?? 0
@@ -3320,7 +3320,7 @@ describe('applyRowSettingsToRecipe', () => {
 
   it('copies the beacon to rows without one, and undo removes it again', () => {
     setup()
-    const beacon: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const beacon: BeaconConfig = { modules: [{ moduleId: 'speed', count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
     useBlockStore.setState(s => ({
       blocks: s.blocks.map(b => ({
         ...b,
@@ -3330,14 +3330,16 @@ describe('applyRowSettingsToRecipe', () => {
     useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
     expect(rowIn('A', 'r2').beaconConfigs).toEqual([beacon])
     expect(rowIn('A', 'r2').machineId, 'machine is untouched').toBe('m1')
+    expect(rowIn('A', 'r2').beaconConfigs![0].modules, 'the copy does not share its modules array with the source').not.toBe(rowIn('root', 'r1').beaconConfigs![0].modules)
+    expect(rowIn('A', 'r2').beaconConfigs![0].modules[0], 'nor its module entries').not.toBe(rowIn('root', 'r1').beaconConfigs![0].modules[0])
     useBlockStore.getState().undo()
     expect('beaconConfigs' in rowIn('A', 'r2')).toBe(false)
   })
 
   it('copies several beacon configurations in order, and undo restores the targets', () => {
     setup()
-    const a: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
-    const b: BeaconConfig = { moduleId: 'eff', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const a: BeaconConfig = { modules: [{ moduleId: 'speed', count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const b: BeaconConfig = { modules: [{ moduleId: 'eff', count: 2 }], beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
     useBlockStore.getState().updateNodeBeacons('r1', [a, b])
     useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
     expect(rowIn('A', 'r2').beaconConfigs).toEqual([a, b])
@@ -3348,8 +3350,8 @@ describe('applyRowSettingsToRecipe', () => {
 
   it('copies the same configurations in another order', () => {
     setup()
-    const a: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
-    const b: BeaconConfig = { moduleId: 'eff', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const a: BeaconConfig = { modules: [{ moduleId: 'speed', count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const b: BeaconConfig = { modules: [{ moduleId: 'eff', count: 2 }], beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
     useBlockStore.getState().updateNodeBeacons('r1', [a, b])
     useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
     useBlockStore.getState().updateNodeBeacons('r1', [b, a])
@@ -3366,8 +3368,8 @@ describe('applyRowSettingsToRecipe', () => {
 
   it('treats beacon configs and modules with the same values in another key order as matching', () => {
     const blockId = setup()
-    const beaconA = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
-    const beaconB = { distributionEfficiency: 0.5, modulesPerBeacon: 2, beaconCount: 2, moduleId: 'speed' }
+    const beaconA = { modules: [{ moduleId: 'speed', count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const beaconB = { distributionEfficiency: 0.5, modulesPerBeacon: 2, beaconCount: 2, modules: [{ moduleId: 'speed', count: 2 }] }
     useBlockStore.setState(s => ({
       blocks: s.blocks.map(b => ({
         ...b,

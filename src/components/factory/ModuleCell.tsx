@@ -5,6 +5,7 @@ import { withinHorizon } from '../../data/horizon'
 import { IconChip } from './IconChip'
 import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
+import { mostUsedModule } from '../../data/mostUsedModule'
 import { machineModuleOptions } from './sidePanel/moduleOptions'
 
 interface ModuleCellProps {
@@ -76,17 +77,4 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
       )}
     </PickerTrigger>
   )
-}
-
-/** The module type with the most modules; on a tie the first by module id. */
-// eslint-disable-next-line react-refresh/only-export-components
-export function mostUsedModule(modules: ModuleConfig[]): string | undefined {
-  const counts = new Map<string, number>()
-  for (const m of modules) counts.set(m.moduleId, (counts.get(m.moduleId) ?? 0) + m.count)
-  let best: string | undefined
-  for (const [id, n] of counts) {
-    const bestN = best === undefined ? -1 : counts.get(best)!
-    if (n > bestN || (n === bestN && id < best!)) best = id
-  }
-  return best
 }

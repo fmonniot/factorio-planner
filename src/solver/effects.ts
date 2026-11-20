@@ -9,7 +9,7 @@ import { resolveRowFuel } from '../data/fuel'
 //
 // Machine modules: each module contributes its full effect.
 // Beacon modules:  each beacon configuration contributes (the contributions are summed):
-//   effect × distributionEfficiency × modulesPerBeacon × beaconCount
+//   Σ over the beacon's modules: effect × distributionEfficiency × module count × beaconCount
 //
 // All bonuses are additive (summed, then added to 1 for the multiplier).
 // Example: 4 prod-3 modules with +10% productivity each = +40% total bonus.
@@ -100,18 +100,18 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
 
   // Beacon contributions, summed over the configurations: capped by both the beacon entity's and the machine's allowed effects.
   for (const beacon of node.beaconConfigs ?? []) {
-    if (!beacon.moduleId) continue
-    const mod = gameData.modules[beacon.moduleId]
-    if (!mod) continue
     const beaconAllowed = beacon.beaconId ? gameData.beacons[beacon.beaconId]?.allowedEffects : undefined
-    const multiplier =
-      beacon.distributionEfficiency * beacon.modulesPerBeacon * beacon.beaconCount
-    if (allowProductivity && allowed('productivity', beaconAllowed, machineAllowed)) {
-      productivityBonus += (mod.effects.productivity ?? 0) * multiplier
-    }
-    if (allowed('speed', beaconAllowed, machineAllowed)) speedBonus += (mod.effects.speed ?? 0) * multiplier
-    if (allowed('consumption', beaconAllowed, machineAllowed)) {
-      consumptionBonus += (mod.effects.consumption ?? 0) * multiplier
+    // The allowed-effect checks depend on the configuration only, not on the module.
+    const countsProductivity = allowProductivity && allowed('productivity', beaconAllowed, machineAllowed)
+    const countsSpeed = allowed('speed', beaconAllowed, machineAllowed)
+    const countsConsumption = allowed('consumption', beaconAllowed, machineAllowed)
+    for (const mc of beacon.modules) {
+      const mod = gameData.modules[mc.moduleId]
+      if (!mod) continue
+      const multiplier = beacon.distributionEfficiency * mc.count * beacon.beaconCount
+      if (countsProductivity) productivityBonus += (mod.effects.productivity ?? 0) * multiplier
+      if (countsSpeed) speedBonus += (mod.effects.speed ?? 0) * multiplier
+      if (countsConsumption) consumptionBonus += (mod.effects.consumption ?? 0) * multiplier
     }
   }
 

@@ -32,14 +32,16 @@ export function moduleEffects(modules: readonly ModuleConfig[], gameData: GameDa
   return totals
 }
 
-/** Raw effects of one beacon configuration: module effect × efficiency × modules per beacon × beacons (what the solver multiplies). */
+/** Raw effects of one beacon configuration: Σ over its modules: effect × beacons × module count × efficiency (what the solver multiplies). */
 export function beaconEffects(beacon: BeaconConfig, gameData: GameData): EffectTotals {
   const totals = zero()
-  const mod = beacon.moduleId ? gameData.modules[beacon.moduleId] : undefined
-  if (!mod) return totals
-  const multiplier = beacon.beaconCount * beacon.modulesPerBeacon * beacon.distributionEfficiency
-  for (const [effect, value] of Object.entries(mod.effects)) {
-    if (effect in totals) totals[effect as EffectKey] += (value as number) * multiplier
+  for (const mc of beacon.modules) {
+    const mod = gameData.modules[mc.moduleId]
+    if (!mod) continue
+    const multiplier = beacon.beaconCount * mc.count * beacon.distributionEfficiency
+    for (const [effect, value] of Object.entries(mod.effects)) {
+      if (effect in totals) totals[effect as EffectKey] += (value as number) * multiplier
+    }
   }
   return totals
 }

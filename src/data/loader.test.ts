@@ -9,7 +9,8 @@ import {
   AppStateLoadError,
   GameDataLoadError,
 } from './loader'
-import { SubPlanSchema } from './schema'
+import { SubPlanSchema, migrateBeaconConfig } from './schema'
+import { computeNodeEffects } from '../solver/effects'
 import { BLOCK_PALETTE } from './blockColors'
 import { ZodError } from 'zod'
 import type { GameData, SubPlan, GameRecipeNode } from './types'
@@ -496,7 +497,7 @@ describe('parsePlan', () => {
   it('accepts a node with optional beacon config', () => {
     const plan = minimalPlan()
     ;(plan.nodes[0] as GameRecipeNode).beaconConfigs = [{
-      moduleId: 'speed-module-3',
+      modules: [{ moduleId: 'speed-module-3', count: 2 }],
       beaconCount: 8,
       modulesPerBeacon: 2,
       distributionEfficiency: 1.0,
@@ -508,6 +509,7 @@ describe('parsePlan', () => {
     const plan = minimalPlan()
     ;(plan.nodes[0] as GameRecipeNode).beaconConfigs = [{
       beaconId: 'beacon',
+      modules: [],
       beaconCount: 4,
       modulesPerBeacon: 2,
       distributionEfficiency: 1.5,
@@ -515,7 +517,7 @@ describe('parsePlan', () => {
     const parsed = parsePlan(plan)
     const cfg = (parsed.nodes[0] as GameRecipeNode).beaconConfigs?.[0]
     expect(cfg).toBeDefined()
-    expect(cfg?.moduleId).toBeUndefined()
+    expect(cfg?.modules).toEqual([])
   })
 
   it('accepts a node with a pinned rate', () => {
@@ -606,6 +608,9 @@ describe('beacon configuration migration', () => {
   const now = '2026-01-01T00:00:00.000Z'
   const legacy = { moduleId: 'speed-module-3', beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
   const other = { beaconId: 'beacon', moduleId: 'efficiency-module', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
+  // What the two legacy configurations above load as: the single module fills every slot.
+  const migratedLegacy = { modules: [{ moduleId: 'speed-module-3', count: 2 }], beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+  const migratedOther = { beaconId: 'beacon', modules: [{ moduleId: 'efficiency-module', count: 2 }], beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
   const nodeJson = (extra: Record<string, unknown> = {}) => ({
     kind: 'game-recipe', id: 'n1', recipeId: 'r', modules: [], byproductPolicy: {}, ...extra,
   })
@@ -616,7 +621,7 @@ describe('beacon configuration migration', () => {
 
   it('turns a legacy beaconConfig into a one-element list and drops the legacy key', () => {
     const node = firstNode(planJson([nodeJson({ beaconConfig: legacy })]))
-    expect(node.beaconConfigs).toEqual([legacy])
+    expect(node.beaconConfigs).toEqual([migratedLegacy])
     expect('beaconConfig' in node).toBe(false)
   })
 
@@ -630,25 +635,25 @@ describe('beacon configuration migration', () => {
 
   it('does not let an empty beaconConfigs hide a legacy beaconConfig', () => {
     const node = firstNode(planJson([nodeJson({ beaconConfig: legacy, beaconConfigs: [] })]))
-    expect(node.beaconConfigs).toEqual([legacy])
+    expect(node.beaconConfigs).toEqual([migratedLegacy])
     expect('beaconConfig' in node).toBe(false)
   })
 
   it('lets a non-empty beaconConfigs win when both keys are present', () => {
     const node = firstNode(planJson([nodeJson({ beaconConfig: legacy, beaconConfigs: [other] })]))
-    expect(node.beaconConfigs).toEqual([other])
+    expect(node.beaconConfigs).toEqual([migratedOther])
     expect('beaconConfig' in node).toBe(false)
   })
 
   it('round-trips a two-element list in order', () => {
     const node = firstNode(planJson([nodeJson({ beaconConfigs: [other, legacy] })]))
-    expect(node.beaconConfigs).toEqual([other, legacy])
+    expect(node.beaconConfigs).toEqual([migratedOther, migratedLegacy])
   })
 
   it('migrates a legacy node in a sub-plan', () => {
     const sub = planJson([nodeJson({ id: 's1', beaconConfig: legacy })])
     const parsed = parsePlan(planJson([], [sub]))
-    expect((parsed.subPlans[0].nodes[0] as GameRecipeNode).beaconConfigs).toEqual([legacy])
+    expect((parsed.subPlans[0].nodes[0] as GameRecipeNode).beaconConfigs).toEqual([migratedLegacy])
   })
 
   it('is idempotent', () => {
@@ -661,6 +666,68 @@ describe('beacon configuration migration', () => {
     const copy = structuredClone(raw)
     parsePlan(raw)
     expect(raw).toEqual(copy)
+  })
+
+  it('loads a configuration without a moduleId with no modules', () => {
+    const { moduleId: _omit, ...noModule } = legacy
+    void _omit
+    const node = firstNode(planJson([nodeJson({ beaconConfigs: [noModule] })]))
+    expect(node.beaconConfigs).toEqual([{ ...noModule, modules: [] }])
+  })
+
+  it('loads an empty moduleId as no modules', () => {
+    const node = firstNode(planJson([nodeJson({ beaconConfigs: [{ ...legacy, moduleId: '' }] })]))
+    expect(node.beaconConfigs?.[0].modules).toEqual([])
+    expect('moduleId' in (node.beaconConfigs?.[0] ?? {})).toBe(false)
+  })
+
+  it('lets modules win over a legacy moduleId and drops the moduleId', () => {
+    const modules = [{ moduleId: 'efficiency-module', count: 1 }]
+    const node = firstNode(planJson([nodeJson({ beaconConfigs: [{ ...legacy, modules }] })]))
+    expect(node.beaconConfigs?.[0].modules).toEqual(modules)
+    expect('moduleId' in (node.beaconConfigs?.[0] ?? {})).toBe(false)
+  })
+
+  it('rejects a moduleId that is not a string', () => {
+    expect(() => parsePlan(planJson([nodeJson({ beaconConfigs: [{ ...legacy, moduleId: 5 }] })]))).toThrow()
+  })
+
+  it('migrates a legacy single beaconConfig through both steps', () => {
+    const node = firstNode(planJson([nodeJson({ beaconConfig: other })]))
+    expect(node.beaconConfigs).toEqual([migratedOther])
+  })
+
+  it('migrateBeaconConfig is pure and idempotent', () => {
+    const raw = structuredClone(legacy)
+    const once = migrateBeaconConfig(raw)
+    expect(raw).toEqual(legacy)
+    expect(once).toEqual(migratedLegacy)
+    expect(migrateBeaconConfig(once)).toEqual(once)
+    expect(migrateBeaconConfig(null)).toBeNull()
+    expect(migrateBeaconConfig([1])).toEqual([1])
+  })
+
+  it('loads a legacy configuration with the numbers the solver used before', () => {
+    const gd = { modules: { 'speed-module-3': { effects: { speed: 0.5 } } }, beacons: {}, recipes: {}, machines: {}, defaultMachines: {} } as unknown as GameData
+    const node = firstNode(planJson([nodeJson({ beaconConfigs: [legacy] })]))
+    expect(computeNodeEffects(node, gd).speedBonus).toBe(0.5 * (0.5 * 2 * 8))
+  })
+
+  it('loads a legacy configuration with the numbers of the former expression for values that are not powers of two', () => {
+    const gd = { modules: { 'speed-module-3': { effects: { speed: 0.4 } } }, beacons: {}, recipes: {}, machines: {}, defaultMachines: {} } as unknown as GameData
+    const odd = { moduleId: 'speed-module-3', beaconCount: 7, modulesPerBeacon: 3, distributionEfficiency: 1.5 }
+    const node = firstNode(planJson([nodeJson({ beaconConfigs: [odd] })]))
+    expect(computeNodeEffects(node, gd).speedBonus).toBe(0.4 * (1.5 * 3 * 7))
+  })
+
+  it('migrates a legacy beacon configuration through parseAppState', () => {
+    const block = {
+      id: 'b1', name: 'Block', products: [], noImportItems: [],
+      rootPlan: planJson([nodeJson({ beaconConfigs: [{ moduleId: 'speed-module-2', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }] })]),
+    }
+    const state = parseAppState({ blocks: [block], activeBlockId: 'b1' })
+    const node = state.blocks[0].rootPlan.nodes[0] as GameRecipeNode
+    expect(node.beaconConfigs?.[0].modules).toEqual([{ moduleId: 'speed-module-2', count: 2 }])
   })
 
   it('still rejects an invalid legacy beaconConfig, null included', () => {
@@ -676,7 +743,7 @@ describe('beacon configuration migration', () => {
     const state = parseAppState(raw)
     const nodes = state.blocks.flatMap(b => b.rootPlan.nodes)
     const migrated = nodes.find(n => n.kind === 'game-recipe' && n.beaconConfigs) as GameRecipeNode
-    expect(migrated.beaconConfigs).toMatchObject([{ moduleId: 'efficiency-module', beaconCount: 4 }])
+    expect(migrated.beaconConfigs).toMatchObject([{ modules: [{ moduleId: 'efficiency-module' }], beaconCount: 4 }])
   })
 })
 
