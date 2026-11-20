@@ -4,7 +4,7 @@ import type { Horizon } from '../../../data/horizon'
 import { beaconModuleOptions } from './moduleOptions'
 
 /** Beacons a new configuration starts with. */
-export const DEFAULT_BEACON_COUNT = 4
+export const DEFAULT_BEACON_COUNT = 1
 
 /** The beacon types a row may use: visible and within the research horizon, by name. */
 export function availableBeacons(gameData: GameData, horizon: Horizon) {
@@ -31,7 +31,7 @@ export function beaconAddBlockedReason(gameData: GameData, horizon: Horizon, noM
 
 /**
  * The configuration "add a beacon" creates: the first beacon type within the horizon (by name; legacy defaults
- * when the data has none) and 4 beacons, with `moduleId` in every slot, or the first module the beacon accepts for the recipe
+ * when the data has none) and `DEFAULT_BEACON_COUNT` beacons, with `moduleId` in every slot, or the first module the beacon accepts for the recipe
  * when none is given. Undefined when no module fits.
  */
 export function defaultBeaconConfig(gameData: GameData, horizon: Horizon, recipeId: string, moduleId?: string): BeaconConfig | undefined {

@@ -87,7 +87,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Where a recipe's outputs go in the side panel.** The recipe panel has a **Where inputs come from** section (spec/ui.md, "Where inputs come from"); add a matching **Where outputs go** section that lists, for each product and byproduct of the row, the blocks and recipes that consume it or that it is left over for. In a big block this shows at a glance which recipe absorbs a byproduct and which does not. Open: how consumers in other areas and sub-factories are listed, and how a byproduct with no consumer reads (left over, discarded or not produced).
 - [ ] **Instant tooltips on the remaining titled elements.** Item chips show an instant tooltip through `TooltipLayer` (`data-tip` plus `aria-label`, see [spec/ui.md](../spec/ui.md#icon-chip)); the block graph's chips and nodes, the beacon popover's chips, machine and module chips, `TechCost`, `PinBadge` and the other non-chip elements still use the native `title`.
 - [ ] **Adding a goal starts with zero extra items.** A new goal starts with no extra items.
-- [ ] **Default beacon count when adding beacons from the table.** Adding beacons through the table starts at 4; change the default to 1.
 
 ## Data sets
 

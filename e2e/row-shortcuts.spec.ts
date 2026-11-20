@@ -90,16 +90,16 @@ test('the empty module chip fills every slot with the chosen module', async ({ p
   await expect(sidePanel(page)).toHaveCount(0)
 })
 
-test('the empty beacon plus adds four beacons with the chosen module', async ({ page }) => {
+test('the empty beacon plus adds one beacon with the chosen module', async ({ page }) => {
   await row(page).getByLabel('Add beacon', { exact: true }).click()
   const picker = page.getByTestId('picker')
-  await expect(picker.getByTestId('picker-heading')).toHaveText('Add 4 × Beacon, fill its slots with')
+  await expect(picker.getByTestId('picker-heading')).toHaveText('Add 1 × Beacon, fill its slots with')
   const option = picker.getByTestId('module-fill-option').first()
   const moduleId = (await option.getAttribute('data-module-id'))!
   await option.click()
 
-  await expect.poll(async () => (await rootNode(page)).beaconConfigs).toMatchObject([{ beaconCount: 4, modules: [{ moduleId }] }])
-  await expect(row(page).getByTestId('beacon-count')).toHaveText('4')
+  await expect.poll(async () => (await rootNode(page)).beaconConfigs).toMatchObject([{ beaconCount: 1, modules: [{ moduleId }] }])
+  await expect(row(page).getByTestId('beacon-count')).toHaveText('1')
   await expect(page.getByTestId('picker')).toHaveCount(0)
 })
 
@@ -184,7 +184,7 @@ test('two beacon configurations from the panel', async ({ page }) => {
   await expect(panel.getByRole('columnheader').allTextContents()).resolves.toEqual(['', 'Machine', 'Beacons 1', 'Beacons 2', 'Total'])
 
   await panel.getByTestId('beacon-card').nth(1).getByLabel('Beacon count').fill('8')
-  await expect.poll(async () => (await rootNode(page)).beaconConfigs?.map(c => c.beaconCount)).toEqual([4, 8])
+  await expect.poll(async () => (await rootNode(page)).beaconConfigs?.map(c => c.beaconCount)).toEqual([1, 8])
 
   await panel.getByTestId('beacon-card').first().getByRole('button', { name: 'Remove beacon configuration' }).click()
   await expect.poll(async () => (await rootNode(page)).beaconConfigs).toMatchObject([{ beaconCount: 8 }])

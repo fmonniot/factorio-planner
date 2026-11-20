@@ -214,13 +214,13 @@ describe('BeaconsSection — several configurations', () => {
     fireEvent.click(screen.getByTestId('add-beacon-config'))
     expect(screen.getAllByTestId('beacon-card')).toHaveLength(2)
     expect(storedConfigs()).toHaveLength(2)
-    expect(storedConfigs()![1]).toMatchObject({ beaconId: 'beacon', modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 4, modulesPerBeacon: 2 })
+    expect(storedConfigs()![1]).toMatchObject({ beaconId: 'beacon', modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 1, modulesPerBeacon: 2 })
   })
 
   it('adds a default configuration while the row has none', () => {
     renderBeacons(makeGameData(), rowNode())
     fireEvent.click(screen.getByRole('button', { name: '+ Add beacon configuration' }))
-    expect(storedBeacon()).toMatchObject({ beaconId: 'beacon', modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 4, modulesPerBeacon: 2 })
+    expect(storedBeacon()).toMatchObject({ beaconId: 'beacon', modules: [{ moduleId: 'speed-3', count: 2 }], beaconCount: 1, modulesPerBeacon: 2 })
   })
 
   it('edits the second configuration only', () => {
