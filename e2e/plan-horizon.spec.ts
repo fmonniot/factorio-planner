@@ -275,6 +275,7 @@ async function setHorizon(page: Page, ...techIds: string[]) {
 
 async function addGoal(page: Page, itemId: string) {
   await page.getByTitle('Add product').click()
+  await page.getByLabel('Amount').fill('60')
   await page.locator(`[data-testid="item-slot"][data-item-id="${itemId}"]`).click()
 }
 

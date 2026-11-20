@@ -600,7 +600,7 @@ interface ItemPickerBodyProps {
 
 function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPickerBodyProps) {
   const [query, setQuery] = useState(initialQuery)
-  const [amountText, setAmountText] = useState('60')
+  const [amountText, setAmountText] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 

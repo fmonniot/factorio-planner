@@ -66,6 +66,19 @@ test.describe('Item picker (goal)', () => {
     await expect(page.locator('main')).toContainText('250')
   })
 
+  test('the amount starts empty, so a new goal has no extra output', async ({ page }) => {
+    const overlay = page.locator('.fixed.inset-0')
+    await page.getByTitle('Add product').click()
+    await expect(overlay.getByLabel('Amount')).toHaveValue('')
+
+    const slot = overlay.locator('[data-testid="item-slot"]').first()
+    const itemId = await slot.getAttribute('data-item-id')
+    await slot.click()
+
+    await expect(overlay).not.toBeVisible()
+    await expect(page.locator(`[data-testid="summary-slot"][data-item-id="${itemId}"]`).first()).toHaveAccessibleName(/nothing requested yet/)
+  })
+
   test('Cancel button closes the picker without adding a goal', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
     await page.getByTitle('Add product').click()
