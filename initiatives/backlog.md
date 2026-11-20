@@ -49,6 +49,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
   - *Data-set badge versus `mod.stored`.* The "Data set mismatch" badge comes from the mod's `unknownIds` count in `status`, and is not checked against the plan id the mod reports as stored (`mod.stored`), so the badge can describe a plan other than the one the planner holds. Decide whether the badge should only show when the stored plan is the planner's.
   - *Rebuild debounce.* `src/viewer/viewer.ts` rebuilds the snapshot on every new solver result, with no debounce. Debouncing it would save work while the player edits a big plan. Performance only.
 - [ ] **In-game viewer: every beacon configuration.** A row can hold several beacon configurations, but the snapshot sends only the first one that has something to place (`beacon`). Send a `beacons` list instead: the snapshot schema (`src/snapshot/schema.ts`), `npm run contract`, the bridge fixtures, and the mod (`mod/lib/blueprint.lua`, `mod/scripts/cursor.lua`), and every module of a beacon with mixed slots (today only the module most of its slots hold).
+- [ ] **In-game viewer: beacon count on the beacon icon.** The number on the beacon icon is the number of modules in a beacon; it should be the number of beacons per machine instead.
 
 ## Sourcing priority
 
@@ -86,6 +87,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Where a recipe's outputs go in the side panel.** The recipe panel has a **Where inputs come from** section (spec/ui.md, "Where inputs come from"); add a matching **Where outputs go** section that lists, for each product and byproduct of the row, the blocks and recipes that consume it or that it is left over for. In a big block this shows at a glance which recipe absorbs a byproduct and which does not. Open: how consumers in other areas and sub-factories are listed, and how a byproduct with no consumer reads (left over, discarded or not produced).
 - [ ] **Instant tooltips on the remaining titled elements.** Item chips show an instant tooltip through `TooltipLayer` (`data-tip` plus `aria-label`, see [spec/ui.md](../spec/ui.md#icon-chip)); the block graph's chips and nodes, the beacon popover's chips, machine and module chips, `TechCost`, `PinBadge` and the other non-chip elements still use the native `title`.
 - [ ] **Adding a goal starts with zero extra items.** A new goal starts with no extra items.
+- [ ] **Default beacon count when adding beacons from the table.** Adding beacons through the table starts at 4; change the default to 1.
 
 ## Data sets
 
