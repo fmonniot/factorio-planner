@@ -4,6 +4,9 @@ import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { solve, solveAll, flattenBlock, netBalance } from './index'
 import { loadGameDataFromJson } from '../data/loader'
+import { availableMachinesFor } from '../data/defaultMachines'
+import type { Horizon } from '../data/horizon'
+import { rowMachine } from './effects'
 import type { Block, BlockConnection, GameRecipeNode, Product, SolverGoal, RecipeNode, SolverResult } from '../data/types'
 
 // Real-data counterpart to synthetic.test.ts: runs the solver on the committed
@@ -598,5 +601,25 @@ describe('an absorber chain on the real Seablock data', () => {
     expect(nodeOf(r, 'angels-plate-iron-2').throughput, 'plates').toBeCloseTo(0.5, 6)
     expect(nodeOf(r, 'angels-wood-sawing-1').outputRates.wood, 'wood').toBeCloseTo(160, 6)
     expect(r.warnings.map(w => w.type), 'no warning').not.toContain('overconstrained')
+  })
+})
+
+describe('additional crafting categories on the real Seablock data', () => {
+  const recipe = seablock.recipes['bob-basic-circuit-board']
+  const noLimit: Horizon = {
+    recipeIds: null, itemIds: null, machineIds: null, beaconIds: null, moduleIds: null, defaultMachines: {},
+  }
+  const row = (machineId?: string): GameRecipeNode =>
+    ({ kind: 'game-recipe', id: 'n1', recipeId: recipe.id, machineId, modules: [], byproductPolicy: {} })
+
+  it('offers the electronics machines for a circuit recipe', () => {
+    const ids = availableMachinesFor(seablock, noLimit, recipe.category, recipe.additionalCategories).map(m => m.id)
+    expect(ids).toContain('bob-electronics-machine-3')
+    expect(ids).toContain('bob-assembling-machine-6')
+  })
+
+  it('runs an explicit electronics machine at its speed and keeps the primary default otherwise', () => {
+    expect(rowMachine(row('bob-electronics-machine-3'), seablock)?.craftingSpeed).toBe(4)
+    expect(rowMachine(row(), seablock)?.id).toBe('bob-assembling-machine-6')
   })
 })

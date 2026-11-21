@@ -85,6 +85,11 @@ export const RecipeSchema = z.object({
   ingredients: luaArray(IngredientSchema),
   products: luaArray(RecipeProductSchema),
   madeIn: luaArray(z.string()),
+  /**
+   * Further crafting categories whose machines can also make the recipe (dump: additional_categories, minus
+   * `category`); absent when none. `madeIn` already includes their machines.
+   */
+  additionalCategories: luaArray(z.string()).optional(),
   allowProductivity: z.boolean(),
   hidden: z.boolean().default(false),
   // null = explicitly multi-output with no primary (main_product = "" in the prototype).

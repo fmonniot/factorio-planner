@@ -197,6 +197,14 @@ node scripts/build-game-data.js --patch-fuel \
   --output public/data/kompetenz-seablock/game-data.json
 ```
 
+`--patch-additional-categories` writes each recipe's `additionalCategories` (Factorio 2.0 `additional_categories`, minus the primary category) and recomputes `madeIn` so it includes the machines of those categories (same mod-set check, safe to re-run; it touches nothing else and leaves the generated extraction and power recipes alone). It refuses a dump that lacks more than 1 % of the bundle's recipes. The Seablock bundle has it (108 recipes, for example the circuits made in the electronics machines); the Nullius bundle does not, because the mod set differs from the local mods and needs a fresh dump.
+
+```sh
+node scripts/build-game-data.js --patch-additional-categories \
+  --dump ... --factorio-dir ... --mods-dir ... \
+  --output public/data/kompetenz-seablock/game-data.json
+```
+
 `--patch-names` works the same way but recomputes only the `name` fields (from the game's resolved names, which must all be present, see `--locale-dir` above); it applies the same mod-set check. It also refreshes the names of extraction recipes (`<resource> (mining)`, `<fluid> (offshore pump)`), power recipes (`<machine> (<fuel>)`) and of drills, pumps and generation machines.
 
 `iconColor` (the mean colour of each item's icon, which sets the default colour of a block made for that item) is computed by the full build and by `--patch-power` (for the power items it replaces); the other `--patch-*` modes keep it. To add or refresh it on an existing bundle:
@@ -235,6 +243,7 @@ After re-exporting the Seablock bundle, run `npm run contract`: the in-game view
 | `scripts/modset.js` | Compares the bundle's mod set with the dump's, ignoring `base` and the viewer mod (used by the patch modes) |
 | `scripts/patch-icon-colors.mjs` | Adds `iconColor` to an existing bundle from its icons |
 | `scripts/place-results.js` | Marks the items that place a machine or beacon (`placeResult`; used by the build script) |
+| `scripts/recipe-categories.js` | Additional crafting categories of recipes and the machines that can make them (used by the build script and `--patch-additional-categories`) |
 | `scripts/temperatures.js` | Fluid and recipe-product temperatures (used by the build script and `--patch-temperatures`) |
 | `scripts/extraction.js` | Exports mining and offshore-pump recipes and the drills and pumps that run them (used by the build script) |
 | `scripts/power.js` | Exports boiler, heat-exchanger, generator, burner-generator, reactor and solar-panel recipes, their machines and the electricity and heat items (used by the build script) |

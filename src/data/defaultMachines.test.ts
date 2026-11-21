@@ -69,6 +69,26 @@ describe('availableMachinesFor', () => {
   })
 })
 
+describe('availableMachinesFor additional categories', () => {
+  function withElec(hidden = false): GameData {
+    const d = makeGameData()
+    d.machines.elec = machine('elec', ['electronics'], hidden)
+    d.machines.both = machine('both', ['crafting', 'electronics'])
+    return d
+  }
+  it('adds the machines of the additional categories, each machine once', () => {
+    const ids = availableMachinesFor(withElec(), horizon(null), 'crafting', ['electronics']).map(m => m.id)
+    expect(ids).toEqual(['alpha', 'both', 'elec', 'zeta'])
+  })
+  it('leaves them out without the argument', () => {
+    expect(availableMachinesFor(withElec(), horizon(null), 'crafting').map(m => m.id)).not.toContain('elec')
+  })
+  it('drops hidden and out-of-horizon machines', () => {
+    expect(availableMachinesFor(withElec(true), horizon(null), 'crafting', ['electronics']).map(m => m.id)).not.toContain('elec')
+    expect(availableMachinesFor(withElec(), horizon(['alpha']), 'crafting', ['electronics']).map(m => m.id)).toEqual(['alpha'])
+  })
+})
+
 describe('defaultMachineCategories', () => {
   it('lists categories with at least two available machines, sorted by label', () => {
     const d = makeGameData()
