@@ -35,6 +35,9 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Show the feeder rows of an absorber in the UI.** The rows that only feed a "Absorb byproduct" row run along with it and carry no badge, so the table does not say why they run. A badge or tooltip would need the chain from `LPResult.absorbers` in the solver result, which changes the snapshot and contract.
 - [ ] **A per-row "feeds absorber" flag.** A row whose product an ordinary row also uses (case 23 d: the plate row also feeds the gadget) is not a feeder, so the absorber does not run. An explicit flag on the row would put it in the chain.
 - [ ] **Re-tune `BC_BONUS`.** `BC_BONUS` (-0.01) is unchanged and the sawing chain only wins because 0.1 saw per run is cheap; a larger bonus is safe now that only anchored rows get it, but changes the balance with the shipping costs.
+- [ ] **Default machines flyout lists `electronics`.** The flyout lists every crafting category with two or more machines, including `electronics`, which in Seablock is only ever an additional category of a recipe; a default set there changes no row. Hide categories that no recipe uses as its primary category.
+- [ ] **Row default when the horizon only unlocks additional-category machines.** A row's default machine comes from the primary category only, so a horizon with `bob-electronics-machine-1` but no `advanced-crafting` machine shows "no machine in horizon" while the picker offers the electronics machine. Consider falling back to the fastest machine of the additional categories.
+- [ ] **Machine picker does not say why some machines have no "Make default".** Machines that craft only an additional category are per-row choices; the picker shows no hint. Add a muted label or group them separately.
 
 ## Sharing
 

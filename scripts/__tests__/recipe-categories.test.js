@@ -26,7 +26,7 @@ describe('recipeMadeIn', () => {
     expect(recipeMadeIn(map, 'crafting', ['electronics'])).toEqual(['asm', 'elec'])
   })
   it('equals the primary list, sorted, without additional categories', () => {
-    expect(recipeMadeIn(map, 'electronics')).toEqual(['elec', 'asm'].slice().sort())
+    expect(recipeMadeIn(map, 'electronics')).toEqual(['asm', 'elec'])
     expect(recipeMadeIn(map, 'unknown')).toEqual([])
   })
 })
