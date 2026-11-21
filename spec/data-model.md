@@ -99,7 +99,8 @@ interface Recipe {
   craftingTime: number       // seconds at crafting speed 1 (dump: energy_required, default 0.5); > 0
   ingredients: Ingredient[]
   products: RecipeProduct[]
-  madeIn: string[]           // ids of machines whose craftingCategories include `category`, sorted
+  madeIn: string[]           // ids of machines whose craftingCategories include `category` or any of `additionalCategories`, sorted
+  additionalCategories?: string[]  // further categories whose machines can also make the recipe (dump: additional_categories, minus `category`; sorted, deduped); absent when none
   allowProductivity: boolean // dump: allow_productivity, default false
   hidden: boolean            // default false
   mainProduct?: string | null
@@ -345,7 +346,7 @@ at all is still never gated. A hidden machine is never the horizon's default mac
 it is the static default. No limit means everything is available.
 
 A row without an explicit machine uses the horizon's default machine for its recipe
-category: the category's static `defaultMachines` entry if that machine is available, else the
+category (the primary `category` only, not its additional categories): the category's static `defaultMachines` entry if that machine is available, else the
 fastest available non-hidden machine of the category (first one wins a tie), else none (the
 category has no entry). A category the data has no default for at all is not affected. The plan's
 `defaultMachineOverrides` (see [AppState](#appstate)) are then layered on top
@@ -451,6 +452,10 @@ Things to keep in mind when reading a bundle:
 
 - Recipe categories are open strings, not an enum (Nullius defines dozens of
   custom ones). They are matched to machines through `craftingCategories`.
+- Factorio 2.0 recipes can list `additional_categories`: a machine crafting any of them can make the recipe
+  (Seablock circuits are also made in the electronics machines). They are exported as `additionalCategories`
+  and `madeIn` includes their machines. The default machine stays per primary category; an explicit machine
+  (`machineId`) may come from any accepted category.
 - Some recipes have an empty `madeIn` (no exported machine handles their
   category), and many are `hidden`. The recipe picker hides hidden recipes unless
   "Hidden recipes" is ticked.
@@ -717,7 +722,7 @@ interface GameRecipeNode {
   kind: 'game-recipe'
   id: string
   recipeId: string
-  machineId?: string            // undefined = the plan's effective default for recipe.category (horizon default, then defaultMachineOverrides)
+  machineId?: string            // undefined = the plan's effective default for recipe.category (horizon default, then defaultMachineOverrides); otherwise any machine crafting the category or one of the recipe's additionalCategories
   modules: ModuleConfig[]
   beaconConfigs?: BeaconConfig[]   // absent = no beacon (never []); the solver sums them
   pinnedRate?: number           // > 0; fixes the recipe's executions per minute

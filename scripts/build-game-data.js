@@ -89,6 +89,14 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
+ * Additional-categories patch mode: write `additionalCategories` (the recipe's `additional_categories` minus its
+ * primary category) and the matching `madeIn` (machines of the primary or any additional category) into an
+ * existing bundle (same mod-set check). Nothing else is touched; extraction and power recipes are left alone.
+ * Safe to re-run. Exits without writing when more than 1 % of the bundle's recipes are missing from the dump:
+ *   node scripts/build-game-data.js --patch-additional-categories \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
@@ -105,6 +113,7 @@ import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
 import { addIconColors } from './icon-color.js'
 import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachProductTemperatures } from './temperatures.js'
+import { additionalCategories, recipeMadeIn, attachAdditionalCategories } from './recipe-categories.js'
 import { itemFuel, fluidFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
 import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
@@ -150,6 +159,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--patch-power') args.patchPower = true
     else if (argv[i] === '--patch-temperatures') args.patchTemperatures = true
     else if (argv[i] === '--patch-fuel') args.patchFuel = true
+    else if (argv[i] === '--patch-additional-categories') args.patchAdditionalCategories = true
     else if (argv[i] === '--patch-category-names') args.patchCategoryNames = true
   }
   return args
@@ -591,7 +601,8 @@ function exportRecipes(raw, locale, categoryMap) {
     const ingredients = Object.values(proto.ingredients ?? {}).map(normaliseIngredient)
     const products    = extractProducts(proto)
     const category    = proto.category ?? 'crafting'
-    const madeIn      = (categoryMap[category] ?? []).slice().sort()
+    const additional  = additionalCategories(proto)
+    const madeIn      = recipeMadeIn(categoryMap, category, additional)
 
     // In data.raw, allow_productivity is a direct boolean on the recipe.
     const allowProductivity = proto.allow_productivity ?? false
@@ -620,6 +631,7 @@ function exportRecipes(raw, locale, categoryMap) {
       order:            proto.order ?? '',
     }
     if (mainProduct !== undefined) entry.mainProduct = mainProduct
+    if (additional) entry.additionalCategories = additional
 
     recipes[proto.name] = entry
   }
@@ -1073,6 +1085,24 @@ if (args.patchFuel) {
     `[build-game-data] Patched ${outputPath}: fuelItems=${fuel.counts.items} burnerMachines=${fuel.counts.machines} ` +
     `fluids=${fuel.counts.fluids} fluidBurners=${fuel.counts.fluidMachines} ` +
     `missing=${fuel.missingMachines.length}\n`
+  )
+  process.exit(0)
+}
+
+if (args.patchAdditionalCategories) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  const attached = attachAdditionalCategories(existing.recipes, raw.recipe ?? {}, buildCategoryMap(existing.machines))
+  for (const id of attached.missing) process.stderr.write(`[warn] recipe ${id} is missing from the dump\n`)
+  if (attached.missing.length > attached.checked * 0.01) {
+    process.stderr.write(`[build-game-data] ${attached.missing.length}/${attached.checked} bundle recipes are missing from the dump; wrong dump? Nothing written.\n`)
+    process.exit(1)
+  }
+  const changed = Object.keys(attached.recipes).filter(id => attached.recipes[id] !== existing.recipes[id]).length
+  writeFileSync(outputPath, JSON.stringify({ ...existing, recipes: attached.recipes }, null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched ${outputPath}: additionalCategories=${attached.count} madeInChanged=${changed} ` +
+    `missing=${attached.missing.length}\n`
   )
   process.exit(0)
 }

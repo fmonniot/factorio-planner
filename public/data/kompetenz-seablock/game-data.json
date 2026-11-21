@@ -37908,13 +37908,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "speed-module",
       "order": "",
-      "mainProduct": "speed-module"
+      "mainProduct": "speed-module",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "speed-module-2": {
       "id": "speed-module-2",
@@ -37956,13 +37962,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "speed-module",
       "order": "",
-      "mainProduct": "speed-module-2"
+      "mainProduct": "speed-module-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "speed-module-3": {
       "id": "speed-module-3",
@@ -38004,13 +38016,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "speed-module",
       "order": "",
-      "mainProduct": "speed-module-3"
+      "mainProduct": "speed-module-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "productivity-module": {
       "id": "productivity-module",
@@ -38047,13 +38065,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "productivity-module",
       "order": "",
-      "mainProduct": "productivity-module"
+      "mainProduct": "productivity-module",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "productivity-module-2": {
       "id": "productivity-module-2",
@@ -38095,13 +38119,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "productivity-module",
       "order": "",
-      "mainProduct": "productivity-module-2"
+      "mainProduct": "productivity-module-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "productivity-module-3": {
       "id": "productivity-module-3",
@@ -38143,13 +38173,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "productivity-module",
       "order": "",
-      "mainProduct": "productivity-module-3"
+      "mainProduct": "productivity-module-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "efficiency-module": {
       "id": "efficiency-module",
@@ -38186,13 +38222,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "efficiency-module",
       "order": "",
-      "mainProduct": "efficiency-module"
+      "mainProduct": "efficiency-module",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "efficiency-module-2": {
       "id": "efficiency-module-2",
@@ -38234,13 +38276,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "efficiency-module",
       "order": "",
-      "mainProduct": "efficiency-module-2"
+      "mainProduct": "efficiency-module-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "efficiency-module-3": {
       "id": "efficiency-module-3",
@@ -38282,13 +38330,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "efficiency-module",
       "order": "",
-      "mainProduct": "efficiency-module-3"
+      "mainProduct": "efficiency-module-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bulk-inserter": {
       "id": "bulk-inserter",
@@ -39849,13 +39903,20 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-electronic-boards",
       "order": "",
-      "mainProduct": "electronic-circuit"
+      "mainProduct": "electronic-circuit",
+      "additionalCategories": [
+        "crafting",
+        "electronics"
+      ]
     },
     "transport-belt": {
       "id": "transport-belt",
@@ -40269,13 +40330,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-copper-casting",
       "order": "k[angels-wire-copper]-a",
-      "mainProduct": "copper-cable"
+      "mainProduct": "copper-cable",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "small-electric-pole": {
       "id": "small-electric-pole",
@@ -44300,13 +44367,20 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-electronic-boards",
       "order": "",
-      "mainProduct": "advanced-circuit"
+      "mainProduct": "advanced-circuit",
+      "additionalCategories": [
+        "crafting",
+        "electronics"
+      ]
     },
     "processing-unit": {
       "id": "processing-unit",
@@ -44348,13 +44422,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-electronic-boards",
       "order": "",
-      "mainProduct": "processing-unit"
+      "mainProduct": "processing-unit",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "logistic-robot": {
       "id": "logistic-robot",
@@ -51207,13 +51287,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-electronic-boards",
       "order": "",
-      "mainProduct": "bob-advanced-processing-unit"
+      "mainProduct": "bob-advanced-processing-unit",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-electrolyser": {
       "id": "bob-electrolyser",
@@ -54666,13 +54752,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": true,
       "subgroup": "angels-tin-casting",
       "order": "",
-      "mainProduct": "bob-tinned-copper-cable"
+      "mainProduct": "bob-tinned-copper-cable",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-insulated-cable": {
       "id": "bob-insulated-cable",
@@ -54704,13 +54796,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "angels-petrochem-solids-2",
       "order": "b[rubber]-c[cable]-c",
-      "mainProduct": "bob-insulated-cable"
+      "mainProduct": "bob-insulated-cable",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-gilded-copper-cable": {
       "id": "bob-gilded-copper-cable",
@@ -54742,13 +54840,20 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": true,
       "subgroup": "angels-gold-casting",
       "order": "",
-      "mainProduct": "bob-gilded-copper-cable"
+      "mainProduct": "bob-gilded-copper-cable",
+      "additionalCategories": [
+        "crafting",
+        "electronics"
+      ]
     },
     "bob-solder": {
       "id": "bob-solder",
@@ -54780,13 +54885,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": true,
       "subgroup": "angels-solder-casting",
       "order": "",
-      "mainProduct": "bob-solder"
+      "mainProduct": "bob-solder",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-basic-electronic-components": {
       "id": "bob-basic-electronic-components",
@@ -54818,13 +54929,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-electronic-components",
       "order": "",
-      "mainProduct": "bob-basic-electronic-components"
+      "mainProduct": "bob-basic-electronic-components",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-electronic-components": {
       "id": "bob-electronic-components",
@@ -54861,13 +54978,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-electronic-components",
       "order": "",
-      "mainProduct": "bob-electronic-components"
+      "mainProduct": "bob-electronic-components",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-integrated-electronics": {
       "id": "bob-integrated-electronics",
@@ -54908,13 +55031,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-electronic-components",
       "order": "",
-      "mainProduct": "bob-integrated-electronics"
+      "mainProduct": "bob-integrated-electronics",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-processing-electronics": {
       "id": "bob-processing-electronics",
@@ -54955,13 +55084,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-electronic-components",
       "order": "",
-      "mainProduct": "bob-processing-electronics"
+      "mainProduct": "bob-processing-electronics",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-wooden-board": {
       "id": "bob-wooden-board",
@@ -54988,13 +55123,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-boards",
       "order": "",
-      "mainProduct": "bob-wooden-board"
+      "mainProduct": "bob-wooden-board",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-phenolic-board": {
       "id": "bob-phenolic-board",
@@ -55066,13 +55207,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": true,
       "subgroup": "bob-boards",
       "order": "",
-      "mainProduct": "bob-fibreglass-board"
+      "mainProduct": "bob-fibreglass-board",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-basic-circuit-board": {
       "id": "bob-basic-circuit-board",
@@ -55104,13 +55251,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-electronic-boards",
       "order": "",
-      "mainProduct": "bob-basic-circuit-board"
+      "mainProduct": "bob-basic-circuit-board",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-circuit-board": {
       "id": "bob-circuit-board",
@@ -55151,13 +55304,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-boards",
       "order": "",
-      "mainProduct": "bob-circuit-board"
+      "mainProduct": "bob-circuit-board",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-superior-circuit-board": {
       "id": "bob-superior-circuit-board",
@@ -55198,13 +55357,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-boards",
       "order": "",
-      "mainProduct": "bob-superior-circuit-board"
+      "mainProduct": "bob-superior-circuit-board",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-multi-layer-circuit-board": {
       "id": "bob-multi-layer-circuit-board",
@@ -55245,13 +55410,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-boards",
       "order": "",
-      "mainProduct": "bob-multi-layer-circuit-board"
+      "mainProduct": "bob-multi-layer-circuit-board",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-flying-robot-frame-2": {
       "id": "bob-flying-robot-frame-2",
@@ -55422,13 +55593,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-robot-parts",
       "order": "",
-      "mainProduct": "bob-robot-brain"
+      "mainProduct": "bob-robot-brain",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-robot-brain-2": {
       "id": "bob-robot-brain-2",
@@ -55470,13 +55647,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-robot-parts",
       "order": "",
-      "mainProduct": "bob-robot-brain-2"
+      "mainProduct": "bob-robot-brain-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-robot-brain-3": {
       "id": "bob-robot-brain-3",
@@ -55518,13 +55701,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-robot-parts",
       "order": "",
-      "mainProduct": "bob-robot-brain-3"
+      "mainProduct": "bob-robot-brain-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-robot-brain-4": {
       "id": "bob-robot-brain-4",
@@ -55566,13 +55755,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-robot-parts",
       "order": "",
-      "mainProduct": "bob-robot-brain-4"
+      "mainProduct": "bob-robot-brain-4",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-robot-tool-construction": {
       "id": "bob-robot-tool-construction",
@@ -72713,13 +72908,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "speed-module",
       "order": "",
-      "mainProduct": "bob-speed-module-4"
+      "mainProduct": "bob-speed-module-4",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-speed-module-5": {
       "id": "bob-speed-module-5",
@@ -72781,13 +72982,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "speed-module",
       "order": "",
-      "mainProduct": "bob-speed-module-5"
+      "mainProduct": "bob-speed-module-5",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-efficiency-module-4": {
       "id": "bob-efficiency-module-4",
@@ -72829,13 +73036,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "efficiency-module",
       "order": "",
-      "mainProduct": "bob-efficiency-module-4"
+      "mainProduct": "bob-efficiency-module-4",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-efficiency-module-5": {
       "id": "bob-efficiency-module-5",
@@ -72897,13 +73110,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "efficiency-module",
       "order": "",
-      "mainProduct": "bob-efficiency-module-5"
+      "mainProduct": "bob-efficiency-module-5",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-productivity-module-4": {
       "id": "bob-productivity-module-4",
@@ -72945,13 +73164,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "productivity-module",
       "order": "",
-      "mainProduct": "bob-productivity-module-4"
+      "mainProduct": "bob-productivity-module-4",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-productivity-module-5": {
       "id": "bob-productivity-module-5",
@@ -73013,13 +73238,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "productivity-module",
       "order": "",
-      "mainProduct": "bob-productivity-module-5"
+      "mainProduct": "bob-productivity-module-5",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-clean-module-1": {
       "id": "bob-pollution-clean-module-1",
@@ -73061,13 +73292,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-clean-module",
       "order": "",
-      "mainProduct": "bob-pollution-clean-module-1"
+      "mainProduct": "bob-pollution-clean-module-1",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-clean-module-2": {
       "id": "bob-pollution-clean-module-2",
@@ -73104,13 +73341,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-clean-module",
       "order": "",
-      "mainProduct": "bob-pollution-clean-module-2"
+      "mainProduct": "bob-pollution-clean-module-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-clean-module-3": {
       "id": "bob-pollution-clean-module-3",
@@ -73147,13 +73390,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-clean-module",
       "order": "",
-      "mainProduct": "bob-pollution-clean-module-3"
+      "mainProduct": "bob-pollution-clean-module-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-clean-module-4": {
       "id": "bob-pollution-clean-module-4",
@@ -73190,13 +73439,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-clean-module",
       "order": "",
-      "mainProduct": "bob-pollution-clean-module-4"
+      "mainProduct": "bob-pollution-clean-module-4",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-clean-module-5": {
       "id": "bob-pollution-clean-module-5",
@@ -73248,13 +73503,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-clean-module",
       "order": "",
-      "mainProduct": "bob-pollution-clean-module-5"
+      "mainProduct": "bob-pollution-clean-module-5",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-create-module-1": {
       "id": "bob-pollution-create-module-1",
@@ -73296,13 +73557,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-create-module",
       "order": "",
-      "mainProduct": "bob-pollution-create-module-1"
+      "mainProduct": "bob-pollution-create-module-1",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-create-module-2": {
       "id": "bob-pollution-create-module-2",
@@ -73339,13 +73606,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-create-module",
       "order": "",
-      "mainProduct": "bob-pollution-create-module-2"
+      "mainProduct": "bob-pollution-create-module-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-create-module-3": {
       "id": "bob-pollution-create-module-3",
@@ -73382,13 +73655,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-create-module",
       "order": "",
-      "mainProduct": "bob-pollution-create-module-3"
+      "mainProduct": "bob-pollution-create-module-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-create-module-4": {
       "id": "bob-pollution-create-module-4",
@@ -73425,13 +73704,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-create-module",
       "order": "",
-      "mainProduct": "bob-pollution-create-module-4"
+      "mainProduct": "bob-pollution-create-module-4",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-create-module-5": {
       "id": "bob-pollution-create-module-5",
@@ -73483,13 +73768,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "pollution-create-module",
       "order": "",
-      "mainProduct": "bob-pollution-create-module-5"
+      "mainProduct": "bob-pollution-create-module-5",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-module-case": {
       "id": "bob-module-case",
@@ -73521,13 +73812,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-module-intermediates-1",
       "order": "",
-      "mainProduct": "bob-module-case"
+      "mainProduct": "bob-module-case",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-module-contact": {
       "id": "bob-module-contact",
@@ -73559,13 +73856,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-module-intermediates-1",
       "order": "",
-      "mainProduct": "bob-module-contact"
+      "mainProduct": "bob-module-contact",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-module-circuit-board": {
       "id": "bob-module-circuit-board",
@@ -73606,13 +73909,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "cp-module-intermediates",
       "order": "",
-      "mainProduct": "bob-module-circuit-board"
+      "mainProduct": "bob-module-circuit-board",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-module-processor-board": {
       "id": "bob-module-processor-board",
@@ -73653,13 +73962,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-module-intermediates-2",
       "order": "",
-      "mainProduct": "bob-module-processor-board"
+      "mainProduct": "bob-module-processor-board",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-module-processor-board-2": {
       "id": "bob-module-processor-board-2",
@@ -73700,13 +74015,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-module-intermediates-3",
       "order": "",
-      "mainProduct": "bob-module-processor-board-2"
+      "mainProduct": "bob-module-processor-board-2",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-module-processor-board-3": {
       "id": "bob-module-processor-board-3",
@@ -73747,13 +74068,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "bob-module-intermediates-4",
       "order": "",
-      "mainProduct": "bob-module-processor-board-3"
+      "mainProduct": "bob-module-processor-board-3",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "bob-speed-processor": {
       "id": "bob-speed-processor",
@@ -73805,13 +74132,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-module-intermediates-2",
       "order": "",
-      "mainProduct": "bob-speed-processor"
+      "mainProduct": "bob-speed-processor",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-speed-processor-2": {
       "id": "bob-speed-processor-2",
@@ -73868,13 +74201,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-module-intermediates-3",
       "order": "",
-      "mainProduct": "bob-speed-processor-2"
+      "mainProduct": "bob-speed-processor-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-speed-processor-3": {
       "id": "bob-speed-processor-3",
@@ -73936,13 +74275,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-module-intermediates-4",
       "order": "",
-      "mainProduct": "bob-speed-processor-3"
+      "mainProduct": "bob-speed-processor-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-efficiency-processor": {
       "id": "bob-efficiency-processor",
@@ -73994,13 +74339,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-module-intermediates-2",
       "order": "",
-      "mainProduct": "bob-efficiency-processor"
+      "mainProduct": "bob-efficiency-processor",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-efficiency-processor-2": {
       "id": "bob-efficiency-processor-2",
@@ -74057,13 +74408,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-module-intermediates-3",
       "order": "",
-      "mainProduct": "bob-efficiency-processor-2"
+      "mainProduct": "bob-efficiency-processor-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-efficiency-processor-3": {
       "id": "bob-efficiency-processor-3",
@@ -74125,13 +74482,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-module-intermediates-4",
       "order": "",
-      "mainProduct": "bob-efficiency-processor-3"
+      "mainProduct": "bob-efficiency-processor-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-productivity-processor": {
       "id": "bob-productivity-processor",
@@ -74183,13 +74546,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-module-intermediates-2",
       "order": "",
-      "mainProduct": "bob-productivity-processor"
+      "mainProduct": "bob-productivity-processor",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-productivity-processor-2": {
       "id": "bob-productivity-processor-2",
@@ -74246,13 +74615,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-module-intermediates-3",
       "order": "",
-      "mainProduct": "bob-productivity-processor-2"
+      "mainProduct": "bob-productivity-processor-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-productivity-processor-3": {
       "id": "bob-productivity-processor-3",
@@ -74314,13 +74689,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-module-intermediates-4",
       "order": "",
-      "mainProduct": "bob-productivity-processor-3"
+      "mainProduct": "bob-productivity-processor-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-clean-processor": {
       "id": "bob-pollution-clean-processor",
@@ -74372,13 +74753,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "bob-module-intermediates-2",
       "order": "",
-      "mainProduct": "bob-pollution-clean-processor"
+      "mainProduct": "bob-pollution-clean-processor",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-clean-processor-2": {
       "id": "bob-pollution-clean-processor-2",
@@ -74430,13 +74817,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "bob-module-intermediates-3",
       "order": "",
-      "mainProduct": "bob-pollution-clean-processor-2"
+      "mainProduct": "bob-pollution-clean-processor-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-clean-processor-3": {
       "id": "bob-pollution-clean-processor-3",
@@ -74488,13 +74881,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "bob-module-intermediates-4",
       "order": "",
-      "mainProduct": "bob-pollution-clean-processor-3"
+      "mainProduct": "bob-pollution-clean-processor-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-create-processor": {
       "id": "bob-pollution-create-processor",
@@ -74546,13 +74945,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "bob-module-intermediates-2",
       "order": "",
-      "mainProduct": "bob-pollution-create-processor"
+      "mainProduct": "bob-pollution-create-processor",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-create-processor-2": {
       "id": "bob-pollution-create-processor-2",
@@ -74604,13 +75009,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "bob-module-intermediates-3",
       "order": "",
-      "mainProduct": "bob-pollution-create-processor-2"
+      "mainProduct": "bob-pollution-create-processor-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "bob-pollution-create-processor-3": {
       "id": "bob-pollution-create-processor-3",
@@ -74662,13 +75073,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": true,
       "subgroup": "bob-module-intermediates-4",
       "order": "",
-      "mainProduct": "bob-pollution-create-processor-3"
+      "mainProduct": "bob-pollution-create-processor-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-ore1-crushed": {
       "id": "angels-ore1-crushed",
@@ -95309,13 +95726,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "angels-solder-casting",
       "order": "d[angels-solder]-c",
-      "mainProduct": "bob-solder"
+      "mainProduct": "bob-solder",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-ingot-steel": {
       "id": "angels-ingot-steel",
@@ -97838,13 +98261,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "angels-copper-casting",
       "order": "k[angels-wire-copper]-e",
-      "mainProduct": "copper-cable"
+      "mainProduct": "copper-cable",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-solid-glass-mixture": {
       "id": "angels-solid-glass-mixture",
@@ -98244,13 +98673,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "bob-boards",
       "order": "c-a3[fibreglass-board]",
-      "mainProduct": "bob-fibreglass-board"
+      "mainProduct": "bob-fibreglass-board",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "angels-processed-gold": {
       "id": "angels-processed-gold",
@@ -98828,13 +99263,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-gold-casting",
       "order": "m[angels-wire-gold]-a",
-      "mainProduct": "bob-gilded-copper-cable"
+      "mainProduct": "bob-gilded-copper-cable",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-wire-gold-2": {
       "id": "angels-wire-gold-2",
@@ -98861,13 +99302,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "angels-gold-casting",
       "order": "m[angels-wire-gold]-b",
-      "mainProduct": "bob-gilded-copper-cable"
+      "mainProduct": "bob-gilded-copper-cable",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-processed-iron": {
       "id": "angels-processed-iron",
@@ -101504,13 +101951,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-platinum-casting",
       "order": "l[angels-wire-platinum]-a",
-      "mainProduct": "angels-wire-platinum"
+      "mainProduct": "angels-wire-platinum",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-wire-platinum-2": {
       "id": "angels-wire-platinum-2",
@@ -101537,13 +101990,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "angels-platinum-casting",
       "order": "l[angels-wire-platinum]-b",
-      "mainProduct": "angels-wire-platinum"
+      "mainProduct": "angels-wire-platinum",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-processed-silica": {
       "id": "angels-processed-silica",
@@ -102684,13 +103143,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-silver-casting",
       "order": "n[angels-wire-silver]-a",
-      "mainProduct": "angels-wire-silver"
+      "mainProduct": "angels-wire-silver",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-wire-silver-2": {
       "id": "angels-wire-silver-2",
@@ -102717,13 +103182,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "angels-silver-casting",
       "order": "n[angels-wire-silver]-b",
-      "mainProduct": "angels-wire-silver"
+      "mainProduct": "angels-wire-silver",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-solid-lime": {
       "id": "angels-solid-lime",
@@ -104023,13 +104494,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-tin-casting",
       "order": "j[angels-wire-tin]-a",
-      "mainProduct": "bob-tinned-copper-cable"
+      "mainProduct": "bob-tinned-copper-cable",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-wire-tin-2": {
       "id": "angels-wire-tin-2",
@@ -104056,13 +104533,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "angels-tin-casting",
       "order": "j[angels-wire-tin]-b",
-      "mainProduct": "bob-tinned-copper-cable"
+      "mainProduct": "bob-tinned-copper-cable",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-processed-titanium": {
       "id": "angels-processed-titanium",
@@ -121115,13 +121598,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-bio-yield-module",
       "order": "",
-      "mainProduct": "angels-bio-yield-module"
+      "mainProduct": "angels-bio-yield-module",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-bio-yield-module-2": {
       "id": "angels-bio-yield-module-2",
@@ -121173,13 +121662,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-bio-yield-module",
       "order": "",
-      "mainProduct": "angels-bio-yield-module-2"
+      "mainProduct": "angels-bio-yield-module-2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-bio-yield-module-3": {
       "id": "angels-bio-yield-module-3",
@@ -121231,13 +121726,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-bio-yield-module",
       "order": "",
-      "mainProduct": "angels-bio-yield-module-3"
+      "mainProduct": "angels-bio-yield-module-3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-bio-yield-module-4": {
       "id": "angels-bio-yield-module-4",
@@ -121289,13 +121790,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-bio-yield-module",
       "order": "",
-      "mainProduct": "angels-bio-yield-module-4"
+      "mainProduct": "angels-bio-yield-module-4",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "angels-bio-yield-module-5": {
       "id": "angels-bio-yield-module-5",
@@ -121367,13 +121874,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "angels-bio-yield-module",
       "order": "",
-      "mainProduct": "angels-bio-yield-module-5"
+      "mainProduct": "angels-bio-yield-module-5",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "cp-electronic-circuit-board": {
       "id": "cp-electronic-circuit-board",
@@ -121410,13 +121923,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "sb-circuit-board",
       "order": "",
-      "mainProduct": "cp-electronic-circuit-board"
+      "mainProduct": "cp-electronic-circuit-board",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "cp-advanced-circuit-board": {
       "id": "cp-advanced-circuit-board",
@@ -121458,13 +121977,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "sb-circuit-board",
       "order": "",
-      "mainProduct": "cp-advanced-circuit-board"
+      "mainProduct": "cp-advanced-circuit-board",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "cp-processing-board": {
       "id": "cp-processing-board",
@@ -121511,13 +122036,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "sb-circuit-board",
       "order": "",
-      "mainProduct": "cp-processing-board"
+      "mainProduct": "cp-processing-board",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "cp-advanced-processing-board": {
       "id": "cp-advanced-processing-board",
@@ -121569,13 +122100,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": true,
       "hidden": false,
       "subgroup": "sb-circuit-board",
       "order": "",
-      "mainProduct": "cp-advanced-processing-board"
+      "mainProduct": "cp-advanced-processing-board",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "cp-speed-processor": {
       "id": "cp-speed-processor",
@@ -121617,13 +122154,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "cp-module-intermediates",
       "order": "",
-      "mainProduct": "cp-speed-processor"
+      "mainProduct": "cp-speed-processor",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "cp-efficiency-processor": {
       "id": "cp-efficiency-processor",
@@ -121665,13 +122208,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "cp-module-intermediates",
       "order": "",
-      "mainProduct": "cp-efficiency-processor"
+      "mainProduct": "cp-efficiency-processor",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "cp-productivity-processor": {
       "id": "cp-productivity-processor",
@@ -121713,13 +122262,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "cp-module-intermediates",
       "order": "",
-      "mainProduct": "cp-productivity-processor"
+      "mainProduct": "cp-productivity-processor",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-waste-processing-copper": {
       "id": "sct-waste-processing-copper",
@@ -121816,13 +122371,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-1",
       "order": "d[t1]-b[ironcore]",
-      "mainProduct": "sct-t1-ironcore"
+      "mainProduct": "sct-t1-ironcore",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-t1-magnet-coils": {
       "id": "sct-t1-magnet-coils",
@@ -121849,13 +122410,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-1",
       "order": "d[t1]-c[magnet-coils]",
-      "mainProduct": "sct-t1-magnet-coils"
+      "mainProduct": "sct-t1-magnet-coils",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-t2-instruments": {
       "id": "sct-t2-instruments",
@@ -121892,13 +122459,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-2",
       "order": "e[t2]-b[instruments]",
-      "mainProduct": "sct-t2-instruments"
+      "mainProduct": "sct-t2-instruments",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-t2-microcircuits": {
       "id": "sct-t2-microcircuits",
@@ -121930,13 +122503,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-2",
       "order": "e[t2]-c[microcircuits]",
-      "mainProduct": "sct-t2-microcircuits"
+      "mainProduct": "sct-t2-microcircuits",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-t2-micro-wafer": {
       "id": "sct-t2-micro-wafer",
@@ -121968,13 +122547,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-2",
       "order": "e[t2]-d[micro-wafer]",
-      "mainProduct": "sct-t2-micro-wafer"
+      "mainProduct": "sct-t2-micro-wafer",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-t2-wafer-stamp": {
       "id": "sct-t2-wafer-stamp",
@@ -122001,13 +122586,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-2",
       "order": "e[t2]-e[wafer-stamp]",
-      "mainProduct": "sct-t2-wafer-stamp"
+      "mainProduct": "sct-t2-wafer-stamp",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-t2-reaction-nodes": {
       "id": "sct-t2-reaction-nodes",
@@ -122039,13 +122630,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-2",
       "order": "e[t2]-f[reaction-nodes]",
-      "mainProduct": "sct-t2-reaction-nodes"
+      "mainProduct": "sct-t2-reaction-nodes",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-t3-femto-lasers": {
       "id": "sct-t3-femto-lasers",
@@ -122434,13 +123031,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-mil",
       "order": "g[mil]-d[circuit3]",
-      "mainProduct": "sct-mil-circuit3"
+      "mainProduct": "sct-mil-circuit3",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-mil-circuit2": {
       "id": "sct-mil-circuit2",
@@ -122487,13 +123090,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-mil",
       "order": "g[mil]-e[circuit2]",
-      "mainProduct": "sct-mil-circuit2"
+      "mainProduct": "sct-mil-circuit2",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-mil-circuit1": {
       "id": "sct-mil-circuit1",
@@ -122530,13 +123139,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-mil",
       "order": "g[mil]-f[circuit1]",
-      "mainProduct": "sct-mil-circuit1"
+      "mainProduct": "sct-mil-circuit1",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-cyan-wire": {
       "id": "sct-cyan-wire",
@@ -122568,13 +123183,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-prod",
       "order": "h[prod]-b[cyan-wire]",
-      "mainProduct": "sct-cyan-wire"
+      "mainProduct": "sct-cyan-wire",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-magenta-wire": {
       "id": "sct-magenta-wire",
@@ -122606,13 +123227,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-prod",
       "order": "h[prod]-c[magenta-wire]",
-      "mainProduct": "sct-magenta-wire"
+      "mainProduct": "sct-magenta-wire",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-prod-bioprocessor": {
       "id": "sct-prod-bioprocessor",
@@ -122654,13 +123281,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-prod",
       "order": "h[prod]-d[bioprocessor]",
-      "mainProduct": "sct-prod-bioprocessor"
+      "mainProduct": "sct-prod-bioprocessor",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sct-prod-baked-biopaste": {
       "id": "sct-prod-baked-biopaste",
@@ -122801,13 +123434,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-prod",
       "order": "h[prod]-g[overclocker]",
-      "mainProduct": "sct-prod-overclocker"
+      "mainProduct": "sct-prod-overclocker",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "sct-prod-chipcase": {
       "id": "sct-prod-chipcase",
@@ -122853,13 +123492,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-sciencepack-prod",
       "order": "h[prod]-h[chipcase]",
-      "mainProduct": "sct-prod-chipcase"
+      "mainProduct": "sct-prod-chipcase",
+      "additionalCategories": [
+        "electronics-with-fluid"
+      ]
     },
     "sct-htech-capbank": {
       "id": "sct-htech-capbank",
@@ -123911,13 +124556,19 @@
         "assembling-machine-3",
         "bob-assembling-machine-4",
         "bob-assembling-machine-5",
-        "bob-assembling-machine-6"
+        "bob-assembling-machine-6",
+        "bob-electronics-machine-1",
+        "bob-electronics-machine-2",
+        "bob-electronics-machine-3"
       ],
       "allowProductivity": false,
       "hidden": false,
       "subgroup": "sct-advanced-logistic-science-pack",
       "order": "h_a[logistic]-e[memory-unit]",
-      "mainProduct": "sct-logistic-memory-unit"
+      "mainProduct": "sct-logistic-memory-unit",
+      "additionalCategories": [
+        "electronics"
+      ]
     },
     "sb-wood-bricks-charcoal": {
       "id": "sb-wood-bricks-charcoal",

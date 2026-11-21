@@ -4,9 +4,9 @@ import { MachineCell } from './MachineCell'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import type { GameData, GameRecipeNode } from '../../data/types'
 
-const machine = (id: string, name: string, craftingSpeed: number) => ({
+const machine = (id: string, name: string, craftingSpeed: number, craftingCategories = ['crafting']) => ({
   id, name, type: 'assembling-machine', craftingSpeed, energyUsageKw: 75, energyType: 'electric', drainKw: 0,
-  moduleSlots: 2, allowedEffects: ['speed'], craftingCategories: ['crafting'], iconPath: '', hidden: false,
+  moduleSlots: 2, allowedEffects: ['speed'], craftingCategories, iconPath: '', hidden: false,
 })
 
 const gameData = {
@@ -17,8 +17,16 @@ const gameData = {
       id: 'plate', name: 'Plate', hidden: false, category: 'crafting', craftingTime: 1, ingredients: [],
       products: [{ itemId: 'plate', type: 'item', amount: 1 }], madeIn: [], allowProductivity: false, subgroup: '', order: '',
     },
+    circuit: {
+      id: 'circuit', name: 'Circuit', hidden: false, category: 'crafting', additionalCategories: ['electronics'], craftingTime: 1,
+      ingredients: [], products: [{ itemId: 'circuit', type: 'item', amount: 1 }], madeIn: [], allowProductivity: false, subgroup: '', order: '',
+    },
   },
-  machines: { am1: machine('am1', 'Assembler 1', 0.5), am2: machine('am2', 'Assembler 2', 0.75) },
+  machines: {
+    am1: machine('am1', 'Assembler 1', 0.5, ['crafting', 'electronics']),
+    am2: machine('am2', 'Assembler 2', 0.75),
+    elec: machine('elec', 'Electronics machine', 2, ['electronics']),
+  },
   defaultMachines: { crafting: 'am1' },
 } as unknown as GameData
 
@@ -62,5 +70,30 @@ describe('MachineCell', () => {
     expect(screen.queryByTestId('picker')).toBeNull()
     const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(node.kind === 'game-recipe' && node.machineId).toBeUndefined()
+  })
+
+  describe('with an additional crafting category', () => {
+    function renderCircuit() {
+      const node: GameRecipeNode = { kind: 'game-recipe', id: 'n1', recipeId: 'circuit', modules: [], byproductPolicy: {} }
+      const block = useBlockStore.getState().blocks[0]
+      useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [node] } }] })
+      render(<MachineCell nodeId="n1" recipeId="circuit" recipeCategory="crafting" machineId={undefined} machineCountCeil={3} gameData={gameData} />)
+      fireEvent.click(screen.getByTestId('machine-chip'))
+    }
+
+    it('lists the machines of the additional category and offers Make default only for the primary one', () => {
+      renderCircuit()
+      expect(screen.getAllByTestId('machine-option').map(o => o.getAttribute('data-machine-id'))).toEqual(['am1', 'am2', 'elec'])
+      expect(screen.getByTestId('default-machine-badge')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Make Assembler 2/ })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Make Electronics machine/ })).toBeNull()
+    })
+
+    it('sets the machine of the row to one that only crafts the additional category', () => {
+      renderCircuit()
+      fireEvent.click(screen.getByText('Electronics machine'))
+      const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+      expect(node.kind === 'game-recipe' && node.machineId).toBe('elec')
+    })
   })
 })

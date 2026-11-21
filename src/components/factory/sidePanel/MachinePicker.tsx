@@ -28,13 +28,13 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
   const available = useAvailableRecipeIds()
   const horizon = useHorizon(gameData)
 
-  const availableMachines = availableMachinesFor(gameData, horizon, recipeCategory)
+  const recipe = gameData.recipes[recipeId]
+  const availableMachines = availableMachinesFor(gameData, horizon, recipeCategory, recipe?.additionalCategories)
   const defaultMachineId = horizon.defaultMachines[recipeCategory]
   const defaultMachineName = defaultMachineId ? gameData.machines[defaultMachineId]?.name : undefined
   const defaultRowCounts = useMemo(() => defaultMachineRowCounts(blocks, gameData), [blocks, gameData])
   const defaultRowCount = defaultRowCounts.get(recipeCategory) ?? 0
 
-  const recipe = gameData.recipes[recipeId]
   const primaryItemId = recipe?.mainProduct ?? recipe?.products[0]?.itemId
   const altRecipes = useMemo(
     () => primaryItemId
@@ -72,8 +72,8 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
           No machine for this recipe within the research horizon. Widen the horizon to choose one.
         </PickerEmpty>
       )}
-      {availableMachines.map(m => (
-        <div key={m.id} className="group flex items-center">
+      {availableMachines.map(m => {
+        const row = (
           <PickerRow
             name={m.name}
             iconPath={m.iconPath || undefined}
@@ -84,20 +84,27 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
             onClick={() => selectMachine(m.id)}
             className="flex-1 min-w-0"
           />
-          {m.id === defaultMachineId ? (
-            <span data-testid="default-machine-badge" className="px-1.5 text-[10px] text-gray-400">default</span>
-          ) : (
-            <button
-              type="button"
-              aria-label={`Make ${m.name} the ${categoryLabel(recipeCategory, gameData)} default`}
-              onClick={() => makeDefault(m.id)}
-              className="px-1.5 py-0.5 rounded text-[10px] text-teal-400 hover:bg-gray-700 opacity-0 group-hover:opacity-100 focus:opacity-100"
-            >
-              Make default
-            </button>
-          )}
-        </div>
-      ))}
+        )
+        // Defaults are per primary category, so a machine that only crafts an additional category is a per-row choice.
+        if (!m.craftingCategories.includes(recipeCategory)) return <div key={m.id} className="flex items-center">{row}</div>
+        return (
+          <div key={m.id} className="group flex items-center">
+            {row}
+            {m.id === defaultMachineId ? (
+              <span data-testid="default-machine-badge" className="px-1.5 text-[10px] text-gray-400">default</span>
+            ) : (
+              <button
+                type="button"
+                aria-label={`Make ${m.name} the ${categoryLabel(recipeCategory, gameData)} default`}
+                onClick={() => makeDefault(m.id)}
+                className="px-1.5 py-0.5 rounded text-[10px] text-teal-400 hover:bg-gray-700 opacity-0 group-hover:opacity-100 focus:opacity-100"
+              >
+                Make default
+              </button>
+            )}
+          </div>
+        )
+      })}
       <div
         data-testid="default-machine-usage"
         className="flex items-center justify-between gap-2 px-2 pt-1 border-t border-gray-700 mt-1 text-[10px] text-gray-400"

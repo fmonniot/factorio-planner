@@ -12,10 +12,16 @@ export function categoryLabel(category: string, gameData?: Pick<GameData, 'categ
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
-/** Non-hidden machines inside the horizon that craft `category`, sorted by name. */
-export function availableMachinesFor(gameData: GameData, horizon: Horizon, category: string): Machine[] {
+/**
+ * Non-hidden machines inside the horizon that craft `category` or one of the recipe's `additionalCategories`,
+ * sorted by name.
+ */
+export function availableMachinesFor(
+  gameData: GameData, horizon: Horizon, category: string, additionalCategories: readonly string[] = [],
+): Machine[] {
   return Object.values(gameData.machines)
-    .filter(m => !m.hidden && m.craftingCategories.includes(category) && withinHorizon(horizon.machineIds, m.id))
+    .filter(m => !m.hidden && withinHorizon(horizon.machineIds, m.id) &&
+      (m.craftingCategories.includes(category) || additionalCategories.some(c => m.craftingCategories.includes(c))))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
