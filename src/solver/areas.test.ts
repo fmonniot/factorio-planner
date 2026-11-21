@@ -74,6 +74,12 @@ function gd(): GameData {
     // Area rules (case 21's plate recipes)
     recipe('make-plate', [['pore', 1]], [['plate', 1]]),
     recipe('use-plate', [['plate', 1]], [['pgear', 1]]),
+    // Area rules, a connection replaces an import (phase 6, T3)
+    recipe('smelt', [['ore', 1]], [['ingot', 1]]),
+    recipe('plate-12', [['ingot', 1]], [['plate', 2]]),
+    recipe('plate-11', [['ingot', 1]], [['plate', 1]]),
+    recipe('make-rod', [['ore2', 1]], [['rod', 1]]),
+    recipe('make-widget', [['rod', 1]], [['widget', 1]]),
   ]
   return {
     factorioVersion: '2.0.0',
@@ -1285,6 +1291,190 @@ describe('area rules: the second pass trigger', () => {
     const { result, received } = solveBlock(flattenBlock(b), gd(), new Map([['plate', 100]]))
     expect(received.get('plate') ?? 0).toBeCloseTo(0.012, 6)
     expect(unsat(result, 'plate')).toBeCloseTo(0, 6)
+  })
+})
+
+describe('area rules: a connection replaces an import (phase 6, T3)', () => {
+  type Offers = Array<[string, number]>
+  const solveWith = (b: Block, offers: Offers) => solveBlock(flattenBlock(b), gd(), new Map(offers))
+  /** The models handed to the LP solver by `fn`, in call order. */
+  const modelsOf = (fn: () => void) => {
+    const spy = vi.spyOn(solver, 'Solve')
+    try {
+      fn()
+      return spy.mock.calls.map(c => c[0] as { optimize: string; variables: Record<string, unknown> })
+    } finally {
+      spy.mockRestore()
+    }
+  }
+  const callsOf = (b: Block, offers: Offers) => modelsOf(() => solveWith(b, offers)).length
+  const outsideInto = (r: SolverResult, itemId: string, to: string) => legsFor(r, itemId).find(l => l.from === undefined && l.to === to)
+
+  // Case 22 C a in the areas fixtures: L uses the plate, M turns 10 ingots into 20 plate.
+  const baseRows = (): Record<string, RecipeNode[]> => ({
+    L: [row('use-plate', 'L')],
+    M: [row('plate-12', 'M'), pin('smelt', 'M', 10)],
+  })
+  const base = (rules: AreaRules = {}, blockRules: Block['sourceRules'] = {}) => plateBlock(['L', 'M'], baseRows(), rules, blockRules, [['pgear', 50]])
+  const BASE_OFFERS: Offers = [['plate', 100]]
+
+  // Rod is made and used in L (plain item), or made in M too (area item).
+  const rodRows = (inM: boolean): Record<string, RecipeNode[]> => ({
+    L: [row('use-plate', 'L'), row('make-widget', 'L'), ...(inM ? [] : [row('make-rod', 'L')])],
+    M: [row('plate-12', 'M'), pin('smelt', 'M', 10), ...(inM ? [row('make-rod', 'M')] : [])],
+  })
+  const rodBlock = (inM: boolean, rules: AreaRules, blockRules: Block['sourceRules'] = {}) =>
+    plateBlock(['L', 'M'], rodRows(inM), rules, blockRules, [['pgear', 50], ['widget', 5]])
+  const ROD_OFFERS: Offers = [['plate', 100], ['rod', 3]]
+
+  const expectRodOff = (r: SolverResult, received: Map<string, number>, rodRun: string) => {
+    checkRoutes(r)
+    expect(received.get('plate') ?? 0, 'plate received').toBeCloseTo(30, 6)
+    expect(received.get('rod') ?? 0, 'rod received').toBeCloseTo(3, 6)
+    expect(unsat(r, 'rod'), 'rod imported').toBeCloseTo(2, 6)
+    expect(unsat(r, 'ingot'), 'ingot imported').toBeCloseTo(0, 6)
+    expect(unsat(r, 'plate'), 'plate imported').toBeCloseTo(0, 6)
+    expect(node(r, 'plate-12@M').throughput, 'P').toBeCloseTo(10, 6)
+    expect(node(r, rodRun).throughput, 'R').toBeCloseTo(0, 6)
+    const leg = outsideInto(r, 'plate', 'L')
+    expect(leg?.rate, 'plate leg into L').toBeCloseTo(30, 6)
+    expect(leg?.supplied, 'plate leg supplied').toBeCloseTo(30, 6)
+  }
+
+  it('1a: Don\'t make more here on a plain item (block rule) keeps its connection beside a touched plate', () => {
+    const b = rodBlock(false, {}, { rod: off })
+    const { result, received } = solveWith(b, ROD_OFFERS)
+    expectRodOff(result, received, 'make-rod@L')
+  })
+
+  it('1b: Don\'t make more here on a plain item (rule of the only area touching it)', () => {
+    const b = rodBlock(false, { L: { rod: off } })
+    const { result, received } = solveWith(b, ROD_OFFERS)
+    expectRodOff(result, received, 'make-rod@L')
+  })
+
+  it('2: Don\'t make more here on an area item keeps its connection beside a touched plate', () => {
+    const b = rodBlock(true, { L: { rod: off } })
+    const { result, received } = solveWith(b, ROD_OFFERS)
+    expectRodOff(result, received, 'make-rod@M')
+    expectLegs(result, 'rod', [[undefined, 'L', 5, 3]])
+    const leg = legsFor(result, 'rod')[0]
+    const parts = outsideLegParts(leg, areaRuleOf(flattenBlock(b).areas![0], b.sourceRules, 'rod'))
+    expect([parts.received, parts.imported, parts.missing].map(n => Math.round(n * 1e6) / 1e6)).toEqual([3, 2, 0])
+  })
+
+  it('3: characterisation, Receive it first on rod beside a touched plate', () => {
+    const b = rodBlock(true, { L: { rod: first } })
+    const { result, received } = solveWith(b, ROD_OFFERS)
+    checkRoutes(result)
+    expect(received.get('plate') ?? 0, 'plate received').toBeCloseTo(30, 6)
+    expect(received.get('rod') ?? 0, 'rod received').toBeCloseTo(3, 6)
+    expect(node(result, 'plate-12@M').throughput, 'P').toBeCloseTo(10, 6)
+    expect(node(result, 'make-rod@M').throughput, 'R').toBeCloseTo(2, 6)
+    expect(unsat(result, 'rod'), 'rod imported').toBeCloseTo(0, 6)
+    expect(unsat(result, 'ingot'), 'ingot imported').toBeCloseTo(0, 6)
+  })
+
+  it('4: characterisation, a shared offer with one area on Receive it first and one on the default', () => {
+    // Not a discriminating test of the `received: false` flag on first areas: the totals coincide either way.
+    const rows = {
+      L1: [pin('use-plate', 'L1', 20)],
+      L2: [pin('use-plate', 'L2', 30)],
+      M: [row('plate-12', 'M'), pin('smelt', 'M', 10)],
+    }
+    const b = plateBlock(['L1', 'L2', 'M'], rows, { L1: { plate: first } }, {}, [['pgear', 50]])
+    const { result, received } = solveWith(b, [['plate', 100]])
+    checkRoutes(result)
+    expect(received.get('plate') ?? 0, 'plate received').toBeCloseTo(30, 6)
+    expect(node(result, 'plate-12@M').throughput, 'P').toBeCloseTo(10, 6)
+    expect(unsat(result, 'ingot'), 'ingot imported').toBeCloseTo(0, 6)
+    expectLegs(result, 'plate', [['M', 'L2', 20], [undefined, 'L1', 20, 20], [undefined, 'L2', 10, 10]])
+  })
+
+  describe('a locked connected item with no step-3 slack is locked again in the fill (structural)', () => {
+    // A locked item's slack matters only in an exact tie of units with another import, and the vertex step 3 picks is
+    // not derivable by hand, so these read the models handed to the solver: the slack is in step 2 and not in the fill.
+    const slackVars = (m: { variables: Record<string, unknown> }, re: RegExp) => Object.keys(m.variables).filter(v => re.test(v))
+    const stage = (models: ReturnType<typeof modelsOf>, optimize: string) => models.filter(m => m.optimize === optimize)
+
+    it('plain item: the ingot is Import off with an offer (case 22 C b)', () => {
+      const rows = baseRows()
+      rows.M = [row('plate-11', 'M'), pin('smelt', 'M', 10)]
+      const b = plateBlock(['L', 'M'], rows, {}, { ingot: { importOff: true } }, [['pgear', 50]])
+      const models = modelsOf(() => solveWith(b, [['ingot', 100]]))
+      expect(models.length, 'LP calls').toBe(6)
+      expect(stage(models, '__imp'), 'step 2').toHaveLength(1)
+      expect(slackVars(stage(models, '__imp')[0], /^slack_ingot$/), 'step 2 has the ingot slack').toHaveLength(1)
+      for (const m of models.slice(-2)) {
+        expect(['__s1', '__s2']).toContain(m.optimize)
+        expect(slackVars(m, /^slack_ingot$/), 'the fill has no ingot slack').toHaveLength(0)
+      }
+    })
+
+    it('area item: plate is Import off in L', () => {
+      const b = base({ L: { plate: { importOff: true } } })
+      const models = modelsOf(() => solveWith(b, BASE_OFFERS))
+      expect(slackVars(stage(models, '__imp')[0], /^as\d+$/), 'step 2: the slacks of L and M').toHaveLength(2)
+      for (const m of models.slice(-2)) {
+        expect(['__s1', '__s2']).toContain(m.optimize)
+        expect(slackVars(m, /^as\d+$/), 'the fill: M only').toHaveLength(1)
+      }
+    })
+  })
+
+  describe('the gate sums an area item\'s slacks and compares them with the item\'s floor', () => {
+    const noisy = (extra: number) => {
+      const rows = {
+        L: [pin('use-plate', 'L', 500000 + extra), pin('make-plate', 'L', 500000), row('make-widget', 'L'), row('make-rod', 'L')],
+        B: [pin('use-plate', 'B', 500000 + extra), pin('make-plate', 'B', 500000)],
+      }
+      return plateBlock(['L', 'B'], rows, {}, {}, [['pgear', 1000000 + 2 * extra], ['widget', 5]])
+    }
+    it('two slacks of 0.006 add up to 0.012, above the floor of 0.01: the order is tried (3 calls)', () => {
+      expect(callsOf(noisy(0.006), [['rod', 100]])).toBe(3)
+    })
+    it('two slacks of 0.004 add up to 0.008, below the floor: the gate stays closed (2 calls)', () => {
+      expect(callsOf(noisy(0.004), [['rod', 100]])).toBe(2)
+    })
+  })
+
+  describe('LP counts', () => {
+    it('the base block: pass 1 (2), least import (1), least received (1), the fill (2)', () => {
+      expect(callsOf(base(), BASE_OFFERS)).toBe(6)
+    })
+    it('a Don\'t make more here item: pass 1, pass 2, the three steps, and a refill (10)', () => {
+      expect(callsOf(rodBlock(false, {}, { rod: off }), ROD_OFFERS)).toBe(10)
+      expect(callsOf(rodBlock(true, { L: { rod: off } }), ROD_OFFERS)).toBe(10)
+    })
+  })
+
+  describe('the retry of a bounded step, through a solve', () => {
+    const run = (optimize: string, nth: number) => {
+      const real = solver.Solve.bind(solver)
+      let seen = 0
+      let calls = 0
+      const spy = vi.spyOn(solver, 'Solve').mockImplementation((model: Parameters<typeof real>[0]) => {
+        calls++
+        if ((model as { optimize: string }).optimize === optimize && ++seen === nth) return { feasible: false, bounded: true, result: NaN }
+        return real(model)
+      })
+      try {
+        const { result, received } = solveWith(base(), BASE_OFFERS)
+        return { result, received, calls }
+      } finally {
+        spy.mockRestore()
+      }
+    }
+    for (const [name, optimize, nth] of [['step 3 (least received)', '__rec', 1], ['the fill\'s stage 1', '__s1', 2]] as const) {
+      it(`${name} infeasible once: one more call, same result`, () => {
+        const { result, received, calls } = run(optimize, nth)
+        expect(calls, 'LP calls').toBe(7)
+        expect(received.get('plate') ?? 0, 'plate received').toBeCloseTo(30, 4)
+        expect(node(result, 'plate-12@M').throughput, 'P').toBeCloseTo(10, 4)
+        expect(unsat(result, 'ingot'), 'ingot imported').toBeCloseTo(0, 4)
+        expect(unsat(result, 'plate'), 'plate imported').toBeCloseTo(0, 4)
+      })
+    }
   })
 })
 

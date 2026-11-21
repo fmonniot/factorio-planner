@@ -1132,14 +1132,19 @@ d: U's 20 X need 20 runs of R and 2000 W; U makes 1000 W, so the connection give
 
 ### C — areas
 
-Fixture A with G in area L and P and S in area M; plate is touched by both areas, ingot by M only.
+Fixture A with G in area L and P and S in area M; plate is touched by both areas, ingot by M only. Row c has S unpinned in a third area N.
 
 | Row | P | Connection (offer) | Received | P runs | Imported | Outside leg of plate into L |
 |---|---|---|---|---|---|---|
 | a | 1 makes 2 | plate (100) | plate 30 | 10 | none | 30, all of it supplied |
 | b | 1 makes 1 | ingot (100) | ingot 40 | 50 | none | none |
+| c | 1 makes 1, S unpinned in N, M's rule switches N off for ingot | ingot (100) | ingot 50 | 50 | none | none (the ingot leg into M is 50, all of it supplied) |
 
 Same derivations as A, rows b and g.
+
+```
+c: M cannot take N's ingots (ingot is a pair item), so S would only waste runs. The least import is 0: importing 50 plates costs fewer runs than 50 ingots into M, so the order lets the ingot connection feed M instead (u_M = 50), S runs 0, P runs 50, G 25, and no plate is received.
+```
 
 ### D — a loop of blocks and a served list
 
