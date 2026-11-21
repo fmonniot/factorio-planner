@@ -35,6 +35,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Show the feeder rows of an absorber in the UI.** The rows that only feed a "Absorb byproduct" row run along with it and carry no badge, so the table does not say why they run. A badge or tooltip would need the chain from `LPResult.absorbers` in the solver result, which changes the snapshot and contract.
 - [ ] **A per-row "feeds absorber" flag.** A row whose product an ordinary row also uses (case 23 d: the plate row also feeds the gadget) is not a feeder, so the absorber does not run. An explicit flag on the row would put it in the chain.
 - [ ] **Re-tune `BC_BONUS`.** `BC_BONUS` (-0.01) is unchanged and the sawing chain only wins because 0.1 saw per run is cheap; a larger bonus is safe now that only anchored rows get it, but changes the balance with the shipping costs.
+- [ ] **Some circuit recipes do not propose the electronics assembly machine.** Recipes such as basic circuit do not offer the electronics assembly machine as a machine to make them in, although it can craft them. Investigate why: check the recipe's category against the machine's crafting categories in the exported data (`scripts/build-game-data.js`, `public/data/`), and whether the machine choice is filtered by the recipe's category, by the machine's tier, or by the data set.
 
 ## Sharing
 
