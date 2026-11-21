@@ -522,6 +522,15 @@ describe('ItemPicker — items mode with a research horizon', () => {
     expect(slotIds()).toContain('water')
   })
 
+  it('starts with an empty amount, so a picked item is a product without extra output', () => {
+    loadWithTechnologies()
+    const onSelect = vi.fn()
+    render(<ItemPicker source="items" onSelect={onSelect} onClose={() => {}} />)
+    expect(screen.getByLabelText('Amount')).toHaveValue(null)
+    fireEvent.click(screen.getAllByTestId('item-slot')[0])
+    expect(onSelect).toHaveBeenCalledWith(expect.any(String), undefined)
+  })
+
   it('offers every non-hidden item without targets', () => {
     loadWithTechnologies()
     render(<ItemPicker source="items" onSelect={() => {}} onClose={() => {}} />)

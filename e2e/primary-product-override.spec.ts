@@ -21,6 +21,7 @@ test.describe('Primary product override', () => {
 
     // Add Hydrogen as a goal.
     await page.getByTitle('Add product').click()
+    await overlay.getByLabel('Amount').fill('60')
     await overlay.getByPlaceholder('Search…').fill('Hydrogen')
     // The hydrogen fluid lives in the "fluids" group — switch tab to find it.
     await overlay.locator('[data-testid="item-group-tab"][data-group-id="fluids"]').click()

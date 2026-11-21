@@ -1141,9 +1141,9 @@ backdrop and close on Escape or a click on the backdrop. They never exceed the v
 `ItemPicker.tsx`, items mode (`source="items"`), used to add a product.
 
 - Search box (case-insensitive substring match on display name or id).
-- **Amount** field in items per minute, default 60 (always /min, regardless of the
+- **Amount** field in items per minute, empty by default (always /min, regardless of the
   rate-unit toggle), except for Electricity and Heat, which are typed in MW (the unit label then
-  reads "/min (MW for Electricity and Heat)"; 10 is stored as 600 units/min). Empty adds a product without extra output (the field shows `—`); anything else must be a positive number, or the item cannot be picked and Submit is disabled.
+  reads "/min (MW for Electricity and Heat)"; 10 is stored as 600 units/min). Empty, the default, adds a product without extra output (the field shows `—`); anything else must be a positive number, or the item cannot be picked and Submit is disabled.
 - Item-group tabs, then items of the selected group in rows by subgroup, sorted by
   Factorio `order`. Hidden items are never shown. A bundle with power generation has a
   **Power** tab holding Electricity and Heat (inside the research horizon when a recipe producing them is, which

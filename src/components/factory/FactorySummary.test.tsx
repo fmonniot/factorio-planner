@@ -760,7 +760,17 @@ describe('FactorySummary — add product', () => {
     const products = useBlockStore.getState().blocks[0].products
     expect(products).toHaveLength(1)
     expect(products[0].itemId).toBe('iron-plate')
-    expect(products[0].extraRate).toBe(60)
+    expect(products[0].extraRate).toBeUndefined()
+  })
+
+  it('adds a product with the amount typed in the picker as its extra output', async () => {
+    setupStore([])
+    render(<FactorySummary />)
+    fireEvent.click(screen.getByTitle('Add product'))
+    await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '60' } })
+    fireEvent.click(screen.getAllByTestId('item-slot').find(b => b.getAttribute('data-item-id') === 'iron-plate')!)
+    expect(useBlockStore.getState().blocks[0].products[0].extraRate).toBe(60)
   })
 })
 
