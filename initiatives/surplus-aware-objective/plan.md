@@ -4,6 +4,8 @@ Status: Future
 
 The solver picks the plan with the fewest recipe executions per minute and treats left-over output as free. In two real Seablock plans that produced results a player does not expect: rows the player added to build a chain stay at zero, and a recipe is over-run so that an unwanted output piles up. This initiative collects what was found, the options for changing what the solver optimises, and what is still unknown. No option is chosen yet: the first phase is an experiment that decides.
 
+See also [surplus-rule](../surplus-rule/plan.md): the narrow version, a per-item rule that prices a surplus of one item (the author's coolant loop), with a spike that measured it.
+
 ## The problem, from the player's side
 
 - **Rows are read as a menu, not as a design.** A player who adds the yellow-waste, lime-filter and scrubbing rows to a block expects those rows to be the plan. The solver is free to leave any row at zero when another route is cheaper.
