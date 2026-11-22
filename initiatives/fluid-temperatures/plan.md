@@ -9,7 +9,7 @@ To the solver a fluid is one item, whatever temperature it is made at. Temperatu
 - **A fluid nothing takes disappears.** Steam from a boiler pinned too cold, or a co-product at a temperature no row accepts, nets against the import that replaces it. It is not shown as a byproduct, not offered to other blocks, and only appears as `unused` on the `temperature-mismatch` warning.
 - **A connection carries "steam", not "500°C steam".** The consumer block cannot plan on the temperature it receives; only the warning checks it after the solve, and a source block that passes the fluid on makes it unknown.
 - **Area routes ignore it.** The temperature rows are block-wide, so the routes between areas can show a too-cold fluid going to the row that refused it.
-- **Locked fluids are not checked at all.** A goal or Import-off fluid gets no temperature rows (see *Related items* below for the local fix).
+- **Locked fluids are only checked when the block can fit them.** A goal or Import-off fluid gets temperature rows without slack when every consumer class has a producer at an accepted temperature, and none otherwise (see *Related items* below for the local fix, shipped in the pull request that added case 24).
 
 ## What the solver does today
 
@@ -17,7 +17,7 @@ Described in [spec/solver.md](../../spec/solver.md#fluid-temperatures); the fact
 
 - One balance row per fluid. `FluidTemperatureCollector` ([src/solver/temperatureRows.ts](../../src/solver/temperatureRows.ts)) records, while the stoichiometry is built, each producer's temperature (the product's `temperature`, else the fluid's `defaultTemperature`, else unknown; heat is always unknown) and each bounded consumer. `temperatureRows` turns that into Hall's condition rows, one per distinct union of consumer classes (at most 4096).
 - `buildLPModel` ([src/solver/solve.ts](../../src/solver/solve.ts)) puts the import slack and the supply variable in every temperature row with coefficient 1. **Anything from outside the block is assumed to fit any bound.** The rows rest on that assumption, and it is the assumption that breaks at the boundary.
-- A fluid with neither slack nor supply (a goal, Import off, a byproduct consumer's ingredient) gets no rows, and an area item locked in every area has its rows deleted ([src/solver/areas.ts](../../src/solver/areas.ts)).
+- A fluid with neither slack nor supply (a goal, Import off, a byproduct consumer's ingredient, an area item locked in every area) gets its rows without slack when every consumer class has a producer at an accepted temperature (`analyseTemperatures`), else none; if the model with them is infeasible `solveLP` solves the one without them ([src/solver/areas.ts](../../src/solver/areas.ts) does the same).
 - Classification, surplus, offers, `overconstrained`, connections, served lists, area routes and the snapshot all use the plain item.
 - `temperature-mismatch` ([src/solver/temperature.ts](../../src/solver/temperature.ts)) reconstructs the temperatures after the solve from the block's rows and from the rows of connected source blocks.
 
@@ -30,13 +30,13 @@ Moved from the backlog on 2026-11-21.
 
 ## Related items left in the backlog
 
-- **Goal and no-import fluids get no temperature rows.** A local fix in `buildLPModel`, done ahead of this initiative because it is small and a real plan needs it. Its policy is carried here as a decision (below).
+- **Goal and no-import fluids get no temperature rows.** Shipped (see the pull request that added case 24 to spec/test-synthetic.md): a local fix in `buildLPModel`, done ahead of this initiative because it is small and a real plan needs it. Its policy is carried here as a decision (below).
 - **Reactor heat temperature is not in the LP.** It needs a model of the reactor's working temperature first. Once that exists, heat becomes one more fluid under whatever this initiative builds.
 - **Nullius bundle: *Temperatures*.** Data, not solver: until the patch runs, Nullius has no temperatures to carry.
 
 ## Decisions already taken
 
-1. **Locked fluids run and warn rather than fail.** When a fluid has no import or supply to fall back on, its temperatures are constrained only when the block has a producer at an accepted temperature for every consumer class. Otherwise the LP may run a producer that does not fit, and `temperature-mismatch` reports it; the plan is not made infeasible. (Decided on 2026-11-21 with the *Goal and no-import fluids* fix.) Under a first-class model, a locked (fluid, temperature) that no row can make would become the ordinary "locked item the network cannot produce" infeasibility, which the elastic goals turn into a goal shortfall. Whichever the design, it must choose this behaviour explicitly, not inherit it by accident.
+1. **Locked fluids run and warn rather than fail.** When a fluid has no import or supply to fall back on, its temperatures are constrained only when the block has a producer at an accepted temperature for every consumer class. Otherwise the LP may run a producer that does not fit, and `temperature-mismatch` reports it; the plan is not made infeasible. (Decided on 2026-11-21 with the *Goal and no-import fluids* fix, shipped as: slack-less rows when every class has a producer, and the model without them when those rows make the block infeasible.) Under a first-class model, a locked (fluid, temperature) that no row can make would become the ordinary "locked item the network cannot produce" infeasibility, which the elastic goals turn into a goal shortfall. Whichever the design, it must choose this behaviour explicitly, not inherit it by accident.
 
 ## Directions
 

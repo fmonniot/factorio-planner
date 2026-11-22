@@ -1,7 +1,7 @@
 import solver, { type SolveResult } from 'javascript-lp-solver'
 import type { ClassifiedSystem } from './build'
 import type { SolverWarning } from '../data/types'
-import { temperatureRows } from './temperatureRows'
+import { analyseTemperatures } from './temperatureRows'
 import { absorberRoles, type AbsorberRoles } from './absorbers'
 
 // ---------------------------------------------------------------------------
@@ -25,6 +25,8 @@ export interface LPResult {
   shortfall: Map<string, number>
   /** the absorber chains the model was built with (see `absorberRoles`) */
   absorbers: AbsorberRoles
+  /** whether the model had fluid temperature rows with neither an import nor a supply (see `LPBuildOptions.lockedTemperatures`) */
+  lockedTemperatures: boolean
 }
 
 /** Sanitize a string to be a valid LP variable / constraint name. */
@@ -72,12 +74,32 @@ export interface LPModel {
   itemToSupply: Map<string, string>
   /** goal itemId → shortfall variable name (elastic models only) */
   goalToShort: Map<string, string>
-  /** itemId → the names of its fluid temperature rows (only items that have an import or a supply) */
+  /**
+   * itemId → the names of its fluid temperature rows: items that have an import or a supply, and (unless
+   * `lockedTemperatures` is off) goals and items without an import whose consumer classes all have a producer
+   */
   itemToTemperatureRows: Map<string, string[]>
+  /** the items whose temperature rows were built with neither slack nor supply */
+  lockedTemperatureItems: Set<string>
+  /** the items with temperature rows where every consumer class has a producer at an accepted temperature (empty when `lockedTemperatures` is off) */
+  temperatureFitItems: Set<string>
   /** the least total shortfall `D` `boundShortfall` found (elastic models, once bounded) */
   leastShortfall?: number
   /** the absorber chains of the system: which columns cost BC_BONUS or `feederCost` and which stay out of the supply-use rows */
   absorbers: AbsorberRoles
+}
+
+/** Options of `buildLPModel` that few callers set. */
+export interface LPBuildOptions {
+  /** Rows marked to feed absorbing rows. */
+  markedFeeders?: ReadonlySet<string>
+  /** Items supplied by something other than `supplyCaps` (the areas' own supply rows). */
+  extraSupplied?: ReadonlySet<string>
+  /**
+   * Build the temperature rows of a goal or an item without import or supply, without slack, when every
+   * consumer class has a producer at an accepted temperature (default true). Off gives the model without them.
+   */
+  lockedTemperatures?: boolean
 }
 
 /** At most this many pins are probed one by one to tell which bind (see `bindingPins`). */
@@ -127,8 +149,7 @@ export function buildLPModel(
   elasticGoals = false,
   /** Items imported cheaply in some other way than `byproductsFirst` (the areas' own slacks); never bounded for an absorber. */
   extraCheapImports: ReadonlySet<string> = new Set(),
-  /** Rows marked to feed absorbing rows, and items supplied by something other than `supplyCaps` (the areas' own supply rows). */
-  absorberInputs: { markedFeeders?: ReadonlySet<string>; extraSupplied?: ReadonlySet<string> } = {},
+  options: LPBuildOptions = {},
 ): LPModel {
   const { S, recipes, classification } = system
 
@@ -156,10 +177,10 @@ export function buildLPModel(
   // The items whose supply gets a supply-use row below: they never anchor an unflagged candidate (see absorbers.ts).
   const supplied = new Set([
     ...[...connectionsFirst].filter(i => classification.intermediates.has(i) && (supplyCaps.get(i) ?? 0) > 0),
-    ...(absorberInputs.extraSupplied ?? []),
+    ...(options.extraSupplied ?? []),
   ])
   const absorbers = absorberRoles(system, bcRecipeIds, pinnedRates, cheapImports, {
-    markedFeeders: absorberInputs.markedFeeders, supplied,
+    markedFeeders: options.markedFeeders, supplied,
   })
   for (const recipeId of recipes) {
     const varName = recipeToVar.get(recipeId)!
@@ -174,6 +195,9 @@ export function buildLPModel(
 
   // itemId → the names of its fluid temperature rows
   const itemToTemperatureRows = new Map<string, string[]>()
+  const lockedTemperatureItems = new Set<string>()
+  const temperatureFitItems = new Set<string>()
+  const lockedOn = options.lockedTemperatures ?? true
 
   /** Adds the row for itemId and returns its constraint name. */
   function addConstraintWithSlack(itemId: string, rhs: number): string {
@@ -254,16 +278,23 @@ export function buildLPModel(
   // Fluid temperatures: Σ made at an acceptable temperature + imports + supply ≥ Σ taken by each set of
   // temperature-bounded consumers. Imports and supply fit any bound, so they sit in every row.
   for (const [itemId, f] of system.fluidTemperatures ?? []) {
-    // An import or supply is what lets a mismatched fluid fall back to something; a row without one (a goal,
-    // a fluid that cannot be imported) would force its consumers to zero or make the LP infeasible, so it
-    // is left to the `temperature-mismatch` warning.
-    if (!classification.intermediates.has(itemId)) continue
+    if (!classification.intermediates.has(itemId) && !classification.goals.has(itemId)) continue
+    const { rows, everyClassFits } = analyseTemperatures(f)
+    if (rows.length === 0) continue
     const slackName = itemToSlack.get(itemId)
     const supplyName = itemToSupply.get(itemId)
-    if (!slackName && !supplyName) continue
+    // An import or supply is what lets a mismatched fluid fall back to something. Without one (a goal, a fluid
+    // that cannot be imported) the rows are built only when every consumer class has a producer at a temperature
+    // it accepts, so they can be met; otherwise they could only force consumers to zero and are left to the
+    // `temperature-mismatch` warning.
+    const free = slackName !== undefined || supplyName !== undefined
+    const lock = lockedOn && everyClassFits
+    if (!free && !lock) continue
+    if (lockedOn && everyClassFits) temperatureFitItems.add(itemId)
+    if (!free) lockedTemperatureItems.add(itemId)
     const rowNames: string[] = []
     itemToTemperatureRows.set(itemId, rowNames)
-    for (const row of temperatureRows(f)) {
+    for (const row of rows) {
       const cName = `c${constraintIdx++}`
       rowNames.push(cName)
       constraints[cName] = { min: 0 }
@@ -285,7 +316,7 @@ export function buildLPModel(
     variables[varName][cName] = 1
   }
 
-  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, goalToShort, itemToTemperatureRows, absorbers }
+  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, goalToShort, itemToTemperatureRows, lockedTemperatureItems, temperatureFitItems, absorbers }
 }
 
 type LPConstraints = LPModel['constraints']
@@ -405,7 +436,10 @@ export function readLPResult(
     }
   }
 
-  return { throughput, slack, supply, warnings, feasible, shortfall, absorbers: lp.absorbers }
+  return {
+    throughput, slack, supply, warnings, feasible, shortfall, absorbers: lp.absorbers,
+    lockedTemperatures: lp.lockedTemperatureItems.size > 0,
+  }
 }
 
 /** Does any goal have a row in `S`? Without one, an elastic model is the plain one. */
@@ -418,6 +452,8 @@ export function hasGoalRow(system: ClassifiedSystem): boolean {
  * Build and solve the elastic LP of `buildLPModel`. When it is infeasible (pins or locks that keep a goal
  * from being met), it is solved again with elastic goal rows (`boundShortfall`): pins and locks hold and
  * each goal reports what it lacks. If that is infeasible too, the first result is returned as it was.
+ * The temperature rows without slack (`LPBuildOptions.lockedTemperatures`) come first: when they make the model
+ * infeasible, it is solved again without them, then elastic (also without them) as before.
  */
 export function solveLP(
   system: ClassifiedSystem,
@@ -429,16 +465,22 @@ export function solveLP(
   byproductsFirst: Set<string> = new Set(),
   markedFeeders: ReadonlySet<string> = new Set(),
 ): LPResult {
-  const lp = buildLPModel(
-    system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, false, new Set(), { markedFeeders },
+  const build = (elastic: boolean, lockedTemperatures: boolean) => buildLPModel(
+    system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, elastic, new Set(),
+    { markedFeeders, lockedTemperatures },
   )
-  const result = runLP('__obj__', lp.constraints, lp.variables)
+  // The result is the optimum of the model with slack-less temperature rows, or exactly the model without them:
+  // those rows never turn a feasible block infeasible.
+  let lp = build(false, true)
+  let result = runLP('__obj__', lp.constraints, lp.variables)
+  if (result.feasible !== true && lp.lockedTemperatureItems.size > 0) {
+    lp = build(false, false)
+    result = runLP('__obj__', lp.constraints, lp.variables)
+  }
   if (result.feasible === true || !hasGoalRow(system)) {
     return readLPResult(result, lp, system.recipes, pinnedRates, result.feasible === true)
   }
-  const elastic = buildLPModel(
-    system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, true, new Set(), { markedFeeders },
-  )
+  const elastic = build(true, false)
   if (boundShortfall(elastic) === undefined) {
     const second = runLP('__obj__', elastic.constraints, elastic.variables)
     if (second.feasible === true) return readLPResult(second, elastic, system.recipes, pinnedRates, true)

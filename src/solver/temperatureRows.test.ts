@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
 import { buildClassifiedSystem, discardProduct } from './build'
-import { temperatureRows } from './temperatureRows'
+import { analyseTemperatures, temperatureRows } from './temperatureRows'
 import type { GameData, GameRecipeNode } from '../data/types'
 import type { SolverPlan } from './blockResult'
 
@@ -128,10 +128,41 @@ describe('temperatureRows', () => {
   })
 })
 
+describe('analyseTemperatures', () => {
+  const rows = (recipes: GameRecipe[]) =>
+    buildClassifiedSystem(gameData(recipes), recipes.map(r => r.id), new Map()).fluidTemperatures!.get('used')!
+
+  it('fits when a chain has a producer for every class', () => {
+    expect(analyseTemperatures(rows([hot, cool300, cool200, filter])).everyClassFits).toBe(true)
+  })
+
+  it('does not fit when a class has no producer', () => {
+    expect(analyseTemperatures(rows([hot, cool300, filter])).everyClassFits, 'nothing at 50° or below').toBe(false)
+  })
+
+  it('fits when a producer has an unknown temperature', () => {
+    const reactor = recipe('reactor', [], [{ itemId: 'used', type: 'fluid', amount: 100, temperature: 750 }])
+    const f = rows([reactor, filter])
+    expect(analyseTemperatures({ ...f, producers: [...f.producers, { colId: 'x', temperature: undefined, amount: 1 }] }).everyClassFits).toBe(true)
+    expect(analyseTemperatures(f).everyClassFits, 'known temperatures only').toBe(false)
+  })
+
+  it('has no rows when every producer is unknown', () => {
+    const f = rows([hot, filter])
+    const unknown = { ...f, producers: f.producers.map(p => ({ ...p, temperature: undefined })) }
+    expect(analyseTemperatures(unknown)).toEqual({ rows: [], everyClassFits: true })
+  })
+
+  it('has the rows temperatureRows gives', () => {
+    const f = rows([hot, cool300, cool200, filter])
+    expect(analyseTemperatures(f).rows).toEqual(temperatureRows(f))
+  })
+})
+
 describe('goals and discarded products', () => {
   const gd = gameData([hot, filter])
 
-  it('gives a goal fluid no rows rather than making the LP infeasible', () => {
+  it('gives a goal fluid no rows when no producer fits, rather than making the LP infeasible', () => {
     // The goal takes 100 of the 300° coolant, the pinned filter wants 100 that cannot be at ≤ 50°.
     const goalPlan = plan(['hot', 'filter'], 'used', 100) as unknown as { nodes: Record<string, unknown>[] }
     goalPlan.nodes[1].pinnedRate = 1
