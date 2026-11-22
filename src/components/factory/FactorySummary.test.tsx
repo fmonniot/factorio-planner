@@ -1193,7 +1193,7 @@ describe('FactorySummary — connections', () => {
     const consumer = () => useBlockStore.getState().blocks.find(b => b.id === 'consumer')!
     const group = () => within(strip('Ingredients')).getByTestId('comes-from')
     const choice = (name: RegExp | string) => within(group()).getByRole('radio', { name })
-    const importSwitch = () => within(group()).getByRole('switch')
+    const importSwitch = () => within(group()).getByRole('switch', { name: 'Import' })
     const patch = (over: Partial<Block>) =>
       useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, ...over } : b)) }))
 
@@ -1857,6 +1857,36 @@ describe('FactorySummary — products pane', () => {
       expect(miner().products.map(p => p.itemId)).toEqual(['iron-plate', 'slag'])
     })
 
+    it('switches Leftover off for a leftover byproduct, from the strip and from the menu, and says so once it is off', () => {
+      setupRequest({ result: slagResult, flows: [] })
+      render(<FactorySummary />)
+      select('Byproducts', 'Slag')
+      const action = () => within(strip('Byproducts')).getByRole('button', { name: 'Use it all here' })
+      expect(action()).toBeEnabled()
+      fireEvent.click(action())
+      expect(miner().sourceRules).toEqual({ slag: { leftoverOff: true } })
+      // The rule is on; the slot is still a leftover here (the solve is not rerun), so the action says it is done.
+      expect(action()).toBeDisabled()
+      expect(action()).toHaveAttribute('title', 'Leftover is already off for this item: no row of this block can use more of it.')
+
+      act(() => useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'miner' ? { ...b, sourceRules: {} } : b)) })))
+      fireEvent.contextMenu(slot('Byproducts', 'Slag'))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Use it all here' }))
+      expect(miner().sourceRules).toEqual({ slag: { leftoverOff: true } })
+      act(() => useBlockStore.getState().undo())
+      expect(miner().sourceRules).toEqual({})
+    })
+
+    it('offers no Use it all here on an export-only slot, which has no leftover', () => {
+      setupRequest({
+        itemId: 'iron-ore',
+        flows: [requestFlow({ itemId: 'iron-ore', kind: 'take', requested: undefined })],
+      })
+      render(<FactorySummary />)
+      select('Byproducts', 'Iron Ore')
+      expect(within(strip('Byproducts')).queryByRole('button', { name: 'Use it all here' })).not.toBeInTheDocument()
+    })
+
     it('asks first when another block takes the byproduct', () => {
       setupRequest({
         itemId: 'iron-ore',
@@ -2126,18 +2156,18 @@ describe('FactorySummary — import lock', () => {
     addOreRow()
     render(<FactorySummary />)
     select('Ingredients', 'Iron Ore')
-    fireEvent.click(within(strip('Ingredients')).getByRole('switch'))
+    fireEvent.click(within(strip('Ingredients')).getByRole('switch', { name: 'Import' }))
     expect(noImport()).toEqual(['iron-ore'])
     expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-status', 'short')
     expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute, short, has a source rule')
-    fireEvent.click(within(strip('Ingredients')).getByRole('switch'))
+    fireEvent.click(within(strip('Ingredients')).getByRole('switch', { name: 'Import' }))
     expect(noImport()).toEqual([])
   })
 
   it('lets Import be turned off on an item no row makes (raw), saying it has no effect', () => {
     render(<FactorySummary />)
     select('Ingredients', 'Iron Ore')
-    const switchEl = within(strip('Ingredients')).getByRole('switch')
+    const switchEl = within(strip('Ingredients')).getByRole('switch', { name: 'Import' })
     expect(switchEl).not.toHaveAttribute('aria-disabled')
     fireEvent.click(switchEl)
     expect(noImport()).toEqual(['iron-ore'])

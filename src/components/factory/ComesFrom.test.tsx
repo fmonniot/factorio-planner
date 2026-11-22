@@ -233,3 +233,136 @@ describe('ComesFrom, the area flag', () => {
     expect(scope('Line L')).toBeInTheDocument()
   })
 })
+
+describe('ComesFrom, the Leftover switch', () => {
+  const leftover = () => screen.getByTestId('leftover-switch')
+  /** A block `Cooler` that takes Plate from Main (a take: Plate is not a product of Main). */
+  const addTaker = (name = 'Cooler') => {
+    const taker: Block = { ...makeEmptyBlock(name), id: 'cooler', inputConnections: [{ id: 'c1', itemId: 'plate', fromBlockId: 'main' }] }
+    useBlockStore.setState(s => ({ blocks: [...s.blocks, taker] }))
+  }
+
+  it('is on by default, under Import, and turns off and on with the block\'s rule (undoable)', () => {
+    setup({ areas: false })
+    render(<ComesFrom itemId="plate" />)
+    expect(leftover()).toHaveAttribute('role', 'switch')
+    expect(leftover()).toHaveAccessibleName('Leftover')
+    expect(leftover()).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('import-switch').compareDocumentPosition(leftover()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(leftover())
+    expect(leftover()).toHaveAttribute('aria-checked', 'false')
+    expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
+    act(() => useBlockStore.getState().undo())
+    expect(leftover()).toHaveAttribute('aria-checked', 'true')
+    expect(mainBlock().sourceRules).toEqual({})
+  })
+
+  it('has a help text as its description, with the two limits', () => {
+    setup({ areas: false })
+    render(<ComesFrom itemId="plate" />)
+    const help = document.getElementById(leftover().getAttribute('aria-describedby')!)!
+    expect(help).toHaveTextContent('Off: the rows of this block use all of it they can. What they cannot use is still left over, and the warning names it.')
+    expect(help).toHaveTextContent('every item of a chain')
+    expect(help).toHaveTextContent('Receive it first')
+  })
+
+  it('leaves the item\'s other settings alone', () => {
+    setup({ areas: false, block: { plate: { makeHere: 'off', importOff: true } } })
+    render(<ComesFrom itemId="plate" />)
+    fireEvent.click(leftover())
+    expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'off', importOff: true, leftoverOff: true } })
+    fireEvent.click(screen.getByTestId('import-switch'))
+    fireEvent.click(preset('Receive it first'))
+    expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'after-blocks', leftoverOff: true } })
+  })
+
+  describe('at area scope', () => {
+    it('shows the block\'s switch, read-only, with the line "Set for the whole block"', () => {
+      setup({ block: { plate: { leftoverOff: true } }, L: { plate: { makeHere: 'off' } } })
+      render(<ComesFrom itemId="plate" areaId="L" />)
+      expect(scope('Line L')).toHaveAttribute('aria-pressed', 'true')
+      // The area's own rule replaces the block's whole, but the switch still reads the block's.
+      expect(leftover()).toHaveAttribute('aria-checked', 'false')
+      expect(leftover()).toBeDisabled()
+      expect(screen.getByTestId('leftover-block-note')).toHaveTextContent('Set for the whole block')
+      fireEvent.click(leftover())
+      expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
+    })
+
+    it('has a button that switches the control to the whole block, where the switch works', () => {
+      setup({ L: { plate: {} } })
+      render(<ComesFrom itemId="plate" areaId="L" />)
+      expect(scope('Line L')).toHaveAttribute('aria-pressed', 'true')
+      fireEvent.click(screen.getByTestId('leftover-whole-block'))
+      expect(scope('Whole block')).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.queryByTestId('leftover-block-note')).not.toBeInTheDocument()
+      expect(leftover()).toBeEnabled()
+    })
+
+    it('has neither the note nor the button at the whole-block scope', () => {
+      setup({ L: { plate: {} } })
+      render(<ComesFrom itemId="plate" />)
+      expect(screen.queryByTestId('leftover-block-note')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('leftover-whole-block')).not.toBeInTheDocument()
+    })
+
+    it('does not carry the rule into an area edited from the block\'s rule', () => {
+      setup({ block: { plate: { leftoverOff: true } } })
+      render(<ComesFrom itemId="plate" areaId="L" />)
+      fireEvent.click(scope('Line L'))
+      fireEvent.click(preset("Don't make more here"))
+      expect(areaRules('L')).toEqual({ plate: { makeHere: 'off' } })
+      expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
+    })
+  })
+
+  describe('the take note', () => {
+    it('names each block that takes the item from this one, once Leftover is off', () => {
+      setup({ areas: false, block: { plate: { leftoverOff: true } } })
+      addTaker()
+      addTaker('Second')
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => b.name === 'Second' ? { ...b, id: 'second' } : b) }))
+      render(<ComesFrom itemId="plate" />)
+      const notes = screen.getAllByTestId('leftover-take-note').map(n => n.textContent)
+      expect(notes).toEqual([
+        'Cooler takes Plate from this block. It gets only what the rows here cannot use; make Plate a product to send it more.',
+        'Second takes Plate from this block. It gets only what the rows here cannot use; make Plate a product to send it more.',
+      ])
+    })
+
+    it('is not shown while Leftover is on, for an item with no take, or for a product (a request)', () => {
+      setup({ areas: false })
+      addTaker()
+      const { unmount } = render(<ComesFrom itemId="plate" />)
+      expect(screen.queryByTestId('leftover-take-note')).not.toBeInTheDocument()
+      unmount()
+      setup({ areas: false, block: { plate: { leftoverOff: true } } })
+      render(<ComesFrom itemId="plate" />)
+      expect(screen.queryByTestId('leftover-take-note')).not.toBeInTheDocument()
+      unmount()
+      setup({ areas: false, block: { plate: { leftoverOff: true } } })
+      addTaker()
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => b.id === 'main' ? { ...b, products: [{ id: 'p', itemId: 'plate' }] } : b) }))
+      render(<ComesFrom itemId="plate" />)
+      expect(screen.queryByTestId('leftover-take-note')).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows a grey no-effect line with Remove when no row makes the item, and Remove clears the rule', () => {
+    setup({ areas: false, block: { ore: { leftoverOff: true } } })
+    render(<ComesFrom itemId="ore" />)
+    const line = screen.getByTestId('no-effect')
+    expect(line).toHaveAttribute('data-rule', 'leftover-off')
+    expect(line).toHaveAttribute('data-no-effect', 'not-made')
+    expect(line).toHaveTextContent('No row in this block makes Ore.')
+    fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
+    expect(mainBlock().sourceRules).toEqual({})
+    expect(screen.queryByTestId('no-effect')).not.toBeInTheDocument()
+  })
+
+  it('shows no grey line for an item no row uses', () => {
+    setup({ areas: false, block: { plate: { leftoverOff: true } } })
+    render(<ComesFrom itemId="plate" />)
+    expect(screen.queryByTestId('no-effect')).not.toBeInTheDocument()
+  })
+})

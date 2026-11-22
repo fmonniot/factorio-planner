@@ -5,7 +5,7 @@ import type { AreaSourceRule } from '../../data/types'
 import type { SourceRulePart } from './sourceRules'
 
 /**
- * Clears one rule of the active block: a preset goes back to the default, Import off goes back to on.
+ * Clears one rule of the active block: a preset goes back to the default, Import off and Leftover off go back to on.
  * The item's other rule, if it has one, stays. For a part of an area's rule (`areaId`) it clears that part of the area's
  * rule; a `make-here` or `import-on` part, a rule that only repeats the block's, or a part that leaves such a rule, removes
  * the area's rule altogether, so the area follows the block again, except that an area with switches (`areasOff`) keeps them.
@@ -14,6 +14,7 @@ import type { SourceRulePart } from './sourceRules'
 export function useRemoveSourceRule(): (rule: Pick<SourceRulePart, 'itemId' | 'kind' | 'areaId' | 'otherAreaId'>) => void {
   const setMakeHere = useBlockStore(s => s.setMakeHere)
   const toggleImportOff = useBlockStore(s => s.toggleImportOff)
+  const toggleLeftoverOff = useBlockStore(s => s.toggleLeftoverOff)
   const setAreaMakeHere = useBlockStore(s => s.setAreaMakeHere)
   const toggleAreaImportOff = useBlockStore(s => s.toggleAreaImportOff)
   const toggleAreaSupplier = useBlockStore(s => s.toggleAreaSupplier)
@@ -21,6 +22,7 @@ export function useRemoveSourceRule(): (rule: Pick<SourceRulePart, 'itemId' | 'k
   return useCallback(({ itemId, kind, areaId, otherAreaId }) => {
     if (areaId === undefined) {
       if (kind === 'import-off') toggleImportOff(itemId)
+      else if (kind === 'leftover-off') toggleLeftoverOff(itemId)
       else setMakeHere(itemId, undefined)
       return
     }
@@ -50,5 +52,5 @@ export function useRemoveSourceRule(): (rule: Pick<SourceRulePart, 'itemId' | 'k
     else if (kind === 'make-here') setAreaMakeHere(areaId, itemId, after.makeHere)
     else if (kind === 'import-off' || kind === 'import-on') toggleAreaImportOff(areaId, itemId)
     else setAreaMakeHere(areaId, itemId, undefined)
-  }, [setMakeHere, toggleImportOff, setAreaMakeHere, toggleAreaImportOff, toggleAreaSupplier, clearAreaRule])
+  }, [setMakeHere, toggleImportOff, toggleLeftoverOff, setAreaMakeHere, toggleAreaImportOff, toggleAreaSupplier, clearAreaRule])
 }

@@ -1,0 +1,1371 @@
+{
+ "activeBlockId": "02e451fc-d053-41a3-afd3-bb92af986764",
+ "horizonTechnologyIds": [
+  "bob-advanced-logistic-science-pack",
+  "bob-electric-energy-accumulators-2",
+  "bob-artillery-turret-2",
+  "angels-rocket-booster-2",
+  "angels-bio-plastic-2",
+  "effect-transmission",
+  "bob-personal-laser-defense-equipment-2",
+  "angels-manganese-smelting-3",
+  "angels-bio-arboretum-3",
+  "logistics-4",
+  "bob-electric-substation-3",
+  "bob-electric-pole-3",
+  "bob-heat-pipe-3",
+  "bob-fluid-handling-3",
+  "bob-boiler-4",
+  "bob-bulk-inserter-3",
+  "angels-ore-refining",
+  "angels-ore-processing-3",
+  "angels-powder-metallurgy-4",
+  "angels-strand-casting-3",
+  "angels-advanced-chemistry-3",
+  "bob-heat-exchanger-3",
+  "bob-fluid-wagon-3",
+  "angels-water-treatment-4",
+  "bob-electronics-machine-2",
+  "advanced-material-processing-3",
+  "automation-4",
+  "bob-radar-4",
+  "bob-centrifuge-2",
+  "bob-steam-turbine-2",
+  "bob-oil-boiler-3",
+  "elevated-rail",
+  "angels-rubber",
+  "angels-resin-2",
+  "angels-advanced-oil-processing",
+  "angels-plastic-2",
+  "angels-sulfur-processing-3",
+  "angels-iron-casting-3",
+  "angels-steel-smelting-3",
+  "bob-personal-roboport-modular-equipment-2",
+  "angels-electric-boiler-2",
+  "angels-tin-casting-3",
+  "angels-aluminium-casting-2",
+  "angels-solder-smelting-3",
+  "angels-lead-casting-3",
+  "angels-silver-casting-2",
+  "angels-copper-casting-3",
+  "angels-bio-pressing-fish-2",
+  "angels-bio-processing-alien-3",
+  "bob-robo-modular-2",
+  "bob-robots-1",
+  "angels-copper-smelting-3",
+  "angels-zinc-smelting-2",
+  "angels-lead-smelting-3",
+  "angels-nickel-smelting-2",
+  "angels-silver-smelting-2",
+  "angels-aluminium-smelting-2",
+  "angels-tin-smelting-3",
+  "angels-silicon-smelting-2",
+  "angels-bio-temperate-farming-2",
+  "angels-bronze-smelting-3",
+  "angels-bio-swamp-farming-2",
+  "angels-bio-desert-farming-2",
+  "angels-silicon-casting-2",
+  "angels-brass-smelting-2",
+  "angels-geode-processing-3",
+  "angels-bio-refugium-butchery-2",
+  "angels-bio-processing-crystal-splinter-3",
+  "bob-electric-mixing-furnace",
+  "angels-bio-arboretum-swamp-3",
+  "angels-gardens-3",
+  "angels-bio-arboretum-desert-3",
+  "sb-bio-processing-advanced",
+  "angels-bio-arboretum-temperate-3",
+  "bob-burner-reactor-2",
+  "bob-sniper-turrets-2",
+  "bob-repair-pack-3",
+  "advanced-combinators",
+  "bob-solar-panel-equipment-2",
+  "bob-solar-energy-2",
+  "angels-bio-refugium-fish-2",
+  "cybersyn-train-network",
+  "angels-pressure-tanks",
+  "bob-reinforced-wall",
+  "cliff-explosives",
+  "angels-bio-wood-processing-3",
+  "angels-titanium-casting-2",
+  "angels-gold-casting-2",
+  "angels-bio-yield-module",
+  "efficiency-module",
+  "advanced-material-processing-2",
+  "bob-modules-2",
+  "angels-bio-yield-module-2",
+  "efficiency-module-2",
+  "angels-steam-cracking-2",
+  "bob-modules-3"
+ ],
+ "defaultMachineOverrides": {
+  "offshore:water": "offshore-pump"
+ },
+ "dataSet": {
+  "id": "kompetenz-seablock",
+  "name": "Seablock",
+  "factorioVersion": "2.0.77"
+ },
+ "blocks": [
+  {
+   "id": "02e451fc-d053-41a3-afd3-bb92af986764",
+   "name": "Metals",
+   "color": "#7dd3fc",
+   "colorAuto": false,
+   "products": [
+    {
+     "id": "d4c3a72a-5475-482d-9271-7742d79ef933",
+     "itemId": "angels-roll-iron",
+     "extraRate": 71.8612
+    },
+    {
+     "id": "ed23d8bd-ba3c-44bd-b387-acec6173878f",
+     "itemId": "angels-roll-copper",
+     "extraRate": 63.4993
+    },
+    {
+     "id": "6d887915-8139-49ad-b766-20b91354c6ac",
+     "itemId": "angels-roll-tin",
+     "extraRate": 25.5947
+    },
+    {
+     "id": "3c9b5d6f-f27d-4cd7-bb64-731c0a8e4ce7",
+     "itemId": "angels-roll-lead",
+     "extraRate": 7.5
+    },
+    {
+     "id": "423d49b7-5ee8-42ca-9974-613121c210d0",
+     "itemId": "angels-roll-aluminium",
+     "extraRate": 69.681
+    },
+    {
+     "id": "ee8f1a9f-9dc9-47bc-ab32-2d44b1f7b08c",
+     "itemId": "angels-wire-coil-tin",
+     "extraRate": 69.1265
+    },
+    {
+     "id": "3c148630-dae7-46eb-b154-f0bd0517c50d",
+     "itemId": "angels-roll-silver",
+     "extraRate": 11.5672
+    },
+    {
+     "id": "05e0b29e-9453-4cf7-beb7-d5a24b597ad9",
+     "itemId": "angels-roll-steel",
+     "extraRate": 63.1025
+    },
+    {
+     "id": "07410d8e-042b-42b5-ad29-a464263c284c",
+     "itemId": "bob-invar-alloy",
+     "extraRate": 103.76
+    },
+    {
+     "id": "511a8111-8cf1-43e7-a0cf-a44b45f5bf26",
+     "itemId": "bob-brass-alloy",
+     "extraRate": 156.5883
+    },
+    {
+     "id": "c30c81f5-6eb1-4264-a229-e227db45db10",
+     "itemId": "angels-wire-coil-copper",
+     "extraRate": 140.5174
+    },
+    {
+     "id": "09012952-879a-47ae-8b8d-0f5f320e9398",
+     "itemId": "angels-roll-solder",
+     "extraRate": 99.6694
+    },
+    {
+     "id": "82a133be-816d-48fb-84d0-565fa5b89e88",
+     "itemId": "bob-cobalt-steel-alloy",
+     "extraRate": 9.7
+    },
+    {
+     "id": "6880879f-a11c-4844-972c-d01e94864a8e",
+     "itemId": "bob-bronze-alloy",
+     "extraRate": 68.34
+    },
+    {
+     "id": "6ec0537b-e137-4c5f-8c11-3e938746c6f7",
+     "itemId": "angels-roll-titanium",
+     "extraRate": 57.167
+    },
+    {
+     "id": "c0c9bdc5-3f90-49c4-af72-610b65061af4",
+     "itemId": "angels-roll-gold",
+     "extraRate": 7.75
+    },
+    {
+     "id": "e0d67643-587d-43f9-8b24-db0ccd86c3e0",
+     "itemId": "angels-mono-silicon",
+     "extraRate": 51.8959
+    },
+    {
+     "id": "1213c6a5-34bb-4206-807f-c42fb2e4c41b",
+     "itemId": "bob-glass",
+     "extraRate": 61
+    },
+    {
+     "id": "4a674002-f6e2-4c8f-9818-0db7f16e5adc",
+     "itemId": "angels-coil-glass-fiber",
+     "extraRate": 5.2449
+    },
+    {
+     "id": "27012b33-154e-487c-9cc9-11733c75fc04",
+     "itemId": "angels-wire-coil-gold",
+     "extraRate": 20.9531
+    },
+    {
+     "id": "c8741e1f-d5f0-47b6-93cd-e35e7e905b5f",
+     "itemId": "angels-wire-coil-silver",
+     "extraRate": 77.7393
+    },
+    {
+     "id": "d2b68571-41df-4e3b-8b18-1bb33d7ad831",
+     "itemId": "bob-alumina",
+     "extraRate": 14.5161
+    },
+    {
+     "id": "ab448de6-cc22-4034-91bc-6cf9cda33be3",
+     "itemId": "angels-ingot-silicon",
+     "extraRate": 194.1647
+    },
+    {
+     "id": "1f6ea05c-1e25-4557-96a9-13bd25e04e33",
+     "itemId": "angels-liquid-ferric-chloride-solution",
+     "extraRate": 732.0104
+    }
+   ],
+   "sourceRules": {},
+   "inputConnections": [],
+   "rootPlan": {
+    "id": "5a55f5cb-7aa6-4eda-ab3e-e5b8aec93d03",
+    "name": "Metals",
+    "nodes": [
+     {
+      "kind": "subplan",
+      "id": "c5f1a682-9673-49f3-accc-464e8d8026f4",
+      "subPlanId": "9dc0361a-29c9-4a89-ba60-f5cafb87efc8"
+     },
+     {
+      "kind": "subplan",
+      "id": "9534482b-ecac-46cf-9457-937367ee8951",
+      "subPlanId": "ad0b6655-d1a2-499c-ba40-961fe3c8e806"
+     },
+     {
+      "kind": "subplan",
+      "id": "67837711-7d5a-4ae5-8be4-6261c2d02283",
+      "subPlanId": "bde35cc9-f364-4c79-877e-28c07344b2fe"
+     },
+     {
+      "kind": "subplan",
+      "id": "e4fc2451-5e99-47ab-ab7a-b7e4a2de9572",
+      "subPlanId": "04a269ee-53bf-492f-806e-ddbffdddb8c6"
+     },
+     {
+      "kind": "subplan",
+      "id": "a9f27901-bf7f-43f9-968c-d7deaa37964e",
+      "subPlanId": "fd0e205d-c5d3-4336-9d7c-1cd250432328"
+     },
+     {
+      "kind": "game-recipe",
+      "id": "b3a94c11-b55e-42a1-bd5a-17842a19df5b",
+      "recipeId": "angels-solid-carbon",
+      "modules": [],
+      "byproductPolicy": {}
+     },
+     {
+      "kind": "game-recipe",
+      "id": "20880325-e722-4af4-bf24-e0074e778ee0",
+      "recipeId": "offshore:water",
+      "modules": [],
+      "byproductPolicy": {}
+     },
+     {
+      "kind": "game-recipe",
+      "id": "c8124327-37dc-48c4-adec-43009f58b8f9",
+      "recipeId": "angels-solid-lime",
+      "modules": [],
+      "byproductPolicy": {},
+      "fuelItemId": "angels-wood-charcoal"
+     },
+     {
+      "kind": "game-recipe",
+      "id": "cd067329-8225-4fff-9f77-b350f7bc6d57",
+      "recipeId": "angels-liquid-ferric-chloride-solution",
+      "modules": [],
+      "byproductPolicy": {}
+     }
+    ],
+    "subPlans": [
+     {
+      "id": "fd0e205d-c5d3-4336-9d7c-1cd250432328",
+      "name": "Coolant",
+      "nodes": [
+       {
+        "kind": "game-recipe",
+        "id": "b79a0cd5-6e0e-41ce-82dc-144463f6bd65",
+        "recipeId": "angels-coolant-cool-300",
+        "modules": [],
+        "byproductPolicy": {},
+        "byproductConsumer": false
+       },
+       {
+        "kind": "game-recipe",
+        "id": "4b729e22-c8f7-4f8d-89e9-dffaacffa197",
+        "recipeId": "angels-coolant-cool-200",
+        "modules": [],
+        "byproductPolicy": {},
+        "byproductConsumer": false
+       },
+       {
+        "kind": "game-recipe",
+        "id": "ea06bcf0-9d1d-4802-9db1-7cab674c49bb",
+        "recipeId": "angels-coolant-cool-100",
+        "modules": [],
+        "byproductPolicy": {},
+        "byproductConsumer": false
+       },
+       {
+        "kind": "game-recipe",
+        "id": "0d6e0597-ffe2-4836-94d0-d71f45d7af5f",
+        "recipeId": "angels-coolant-used-filtration-1",
+        "modules": [],
+        "byproductPolicy": {},
+        "byproductConsumer": false
+       },
+       {
+        "kind": "game-recipe",
+        "id": "cbaa8612-5502-4d80-abdc-d5f293922187",
+        "recipeId": "angels-filter-coal",
+        "modules": [],
+        "byproductPolicy": {},
+        "absorberFeeder": false
+       },
+       {
+        "kind": "game-recipe",
+        "id": "fd222c7f-cc86-45fb-88d1-7165ba47fdf6",
+        "recipeId": "angels-liquid-coolant",
+        "modules": [],
+        "byproductPolicy": {},
+        "byproductConsumer": false
+       }
+      ],
+      "subPlans": [],
+      "area": true,
+      "createdAt": "2026-10-20T01:05:18.174Z",
+      "updatedAt": "2026-11-22T18:54:25.119Z"
+     },
+     {
+      "id": "bde35cc9-f364-4c79-877e-28c07344b2fe",
+      "name": "Silicon",
+      "nodes": [
+       {
+        "kind": "game-recipe",
+        "id": "5e80a389-afd1-4e6c-8b2b-d468676d3094",
+        "recipeId": "angels-mono-silicon-2",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "7c65c96f-02b2-4220-93f6-4270c1fbc71c",
+        "recipeId": "angels-quartz-crucible",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "03a9d8d9-3e5f-46eb-b913-f3c60349398e",
+        "recipeId": "angels-ingot-silicon-2",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "76a14977-e01f-47d2-9b65-280dafe97f0f",
+        "recipeId": "angels-liquid-trichlorosilane",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "2140631d-bc39-4a7e-9b12-dd5fa38a0199",
+        "recipeId": "angels-processed-silica",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "3d33660f-1515-4424-80ee-14d71e0bcc55",
+        "recipeId": "angels-liquid-molten-silicon",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "212de074-d7a6-44ba-9fd9-45d78a052fb9",
+        "recipeId": "angels-mono-silicon-seed",
+        "modules": [],
+        "byproductPolicy": {}
+       }
+      ],
+      "subPlans": [],
+      "area": true,
+      "createdAt": "2026-10-23T12:40:56.627Z",
+      "updatedAt": "2026-11-04T15:39:25.404Z"
+     },
+     {
+      "id": "04a269ee-53bf-492f-806e-ddbffdddb8c6",
+      "name": "Glass",
+      "nodes": [
+       {
+        "kind": "game-recipe",
+        "id": "0e871023-85a8-43c8-bbb6-2c8482da7ef5",
+        "recipeId": "angels-plate-glass-2",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "e458ec79-326e-400d-b88d-bf5873abdaf9",
+        "recipeId": "angels-coil-glass-fiber",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "a484d6da-6195-49e0-8cd3-c1b60ddbe736",
+        "recipeId": "angels-liquid-molten-glass",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "550e1d7e-1315-4bed-a686-b8c2420609fa",
+        "recipeId": "angels-solid-glass-mixture-2",
+        "modules": [],
+        "byproductPolicy": {}
+       },
+       {
+        "kind": "game-recipe",
+        "id": "8aa1d40b-4d65-48ec-8d38-4be7a9afb724",
+        "recipeId": "bob-silicon-powder",
+        "modules": [],
+        "byproductPolicy": {}
+       }
+      ],
+      "subPlans": [],
+      "area": true,
+      "createdAt": "2026-10-23T12:47:53.544Z",
+      "updatedAt": "2026-11-04T16:29:43.648Z"
+     },
+     {
+      "id": "9dc0361a-29c9-4a89-ba60-f5cafb87efc8",
+      "name": "Final Products",
+      "nodes": [
+       {
+        "kind": "subplan",
+        "id": "ce4825f1-99a6-4cbb-a4e4-f1c35c55f386",
+        "subPlanId": "00e2beff-0233-4fb1-ba03-ea56d1c0ed24"
+       },
+       {
+        "kind": "subplan",
+        "id": "353eb944-bd68-48a6-bb09-1b2ac3052422",
+        "subPlanId": "652189f2-ba2d-47c4-a50e-a618ae31af10"
+       },
+       {
+        "kind": "subplan",
+        "id": "7bf13bc7-0eb7-4edf-9bb9-5002ca727ef9",
+        "subPlanId": "1f6d29b3-dc80-49d0-87c5-6a2498ef4cf8"
+       },
+       {
+        "kind": "subplan",
+        "id": "e579f92a-81e0-47bd-9b88-140d8b8eae28",
+        "subPlanId": "9703495a-a4da-433f-8c77-e2b9978bba1a"
+       },
+       {
+        "kind": "subplan",
+        "id": "fa8c1f5e-5031-4bc7-bcad-7d83ab5d6ce9",
+        "subPlanId": "f1a48acb-7abb-469c-b577-e5a9a6fbbdef"
+       },
+       {
+        "kind": "subplan",
+        "id": "3d3eb1f2-2572-4222-87a3-6ee4a5f0a6a5",
+        "subPlanId": "fa44a6dd-06f8-4feb-9705-df382eb24a60"
+       },
+       {
+        "kind": "subplan",
+        "id": "bee784bd-5589-47f3-84e2-203d46fd48d7",
+        "subPlanId": "4fac4cd7-ad73-43dc-abe0-03e4730d0193"
+       },
+       {
+        "kind": "subplan",
+        "id": "07ab851b-3a01-4683-83d4-73eab549d1c2",
+        "subPlanId": "904f4cbe-a34c-4833-bb1a-59acd36fa607"
+       },
+       {
+        "kind": "subplan",
+        "id": "e3edf480-71ea-418a-961d-5b1f6ea16aae",
+        "subPlanId": "a3107383-1d7a-43f1-854e-76de47e0d0ec"
+       },
+       {
+        "kind": "subplan",
+        "id": "1cc8ca35-215d-44ee-b9cb-6c3a28a3efa1",
+        "subPlanId": "a773ef77-e0ba-419d-9d05-117161a29561"
+       },
+       {
+        "kind": "subplan",
+        "id": "9c9ff6a2-a52d-4023-8606-4a227cb9b21a",
+        "subPlanId": "312c63df-7098-4354-ae0e-62809227fa98"
+       },
+       {
+        "kind": "subplan",
+        "id": "cb729679-729c-4c63-869d-de236c0ab2ce",
+        "subPlanId": "9fd7e7aa-ee85-4ac0-b5e9-980050e0bdaa"
+       },
+       {
+        "kind": "subplan",
+        "id": "ec421b14-57d0-4dc6-b2dc-ab6346bb5f05",
+        "subPlanId": "c7a65ddd-80d7-4979-86c6-4a8b8f823801"
+       }
+      ],
+      "subPlans": [
+       {
+        "id": "00e2beff-0233-4fb1-ba03-ea56d1c0ed24",
+        "name": "Aluminium coils",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "52d23c46-4b85-4a01-92f7-bc67ba5f8c4b",
+          "recipeId": "angels-roll-aluminium",
+          "machineId": "angels-strand-casting-machine-3",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "183960e3-3503-4c81-b4b2-721164da44b3",
+          "recipeId": "angels-liquid-molten-aluminium-2",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:13:50.130Z",
+        "updatedAt": "2026-11-15T23:13:56.585Z"
+       },
+       {
+        "id": "652189f2-ba2d-47c4-a50e-a618ae31af10",
+        "name": "Iron coils",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "52e47bd9-7516-403f-9243-86ee8cc8edcc",
+          "recipeId": "angels-roll-iron-2",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "af4fc669-1e18-4881-b23f-5ff358a2f8a8",
+          "recipeId": "angels-liquid-molten-iron",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:14:41.746Z",
+        "updatedAt": "2026-11-15T23:14:50.502Z"
+       },
+       {
+        "id": "1f6d29b3-dc80-49d0-87c5-6a2498ef4cf8",
+        "name": "Steel coils",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "06f592db-d214-4474-ab5a-8caa995e5099",
+          "recipeId": "angels-roll-steel-2",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:15:16.900Z",
+        "updatedAt": "2026-11-15T23:15:19.335Z"
+       },
+       {
+        "id": "9703495a-a4da-433f-8c77-e2b9978bba1a",
+        "name": "Copper coils",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "c9d2216c-fb52-4b46-87e0-0ad30b97e6f6",
+          "recipeId": "angels-roll-copper-2",
+          "modules": [],
+          "byproductPolicy": {},
+          "primaryProduct": "angels-roll-copper"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "eeb64df1-692c-440e-a259-d0378981d02b",
+          "recipeId": "angels-wire-coil-copper-2",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "ab490fd8-8a68-4ee8-8d9c-10f20cf5439d",
+          "recipeId": "angels-liquid-molten-copper",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:15:42.074Z",
+        "updatedAt": "2026-11-15T23:15:50.487Z"
+       },
+       {
+        "id": "f1a48acb-7abb-469c-b577-e5a9a6fbbdef",
+        "name": "Tinned coils",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "46f94c0d-6906-45ad-a215-138a98ce0a55",
+          "recipeId": "angels-wire-coil-tin-2",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "5131237f-e913-4cc3-9aa7-84b5971a386f",
+          "recipeId": "angels-roll-tin-2",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "f14bb4d4-28a0-4d0a-9647-9fe407be6b2f",
+          "recipeId": "angels-liquid-molten-tin",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:16:13.835Z",
+        "updatedAt": "2026-11-15T23:16:33.337Z"
+       },
+       {
+        "id": "fa44a6dd-06f8-4feb-9705-df382eb24a60",
+        "name": "Lead coils",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "969b4b44-341a-43ad-bc7a-10717abd66b8",
+          "recipeId": "angels-roll-lead-2",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "b0f26782-fe8a-4198-af64-e6dc74412753",
+          "recipeId": "angels-liquid-molten-lead",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:16:54.350Z",
+        "updatedAt": "2026-11-15T23:16:59.238Z"
+       },
+       {
+        "id": "4fac4cd7-ad73-43dc-abe0-03e4730d0193",
+        "name": "Invar",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "f11e63c6-2e69-4258-b441-e28e4b3d524f",
+          "recipeId": "angels-plate-invar",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "4bdc24ad-95ce-4050-8a0b-81fd6854520d",
+          "recipeId": "angels-liquid-molten-invar",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-23T04:52:15.453Z",
+        "updatedAt": "2026-11-04T15:39:02.703Z"
+       },
+       {
+        "id": "904f4cbe-a34c-4833-bb1a-59acd36fa607",
+        "name": "Brass",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "4726d9b3-eb06-4a85-b80b-30f1a1f420d1",
+          "recipeId": "angels-plate-brass",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "86280fa9-8d08-4ca7-819e-fa98e598de27",
+          "recipeId": "angels-liquid-molten-brass-2",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-23T04:52:20.364Z",
+        "updatedAt": "2026-11-04T15:39:05.238Z"
+       },
+       {
+        "id": "a3107383-1d7a-43f1-854e-76de47e0d0ec",
+        "name": "Solder",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "0ff54be0-01bf-41f0-85db-6a4d7b767f0d",
+          "recipeId": "angels-roll-solder-2",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "e12ad5bf-7cae-48c9-8c61-69f9926f9a58",
+          "recipeId": "angels-liquid-molten-solder-3",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-23T04:47:48.261Z",
+        "updatedAt": "2026-11-04T15:39:07.421Z"
+       },
+       {
+        "id": "a773ef77-e0ba-419d-9d05-117161a29561",
+        "name": "Gold coils",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "30b6cffc-41d2-4b9c-bc35-77b61781dc54",
+          "recipeId": "angels-roll-gold",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "10652363-de86-4762-bff0-4b96d493837d",
+          "recipeId": "angels-wire-coil-gold",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "76c9b685-260e-4d4b-b265-a709df947693",
+          "recipeId": "angels-liquid-molten-gold",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:17:42.836Z",
+        "updatedAt": "2026-11-15T23:17:50.072Z"
+       },
+       {
+        "id": "312c63df-7098-4354-ae0e-62809227fa98",
+        "name": "Titanium coils",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "69bbd241-7b03-4eea-a11b-f5fe408bfbda",
+          "recipeId": "angels-roll-titanium",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "179c2837-ab3e-4962-ad0b-41804525350b",
+          "recipeId": "angels-liquid-molten-titanium-3",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:18:18.849Z",
+        "updatedAt": "2026-11-15T23:18:25.655Z"
+       },
+       {
+        "id": "9fd7e7aa-ee85-4ac0-b5e9-980050e0bdaa",
+        "name": "Cobalt steel plates",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "df8a9b4b-6f43-44de-955c-094b3b234bb0",
+          "recipeId": "angels-plate-cobalt-steel",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "a73bc20e-a6d4-46f7-95c3-edc54d187f40",
+          "recipeId": "angels-liquid-molten-cobalt-steel",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:19:05.252Z",
+        "updatedAt": "2026-11-15T23:19:09.804Z"
+       },
+       {
+        "id": "c7a65ddd-80d7-4979-86c6-4a8b8f823801",
+        "name": "Silver coils",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "b6755dbc-aa89-4050-8335-cde1a31f890e",
+          "recipeId": "angels-roll-silver",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "50eebeb7-a697-4b9e-90f1-f2be1a202c91",
+          "recipeId": "angels-wire-coil-silver",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "f918e4f0-e29a-41bd-9817-5f36ea24171a",
+          "recipeId": "angels-liquid-molten-silver",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-11-15T23:19:53.773Z",
+        "updatedAt": "2026-11-15T23:20:00.222Z"
+       }
+      ],
+      "createdAt": "2026-11-15T23:13:41.907Z",
+      "updatedAt": "2026-11-15T23:22:07.755Z"
+     },
+     {
+      "id": "ad0b6655-d1a2-499c-ba40-961fe3c8e806",
+      "name": "Ingots",
+      "nodes": [
+       {
+        "kind": "subplan",
+        "id": "3cf34b9c-5229-49f7-907e-9cb2f8933cf4",
+        "subPlanId": "b16ad9b7-1a7e-4c70-a672-fd063cac4a3c"
+       },
+       {
+        "kind": "subplan",
+        "id": "c8ab4c6c-ca31-4b5c-ab3e-557c0c38fd43",
+        "subPlanId": "6a8219a1-9ae5-46aa-8a3a-25980d9ede5f"
+       },
+       {
+        "kind": "subplan",
+        "id": "49031fcc-5690-4eab-b2da-bc52d3ecb337",
+        "subPlanId": "94aa9b07-78b8-40b2-825e-0fa8c844cdf5"
+       },
+       {
+        "kind": "subplan",
+        "id": "999f7f3f-c84c-41a7-9384-13aca382ca4c",
+        "subPlanId": "89ce855e-a210-4f4b-845d-991eec535527"
+       },
+       {
+        "kind": "subplan",
+        "id": "3f760f97-e903-4439-a056-54e0d668afec",
+        "subPlanId": "117d4f67-0eba-48a7-a277-21dcbbd15fea"
+       },
+       {
+        "kind": "subplan",
+        "id": "b8914b9a-2be9-4c8a-bdd6-868727be70fb",
+        "subPlanId": "08187b38-9d88-4185-bdda-24c34099a35d"
+       },
+       {
+        "kind": "subplan",
+        "id": "49983f82-e9ea-441d-b37b-5c251f64069e",
+        "subPlanId": "0e9f65bc-c633-4fc0-a157-b1d2db8a76b2"
+       },
+       {
+        "kind": "subplan",
+        "id": "5d89af24-c4cb-4e71-a283-bfed0084ce55",
+        "subPlanId": "88ff5339-8783-4002-be44-7f9bf1b2580d"
+       },
+       {
+        "kind": "subplan",
+        "id": "672bb872-5b6a-4585-a972-321da198f0c2",
+        "subPlanId": "2691a0c1-91a0-46cf-8103-c2d7df8e3e31"
+       },
+       {
+        "kind": "subplan",
+        "id": "522e1ad3-bbf1-4aa6-84b9-9c56623cbc60",
+        "subPlanId": "3c7c9ede-f16c-452b-834f-73c6985b3e0a"
+       },
+       {
+        "kind": "subplan",
+        "id": "dff747ee-6ddd-41b6-8f85-1941be732d61",
+        "subPlanId": "d5162287-7067-485a-9399-06acb3c06ab9"
+       },
+       {
+        "kind": "subplan",
+        "id": "e1943786-676f-4d67-a3e4-2c6ce20d4dd9",
+        "subPlanId": "7c64c92a-31df-4fcc-85d8-4a449de93599"
+       },
+       {
+        "kind": "subplan",
+        "id": "15ef437d-f0e7-40e4-9bac-3cfc3f89e995",
+        "subPlanId": "fe8d321d-968d-4ed3-9024-568fcc3e719f"
+       },
+       {
+        "kind": "subplan",
+        "id": "cd32f117-696e-489f-b263-cf7962596d2f",
+        "subPlanId": "ec69dd61-d0d7-4939-9851-a21299e5625e"
+       }
+      ],
+      "subPlans": [
+       {
+        "id": "b16ad9b7-1a7e-4c70-a672-fd063cac4a3c",
+        "name": "Aluminium",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "2f9cb827-a00a-4069-87fc-2ee40474546e",
+          "recipeId": "angels-ingot-aluminium",
+          "modules": [],
+          "byproductPolicy": {},
+          "byproductConsumer": false,
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "6bf80c64-65f8-4b51-8acf-d9b1a9714363",
+          "recipeId": "angels-solid-aluminium-oxide",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "9ef1baef-af50-4825-bc67-2e52321117ee",
+          "recipeId": "angels-solid-aluminium-hydroxide-2",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "03859979-0fdd-46d4-a319-d2bf4cde3a9c",
+          "recipeId": "angels-processed-aluminium",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-21T06:12:40.687Z",
+        "updatedAt": "2026-11-15T23:14:18.085Z"
+       },
+       {
+        "id": "6a8219a1-9ae5-46aa-8a3a-25980d9ede5f",
+        "name": "Manganese",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "52849b47-62e8-4767-8e4d-e31dbbc2b74e",
+          "recipeId": "angels-ingot-manganese-2",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "c0dcb7ff-a087-4d58-84a3-89fd74d6e39b",
+          "recipeId": "angels-cathode-manganese",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "b98a9d76-de18-4082-9b90-5584fcdbfbb2",
+          "recipeId": "angels-processed-manganese",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-23T11:27:19.360Z",
+        "updatedAt": "2026-11-15T23:13:28.583Z"
+       },
+       {
+        "id": "94aa9b07-78b8-40b2-825e-0fa8c844cdf5",
+        "name": "Iron",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "134e2d0e-d431-437e-aa00-8127546de309",
+          "recipeId": "angels-ingot-iron-3",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "18bdadce-dd4f-4193-a40f-b8d4513c4375",
+          "recipeId": "angels-pellet-iron",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "fbc994c0-13de-42b1-a9ac-cff29a566851",
+          "recipeId": "angels-processed-iron",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-21T06:12:58.171Z",
+        "updatedAt": "2026-11-15T23:15:01.868Z"
+       },
+       {
+        "id": "89ce855e-a210-4f4b-845d-991eec535527",
+        "name": "Steel",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "6bedcb0c-2e8b-4e47-8cc2-010b4a8eac97",
+          "recipeId": "angels-liquid-molten-steel-4",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "65ab1d6c-b6c5-46c2-a564-780037158c13",
+          "recipeId": "angels-ingot-steel",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-21T12:19:46.782Z",
+        "updatedAt": "2026-11-15T23:15:26.734Z"
+       },
+       {
+        "id": "117d4f67-0eba-48a7-a277-21dcbbd15fea",
+        "name": "Copper",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "ce1b668f-2bf6-4caa-984b-7e3190e1190c",
+          "recipeId": "angels-ingot-copper-3",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "425fd1e6-a3ac-4067-9795-28ece78a9143",
+          "recipeId": "angels-anode-copper",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "fe6bf583-5e3b-4d9e-8300-9b11f0bd1878",
+          "recipeId": "angels-pellet-copper",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "831b1bfe-2f3f-42cb-8871-7181d8ddcc01",
+          "recipeId": "angels-processed-copper",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-21T06:13:02.335Z",
+        "updatedAt": "2026-11-22T16:16:41.021Z"
+       },
+       {
+        "id": "08187b38-9d88-4185-bdda-24c34099a35d",
+        "name": "Tin",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "6b314e6e-2867-4680-97cc-13fdf28a5c79",
+          "recipeId": "angels-ingot-tin-3",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "1cbd3d42-9e98-45f5-b96c-8ad70788536a",
+          "recipeId": "angels-pellet-tin",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "a0554f07-3dba-4a13-b2c5-b9777bdca587",
+          "recipeId": "angels-processed-tin",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-21T12:25:42.984Z",
+        "updatedAt": "2026-11-15T23:16:37.919Z"
+       },
+       {
+        "id": "0e9f65bc-c633-4fc0-a157-b1d2db8a76b2",
+        "name": "Lead",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "234f9357-835e-4a71-b075-13c2f49df960",
+          "recipeId": "angels-ingot-lead-2",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "222d7859-bc37-4bf2-83fd-4a35bbda6d5b",
+          "recipeId": "angels-solid-lead-oxide",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "20696e39-bf5d-4aae-aa20-9254b0369f6e",
+          "recipeId": "angels-processed-lead",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-21T12:19:43.066Z",
+        "updatedAt": "2026-11-15T23:17:06.801Z"
+       },
+       {
+        "id": "88ff5339-8783-4002-be44-7f9bf1b2580d",
+        "name": "Gold",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "23727b00-26c5-410b-8e15-a6f1fafdecfb",
+          "recipeId": "angels-ingot-gold",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-23T04:47:53.371Z",
+        "updatedAt": "2026-11-15T23:17:53.937Z"
+       },
+       {
+        "id": "2691a0c1-91a0-46cf-8103-c2d7df8e3e31",
+        "name": "Titanium",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "35dae8d3-2232-4fb6-b9cc-98b1d9cd22cc",
+          "recipeId": "angels-ingot-titanium",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "06398a7a-ddbb-4665-b3e6-b263369e7d5f",
+          "recipeId": "angels-sponge-titanium",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "d94ce6c7-6059-4a5a-b8f8-6b6b854bfae8",
+          "recipeId": "angels-liquid-titanium-tetrachloride",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-23T04:06:12.472Z",
+        "updatedAt": "2026-11-15T23:18:29.753Z"
+       },
+       {
+        "id": "3c7c9ede-f16c-452b-834f-73c6985b3e0a",
+        "name": "Cobalt steel",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "78ba3bb7-0cab-4f29-bc8d-0e05a7bc4f29",
+          "recipeId": "angels-ingot-cobalt",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-21T06:14:28.955Z",
+        "updatedAt": "2026-11-15T23:19:14.404Z"
+       },
+       {
+        "id": "d5162287-7067-485a-9399-06acb3c06ab9",
+        "name": "Bronze",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "d06a43f3-f346-4060-8c29-7e1991ccccde",
+          "recipeId": "angels-plate-bronze",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "f1e1fa91-5f6e-46bf-bfdc-b28cbef6aa4d",
+          "recipeId": "angels-liquid-molten-bronze-3",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-21T12:48:34.101Z",
+        "updatedAt": "2026-11-04T15:39:21.454Z"
+       },
+       {
+        "id": "7c64c92a-31df-4fcc-85d8-4a449de93599",
+        "name": "Nickel",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "e61ca3d0-ed6c-4262-abde-29b427782a64",
+          "recipeId": "angels-ingot-nickel-2",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "c7fc2940-57e1-4193-8204-b734c4946afa",
+          "recipeId": "angels-cathode-nickel",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "77755171-6b62-4ddd-81af-6eebc3491992",
+          "recipeId": "angels-processed-nickel",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-23T11:21:48.810Z",
+        "updatedAt": "2026-11-15T23:19:31.405Z"
+       },
+       {
+        "id": "fe8d321d-968d-4ed3-9024-568fcc3e719f",
+        "name": "Zinc",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "835b2865-85d5-4324-970f-0d09c41a9df0",
+          "recipeId": "angels-ingot-zinc-2",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "e5988fa2-0213-4231-b29c-175dc09256b1",
+          "recipeId": "angels-processed-zinc",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-23T11:24:45.538Z",
+        "updatedAt": "2026-11-04T15:39:16.154Z"
+       },
+       {
+        "id": "ec69dd61-d0d7-4939-9851-a21299e5625e",
+        "name": "Silver",
+        "nodes": [
+         {
+          "kind": "game-recipe",
+          "id": "a20e309a-ee20-4bfd-8347-8d3068281406",
+          "recipeId": "angels-ingot-silver-2",
+          "modules": [],
+          "byproductPolicy": {},
+          "fuelItemId": "angels-wood-charcoal"
+         },
+         {
+          "kind": "game-recipe",
+          "id": "d07be9a8-89ee-4baa-8fb9-8ead4126a34d",
+          "recipeId": "angels-solid-silver-nitrate",
+          "modules": [],
+          "byproductPolicy": {}
+         },
+         {
+          "kind": "game-recipe",
+          "id": "ee080b2a-34a5-4a67-a35f-87d5a6dbfb42",
+          "recipeId": "angels-processed-silver",
+          "modules": [],
+          "byproductPolicy": {}
+         }
+        ],
+        "subPlans": [],
+        "area": true,
+        "createdAt": "2026-10-21T12:19:56.115Z",
+        "updatedAt": "2026-11-15T23:20:04.320Z"
+       }
+      ],
+      "createdAt": "2026-11-15T23:14:10.863Z",
+      "updatedAt": "2026-11-15T23:20:09.805Z"
+     }
+    ],
+    "createdAt": "2026-10-19T06:48:13.263Z",
+    "updatedAt": "2026-11-15T23:51:45.134Z"
+   }
+  }
+ ]
+}

@@ -14,11 +14,11 @@ import { blockMakesItem } from '../../solver/index'
 // ---------------------------------------------------------------------------
 
 /**
- * `make-here` is an area's rule with no preset that overrides a block rule that has one (the area makes it here, whatever
+ * `leftover-off` is the block's Leftover switch off (block rules only, an area has none). `make-here` is an area's rule with no preset that overrides a block rule that has one (the area makes it here, whatever
  * the block says); `import-on` is an area's rule with Import on that overrides a block rule that has it off; `takes-nothing` is
  * one area switched off as a supplier of the item (`areasOff`), named by `otherAreaId`.
  */
-export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off' | 'make-here' | 'import-on' | 'takes-nothing'
+export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off' | 'leftover-off' | 'make-here' | 'import-on' | 'takes-nothing'
 export type NoEffectReason = 'product' | 'not-made' | 'no-connection'
 
 export interface SourceRulePart {
@@ -51,6 +51,7 @@ export function sourceRules(block: Block, gameData: GameData, blockIds: Readonly
     const kind = presetOf(rule)
     if (kind) rules.push(withEffect(block, gameData, blockIds, { itemId, kind }))
     if (rule.importOff) rules.push(withEffect(block, gameData, blockIds, { itemId, kind: 'import-off' }))
+    if (rule.leftoverOff) rules.push(withEffect(block, gameData, blockIds, { itemId, kind: 'leftover-off' }))
   }
   for (const area of blockAreas(block.rootPlan) ?? []) {
     const stored = findSubPlan(block.rootPlan, area.id)?.sourceRules
@@ -93,7 +94,8 @@ function noEffectReason(
     const other = new Set(blockAreas(block.rootPlan)?.find(a => a.id === otherAreaId)?.nodeIds)
     return blockMakesItem(block, gameData, itemId, other) || blockUsesItem(block, gameData, itemId, other) ? undefined : 'not-made'
   }
-  if (hasProduct(block, itemId)) return 'product'
+  // Leftover off is about the item's surplus, which a goal has too: a product does not switch it off.
+  if (kind !== 'leftover-off' && hasProduct(block, itemId)) return 'product'
   // An area's rule is about the rows of that area: with none making the item it changes nothing there.
   const rows = areaId === undefined ? undefined : new Set(blockAreas(block.rootPlan)?.find(a => a.id === areaId)?.nodeIds)
   if (!blockMakesItem(block, gameData, itemId, rows)) return 'not-made'

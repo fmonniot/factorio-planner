@@ -46,6 +46,33 @@ describe('sourceRules', () => {
     expect(rules(block())).toEqual([])
   })
 
+  describe('Leftover off', () => {
+    const withLeftover = (b: Block, ...items: string[]): Block => {
+      for (const id of items) b.sourceRules[id] = { ...b.sourceRules[id], leftoverOff: true }
+      return b
+    }
+
+    it('is a rule with an effect on an item a row makes, listed after the item\'s Import off', () => {
+      const b = withLeftover(block({ locked: ['plate'] }), 'plate')
+      expect(rules(b)).toEqual([{ itemId: 'plate', kind: 'import-off' }, { itemId: 'plate', kind: 'leftover-off' }])
+    })
+
+    it('has no effect when no row makes the item', () => {
+      expect(rules(withLeftover(block(), 'ore'))).toEqual([{ itemId: 'ore', kind: 'leftover-off', noEffect: 'not-made' }])
+    })
+
+    it('still acts on a product: the excess over the goal is priced', () => {
+      expect(rules(withLeftover(block({ product: 'plate' }), 'plate'))).toEqual([{ itemId: 'plate', kind: 'leftover-off' }])
+      expect(rules(withLeftover(block({ product: 'plate', sourcing: { plate: 'byproducts-first' } }), 'plate')).map(r => [r.kind, r.noEffect]))
+        .toEqual([['byproducts-first', 'product'], ['leftover-off', undefined]])
+    })
+
+    it('marks the item, and needs no connection', () => {
+      const b = withLeftover(block(), 'plate')
+      expect([...sourceRuleItems(b, gameData, [b])]).toEqual(['plate'])
+    })
+  })
+
   describe('a rule with an effect', () => {
     it('byproducts-first on an item a row makes', () => {
       expect(rules(block({ sourcing: { plate: 'byproducts-first' } }))).toEqual([{ itemId: 'plate', kind: 'byproducts-first' }])

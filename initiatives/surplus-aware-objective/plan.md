@@ -4,7 +4,7 @@ Status: Future
 
 The solver picks the plan with the fewest recipe executions per minute and treats left-over output as free. In three real Seablock plans that produced results a player does not expect: rows the player added to build a chain stay at zero, a recipe is over-run so that an unwanted output piles up, and a loop the player built is left mostly open. This initiative collects what was found, the options for changing what the solver optimises, and what is still unknown. No option is chosen yet: the first phase is an experiment that decides.
 
-See also [surplus-rule](../surplus-rule/plan.md): the narrow version, a per-item rule that prices a surplus of one item (the author's coolant loop), with a spike that measured it. It ships first and owns the questions both initiatives share (exported surplus, byproduct consumers, areas, connections before imports); see [its interplay list](../surplus-rule/plan.md#decisions-2026-11-22).
+See also [surplus-rule](../archive/surplus-rule/plan.md): the narrow version, a per-item rule that prices a surplus of one item (the author's coolant loop), with a spike that measured it. It ships first and owns the questions both initiatives share (exported surplus, byproduct consumers, areas, connections before imports); see [its interplay list](../archive/surplus-rule/plan.md#decisions-2026-11-22).
 
 ## The problem, from the player's side
 
@@ -65,7 +65,7 @@ The last row is the hydrogen sulfide route plus `angels-water-void-angels-water-
 
 ### Metals: a coolant loop left open because the make-up is cheaper
 
-From the author's Seablock "middle ring" plan of 2026-11-22. The fixture, the recipes and the spike are in [surplus-rule](../surplus-rule/plan.md#evidence); only the result is summarised here.
+From the author's Seablock "middle ring" plan of 2026-11-22. The fixture, the recipes and the spike are in [surplus-rule](../archive/surplus-rule/plan.md#evidence); only the result is summarised here.
 
 The Metals block has a coolant area: three cooling rows and a filtration row turn used coolant back into coolant (the filter keeps 80%), and a make-up recipe brews coolant from water and mineral oil.
 
@@ -106,10 +106,10 @@ Known so far: the Seablock data has void rows for some items (`angels-water-void
 
 - **Which cost unit?** Executions, machines and power disagree on Extra Sulfur. Is the answer one of them, a blend, or a per-plan setting?
 - **How is surplus priced when there is no void row?** And how many items have one in each bundled data set?
-- **Interplay with connections, policies and areas.** Exported surplus, byproduct consumers and `discard`, areas, pairs and routes, and the order of connections before imports are settled in [surplus-rule](../surplus-rule/plan.md#decisions-2026-11-22), which needs the same answers and ships first. What a global objective adds on top: `byproducts-first` and its slack cost have to agree with a priced surplus on every item, not one; and the area LP's two stages have their own costs (shipping, `BIG_M` slack), which a new cost unit (machines, power) has to be put on the same scale as.
+- **Interplay with connections, policies and areas.** Exported surplus, byproduct consumers and `discard`, areas, pairs and routes, and the order of connections before imports are settled in [surplus-rule](../archive/surplus-rule/plan.md#decisions-2026-11-22), which needs the same answers and ships first. What a global objective adds on top: `byproducts-first` and its slack cost have to agree with a priced surplus on every item, not one; and the area LP's two stages have their own costs (shipping, `BIG_M` slack), which a new cost unit (machines, power) has to be put on the same scale as.
 - **Opt-in or default?** Changing the objective changes existing plans. A per-block or per-plan setting would keep old results.
 - **Row intent.** Is "require this row" (option C) a per-row flag next to pinning, or part of a block-level mode?
-- **The order of connections before imports.** How a priced surplus fits the [sourcing priority](../archive/sourcing-priority/phase-6.md) order of LP solves is in [surplus-rule](../surplus-rule/plan.md#decisions-2026-11-22). A new cost of a recipe run replaces the objective of the last step only, and must be tried with that order in place; it must not ship in the same release as another change that moves numbers in existing plans.
+- **The order of connections before imports.** How a priced surplus fits the [sourcing priority](../archive/sourcing-priority/phase-6.md) order of LP solves is in [surplus-rule](../archive/surplus-rule/plan.md#decisions-2026-11-22). A new cost of a recipe run replaces the objective of the last step only, and must be tried with that order in place; it must not ship in the same release as another change that moves numbers in existing plans.
 
 ## Phases
 

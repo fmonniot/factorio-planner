@@ -21,6 +21,7 @@ import { SourceRulesButton } from './SourceRulesButton'
 import { useDrawerLayout } from './sidePanel/useDrawerLayout'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { RowActionsMenu } from './RowActionsMenu'
+import { USE_IT_ALL_ACTION } from './itemSourcing'
 import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { ConnectionLimitEditor } from './ConnectionLimitEditor'
@@ -198,8 +199,9 @@ export function FactorySummary() {
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
   const allFlows = useSolverStore(selectFlows)
   const addNode = useBlockStore(s => s.addNode)
+  const toggleLeftoverOff = useBlockStore(s => s.toggleLeftoverOff)
   const addBlockForItem = useBlockStore(s => s.addBlockForItem)
-  const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
+  const [byproductMenu, setByproductMenu] = useState<{ itemId: string; rate: number; x: number; y: number } | null>(null)
   const [consumerPickerItemId, setConsumerPickerItemId] = useState<string | null>(null)
   const [producerPickerItemId, setProducerPickerItemId] = useState<string | null>(null)
   const [productMenu, setProductMenu] = useState<{ productId: string; x: number; y: number } | null>(null)
@@ -288,6 +290,18 @@ export function FactorySummary() {
   // The popover is tied to one item of one block: close it when either goes away or the order stops being worth showing.
   if (servedPopover && (servedPopover.blockId !== activeBlockId || !hasServedOrder(servedOf(servedPopover.itemId)))) setServedPopover(null)
   const storedOf = (itemId: string) => (activeBlock ? servedListOf(activeBlock, itemId) : undefined)
+  // A leftover slot (a rate above 0: an export-only slot has none) can switch Leftover off for its item, so the rows use it up. With
+  // the rule already off the action stays, disabled, to say that the rows cannot use more of it.
+  const leftoverAction = (itemId: string, rate: number): RowAction[] => {
+    if (!(rate > 0) || !activeBlock) return []
+    const off = activeBlock.sourceRules[itemId]?.leftoverOff === true
+    return [{
+      label: USE_IT_ALL_ACTION.label,
+      disabled: off,
+      title: off ? USE_IT_ALL_ACTION.offTitle : USE_IT_ALL_ACTION.title,
+      onSelect: () => toggleLeftoverOff(itemId),
+    }]
+  }
   const servedAction = (itemId: string): StripAction[] => {
     const list = servedOf(itemId)
     if (!hasServedOrder(list)) return []
@@ -487,7 +501,7 @@ export function FactorySummary() {
           rateUnit={rateUnit}
           onSlotContextMenu={(slot, e) => {
             e.preventDefault()
-            setByproductMenu({ itemId: slot.itemId, x: e.clientX, y: e.clientY })
+            setByproductMenu({ itemId: slot.itemId, rate: slot.rate, x: e.clientX, y: e.clientY })
           }}
           renderRates={slot => (
             <span className="text-xs text-gray-300">
@@ -497,6 +511,7 @@ export function FactorySummary() {
           )}
           actionsFor={slot => [
             ...servedAction(slot.itemId),
+            ...leftoverAction(slot.itemId, slot.rate),
             { label: 'Add consumer recipe…', onSelect: () => setConsumerPickerItemId(slot.itemId) },
             { label: 'Make it a product', onSelect: () => requestAddProduct(slot.itemId) },
           ]}
@@ -667,6 +682,7 @@ export function FactorySummary() {
           x={byproductMenu.x}
           y={byproductMenu.y}
           actions={[
+            ...leftoverAction(byproductMenu.itemId, byproductMenu.rate),
             { label: 'Add consumer recipe…', onSelect: () => setConsumerPickerItemId(byproductMenu.itemId) },
             { label: 'Make it a product', onSelect: () => requestAddProduct(byproductMenu.itemId) },
           ]}

@@ -680,8 +680,7 @@ describe('split fluids on the bundled plans', () => {
 })
 
 describe('a coolant loop with Leftover off on the real Seablock data', () => {
-  // The archive step must update this path when the surplus-rule initiative moves to initiatives/archive/.
-  const FIXTURE = resolve(import.meta.dirname, '../../initiatives/surplus-rule/coolant-loop.plan.json')
+  const FIXTURE = resolve(import.meta.dirname, '../../initiatives/archive/surplus-rule/coolant-loop.plan.json')
   const USED = 'angels-liquid-coolant-used'
   const block = (): Block => parseAppState(JSON.parse(readFileSync(FIXTURE, 'utf-8'))).blocks[0]
   const solved = (rules: Block['sourceRules']) => solve(flattenBlock({ ...block(), sourceRules: rules }), seablock)
