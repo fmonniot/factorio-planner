@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Block graph today</title>
+<script src="./support.js"></script>
+<script src="./graph-data.js"></script>
+<script src="./graph-lib.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1280px; height: 840px; box-sizing: border-box; display: flex; flex-direction: column; background: #111827; color: #f3f4f6; font-family: Inter, system-ui, sans-serif; overflow: hidden">
+  <div style="padding: 20px 28px 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #374151">
+    <div style="display: flex; align-items: baseline; gap: 14px">
+      <div style="font-size: 20px; font-weight: 700">Today</div>
+      <div style="font-size: 13px; color: #9ca3af">The app's own layout of a real 15-block plan. Scroll the box below; there is no fit-to-view.</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <div style="font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #1f2937; border: 1px solid #4b5563; color: #e5e7eb">3112 × 842 px, 9 columns</div>
+      <div style="font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #1f2937; border: 1px solid #4b5563; color: #e5e7eb">11 edges run right to left (dashed, along the bottom)</div>
+      <div style="font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #1f2937; border: 1px solid #4b5563; color: #e5e7eb">20 forward edges skip a column or more</div>
+      <div style="font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #1f2937; border: 1px solid #4b5563; color: #e5e7eb">10 edges collapsed to a summary chip</div>
+    </div>
+  </div>
+  <div style="flex: 1; min-height: 0; overflow: auto; position: relative; background: #0b1220">
+    <div style="position: relative; width: {{boxW}}px; height: {{boxH}}px">
+      <div style="position: absolute; left: 56px; top: 56px">
+        <sc-for list="{{edges}}" as="e" hint-placeholder-count="46">
+          <svg width="1" height="1" style="position: absolute; left: 0px; top: 0px; overflow: visible; pointer-events: none" aria-hidden="true">
+            <path d="{{e.d}}" fill="none" stroke="{{e.stroke}}" stroke-width="{{e.sw}}" stroke-dasharray="{{e.dash}}" stroke-opacity="0.85"></path>
+          </svg>
+        </sc-for>
+        <sc-for list="{{nodes}}" as="n" hint-placeholder-count="15">
+          <div style="{{n.style}}">
+            <div style="{{n.stripe}}"></div>
+            <div style="padding: 9px 12px 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.name}}</div>
+            <div style="padding: 2px 12px 0; font-size: 11px; color: #9ca3af">{{n.sub}}</div>
+          </div>
+        </sc-for>
+        <sc-for list="{{chips}}" as="c" hint-placeholder-count="60">
+          <div style="{{c.style}}">{{c.text}}</div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":840}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const BG = window.BG, H = window.BGH;
+    const T = BG.today;
+    const nodes = Object.keys(T.nodes).map((id) => {
+      const b = H.blocks[id], p = T.nodes[id];
+      return {
+        name: b.name,
+        sub: 'receives from ' + H.inDeg[id] + ' · supplies ' + H.outDeg[id],
+        style: 'position:absolute;box-sizing:border-box;left:' + p[0] + 'px;top:' + p[1] + 'px;width:200px;height:64px;background:#1f2937;border:1px solid #4b5563;border-radius:6px;overflow:hidden',
+        stripe: 'position:absolute;left:0;top:0;right:0;height:3px;background:' + b.color
+      };
+    });
+    const edges = [], chips = [];
+    T.edges.forEach((e) => {
+      const p = H.pairs[e[0] + '>' + e[1]];
+      const st = H.worst(p.items), src = H.blocks[e[0]];
+      const stroke = st === 'o' ? src.color : H.stColor(st);
+      edges.push({ d: e[2], stroke: stroke, sw: 1.5, dash: e[6] ? '5 4' : 'none' });
+      const border = stroke;
+      if (e[5]) {
+        chips.push({ text: '▾ ' + p.items.length + ' items', style: 'position:absolute;box-sizing:border-box;left:' + (e[3] - 44) + 'px;top:' + (e[4] - 14) + 'px;width:88px;height:28px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#f3f4f6;background:#111827;border:1.5px solid ' + border + ';border-radius:5px' });
+      } else {
+        const n = p.items.length;
+        p.items.forEach((it, i) => {
+          const top = e[4] - n * 14 + i * 28;
+          chips.push({ text: it.n.slice(0, 11) + ' ' + H.fmt(it.r), style: 'position:absolute;box-sizing:border-box;left:' + (e[3] - 60) + 'px;top:' + top + 'px;width:120px;height:26px;padding:0 6px;display:flex;align-items:center;font-size:10.5px;color:#e5e7eb;background:#111827;border:1.5px solid ' + (it.s === 'l' ? H.LIM : border) + ';border-radius:5px;white-space:nowrap;overflow:hidden' });
+        });
+      }
+    });
+    return { nodes: nodes, edges: edges, chips: chips, boxW: T.w + 112, boxH: T.h + 112 };
+  }
+}
+</script>
+</body>
+</html>
