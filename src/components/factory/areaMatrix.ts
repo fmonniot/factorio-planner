@@ -369,9 +369,15 @@ export function matchQuery<R extends { itemId: string; name: string }>(
   const itemHits = rows.filter(r => has(r.name))
   const colHits = columns.filter(c => c.names.some(has)).map(c => c.id)
   if (itemHits.length === 0 && colHits.length === 0) return null
-  const columnIds = colHits.length > 0 ? new Set(colHits) : null
-  if (itemHits.length > 0) return { rows: itemHits, columnIds }
-  return { rows: rows.filter(r => colHits.some(c => hasCell(r, c))), columnIds }
+  if (colHits.length === 0) return { rows: itemHits, columnIds: null }
+  // Both can match, and the query is an OR: a row stays when its item matches or it has a cell in a
+  // matching column, and a column stays when it matches or has a cell in a matching row.
+  const columnIds = new Set(colHits)
+  if (itemHits.length > 0) {
+    for (const c of columns) if (itemHits.some(r => hasCell(r, c.id))) columnIds.add(c.id)
+  }
+  const keepRow = (r: R) => has(r.name) || colHits.some(c => hasCell(r, c))
+  return { rows: rows.filter(keepRow), columnIds }
 }
 
 /** Every category an item can fall in, by id (the item groups of the bundle, Other and Machines). */

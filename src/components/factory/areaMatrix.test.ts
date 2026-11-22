@@ -387,8 +387,17 @@ describe('matchQuery', () => {
   })
   it('matches both', () => {
     const r = matchQuery('ox', rows, cols, has)!
-    expect(r.rows.map(x => x.itemId)).toEqual(['o'])
-    expect([...r.columnIds!]).toEqual(['c1'])
+    // Oxygen matches by name, c1 ("Oxide") by name and holds Hydrogen; c2 holds Oxygen.
+    expect(r.rows.map(x => x.itemId)).toEqual(['h', 'o'])
+    expect([...r.columnIds!].sort()).toEqual(['c1', 'c2'])
+  })
+  it('keeps the area that trades a matching item even when another area matches by name', () => {
+    const items = [{ itemId: 'ingot', name: 'Gold ingot' }, { itemId: 'ore', name: 'Gold ore' }]
+    const areas = [{ id: 'a1', names: ['Gold ingot'] }, { id: 'a2', names: ['Gold'] }]
+    const cell = (r: { itemId: string }, c: string) => r.itemId === 'ingot' || c === 'a2'
+    const r = matchQuery('ingot', items, areas, cell)!
+    expect([...r.columnIds!].sort()).toEqual(['a1', 'a2'])
+    expect(r.rows.map(x => x.itemId)).toEqual(['ingot'])
   })
   it('keeps everything when the query names the scope', () => {
     expect(matchQuery('hydro', rows, cols, has, ['Hydrogen Block'])).toEqual({ rows, columnIds: null })
