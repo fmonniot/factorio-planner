@@ -1,0 +1,86 @@
+{
+  "blocks": [
+    {
+      "id": "dddd0001-0000-0000-0000-000000000001",
+      "name": "Pipes",
+      "color": "#34d399",
+      "goals": [
+        {
+          "id": "dddd0001-0000-0000-0000-0000000000g1",
+          "itemId": "pipe",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "dddd0001-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "dddd0001-0000-0000-0000-0000000000n1",
+            "recipeId": "pipe",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-11-21T00:00:00.000Z",
+        "updatedAt": "2026-11-21T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "dddd0002-0000-0000-0000-000000000001",
+      "name": "Valves",
+      "color": "#60a5fa",
+      "goals": [
+        {
+          "id": "dddd0002-0000-0000-0000-0000000000g1",
+          "itemId": "nullius-one-way-valve",
+          "rate": 30
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [
+        {
+          "id": "dddd0002-0000-0000-0000-0000000000c1",
+          "itemId": "pipe",
+          "fromBlockId": "dddd0001-0000-0000-0000-000000000001"
+        }
+      ],
+      "rootPlan": {
+        "id": "dddd0002-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "dddd0002-0000-0000-0000-0000000000n1",
+            "recipeId": "nullius-one-way-valve",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "dddd0002-0000-0000-0000-0000000000n2",
+            "recipeId": "pipe",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "dddd0002-0000-0000-0000-0000000000n3",
+            "recipeId": "nullius-iron-rod",
+            "modules": [],
+            "byproductPolicy": {},
+            "pinnedRate": 1
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-11-21T00:00:00.000Z",
+        "updatedAt": "2026-11-21T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "dddd0002-0000-0000-0000-000000000001"
+}
