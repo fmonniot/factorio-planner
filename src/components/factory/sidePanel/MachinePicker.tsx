@@ -92,10 +92,10 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
               {row}
               <span
                 data-testid="row-only-label"
-                title={`Defaults are set per ${categoryLabel(recipeCategory, gameData)} category; this machine only crafts an additional category of the recipe, so it can only be chosen per row.`}
-                className="px-1.5 text-[10px] text-gray-500"
+                title={`Defaults are per primary category (${categoryLabel(recipeCategory, gameData)}). This machine only crafts an additional category of the recipe, so it can only be chosen for this row.`}
+                className="px-1.5 text-[10px] text-gray-400"
               >
-                this row only
+                row only, no default
               </span>
             </div>
           )

@@ -87,7 +87,10 @@ describe('MachineCell', () => {
       expect(screen.getByTestId('default-machine-badge')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Make Assembler 2/ })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /Make Electronics machine/ })).toBeNull()
-      expect(screen.getAllByTestId('row-only-label')).toHaveLength(1)
+      const rowOf = (id: string) => screen.getAllByTestId('machine-option').find(o => o.getAttribute('data-machine-id') === id)!.parentElement!
+      expect(within(rowOf('elec')).getByTestId('row-only-label')).toBeInTheDocument()
+      expect(within(rowOf('am1')).queryByTestId('row-only-label')).toBeNull()
+      expect(within(rowOf('am2')).queryByTestId('row-only-label')).toBeNull()
     })
 
     it('sets the machine of the row to one that only crafts the additional category', () => {
