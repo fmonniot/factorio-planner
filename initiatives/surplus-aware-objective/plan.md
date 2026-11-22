@@ -2,9 +2,9 @@
 
 Status: Future
 
-The solver picks the plan with the fewest recipe executions per minute and treats left-over output as free. In two real Seablock plans that produced results a player does not expect: rows the player added to build a chain stay at zero, and a recipe is over-run so that an unwanted output piles up. This initiative collects what was found, the options for changing what the solver optimises, and what is still unknown. No option is chosen yet: the first phase is an experiment that decides.
+The solver picks the plan with the fewest recipe executions per minute and treats left-over output as free. In three real Seablock plans that produced results a player does not expect: rows the player added to build a chain stay at zero, a recipe is over-run so that an unwanted output piles up, and a loop the player built is left mostly open. This initiative collects what was found, the options for changing what the solver optimises, and what is still unknown. No option is chosen yet: the first phase is an experiment that decides.
 
-See also [surplus-rule](../surplus-rule/plan.md): the narrow version, a per-item rule that prices a surplus of one item (the author's coolant loop), with a spike that measured it.
+See also [surplus-rule](../surplus-rule/plan.md): the narrow version, a per-item rule that prices a surplus of one item (the author's coolant loop), with a spike that measured it. It ships first and owns the questions both initiatives share (exported surplus, byproduct consumers, areas, connections before imports); see [its interplay list](../surplus-rule/plan.md#interplay-to-settle).
 
 ## The problem, from the player's side
 
@@ -63,10 +63,28 @@ Removing the `angels-solid-sulfur` row makes the solver build the full loop and 
 
 The last row is the hydrogen sulfide route plus `angels-water-void-angels-water-heavy-mud` (400 heavy mud per run) absorbing the 12M/min. The 90,000 solid mud/min is still left over.
 
+### Metals: a coolant loop left open because the make-up is cheaper
+
+From the author's Seablock "middle ring" plan of 2026-11-22. The fixture, the recipes and the spike are in [surplus-rule](../surplus-rule/plan.md#evidence); only the result is summarised here.
+
+The Metals block has a coolant area: three cooling rows and a filtration row turn used coolant back into coolant (the filter keeps 80%), and a make-up recipe brews coolant from water and mineral oil.
+
+Result: the solver closes 37% of the loop and leaves 2,431.9 used coolant per minute over. Closing the loop for 200 used units costs about 4.2 runs and recovers 160 coolant, which 1.6 runs of the make-up make.
+
+| Metals | Executions/min | Machines | Power |
+|---|---|---|---|
+| Solver's choice (loop mostly open) | 1,662.57 | 27.02 | 6,407 kW |
+| Loop closed (surplus of used coolant priced, or four byproduct-consumer flags) | 1,698.64 | 27.64 | 6,352 kW |
+
+A price on the used-coolant surplus closes the loop from 0.015 per unit up. Closing it moves the surplus to steam (1,823.9 per minute, which only one row consumes). Pricing steam as well over-runs `angels-solid-carbon`, that one consumer, and leaves 182.4 solid carbon per minute instead.
+
 ### What the evidence says about the choice of cost
 
 - **Minimising machines instead of executions would not change either result** for the two solver choices (Mod 1: 5.5 against 6.7 machines; Extra Sulfur: 2,243 against 2,492).
 - **Whether pricing the surplus changes Extra Sulfur depends on the unit.** If the voiding is paid in executions, the hydrogen sulfide route still wins (92,000 against 120,874). In machines the loop wins (2,492 against 3,493). In power the hydrogen sulfide route still wins (379 against 540 MW). The three disagree, so the unit is a real decision, not a detail.
+- **The coolant loop is the first case where a priced surplus gives the plan the player wants.** The units disagree there too: the closed loop costs more executions (1,698.64 against 1,662.57) and more machines (27.64 against 27.02), but less power (6,352 against 6,407 kW).
+- **The price that flips a plan depends on its recipes.** For the coolant loop the break-even is 0.0148 executions per unit of surplus removed. No single weight per item is right for every plan, which counts against option B with hand-set weights and for either a price that acts as a ban (the choice of surplus-rule) or the cost of voiding (the refined idea below).
+- **Pricing a surplus can move it rather than remove it.** Both Extra Sulfur (heavy mud over-run for hydrogen sulfide) and the coolant loop (solid carbon over-run to burn steam) show a recipe over-run for one output while another piles up.
 - **Not measured:** whether pricing Mod 1's geode surplus flips Mod 1. The surplus is about 139 geodes/min and the balanced variant costs about 1.2 machines more; it depends on whether a geode void recipe exists and what it costs.
 
 ## Options
@@ -88,12 +106,10 @@ Known so far: the Seablock data has void rows for some items (`angels-water-void
 
 - **Which cost unit?** Executions, machines and power disagree on Extra Sulfur. Is the answer one of them, a blend, or a per-plan setting?
 - **How is surplus priced when there is no void row?** And how many items have one in each bundled data set?
-- **Exported surplus.** A source block's surplus that another block consumes is not waste. The objective works per block, so pricing must exclude what flows over a connection (and the interplay with the requests and takes in [spec/solver.md](../../spec/solver.md#connections-between-blocks)).
-- **Byproduct consumers and policies.** `byproductConsumer`, `byproductPolicy = 'discard'` and `byproducts-first` already express some intent about surplus. A priced surplus has to agree with them (a discarded output should not be charged).
-- **Areas.** The area LP has two stages with their own costs (shipping, `BIG_M` slack). Whatever changes in the plain LP has to be mirrored there.
+- **Interplay with connections, policies and areas.** Exported surplus, byproduct consumers and `discard`, areas, pairs and routes, and the order of connections before imports are settled in [surplus-rule](../surplus-rule/plan.md#interplay-to-settle), which needs the same answers and ships first. What a global objective adds on top: `byproducts-first` and its slack cost have to agree with a priced surplus on every item, not one; and the area LP's two stages have their own costs (shipping, `BIG_M` slack), which a new cost unit (machines, power) has to be put on the same scale as.
 - **Opt-in or default?** Changing the objective changes existing plans. A per-block or per-plan setting would keep old results.
 - **Row intent.** Is "require this row" (option C) a per-row flag next to pinning, or part of a block-level mode?
-- **The order of connections before imports.** The [sourcing priority](../archive/sourcing-priority/phase-6.md) initiative made a connection replace an import by an order of LP solves (least import, least received, fill), not by a weight on a slack, because a weight breaks at real recipe ratios (its T1 report, point 5). Candidate costs of a recipe run or a left-over must be tried with that order in place: they replace the objective of the last step only, and the two changes must not ship in one release, since each moves numbers in existing plans.
+- **The order of connections before imports.** How a priced surplus fits the [sourcing priority](../archive/sourcing-priority/phase-6.md) order of LP solves is in [surplus-rule](../surplus-rule/plan.md#interplay-to-settle). A new cost of a recipe run replaces the objective of the last step only, and must be tried with that order in place; it must not ship in the same release as another change that moves numbers in existing plans.
 
 ## Phases
 

@@ -71,12 +71,15 @@ Not tried by the spike: a surplus that another block takes over a connection (th
 
 **The solver reads it where it builds the row.** `buildLPModel` is where the intermediate rows are built, and the area LP and the connection-order solves build on it, so the change is one place plus a check of each caller. A split fluid's keys all take the rule of their base item.
 
-**Interplay to settle.**
+### Interplay to settle
+
+These questions are shared with [surplus-aware-objective](../surplus-aware-objective/plan.md), which needs the same answers for any priced surplus and links here instead of repeating them. They are decided in this initiative because it ships first.
 
 - *Exported surplus.* A block's surplus is also what it offers over a connection. A surplus price must not charge what another block takes (the same issue as the backlog bug "`overconstrained` warns on surplus that is exported"). Options: the rule is refused (or has no effect, with the grey "no effect" line) for an item with an outgoing connection; or the surplus is charged only after the offers.
 - *Byproduct consumers and `discard`.* A flagged row already makes a surplus worth absorbing. The two should agree: a discarded output is not a surplus, and a flagged row on an item with the rule is redundant (say so with a no-effect line).
 - *Areas.* Whether the rule can be set per area (an area that must loop its own coolant). The block row is enough when the rule is the block's.
 - *Pairs and routes.* An item with switched-off suppliers has sinks for what leaves an area (`areaRoutes`); a priced surplus has to count those sinks as surplus, or the rule says nothing for such items.
+- *Connections before imports.* The [sourcing priority](../archive/sourcing-priority/phase-6.md) initiative made a connection replace an import by an order of LP solves (least import, least received, fill), not by a weight on a slack, because a weight breaks at real recipe ratios (its T1 report, point 5). `buildLPModel` builds the model of every step, so the surplus variable is in each of them; whether its price belongs in every step's objective or only the last one's, and that it does not change what the earlier steps decide, is to check. The spike ran the full plan only through `solveAll`, and the fixture has no connected source.
 
 ## Open questions
 
