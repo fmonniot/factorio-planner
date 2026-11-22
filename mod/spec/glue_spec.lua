@@ -324,7 +324,7 @@ describe("scripts/gui.lua", function()
     assert.are.equal("machine", machine.tags.what)
     assert.are.equal("Nested sub-factories", machine.tags.block)
     assert.are.equal("entity/beacon", beacon.sprite)
-    assert.are.equal(8, beacon.number) -- 8 per machine, 1 machine
+    assert.are.equal(8, beacon.number) -- 8 per machine
     assert.are.same({ "left" }, beacon.mouse_button_filter)
     assert.are.equal("beacon", beacon.tags.what)
     assert.are.equal(machine.tags.entry, beacon.tags.entry)
@@ -339,6 +339,21 @@ describe("scripts/gui.lua", function()
     end))
     -- A row without a beacon has an empty cell there.
     assert.are.equal("empty-widget", furnace[4].type)
+  end)
+
+  it("numbers the beacon icon with the beacons per machine, not the row's total", function()
+    local snapshot = support.json_to_table(fixture_text("seablock-groups"))
+    for _, block in ipairs(snapshot.blocks) do
+      for _, row in ipairs(block.rows) do
+        if row.recipe == "copper-cable" then
+          row.machinesCeil = 3
+        end
+      end
+    end
+    local _, window = show(snapshot, { level = GROUP .. "Plates and cables" })
+    local beacon = line_named(window, "[recipe=copper-cable]")[4]
+    assert.are.equal(8, beacon.number) -- 8 per machine, 3 machines
+    assert.is_truthy(string.find(fake_game.flatten(beacon.tooltip), "{fp-viewer.tt-beacons-total|24}", 1, true))
   end)
 
   it("leaves the beacon column out of a block with no beacon", function()

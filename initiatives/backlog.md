@@ -58,7 +58,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
   - *Data-set badge versus `mod.stored`.* The "Data set mismatch" badge comes from the mod's `unknownIds` count in `status`, and is not checked against the plan id the mod reports as stored (`mod.stored`), so the badge can describe a plan other than the one the planner holds. Decide whether the badge should only show when the stored plan is the planner's.
   - *Rebuild debounce.* `src/viewer/viewer.ts` rebuilds the snapshot on every new solver result, with no debounce. Debouncing it would save work while the player edits a big plan. Performance only.
 - [ ] **In-game viewer: every beacon configuration.** A row can hold several beacon configurations, but the snapshot sends only the first one that has something to place (`beacon`). Send a `beacons` list instead: the snapshot schema (`src/snapshot/schema.ts`), `npm run contract`, the bridge fixtures, and the mod (`mod/lib/blueprint.lua`, `mod/scripts/cursor.lua`), and every module of a beacon with mixed slots (today only the module most of its slots hold).
-- [ ] **In-game viewer: beacon count on the beacon icon.** The number on the beacon icon is the row's total beacons (`beacon.total`, beacons per machine times the rounded-up machine count; `mod/scripts/gui.lua`, `beacon_cell`, since #193); it should be the number of beacons per machine (`beacon.per_machine`, already in the view-model and in the tooltip). A one-line change plus the mod's tests; the tooltip keeps the total.
 
 ## Sourcing priority
 
