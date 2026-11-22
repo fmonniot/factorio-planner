@@ -556,7 +556,7 @@ local function beacon_cell(t, block, entry, gray)
   parts[#parts + 1] = { "", "\n", { key("tt-click") } }
   slot(t, {
     sprite = sprite_of(beacon.sprite, beacon.missing),
-    number = beacon.total,
+    number = beacon.per_machine,
     tooltip = concat(parts),
     missing = beacon.missing,
     gray = gray,
