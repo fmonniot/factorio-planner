@@ -305,7 +305,7 @@ export interface AreaOutside { itemId: string; area: number; slack: number; supp
 export interface AreaPair { itemId: string; from: number; to?: number; rate: number }
 
 /**
- * The steps of `connectionOrder.ts` in the area LP (sourcing priority phase 6, a spike). `measure` runs one LP on that
+ * The steps of `connectionOrder.ts` in the area LP (sourcing priority phase 6). `measure` runs one LP on that
  * objective (`__imp`: every slack that costs `BIG_M`; `__rec`: the supplies of `defaults` and of the areas whose spec says
  * `received`) and returns its sum as `measured`; without it the two stages run as usual. `importCap` and `receivedCap`
  * bound the two sums in every stage.
@@ -1175,9 +1175,17 @@ export function solveAreaBlock(
   }
   // A goal that is a pair item gets a spec too (no slack, no supply: only the flows between areas).
   const specItems = [...areaItems, ...[...pairItems].filter(id => !areaItems.has(id))]
-  // `ordered`: the specs of the order's steps (connectionOrder.ts): as pass 1, plus a supply capped by the offer only in
+  // An area on Don't make more here has the cheap slack, except for a byproduct consumer's ingredient (as the plain path's byproducts-first).
+  const bfArea = (a: number, itemId: string) => ruleOf(a, itemId).makeHere === 'off' && !consumerIngredients.has(itemId)
+  const lockKey = (itemId: string, a: number) => `${itemId}\u0000${a}`
+  // `order`: the specs of the order's steps (connectionOrder.ts): as pass 1, plus a supply capped by the offer only in
   // every area that is not Receive it first nor Don't make more here, bounded by its own use and counted as received.
-  const areaItemSpecs = (residual?: Map<string, Map<number, number>>, ordered = false): AreaItemSpec[] => specItems.map(itemId => {
+  // `order.relock`: the locked connected (item, area) pairs whose step-3 slack is 0 get no slack (the plain `__relock_`).
+  // `order.refill`: the supply of a Don't make more here area, capped at the slack the fill left it (the plain path's refill).
+  const areaItemSpecs = (
+    residual?: Map<string, Map<number, number>>,
+    order?: { relock: Set<string>; refill?: Map<string, Map<number, number>> },
+  ): AreaItemSpec[] => specItems.map(itemId => {
     const cap = totalCaps.get(itemId)
     const res = residual?.get(itemId) ?? new Map<number, number>()
     let resTotal = 0
@@ -1186,26 +1194,26 @@ export function solveAreaBlock(
       itemId,
       offer: cap ?? 0,
       areas: touching.get(itemId)!.map((a): AreaItemArea => {
-        const rule = ruleOf(a, itemId)
-        const bcIngredient = consumerIngredients.has(itemId)
         const lockedA = isLocked(a, itemId)
         const first = isFirst(a, itemId)
         const r = res.get(a) ?? 0
         let slack: boolean
         if (!lockedA) slack = true
         else if (cap === undefined) slack = false
-        else if (residual === undefined) slack = true
+        else if (residual === undefined) slack = !order?.relock.has(lockKey(itemId, a))
         else slack = first ? r > FLOW_TOLERANCE : cap < resTotal - FLOW_TOLERANCE
-        const orderSupply = ordered && !first && cap !== undefined && rule.makeHere !== 'off'
+        const orderSupply = order !== undefined && !first && cap !== undefined && !bfArea(a, itemId)
           && system.classification.intermediates.has(itemId)
+        const refillCap = order?.refill?.get(itemId)?.get(a)
         const supplyCap = first ? Infinity
           : orderSupply ? Infinity
+          : order !== undefined ? (cap !== undefined && refillCap !== undefined && refillCap > FLOW_TOLERANCE ? Math.min(cap, refillCap) : undefined)
           : residual !== undefined && cap !== undefined && r > FLOW_TOLERANCE ? Math.min(cap, r) : undefined
         return {
           area: a,
-          ...(slack ? { slackCost: rule.makeHere === 'off' && !bcIngredient ? BYPRODUCTS_FIRST_SLACK_COST : BIG_M } : {}),
+          ...(slack ? { slackCost: bfArea(a, itemId) ? BYPRODUCTS_FIRST_SLACK_COST : BIG_M } : {}),
           ...(supplyCap !== undefined ? { supplyCap } : {}),
-          supUse: first || orderSupply,
+          supUse: first || orderSupply || (order !== undefined && supplyCap !== undefined),
           ...(orderSupply ? { received: true } : {}),
           off: pairItems.has(itemId) ? offOf(a, itemId) : new Set(),
         }
@@ -1217,33 +1225,35 @@ export function solveAreaBlock(
   let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs())
 
   /**
-   * The order of connectionOrder.ts on the area LP (a spike): when the passes end with an import (a slack at BIG_M,
-   * per area for an area item) while a default-rule connected intermediate has offer to spare, measure the least
-   * import with every such supply capped by the offer, then the least received at that import, then solve both
-   * stages with the two sums bounded. Undefined: today's result stands. Not built here, unlike the plain path (T3,
-   * phase-6.md, T1 report point 9): the supply of a Don't make more here item or area in the fill, and locking a
-   * connected Import-off item again after step 3. So a touched block with such a rule loses it here: the item gets
-   * no supply in any step, and a connected Import-off item can be imported by step 4. The retry and the "least import is a
+   * The order of connectionOrder.ts on the area LP: when the passes end with an import (a slack at BIG_M, per area for an
+   * area item) while a default-rule connected intermediate has offer to spare, measure the least import with every such
+   * supply capped by the offer, then the least received at that import, then solve both stages with the two sums
+   * bounded. As on the plain path, a Don't make more here item or area has no supply in steps 2 and 3 and gets it back in
+   * a refill of the fill (capped at the slack the fill left it), and a locked connected item (plain, or per area) whose
+   * step-3 slack is 0 is locked again in the fill. Undefined: today's result stands. The retry and the "least import is a
    * gain" test are shared with the plain path (connectionOrder.ts); the gate and the steps stay two copies, because
    * each solves a different model (one mutable LP there, `solveAreaLP`'s two stages here).
    */
   const areaConnectionOrder = (today: AreaLPResult): AreaLPResult | undefined => {
     if (!today.feasible || today.shortfall.size > 0 || today.warnings.some(w => w.type === 'infeasible-pins')) return undefined
     const tol = (itemId: string) => surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput))
-    const ruleOff = (a: number, itemId: string) => ruleOf(a, itemId).makeHere === 'off'
     // Counted as the LP's `__imp` sum counts: every slack at BIG_M. An area on Don't make more here has the cheap slack,
-    // except for a byproduct consumer's ingredient, whose slack stays at BIG_M.
-    let todayImport = 0
-    let imports = false
+    // except for a byproduct consumer's ingredient, whose slack stays at BIG_M. An item's slacks over its areas add up
+    // before they are compared with its noise floor (as `areaPass2` does).
+    const imported = new Map<string, number>()
     for (const [itemId, rate] of today.slack) {
       if (areaItems.has(itemId) || byproductsFirst.has(itemId)) continue
-      todayImport += rate
-      if (rate > tol(itemId)) imports = true
+      imported.set(itemId, (imported.get(itemId) ?? 0) + rate)
     }
     for (const o of today.outside) {
-      if (ruleOff(o.area, o.itemId) && !consumerIngredients.has(o.itemId)) continue
-      todayImport += o.slack
-      if (o.slack > tol(o.itemId)) imports = true
+      if (bfArea(o.area, o.itemId)) continue
+      imported.set(o.itemId, (imported.get(o.itemId) ?? 0) + o.slack)
+    }
+    let todayImport = 0
+    let imports = false
+    for (const [itemId, rate] of imported) {
+      todayImport += rate
+      if (rate > tol(itemId)) imports = true
     }
     if (!imports) return undefined
     const intermediate = (itemId: string) => system.classification.intermediates.has(itemId)
@@ -1251,28 +1261,55 @@ export function solveAreaBlock(
       intermediate(itemId) && !firstItems.has(itemId) && !byproductsFirst.has(itemId)))
     const spare = (itemId: string) => totalCaps.get(itemId)! - (today.supply.get(itemId) ?? 0) > FLOW_TOLERANCE
     const areaDefault = (itemId: string) => areaItems.has(itemId) && totalCaps.has(itemId) && intermediate(itemId)
-      && touching.get(itemId)!.some(a => !isFirst(a, itemId) && !ruleOff(a, itemId))
+      && touching.get(itemId)!.some(a => !isFirst(a, itemId) && !bfArea(a, itemId))
     if (![...plainDefaults].some(spare) && ![...areaItems].some(itemId => areaDefault(itemId) && spare(itemId))) return undefined
 
     const caps = new Map([...firstCaps, ...[...plainDefaults].map(itemId => [itemId, plainCaps.get(itemId)!] as const)])
-    const specs = areaItemSpecs(undefined, true)
-    const step = (order: AreaOrder) => solveAreaLP(
-      system, columns, pinnedRates, bcColumns, pass1NoImport, caps, new Set([...firstItems, ...plainDefaults]), byproductsFirst, specs, order,
-    )
+    const specs = areaItemSpecs(undefined, { relock: new Set() })
+    const step = (
+      order: AreaOrder, noImport: Set<string>, stepCaps: Map<string, number>, connectionsFirst: Set<string>, stepSpecs: AreaItemSpec[],
+    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order)
     const base = { defaults: plainDefaults, byproductsFirst }
-    const step2 = step({ ...base, measure: '__imp' })
+    const defaultsFirst = new Set([...firstItems, ...plainDefaults])
+    const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
     if (!step2.feasible || step2.measured === undefined) return undefined
     if (!improvesImport(step2.measured, todayImport)) return undefined
     // The bounds count the variables their sum runs over (the LP reports it), and a tight bound that comes back
     // infeasible is retried once looser, as on the plain path (boundedStep).
     const step3 = boundedStep(looser =>
-      step({ ...base, measure: '__rec', importCap: boundOf(step2.measured!, step2.measuredTerms!, looser) }))
+      step({ ...base, measure: '__rec', importCap: boundOf(step2.measured!, step2.measuredTerms!, looser) }, pass1NoImport, caps, defaultsFirst, specs))
     if (!step3 || step3.measured === undefined) return undefined
-    return boundedStep(looser => step({
+    // A locked connected item (plain, or per area) that step 3 left no slack is locked again in the fill, as `pass2Plan` does.
+    const noImport = new Set([...pass1NoImport, ...[...locked].filter(id => plainCaps.has(id) && (step3.slack.get(id) ?? 0) <= FLOW_TOLERANCE)])
+    const relock = new Set<string>()
+    for (const o of step3.outside) {
+      if (areaItems.has(o.itemId) && totalCaps.has(o.itemId) && isLocked(o.area, o.itemId) && o.slack <= FLOW_TOLERANCE) relock.add(lockKey(o.itemId, o.area))
+    }
+    const fill = (fillCaps: Map<string, number>, connectionsFirst: Set<string>, fillSpecs: AreaItemSpec[]) => boundedStep(looser => step({
       ...base,
       importCap: boundOf(step2.measured!, step2.measuredTerms!, looser),
       receivedCap: boundOf(step3.measured!, step3.measuredTerms!, looser),
-    }))
+    }, noImport, fillCaps, connectionsFirst, fillSpecs))
+    const fill1 = fill(caps, defaultsFirst, areaItemSpecs(undefined, { relock }))
+    if (!fill1) return undefined
+    // A Don't make more here item or area has no supply in steps 2 and 3, so its slack is arbitrary there: the fill measured
+    // its residual with no supply, and its supply now fills that residual (min(offer, residual), as `pass2Plan`).
+    const refillPlain = new Map<string, number>()
+    for (const [itemId, cap] of plainCaps) {
+      const r = fill1.slack.get(itemId) ?? 0
+      if (intermediate(itemId) && byproductsFirst.has(itemId) && r > FLOW_TOLERANCE) refillPlain.set(itemId, Math.min(cap, r))
+    }
+    const refillAreas = new Map<string, Map<number, number>>()
+    for (const o of fill1.outside) {
+      if (!bfArea(o.area, o.itemId) || !totalCaps.has(o.itemId) || !intermediate(o.itemId) || o.slack <= FLOW_TOLERANCE) continue
+      const m = refillAreas.get(o.itemId) ?? new Map<number, number>()
+      m.set(o.area, o.slack)
+      refillAreas.set(o.itemId, m)
+    }
+    if (refillPlain.size === 0 && refillAreas.size === 0) return fill1
+    return fill(
+      new Map([...caps, ...refillPlain]), new Set([...defaultsFirst, ...refillPlain.keys()]), areaItemSpecs(undefined, { relock, refill: refillAreas }),
+    )
   }
 
   const pass2 = pass2Plan({

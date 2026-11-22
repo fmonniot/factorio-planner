@@ -213,8 +213,9 @@ describe('connectionOrder: the retry of a bounded step', () => {
     expect(improvesImport(10, 10)).toBe(false)
     expect(improvesImport(0, 15)).toBe(true)
   })
-  // Not exercised through a solve: no block of the suite makes the tight bound infeasible, so the retry of
-  // steps 3 and 4 in the plain path and in the area path is tested only through `boundedStep` itself.
+  // Not exercised through a solve on the plain path: no block of the suite makes the tight bound infeasible, so its retry
+  // of steps 3 and 4 is tested only through `boundedStep` itself. The area path's is (areas.test.ts, "the retry of a bounded
+  // step, through a solve", with `Solve` mocked).
 })
 
 describe('connectionOrder: a ratio above 100:1 (T1 report, point 5)', () => {
