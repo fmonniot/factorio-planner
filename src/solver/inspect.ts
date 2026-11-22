@@ -2,6 +2,7 @@ import { solveAll, flattenBlock, surplusTolerance } from './index'
 import { createSolveCache } from './solveCache'
 import { areaLPItems, areaRuleOf, blockAreas } from './areas'
 import { outsideLegParts } from './areaRoutes'
+import { fmtFluidTag } from '../data/flowKey'
 import { makeHereOf } from '../data/sourceRules'
 import { servedGroups } from '../data/servedEntries'
 import { areaName } from '../data/subPlanTree'
@@ -505,7 +506,7 @@ export function formatReport(report: InspectReport, options: FormatOptions = {})
   }
 
   out.push('', 'Imports (items/min that must come from outside the block):')
-  for (const u of report.unsatisfied) out.push(`  ${u.itemId}  ${num(u.rate)}`)
+  for (const u of report.unsatisfied) out.push(`  ${u.itemId}${fmtFluidTag(u.temp) ? ` (${fmtFluidTag(u.temp)})` : ''}  ${num(u.rate)}`)
   if (report.unsatisfied.length === 0) out.push('  none')
 
   if (report.replacedImports.length > 0) {

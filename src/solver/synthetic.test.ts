@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { sourceRulesOf } from '../test/sourceRulesOf'
-import { solve, solveAll, solveBlock, flattenBlock } from './index'
+import { solve, solveAll, solveBlock, flattenBlock, netBalance } from './index'
 import { createSolveCache } from './solveCache'
 import { areaNeedsOf } from './servedAreas'
 import { areaRuleOf } from './areas'
@@ -171,6 +171,13 @@ function recipes(): GameRecipe[] {
     recipe('case24-cool-200', 'smelting', 1, [warm('case24-used', 100, undefined, 150, 250)], [warm('case24-used', 100, 100)]),
     recipe('case24-cool-100', 'smelting', 1, [warm('case24-used', 100, undefined, 50, 150)], [warm('case24-used', 100, 25)]),
     recipe('case24-filter', 'smelting', 1, [warm('case24-used', 100, undefined, undefined, 50)], [item('case24-clean', 1)]),
+    // Case 25 (keys inside a block): steam made at 165, 500 and at no temperature, taken at 465 or more or at any temperature.
+    recipe('case25-boil-165', 'smelting', 1, [item('case25-fuel', 1)], [warm('case25-steam', 60, 165)]),
+    recipe('case25-boil-500', 'smelting', 1, [item('case25-fuel', 1)], [warm('case25-steam', 30, 500)]),
+    recipe('case25-boil-any', 'smelting', 1, [item('case25-fuel', 1)], [warm('case25-steam', 60)]),
+    recipe('case25-turbine', 'smelting', 1, [warm('case25-steam', 60, undefined, 465)], [item('case25-work', 1)]),
+    recipe('case25-engine', 'smelting', 1, [warm('case25-steam', 60)], [item('case25-work2', 1)]),
+    recipe('case25-reheat', 'smelting', 1, [warm('case25-steam', 60, undefined, 465)], [warm('case25-steam', 60, 165), item('case25-work', 1)]),
   ]
 }
 
@@ -2956,8 +2963,8 @@ describe('solver synthetic cases', () => {
   })
 
   describe('case 24: a cooling chain on a fluid with Import off', () => {
-    // The fluid cannot be imported and every consumer class has a producer, so the LP builds the temperature rows without slack and runs the
-    // whole chain. Values are derived by hand in spec/test-synthetic.md; none is edited to match the solver.
+    // The fluid cannot be imported; every temperature the rows make is a key of its own and a conversion column moves it to a range it fits.
+    // Values are derived by hand in spec/test-synthetic.md; none is edited to match the solver.
     const USED = 'case24-used'
     const HEAT = 'case24-heat'
     const COOLERS = ['case24-cool-300', 'case24-cool-200', 'case24-cool-100']
@@ -2971,51 +2978,56 @@ describe('solver synthetic cases', () => {
       products: [{ id: 'p0', itemId: 'case24-clean', extraRate: 60 }],
       sourceRules: { [USED]: sourceRule }, inputConnections: [], rootPlan,
     })
-    // The temperature warnings come with `solveAll`.
     const solveOne = (b: Block): SolverResult => solveAll([b], makeGameData()).results[b.id]
     const flat = (recipeIds: string[], pins: Record<string, number> = {}, sourceRule: SourceRule = rule) =>
       solveOne(block(subPlan('root', rowsOf(recipeIds, pins)), sourceRule))
     const rate = (r: SolverResult, recipeId: string, where = 'root') => nodeOf(r, `${recipeId}@${where}`).throughput
     const ALL = [HEAT, ...COOLERS, FILTER]
+    const noFitting = (r: SolverResult) => r.warnings.filter(w => w.type === 'no-fitting-temperature')
 
-    it('a: runs every step of the chain', () => {
+    it('a: runs every step of the chain, one conversion per step', () => {
       const r = flat(ALL)
       for (const id of ALL) expect(rate(r, id), id).toBeCloseTo(60, 6)
       expect(unsatisfiedRate(r, USED), 'used is not imported').toBeUndefined()
       expect(unsatisfiedRate(r, 'case24-ore'), 'ore').toBeCloseTo(60, 6)
+      expect(r.conversions, 'four conversions of 6000').toHaveLength(4)
+      for (const c of r.conversions ?? []) expect(c.rate, 'conversion rate').toBeCloseTo(6000, 6)
+      expect(mismatches(r), 'no mismatch').toEqual([])
+      expect(noFitting(r), 'no missing temperature').toEqual([])
+    })
+
+    it('b: without the first cooler nothing fits the filter: shortfall 60 and no-fitting-temperature', () => {
+      const r = flat([HEAT, 'case24-cool-300', 'case24-cool-200', FILTER])
+      for (const id of [HEAT, 'case24-cool-300', 'case24-cool-200', FILTER]) expect(rate(r, id), id).toBeCloseTo(0, 6)
+      expect(r.unsatisfied, 'goal shortfall only').toEqual([{ itemId: 'case24-clean', rate: expect.closeTo(60, 6) }])
+      expect(r.warnings, 'one warning').toEqual([
+        { type: 'no-fitting-temperature', itemId: USED, max: 50, recipeIds: [FILTER] },
+      ])
       expect(mismatches(r), 'no mismatch').toEqual([])
     })
 
-    it('b: without the last cooler no row is built, the heater feeds the filter and the mismatch is reported', () => {
-      const r = flat([HEAT, 'case24-cool-300', 'case24-cool-200', FILTER])
-      expect(rate(r, HEAT), 'heat').toBeCloseTo(60, 6)
+    it('b2: b with Import on imports the fluid for a filter at 50 or less', () => {
+      const r = flat([HEAT, 'case24-cool-300', 'case24-cool-200', FILTER], {}, {})
       expect(rate(r, FILTER), 'filter').toBeCloseTo(60, 6)
-      expect(rate(r, 'case24-cool-300'), 'cool-300').toBeCloseTo(0, 6)
-      expect(rate(r, 'case24-cool-200'), 'cool-200').toBeCloseTo(0, 6)
-      const w = mismatches(r)
-      expect(w, 'one warning').toHaveLength(1)
-      expect(w[0]).toMatchObject({ recipeId: FILTER, itemId: USED, supplied: [300], maximum: 50 })
-      expect((w[0] as { imported?: number }).imported, 'nothing imported').toBeUndefined()
+      for (const id of [HEAT, 'case24-cool-300', 'case24-cool-200']) expect(rate(r, id), id).toBeCloseTo(0, 6)
+      expect(r.unsatisfied, 'one import').toEqual([{ itemId: USED, rate: expect.closeTo(6000, 6), temp: { max: 50 } }])
+      expect(r.warnings, 'no warning').toEqual([])
     })
 
-    it('c: with Import on, the same chain', () => {
+    it('c: with Import on, the same chain as a', () => {
       const r = flat(ALL, {}, {})
       for (const id of ALL) expect(rate(r, id), id).toBeCloseTo(60, 6)
       expect(unsatisfiedRate(r, USED), 'used is not imported').toBeUndefined()
       expect(mismatches(r), 'no mismatch').toEqual([])
     })
 
-    it('d: a cooler pinned too low gives up the rows, as before', () => {
+    it('d: a cooler pinned too low is infeasible pins with a conflict', () => {
       const r = flat(ALL, { 'case24-cool-100': 10, [FILTER]: 60 })
-      expect(rate(r, HEAT), 'heat').toBeCloseTo(60, 6)
-      expect(rate(r, 'case24-cool-100'), 'cool-100').toBeCloseTo(10, 6)
-      expect(rate(r, 'case24-cool-300'), 'cool-300').toBeCloseTo(0, 6)
-      expect(rate(r, 'case24-cool-200'), 'cool-200').toBeCloseTo(0, 6)
-      expect(rate(r, FILTER), 'filter').toBeCloseTo(60, 6)
-      expect(r.warnings.some(x => x.type === 'infeasible-pins'), 'the pins are not blamed').toBe(false)
-      const w = mismatches(r)
-      expect(w, 'one warning').toHaveLength(1)
-      expect(w[0]).toMatchObject({ recipeId: 'case24-cool-100', itemId: USED, supplied: [300] })
+      const w = r.warnings.find(x => x.type === 'infeasible-pins')
+      expect(w, 'infeasible pins').toBeDefined()
+      expect(w).toMatchObject({ type: 'infeasible-pins', conflict: true })
+      expect(w?.type === 'infeasible-pins' ? [...w.recipeIds].sort() : undefined).toEqual(['case24-cool-100', FILTER])
+      expect(mismatches(r), 'no mismatch').toEqual([])
     })
 
     describe('e, f: the cooling rows in an area of their own', () => {
@@ -3025,30 +3037,27 @@ describe('solver synthetic cases', () => {
         return subPlan('root', filter, [subPlan('Cool', cool, [], true)])
       }
 
-      it('e: the same rates, the fluid leaves the area', () => {
+      it('e: the same rates, the 25 degree fluid leaves the area', () => {
         const r = solveOne(block(areaPlan()))
         for (const id of [HEAT, ...COOLERS]) expect(rate(r, id, 'Cool'), id).toBeCloseTo(60, 6)
         expect(rate(r, FILTER), 'filter').toBeCloseTo(60, 6)
         const leg = (r.areaRoutes ?? []).find(x => x.itemId === USED && x.from === 'Cool' && x.to === 'root')
         expect(leg?.rate, 'used from Cool to the root').toBeCloseTo(6000, 6)
+        expect(leg?.temp, 'at 25').toEqual({ at: 25 })
         expect(mismatches(r), 'no mismatch').toEqual([])
       })
 
       it('f: d in areas', () => {
         const r = solveOne(block(areaPlan({ 'case24-cool-100': 10, [FILTER]: 60 })))
-        expect(rate(r, HEAT, 'Cool'), 'heat').toBeCloseTo(60, 6)
-        expect(rate(r, 'case24-cool-100', 'Cool'), 'cool-100').toBeCloseTo(10, 6)
-        expect(rate(r, 'case24-cool-300', 'Cool'), 'cool-300').toBeCloseTo(0, 6)
-        expect(rate(r, 'case24-cool-200', 'Cool'), 'cool-200').toBeCloseTo(0, 6)
-        expect(rate(r, FILTER), 'filter').toBeCloseTo(60, 6)
-        expect(r.warnings.some(x => x.type === 'infeasible-pins'), 'the pins are not blamed').toBe(false)
-        expect(mismatches(r), 'one warning').toHaveLength(1)
+        const w = r.warnings.find(x => x.type === 'infeasible-pins')
+        expect(w).toMatchObject({ type: 'infeasible-pins', conflict: true })
+        expect(w?.type === 'infeasible-pins' ? [...w.recipeIds].sort() : undefined).toEqual(['case24-cool-100', FILTER])
+        expect(mismatches(r), 'no mismatch').toEqual([])
       })
     })
 
     // g, h: a block that also imports plate, which a connection (100) replaces (case 22 row A-b: P runs 10, 30 plates received).
-    // The connection order (`connectionOrder` and `areaConnectionOrder`) builds with the rows of the result it refines, so the chain
-    // still runs; without the rows the heater would feed the filter directly and no cooler would run.
+    // The connection order builds the same keys, so the chain still runs.
     describe('g, h: with a connection replacing an import', () => {
       const PLATE = 'case22-plate'
       const gear = () => planNode('case22-gear')
@@ -3072,15 +3081,6 @@ describe('solver synthetic cases', () => {
         for (const id of COOLERS) expect(chain(id), id).toBeCloseTo(60, 6)
       })
 
-      it('g2: a cooler pinned too low gives up the rows before the order, and the order keeps that', () => {
-        const nodes = [gear(), plateP(), ingot(), ...ALL.map(id => planNode(id, [], id === 'case24-cool-100' ? { pinnedRate: 10 } : id === FILTER ? { pinnedRate: 60 } : {}))]
-        const plan = { goals: [{ id: 'g0', itemId: 'case22-gear', rate: 25 }, { id: 'g1', itemId: 'case24-clean', rate: 60 }], nodes, sourceRules: { [USED]: rule } }
-        const { result, received } = solveBlock(plan, makeGameData(), offers)
-        const chain = checkOrder(result, received, id => nodeOf(result, id).throughput)
-        expect(chain('case24-cool-100'), 'cool-100').toBeCloseTo(10, 6)
-        expect(chain('case24-cool-300'), 'cool-300').toBeCloseTo(0, 6)
-      })
-
       it('h: the same in areas', () => {
         const sp = (id: string, ns: RecipeNode[]) => subPlan(id, ns, [], true)
         const b: Block = {
@@ -3093,6 +3093,77 @@ describe('solver synthetic cases', () => {
         const chain = checkOrder(result, received, id => nodeOf(result, id).throughput)
         for (const id of COOLERS) expect(chain(id), id).toBeCloseTo(60, 6)
       })
+    })
+  })
+
+  describe('case 25: keys inside a block', () => {
+    // Steam is made at 165, at 500 and at no temperature; the turbine takes it at 465 or more, the engine at any temperature.
+    // Values are derived by hand in spec/test-synthetic.md; none is edited to match the solver.
+    const STEAM = 'case25-steam'
+    const B1 = 'case25-boil-165'
+    const B2 = 'case25-boil-500'
+    const U = 'case25-boil-any'
+    const T = 'case25-turbine'
+    const E = 'case25-engine'
+    const R = 'case25-reheat'
+    const rows = (ids: string[], pins: Record<string, number> = {}) =>
+      ids.map(id => planNode(id, [], pins[id] === undefined ? {} : { pinnedRate: pins[id] }))
+    const go = (goals: Array<[string, number]>, ids: string[], pins: Record<string, number> = {}, sourceRules: Record<string, SourceRule> = {}) =>
+      solve({ goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })), nodes: rows(ids, pins), sourceRules }, makeGameData())
+    const convs = (r: SolverResult) => (r.conversions ?? []).map(c => ({ from: c.from, to: c.to, rate: Math.round(c.rate * 1e6) / 1e6 }))
+    const hasSteamImport = (r: SolverResult) => r.unsatisfied.some(u => u.itemId === STEAM)
+
+    it('a: a boiler pinned too cold: the turbine imports, the 165 steam is a byproduct', () => {
+      const r = go([['case25-work', 60]], [B1, T], { [B1]: 60 })
+      expect(nodeOf(r, T).throughput, 'turbine').toBeCloseTo(60, 6)
+      expect(r.unsatisfied, 'steam and fuel').toHaveLength(2)
+      expect(r.unsatisfied.find(u => u.itemId === STEAM)).toEqual({ itemId: STEAM, rate: expect.closeTo(3600, 6), temp: { min: 465 } })
+      expect(unsatisfiedRate(r, 'case25-fuel')).toBeCloseTo(60, 6)
+      expect(netBalance(r.nodes, r.conversions).get(`${STEAM}@165`)).toBeCloseTo(3600, 6)
+      expect(r.conversions, 'no conversion').toBeUndefined()
+      expect(r.warnings, 'no warning').toEqual([])
+    })
+
+    it('b: the 500 steam feeds the turbine, the 165 boiler stays off', () => {
+      const r = go([['case25-work', 60]], [B1, B2, T])
+      expect(nodeOf(r, B2).throughput, 'B2').toBeCloseTo(120, 6)
+      expect(nodeOf(r, B1).throughput, 'B1').toBeCloseTo(0, 6)
+      expect(hasSteamImport(r), 'no steam import').toBe(false)
+      expect(unsatisfiedRate(r, 'case25-fuel')).toBeCloseTo(120, 6)
+      expect(convs(r)).toEqual([{ from: { at: 500 }, to: { min: 465 }, rate: 3600 }])
+    })
+
+    it('c: the 500 steam feeds both a bounded and an unbounded row', () => {
+      const r = go([['case25-work', 60], ['case25-work2', 60]], [B2, T, E])
+      expect(nodeOf(r, B2).throughput, 'B2').toBeCloseTo(240, 6)
+      expect(convs(r)).toHaveLength(2)
+      expect(convs(r)).toContainEqual({ from: { at: 500 }, to: { min: 465 }, rate: 3600 })
+      expect(convs(r)).toContainEqual({ from: { at: 500 }, to: {}, rate: 3600 })
+    })
+
+    it('d: steam made at no temperature fits every range', () => {
+      const r = go([['case25-work', 60]], [U, T])
+      expect(nodeOf(r, U).throughput, 'U').toBeCloseTo(60, 6)
+      expect(hasSteamImport(r), 'no steam import').toBe(false)
+      expect(convs(r)).toEqual([{ from: { at: null }, to: { min: 465 }, rate: 3600 }])
+    })
+
+    it('e: a recipe that takes steam and returns it colder no longer nets to zero', () => {
+      const r = go([['case25-work', 60]], [B2, R])
+      expect(nodeOf(r, R).throughput, 'R').toBeCloseTo(60, 6)
+      expect(nodeOf(r, B2).throughput, 'B2').toBeCloseTo(120, 6)
+      expect(netBalance(r.nodes, r.conversions).get(`${STEAM}@165`)).toBeCloseTo(3600, 6)
+      expect(hasSteamImport(r), 'no steam import').toBe(false)
+    })
+
+    it('f: with Import off nothing can feed the turbine: shortfall and no-fitting-temperature', () => {
+      const r = go([['case25-work', 60]], [B1, T], {}, { [STEAM]: { importOff: true } })
+      expect(nodeOf(r, T).throughput, 'T').toBeCloseTo(0, 6)
+      expect(nodeOf(r, B1).throughput, 'B1').toBeCloseTo(0, 6)
+      expect(r.unsatisfied).toEqual([{ itemId: 'case25-work', rate: expect.closeTo(60, 6) }])
+      expect(r.warnings).toEqual([
+        { type: 'no-fitting-temperature', itemId: STEAM, min: 465, recipeIds: [T] },
+      ])
     })
   })
 })

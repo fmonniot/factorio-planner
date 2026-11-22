@@ -244,7 +244,8 @@ export function SourcesList({ itemId, id, areaId }: {
   const madeText = made.length > 0 ? made.join(', ') : 'nothing yet'
   const dedicated = makers.filter(m => !m.byproduct)
   const makeText = dedicated.length > 0 ? dedicated.map(m => makerLabel(m, solved)).join(', ') : 'no row here makes it'
-  const unsatisfied = result?.unsatisfied.find(u => u.itemId === itemId)?.rate ?? 0
+  // A split fluid can be imported over several ranges: all of them count.
+  const unsatisfied = (result?.unsatisfied ?? []).filter(u => u.itemId === itemId).reduce((t, u) => t + u.rate, 0)
   // At area scope: the area's own figure (areaSupply), not the block's.
   const supply = area !== undefined ? areaSupply(result?.areaRoutes, itemId, area, rule ?? {}, unsatisfied, split) : undefined
   const importAmount = supply ? (importOn ? supply.imported : supply.missing) : unsatisfied

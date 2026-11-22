@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ItemSchema, RecipeSchema, MachineSchema, BeaconEntitySchema, GameRecipeNodeSchema } from './schema'
+import { ItemSchema, RecipeSchema, MachineSchema, BeaconEntitySchema, GameRecipeNodeSchema, GameDataSchema } from './schema'
 
 const base = { id: 'x', name: 'X', type: 'item', iconPath: '/i/x.png' }
 
@@ -55,5 +55,23 @@ describe('GameRecipeNodeSchema.absorberFeeder', () => {
   it('survives parsing; absent stays absent', () => {
     expect(GameRecipeNodeSchema.parse({ ...node, absorberFeeder: true }).absorberFeeder).toBe(true)
     expect('absorberFeeder' in GameRecipeNodeSchema.parse(node)).toBe(false)
+  })
+})
+
+describe('GameDataSchema item ids', () => {
+  const gameData = (ids: string[]) => ({
+    factorioVersion: '2.0.0', modSet: {},
+    items: Object.fromEntries(ids.map(id => [id, { ...base, id }])),
+    recipes: {}, machines: {}, modules: {}, defaultMachines: {},
+  })
+
+  it('rejects an id that flow keys reserve', () => {
+    for (const id of ['bad@id', 'a[b', 'c]']) {
+      expect(GameDataSchema.safeParse(gameData([id])).success, id).toBe(false)
+    }
+  })
+
+  it('accepts ordinary ids', () => {
+    expect(GameDataSchema.safeParse(gameData(['iron-plate', 'power:heat', 'nullius-iron_gear'])).success).toBe(true)
   })
 })

@@ -1,6 +1,7 @@
 import type { Block, ConnectionFlow, GameData, SolverResult, SolverWarning } from '../data/types'
 import { acceptsTemperature, effectiveTemperature, hasTemperatureBound, isBound } from '../data/temperature'
-import { FLOW_TOLERANCE, surplusTolerance } from './blockResult'
+import { HEAT_ITEM_ID } from '../data/electricity'
+import { FLOW_TOLERANCE } from './blockResult'
 
 const temperatureData = new WeakMap<GameData, boolean>()
 
@@ -51,13 +52,12 @@ function suppliedBy(
 }
 
 /**
- * Fluid temperature mismatches per block. A consumer row warns when a fluid it takes has a
- * temperature bound and every temperature the block (its other rows plus the blocks connected into
- * it) makes that fluid at falls outside it. When the block imports the fluid (the LP's temperature rows
- * import what no row of the block can make at a fitting temperature), the candidates are every row
- * of the block that makes it, running or not, and the warning carries the import and what the block
- * makes of the fluid without using it. Anything unknown (a supplier without a temperature, no
- * supplier at all, a connection whose source passes the fluid on) stays silent.
+ * Heat temperature mismatches per block (the only fluid the LP does not split into flow keys by temperature:
+ * its producers are made at an unknown temperature, so the check runs after the solve). A consumer row warns
+ * when the heat it takes has a temperature bound and every temperature the block (its other rows plus the
+ * blocks connected into it) makes it at falls outside it. When the block imports heat, the candidates are
+ * every row of the block that makes it, running or not. Anything unknown (a supplier without a temperature,
+ * no supplier at all, a connection whose source passes the heat on) stays silent.
  * `recipeIdOfNode`: blockId → recipe node id → recipe id. `discarded`: blockId → `nodeId\0itemId`
  * of the products a row discards.
  */
@@ -91,6 +91,7 @@ export function temperatureWarnings(
       if (!recipe) continue
       for (const [fluidId, rate] of Object.entries(n.inputRates)) {
         if (rate <= FLOW_TOLERANCE) continue
+        if (fluidId !== HEAT_ITEM_ID) continue
         for (const ing of recipe.ingredients) {
           if (ing.itemId !== fluidId || !hasTemperatureBound(ing)) continue
           const key = `${recipe.id}\0${fluidId}\0${ing.minimumTemperature}\0${ing.maximumTemperature}`
@@ -127,11 +128,6 @@ export function temperatureWarnings(
           }
           if (isBound(ing.minimumTemperature)) warning.minimum = ing.minimumTemperature
           if (isBound(ing.maximumTemperature)) warning.maximum = ing.maximumTemperature
-          if (importRate > 0) {
-            warning.imported = importRate
-            const unused = unusedRate(fluidId, block.id, result, flows, importRate, dropped)
-            if (unused > 0) warning.unused = unused
-          }
           list.push(warning)
         }
       }
@@ -139,33 +135,4 @@ export function temperatureWarnings(
     if (list.length > 0) out.set(block.id, list)
   }
   return out
-}
-
-/**
- * What block `blockId` makes of `itemId` that nothing takes: its rows' net output plus the import and
- * what it receives, less what it sends to other blocks (a discarded output is not counted). Above the item's surplus tolerance, else 0.
- */
-function unusedRate(
-  itemId: string,
-  blockId: string,
-  result: SolverResult,
-  flows: ConnectionFlow[],
-  importRate: number,
-  discarded: Set<string> | undefined,
-): number {
-  let made = 0
-  let taken = 0
-  for (const m of result.nodes) {
-    if (!discarded?.has(`${m.recipeNodeId}\0${itemId}`)) made += m.outputRates[itemId] ?? 0
-    taken += m.inputRates[itemId] ?? 0
-  }
-  let received = 0
-  let sent = 0
-  for (const f of flows) {
-    if (f.itemId !== itemId) continue
-    if (f.toBlockId === blockId) received += f.rate
-    if (f.fromBlockId === blockId) sent += f.rate
-  }
-  const unused = made + importRate + received - taken - sent
-  return unused > surplusTolerance(Math.max(made + importRate + received, taken + sent)) ? unused : 0
 }

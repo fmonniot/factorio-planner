@@ -708,6 +708,21 @@ describe('netBalance', () => {
     expect(net.get('a')).toBe(-1)
     expect(net.get('b')).toBe(4)
   })
+
+  it('keys a split fluid by its temperature and its range, and a conversion moves the flow between them', () => {
+    const nodes: Parameters<typeof netBalance>[0] = [
+      { inputRates: {}, outputRates: { steam: 3600 }, outputTags: { steam: { at: 500 } } },
+      { inputRates: { steam: 3600 }, outputRates: { power: 60 }, inputTags: { steam: { min: 465 } } },
+    ]
+    const apart = netBalance(nodes)
+    expect(apart.get('steam@500'), 'surplus at 500').toBe(3600)
+    expect(apart.get('steam[465,]'), 'deficit at 465 or more').toBe(-3600)
+    const conversions = [{ itemId: 'steam', from: { at: 500 }, to: { min: 465 }, rate: 3600 }]
+    const joined = netBalance(nodes, conversions)
+    expect(joined.get('steam@500')).toBe(0)
+    expect(joined.get('steam[465,]')).toBe(0)
+    expect(joined.get('power')).toBe(60)
+  })
 })
 
 describe('grossFlow', () => {
@@ -720,6 +735,16 @@ describe('grossFlow', () => {
     expect(gross.get('a'), 'consumed 2, produced 1').toBe(2)
     expect(gross.get('c'), 'only consumed').toBe(3)
     expect(gross.get('d'), 'only produced').toBe(4)
+  })
+
+  it('counts a conversion as consumed at its source key and produced at its target key', () => {
+    const nodes: Parameters<typeof grossFlow>[0] = [
+      { inputRates: {}, outputRates: { steam: 3600 }, outputTags: { steam: { at: 500 } } },
+      { inputRates: { steam: 3600 }, outputRates: {}, inputTags: { steam: { min: 465 } } },
+    ]
+    const gross = grossFlow(nodes, [{ itemId: 'steam', from: { at: 500 }, to: { min: 465 }, rate: 3600 }])
+    expect(gross.get('steam@500')).toBe(3600)
+    expect(gross.get('steam[465,]')).toBe(3600)
   })
 })
 

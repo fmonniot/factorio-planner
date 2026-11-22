@@ -1,4 +1,5 @@
 import type { Item } from '../../data/types'
+import { fmtFluidTag } from '../../data/flowKey'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import { fmtItemRate, fmtItemRateText } from './ItemTile'
@@ -92,7 +93,10 @@ export function SummarySlot({
   onMouseLeave,
   dnd,
 }: SummarySlotProps) {
-  const name = item?.name ?? slot.itemId
+  const baseName = item?.name ?? slot.itemId
+  // A split fluid's temperature or range: "Steam ≥465°C".
+  const tempLabel = fmtFluidTag(slot.temp)
+  const name = tempLabel ? `${baseName} ${tempLabel}` : baseName
   const traced = traceKey ? (slotHasKey(slot, traceKey) ? 'in' : 'out') : undefined
   const warn = slot.status === 'short' || slot.status === 'limited'
   const tone = selected
@@ -143,6 +147,16 @@ export function SummarySlot({
           <span className="text-[9px] text-gray-400 truncate max-w-[44px]">{name}</span>
         )}
       </span>
+      {tempLabel && (
+        <span
+          data-testid="summary-slot-temperature"
+          aria-hidden="true"
+          className="absolute left-0.5 top-px text-[8px] leading-none font-mono text-orange-300"
+          style={{ textShadow: '0 0 2px #000, 0 0 2px #000, 0 0 3px #000' }}
+        >
+          {tempLabel}
+        </span>
+      )}
       <span
         className={`absolute right-1 bottom-[9px] font-mono font-semibold text-[10px] leading-none ${countColor}`}
         style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}

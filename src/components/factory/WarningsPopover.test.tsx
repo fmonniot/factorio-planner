@@ -202,6 +202,41 @@ describe('WarningsPopover — temperature-mismatch', () => {
 })
 
 // ---------------------------------------------------------------------------
+// no-fitting-temperature
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — no-fitting-temperature', () => {
+  beforeEach(() => {
+    setupWithWarnings({ warnings: [{ type: 'no-fitting-temperature', itemId: 'steam', min: 465, recipeIds: ['boiler'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+  })
+
+  it('shows the title and a body naming the row, the fluid and the range', () => {
+    expect(screen.getByText(/No fluid at a fitting temperature/)).toBeInTheDocument()
+    expect(screen.getByText('Boiler Recipe needs Steam at ≥465°C, but nothing in this block makes it and it cannot be imported.')).toBeInTheDocument()
+  })
+
+  it('hints at how to fix it', () => {
+    expect(screen.getByText(/Add a row that makes it at a fitting temperature, turn Import on for it, or connect a block that makes it/)).toBeInTheDocument()
+  })
+
+  it('is critical: red title and red pill', () => {
+    expect(screen.getByText(/No fluid at a fitting temperature/).className).toContain('text-red-400')
+    expect(screen.getByTitle('Show solver warnings').className).toContain('text-red')
+  })
+})
+
+describe('WarningsPopover — a split fluid in an item-keyed warning', () => {
+  it('names the temperature of an overconstrained fluid', () => {
+    setupWithWarnings({ warnings: [{ type: 'overconstrained', surplusItems: [{ itemId: 'steam', rate: 10, temp: { at: 165 } }, { itemId: 'oxygen', rate: 5 }] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/The internal flows of Steam \(165°C\), Oxygen can't all balance/)).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // module-not-allowed
 // ---------------------------------------------------------------------------
 
@@ -440,6 +475,16 @@ describe('WarningsPopover — links', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Go to Boiler Recipe' }))
     expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('boiler-root')
     expect(screen.queryByTestId('warnings-popover')).toBeNull()
+  })
+
+  it('a no-fitting-temperature warning links to the rows that take the range', () => {
+    setupAreaBlock()
+    useUiStore.setState({ revealRowRequest: null })
+    setupWithWarnings({ warnings: [{ type: 'no-fitting-temperature', itemId: 'steam', min: 465, recipeIds: ['boiler'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Boiler Recipe' }))
+    expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('boiler-root')
   })
 
   it('an area duplicate links to the row inside that area', () => {

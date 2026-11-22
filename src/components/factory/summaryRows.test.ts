@@ -10,6 +10,26 @@ function unsat(itemId: string, rate: number) {
   return { itemId, rate }
 }
 
+describe('rows of a split fluid', () => {
+  it('ingredientRows sums the ranges of one item and names the range only when there is one', () => {
+    const one = ingredientRows([], [{ itemId: 'steam', rate: 60, temp: { min: 465 } }], [])
+    expect(one).toMatchObject([{ itemId: 'steam', importPerMin: 60, temp: { min: 465 } }])
+    const two = ingredientRows([], [{ itemId: 'steam', rate: 60, temp: { min: 465 } }, { itemId: 'steam', rate: 30, temp: {} }], [])
+    expect(two).toHaveLength(1)
+    expect(two[0].importPerMin).toBe(90)
+    expect(two[0].temp).toBeUndefined()
+  })
+
+  it('byproductRows keeps one row per flow key', () => {
+    const rows = byproductRows([
+      { itemId: 'steam', key: 'steam@165', temp: { at: 165 }, ratePerMin: 10 },
+      { itemId: 'steam', key: 'steam@500', temp: { at: 500 }, ratePerMin: 5 },
+    ], ['steam', 'slag'])
+    expect(rows.map(r => r.key)).toEqual(['steam@165', 'steam@500', 'slag'])
+    expect(rows[0].temp).toEqual({ at: 165 })
+  })
+})
+
 describe('ingredientRows', () => {
   it('merges a connection and an import of the same item into one row', () => {
     const rows = ingredientRows([conn()], [unsat('iron-ore', 5)], [])
@@ -62,12 +82,12 @@ describe('ingredientRows', () => {
 
 describe('byproductRows', () => {
   it('marks an item that is only exported', () => {
-    expect(byproductRows([], ['slag'])).toEqual([{ itemId: 'slag', leftPerMin: undefined, exported: true }])
+    expect(byproductRows([], ['slag'])).toEqual([{ key: 'slag', itemId: 'slag', leftPerMin: undefined, exported: true }])
   })
 
   it('gives an item both left over and exported one row with both set', () => {
     const rows = byproductRows([{ itemId: 'slag', ratePerMin: 4 }], ['slag'])
-    expect(rows).toEqual([{ itemId: 'slag', leftPerMin: 4, exported: true }])
+    expect(rows).toEqual([{ key: 'slag', itemId: 'slag', leftPerMin: 4, exported: true }])
   })
 
   it('lists leftovers first', () => {

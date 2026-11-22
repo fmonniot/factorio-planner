@@ -8,9 +8,10 @@ import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { blockAreas } from '../../solver/areas'
 import { areaName } from '../../data/subPlanTree'
-import type { SolvedNode, SubPlan, SolverWarning, GameData } from '../../data/types'
+import type { FluidTag, SolvedNode, SubPlan, SolverWarning, GameData } from '../../data/types'
 import { fmtPower, fmtItemRateText } from './ItemTile'
-import { fmtTemperatureWarning } from './temperature'
+import { fmtNoFittingTemperature, fmtTemperatureWarning } from './temperature'
+import { fmtFluidTag } from '../../data/flowKey'
 import { countSubPlanContents } from './subPlanContents'
 import { warningTargets } from './warningTargets'
 
@@ -138,6 +139,12 @@ function fmtShare(share: number): string {
   return share < 0.01 ? 'under 1%' : `about ${Math.round(share * 100)}%`
 }
 
+/** An item name with the temperature of its flow, "Steam (≥465°C)"; the name alone for a plain item or any temperature. */
+function withTemp(name: string, temp: FluidTag | undefined): string {
+  const label = fmtFluidTag(temp)
+  return label === '' ? name : `${name} (${label})`
+}
+
 function warningTitle(w: SolverWarning): string {
   switch (w.type) {
     case 'no-recipe': return 'No recipe in plan'
@@ -150,6 +157,7 @@ function warningTitle(w: SolverWarning): string {
     case 'loop-not-converged': return 'Loop between blocks did not settle'
     case 'request-loop-not-converged': return 'Requests around a loop do not settle'
     case 'temperature-mismatch': return 'Fluid temperature does not fit'
+    case 'no-fitting-temperature': return 'No fluid at a fitting temperature'
     case 'module-not-allowed': return 'Module not accepted'
   }
 }
@@ -183,7 +191,7 @@ function warningBody(
       return `The pinned rate on ${names.join(', ')} can't be reached given the other recipes. Goals will not be met.`
     }
     case 'overconstrained': {
-      const names = w.surplusItems.map(si => gameData.items[si.itemId]?.name ?? si.itemId)
+      const names = w.surplusItems.map(si => withTemp(gameData.items[si.itemId]?.name ?? si.itemId, si.temp))
       return `The internal flows of ${names.join(', ')} can't all balance — the surplus is shown as a byproduct.`
     }
     case 'coproduct-driven': {
@@ -199,7 +207,7 @@ function warningBody(
       return w.shortfalls
         .map(s => {
           const area = rootPlan ? areaName(rootPlan, s.areaId) : s.areaId
-          const item = gameData.items[s.itemId]?.name ?? s.itemId
+          const item = withTemp(gameData.items[s.itemId]?.name ?? s.itemId, s.temp)
           return `${area} takes ${fmtItemRateText(s.itemId, s.rate / 60, rateUnit)} of ${item} from other areas, though it has its own row for it.`
         })
         .join(' ')
@@ -208,7 +216,7 @@ function warningBody(
       return w.cutOffs
         .map(c => {
           const area = rootPlan ? areaName(rootPlan, c.areaId) : c.areaId
-          const item = gameData.items[c.itemId]?.name ?? c.itemId
+          const item = withTemp(gameData.items[c.itemId]?.name ?? c.itemId, c.temp)
           return `${area} takes ${item} from no other area, cannot import it and has no row that makes it, so the rows there that use it cannot run.`
         })
         .join(' ')
@@ -217,7 +225,8 @@ function warningBody(
       const names = [...w.blockIds, w.blockIds[0]].map(blockName)
       return `The supply around the loop ${names.join(' → ')} still changed after ${w.rounds} rounds. Rates are from the last round and may not add up.`
     }
-    case 'temperature-mismatch': return fmtTemperatureWarning(w, gameData, r => fmtItemRateText(w.itemId, r / 60, rateUnit))
+    case 'temperature-mismatch': return fmtTemperatureWarning(w, gameData)
+    case 'no-fitting-temperature': return fmtNoFittingTemperature(w, gameData)
     case 'module-not-allowed': {
       return w.misfits
         .map(m => {
@@ -254,12 +263,13 @@ function warningHint(w: SolverWarning): string {
     case 'loop-not-converged': return "Remove one of the loop's connections, or set a limit on one."
     case 'request-loop-not-converged': return "Set a limit on one of the loop's requests, or remove one."
     case 'temperature-mismatch': return 'Use a boiler or recipe whose output is in range, or connect a block that makes it at the right temperature.'
+    case 'no-fitting-temperature': return 'Add a row that makes it at a fitting temperature, turn Import on for it, or connect a block that makes it.'
     case 'module-not-allowed': return 'Replace the module with one the machine accepts, or pick another machine or beacon.'
   }
 }
 
 function isCritical(w: SolverWarning): boolean {
-  return w.type === 'infeasible-pins'
+  return w.type === 'infeasible-pins' || w.type === 'no-fitting-temperature'
 }
 
 // ---------------------------------------------------------------------------

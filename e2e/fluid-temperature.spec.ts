@@ -27,21 +27,16 @@ test('ingredient tiles show the temperature a recipe requires', async ({ page })
 /** Two Seablock blocks making electricity from a carbon boiler (steam at 165°C): one with a steam turbine (needs ≥465°C), one with a steam engine (needs ≥165°C). */
 const POWER_FIXTURE = path.resolve('e2e/fixtures/power-temperature-seablock.json')
 
-test('a steam turbine on boiler steam imports its steam, warns why, and shows the boiler temperature', async ({ page }) => {
+test('a steam turbine on boiler steam imports steam at ≥465°C without a warning, and shows the boiler temperature', async ({ page }) => {
   await loadPlanFixture(page, POWER_FIXTURE, 'kompetenz-seablock')
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
 
   await expect(page.locator('[data-testid="block-tab"] button[aria-label="Mismatch"]').first()).toHaveAttribute('aria-current', 'true')
   await expect(page.locator('main [aria-label^="Steam (165°C)"]').first()).toContainText('165°C')
 
-  const pill = page.getByRole('button', { name: /1 warning/ })
-  await expect(pill).toBeVisible()
-  await pill.click()
-  await expect(page.getByText('Fluid temperature does not fit')).toBeVisible()
-  const body = page.getByText(/needs Steam at/)
-  await expect(body).toContainText('465°C')
-  await expect(body).toContainText('only made at 165°C')
-  await expect(body).toContainText('is imported')
+  // The block imports the steam at the range the turbine accepts, and nothing is wrong with that.
+  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+  await expect(page.locator('[data-testid="summary-slot"][data-item-id="steam"] [data-testid="summary-slot-temperature"]')).toHaveText('≥465°C')
 })
 
 test('a steam engine on boiler steam raises no warning', async ({ page }) => {

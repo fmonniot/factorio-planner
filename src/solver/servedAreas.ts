@@ -18,7 +18,10 @@ export function areaNeedsOf(routes: readonly AreaRoute[] | undefined): AreaNeeds
   for (const r of routes) {
     if (r.from !== undefined || r.to === undefined || !(r.rate > FLOW_TOLERANCE)) continue
     const list = needs.get(r.itemId) ?? []
-    list.push({ areaId: r.to, need: r.rate })
+    // A split fluid's legs into one area (one per range) add up to the area's need.
+    const same = list.find(n => n.areaId === r.to)
+    if (same) same.need += r.rate
+    else list.push({ areaId: r.to, need: r.rate })
     needs.set(r.itemId, list)
   }
   return needs
