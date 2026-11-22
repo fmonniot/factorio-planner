@@ -85,6 +85,12 @@ describe('moduleNotAllowedWarning', () => {
     expect(w?.misfits.map(m => m.reason)).toEqual(['effect'])
   })
 
+  it('skips a machine without module slots (the over-slots flag covers it)', () => {
+    const gd = makeGameData()
+    gd.machines['assembling-machine-2'].moduleSlots = 0
+    expect(moduleNotAllowedWarning(block(plan('r', [row('n', { modules: [{ moduleId: 'quality', count: 1 }] })])), gd)).toBeUndefined()
+  })
+
   it('skips an unknown machine, module and beacon', () => {
     const rows = [
       row('a', { machineId: 'nope', modules: [{ moduleId: 'agri', count: 1 }] }),

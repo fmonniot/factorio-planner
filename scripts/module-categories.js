@@ -31,6 +31,13 @@ export function moduleCategoriesField(proto, moduleSlots) {
   return list === undefined ? {} : { allowedModuleCategories: list }
 }
 
+/** Strip a leftover `allowedModuleCategories` from an entity without slots; same reference when none is present. */
+function withoutField(entity) {
+  if (!Object.hasOwn(entity, 'allowedModuleCategories')) return entity
+  const { allowedModuleCategories: _old, ...rest } = entity
+  return rest
+}
+
 function withField(entity, proto) {
   const { allowedModuleCategories: _old, ...rest } = entity
   const field = moduleCategoriesField(proto, entity.moduleSlots)
@@ -41,7 +48,7 @@ function withField(entity, proto) {
 /**
  * Write `allowedModuleCategories` into the bundle's machines and beacons that have module slots. A prototype missing
  * from the dump is listed in `missing` and its entry kept. Zero-slot machines (and offshore pumps, power machines
- * without slots) are untouched. Returns the same object references when nothing changed. Safe to re-run.
+ * without slots) are left alone except for a stale `allowedModuleCategories`, which is removed. Returns the same object references when nothing changed. Safe to re-run.
  * @param {Record<string, any>} machines bundle machines
  * @param {Record<string, any> | undefined} beacons bundle beacons
  * @param {Record<string, any>} raw data-raw dump
@@ -54,7 +61,7 @@ export function attachModuleCategories(machines, beacons, raw) {
   const outMachines = {}
   for (const [id, machine] of Object.entries(machines)) {
     if (!(machine.moduleSlots > 0)) {
-      outMachines[id] = machine
+      outMachines[id] = withoutField(machine)
       continue
     }
     slotted++
@@ -71,7 +78,7 @@ export function attachModuleCategories(machines, beacons, raw) {
   const outBeacons = {}
   for (const [id, beacon] of Object.entries(beacons ?? {})) {
     if (!(beacon.moduleSlots > 0)) {
-      outBeacons[id] = beacon
+      outBeacons[id] = withoutField(beacon)
       continue
     }
     slotted++
@@ -86,4 +93,18 @@ export function attachModuleCategories(machines, beacons, raw) {
   }
 
   return { machines: outMachines, beacons: outBeacons, counts, missing, slotted }
+}
+
+/**
+ * The bundle with the result of {@link attachModuleCategories} written in. A bundle without a `beacons` key stays
+ * without one.
+ * @param {Record<string, any>} existing bundle
+ * @param {{ machines: Record<string, any>, beacons: Record<string, any> }} attached
+ */
+export function patchedBundle(existing, attached) {
+  return {
+    ...existing,
+    machines: attached.machines,
+    ...(existing.beacons !== undefined ? { beacons: attached.beacons } : {}),
+  }
 }

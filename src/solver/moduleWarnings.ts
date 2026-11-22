@@ -23,7 +23,8 @@ export function moduleNotAllowedWarning(block: Block, gameData: GameData): Modul
     for (const node of plan.nodes) {
       if (node.kind !== 'game-recipe') continue
       const machine = rowMachine(node, gameData)
-      if (machine) {
+      // A machine without slots is skipped: the module cell's over-slots flag already says so, and every module would read as an effect misfit there.
+      if (machine && machine.moduleSlots > 0) {
         for (const mc of node.modules) {
           const mod = gameData.modules[mc.moduleId]
           const reason = mod && moduleMisfitInMachine(mod, machine)

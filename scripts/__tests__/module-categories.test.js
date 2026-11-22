@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { allowedModuleCategories, moduleCategoriesField, attachModuleCategories } from '../module-categories.js'
+import { allowedModuleCategories, moduleCategoriesField, attachModuleCategories, patchedBundle } from '../module-categories.js'
 
 // Each call returns fresh objects.
 const makeMachines = () => ({
@@ -68,6 +68,18 @@ describe('attachModuleCategories', () => {
     expect(r.machines['electric-drill']).not.toHaveProperty('allowedModuleCategories')
   })
 
+  it('strips a leftover field from zero-slot machines and beacons, keeping references when there is none', () => {
+    const machines = makeMachines()
+    machines['stone-furnace'].allowedModuleCategories = ['speed']
+    const beacons = { beacon: { id: 'beacon', moduleSlots: 0, allowedModuleCategories: ['speed'] } }
+    const original = makeMachines()
+    const r = attachModuleCategories(machines, beacons, makeRaw())
+    expect(r.machines['stone-furnace']).not.toHaveProperty('allowedModuleCategories')
+    expect(r.beacons.beacon).not.toHaveProperty('allowedModuleCategories')
+    expect(r.machines['offshore-pump']).toBe(machines['offshore-pump'])
+    expect(original['offshore-pump']).toEqual(r.machines['offshore-pump'])
+  })
+
   it('lists a missing prototype and keeps its entry', () => {
     const raw = makeRaw()
     delete raw.beacon.beacon
@@ -87,5 +99,13 @@ describe('attachModuleCategories', () => {
 
   it('accepts a bundle without beacons', () => {
     expect(attachModuleCategories(makeMachines(), undefined, makeRaw()).beacons).toEqual({})
+  })
+})
+
+describe('patchedBundle', () => {
+  it('adds no beacons key to a bundle that had none, and replaces it when present', () => {
+    const attached = attachModuleCategories(makeMachines(), makeBeacons(), makeRaw())
+    expect(patchedBundle({ machines: makeMachines() }, attached)).not.toHaveProperty('beacons')
+    expect(patchedBundle({ machines: makeMachines(), beacons: makeBeacons() }, attached).beacons).toBe(attached.beacons)
   })
 })

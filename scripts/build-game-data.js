@@ -123,7 +123,7 @@ import { addIconColors } from './icon-color.js'
 import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachProductTemperatures } from './temperatures.js'
 import { additionalCategories, recipeMadeIn, attachAdditionalCategories } from './recipe-categories.js'
 import { itemFuel, fluidFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
-import { moduleCategoriesField, attachModuleCategories } from './module-categories.js'
+import { moduleCategoriesField, attachModuleCategories, patchedBundle } from './module-categories.js'
 import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
@@ -1122,13 +1122,16 @@ if (args.patchAdditionalCategories) {
 if (args.patchModuleCategories) {
   const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
   assertSameModSet(existing, modSet)
+  // The guard relies on MACHINE_PROTO_TYPES (scripts/fuel.js) covering every prototype type the exporters read (exportMachines,
+  // exportExtraction); a type missing there reads as missing entities. With fewer than 100 slotted entities, 1 % rounds to
+  // zero, so a single missing entity aborts.
   const attached = attachModuleCategories(existing.machines, existing.beacons, raw)
   for (const id of attached.missing) process.stderr.write(`[warn] ${id} is missing from the dump\n`)
   if (attached.missing.length > attached.slotted * 0.01) {
     process.stderr.write(`[build-game-data] ${attached.missing.length}/${attached.slotted} bundle machines and beacons with module slots are missing from the dump; wrong dump? Nothing written.\n`)
     process.exit(1)
   }
-  writeFileSync(outputPath, JSON.stringify({ ...existing, machines: attached.machines, beacons: attached.beacons }, null, 2))
+  writeFileSync(outputPath, JSON.stringify(patchedBundle(existing, attached), null, 2))
   process.stderr.write(
     `[build-game-data] Patched ${outputPath}: machines=${attached.counts.machines} beacons=${attached.counts.beacons} ` +
     `missing=${attached.missing.length}\n`
