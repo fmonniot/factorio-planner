@@ -305,8 +305,8 @@ Groups and their tails all start open, so the player sees the full list: a tail'
 "Show fewer" and folds it, and a folded tail reads "+ N more, X/m and below: A, B, C, D…" and
 reopens it. Which tails are folded is kept per group (like the groups' own state) until the
 block tab changes. A filter turns the tails off (every matching row shows, with no tail button).
-The filter matches item names and area names case-insensitively: the query is an OR: a row stays when its item matches or it has a cell in a matching
-area, and an area stays when its name matches or it has a cell in a matching row. A query that matches the block's own name
+The filter matches item names and area names case-insensitively, as an OR: a row stays when its item matches or it has a cell in a matching
+area, and an area stays when its name matches or (when an item matches) it has a cell in a matching row; a query that matches only items keeps every area. A query that matches the block's own name
 filters nothing (every area and row stays); nothing left shows `No area or item
 matches "<query>"`. A block that moves nothing between its areas says so.
 

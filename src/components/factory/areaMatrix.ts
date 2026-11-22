@@ -349,8 +349,10 @@ export function focusArea(m: BlockMatrix, areaId: string): FocusView {
 }
 
 /**
- * Filters rows and columns by a free-text query (trimmed, case-insensitive). Rows are the item hits
- * if any, otherwise the rows with a cell in a column hit; `columnIds` null = every column.
+ * Filters rows and columns by a free-text query (trimmed, case-insensitive). It is an OR: a row stays
+ * when its name matches or it has a cell in a matching column; a column stays when its name matches or
+ * (when items match) it has a cell in a matching row. `columnIds` null = every column (the scope name
+ * matched, or only items matched).
  * `scopeNames` (e.g. the block's name): a query matching one of them keeps every row and column.
  * Returns null when nothing matches.
  */
@@ -376,7 +378,8 @@ export function matchQuery<R extends { itemId: string; name: string }>(
   if (itemHits.length > 0) {
     for (const c of columns) if (itemHits.some(r => hasCell(r, c.id))) columnIds.add(c.id)
   }
-  const keepRow = (r: R) => has(r.name) || colHits.some(c => hasCell(r, c))
+  const itemSet = new Set(itemHits)
+  const keepRow = (r: R) => itemSet.has(r) || colHits.some(c => hasCell(r, c))
   return { rows: rows.filter(keepRow), columnIds }
 }
 
