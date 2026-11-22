@@ -953,6 +953,17 @@ describe('parseAppState — inputConnections', () => {
         expect(load({ sourceRules: { x: {}, y: { importOff: true } } }).sourceRules).toEqual({ y: { importOff: true } })
       })
 
+      it('keeps a rule with only leftoverOff, drops leftoverOff: false, and keeps it beside the other keys', () => {
+        expect(load({ sourceRules: { x: { leftoverOff: true }, y: { leftoverOff: false }, z: { importOff: true, leftoverOff: true } } }).sourceRules)
+          .toEqual({ x: { leftoverOff: true }, z: { importOff: true, leftoverOff: true } })
+      })
+
+      it('round-trips a leftoverOff rule', () => {
+        const state = parseAppState({ blocks: [blockJson({ sourceRules: { x: { leftoverOff: true }, y: { makeHere: 'off', leftoverOff: true } } })], activeBlockId: 'b1' })
+        expect(state.blocks[0].sourceRules).toEqual({ x: { leftoverOff: true }, y: { makeHere: 'off', leftoverOff: true } })
+        expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
+      })
+
       it('is idempotent: loading a loaded block changes nothing', () => {
         const once = parseAppState({
           blocks: [blockJson({ itemSourcing: { a: 'connections-first', b: 'byproducts-first' }, noImportItems: ['a', 'b', 'c'] })],
@@ -1260,6 +1271,11 @@ describe('parseAppState — sub-factory areas', () => {
     it('keeps a keyless rule on an area', () => {
       const [a] = load([plan({ id: 'a', area: true, sourceRules: { plate: {} } })])
       expect(a.sourceRules).toStrictEqual({ plate: {} })
+    })
+
+    it('loads an area rule that carries leftoverOff without it (a block-only key)', () => {
+      const [a] = load([plan({ id: 'a', area: true, sourceRules: { plate: { importOff: true, leftoverOff: true } } })])
+      expect(a.sourceRules).toStrictEqual({ plate: { importOff: true } })
     })
 
     it('adds no sourceRules key to plans without one', () => {

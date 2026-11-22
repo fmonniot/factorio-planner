@@ -678,3 +678,45 @@ describe('split fluids on the bundled plans', () => {
     expect(warnings[0]).not.toHaveProperty('imported')
   })
 })
+
+describe('a coolant loop with Leftover off on the real Seablock data', () => {
+  // The archive step must update this path when the surplus-rule initiative moves to initiatives/archive/.
+  const FIXTURE = resolve(import.meta.dirname, '../../initiatives/surplus-rule/coolant-loop.plan.json')
+  const USED = 'angels-liquid-coolant-used'
+  const block = (): Block => parseAppState(JSON.parse(readFileSync(FIXTURE, 'utf-8'))).blocks[0]
+  const solved = (rules: Block['sourceRules']) => solve(flattenBlock({ ...block(), sourceRules: rules }), seablock)
+  // The fixture's row ids are uuids: the throughput of a recipe is the one of its row.
+  const throughputOf = (r: SolverResult, recipeId: string) => {
+    const row = flattenBlock(block()).nodes.find(n => n.kind === 'game-recipe' && n.recipeId === recipeId)
+    if (!row) throw new Error(`no row for ${recipeId}`)
+    return nodeOf(r, row.id).throughput
+  }
+  const executions = (r: SolverResult) => r.nodes.reduce((sum, n) => sum + n.throughput, 0)
+
+  it('without the rule the used coolant is left over at 300 degrees', () => {
+    const r = solved({})
+    expect(executions(r)).toBeCloseTo(1662.57, 1)
+    const over = r.warnings.find(w => w.type === 'overconstrained')
+    const used = over?.type === 'overconstrained' ? over.surplusItems.filter(i => i.itemId === USED) : []
+    expect(used.reduce((a, i) => a + i.rate, 0)).toBeCloseTo(2431.9, 0)
+  })
+
+  it('with the rule the loop closes: three coolers and filters at 19.31, make-up 7.72, no used coolant left over', () => {
+    const r = solved({ [USED]: { leftoverOff: true } })
+    for (const id of ['angels-coolant-cool-300', 'angels-coolant-cool-200', 'angels-coolant-cool-100', 'angels-coolant-used-filtration-1']) {
+      expect(throughputOf(r, id), id).toBeCloseTo(19.31, 2)
+    }
+    expect(throughputOf(r, 'angels-liquid-coolant')).toBeCloseTo(7.72, 2)
+    expect(executions(r)).toBeCloseTo(1698.64, 1)
+    for (const [key, rate] of netBalance(r.nodes, r.conversions)) {
+      if (key === USED || key.startsWith(`${USED}@`)) expect(rate, key).toBeCloseTo(0, 2)
+    }
+    const over = r.warnings.find(w => w.type === 'overconstrained')
+    const surplus = over?.type === 'overconstrained' ? over.surplusItems : []
+    expect(surplus.every(i => i.itemId === 'steam')).toBe(true)
+    expect(surplus.reduce((a, i) => a + i.rate, 0)).toBeCloseTo(1823.9, 0)
+    const at = (t: number) => surplus.find(i => i.temp !== undefined && 'at' in i.temp && i.temp.at === t)?.rate
+    expect(at(150)).toBeCloseTo(858.4, 0)
+    expect(at(125)).toBeCloseTo(965.5, 0)
+  })
+})

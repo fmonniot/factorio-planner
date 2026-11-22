@@ -10,7 +10,7 @@ import type {
   SolverWarning,
   UnsatisfiedItem,
 } from '../data/types'
-import { importOffItems as importOffOf } from '../data/sourceRules'
+import { importOffItems as importOffOf, leftoverOffItems } from '../data/sourceRules'
 import { flowKey, productTag, rangeOf, splitFluids } from '../data/flowKey'
 import { rowIngredients, rowProductAmount, type ClassifiedSystem, type FlowKeys } from './build'
 import { baseOf, goalKeyOf, isSuppliedKey, itemKeys, resultItem } from './flowKeys'
@@ -50,6 +50,11 @@ export interface SourcingSets {
   cannotImport: Set<string>
   /** Items whose import slack is cheap (`BYPRODUCTS_FIRST_SLACK_COST`). */
   byproductsFirst: Set<string>
+  /**
+   * Items (base ids) whose rule has Leftover off: their rows get a priced left-over variable. Read from the plan passed in:
+   * the area path's `effective` copy drops the key, so `solveAreaBlock` builds its own set from the block's `sourceRules`.
+   */
+  leftoverOff: Set<string>
 }
 
 /**
@@ -65,7 +70,7 @@ export function sourcingSets(plan: SolverPlan, byproductConsumerIngredients: Set
   for (const id of byproductConsumerIngredients) locked.add(id)
   const cannotImport = new Set([...importOff, ...byproductConsumerIngredients])
   const byproductsFirst = new Set(itemsWithSourcing(plan, 'off').filter(id => !locked.has(id)))
-  return { locked, importOffLocked, cannotImport, byproductsFirst }
+  return { locked, importOffLocked, cannotImport, byproductsFirst, leftoverOff: new Set(leftoverOffItems(plan.sourceRules)) }
 }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */

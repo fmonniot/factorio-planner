@@ -111,6 +111,23 @@ describe('supplied keys in one block', () => {
     const y = 900 * (cost('conv:steam@500#in→steam[465,]') + 2 * unit) + 1800 * (cost('conv:steam@165#in→steam[,]') + unit)
     if (SUPPLY_DEPTH === 1) expect(x).toBeLessThan(y)
   })
+
+  it('Leftover off on a split fluid: its temperature and range keys get a left-over variable, its supplied #in keys do not', () => {
+    const ks = supply([
+      { connectionId: 'c1', tag: { at: 500 }, offer: 3600 },
+      { connectionId: 'c1', tag: { at: 165 }, offer: 1800 },
+    ])
+    const sys = buildClassifiedSystem(gameData(), ['boil-165', 'turbine', 'engine'], new Map([['work', 30], ['work2', 30]]), new Map(), { keySupply: ks })
+    const caps = new Map([['steam@500#in', 3600], ['steam@165#in', 1800]])
+    const lp = buildLPModel(sys, new Map(), new Set(), new Set(), caps, new Set(), new Set(), false, new Set(), { leftoverOff: new Set(['steam']) })
+    const keys = [...lp.itemToLeftover.keys()]
+    expect(keys.length).toBeGreaterThan(0)
+    expect(keys.every(k => sys.flow!.info.get(k)!.itemId === 'steam' && !sys.flow!.info.get(k)!.supplied)).toBe(true)
+    expect(keys.some(k => k.includes('#in'))).toBe(false)
+    expect(keys.some(k => k.startsWith('steam@165'))).toBe(true)
+    const off = buildLPModel(sys, new Map(), new Set(), new Set(), caps, new Set(), new Set(), false, new Set(), { leftoverOff: new Set(['work']) })
+    expect([...off.itemToLeftover.keys()].some(k => k.startsWith('steam'))).toBe(false)
+  })
 })
 
 describe('solve cache key of the supplied keys', () => {

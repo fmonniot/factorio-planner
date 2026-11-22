@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { solve, solveBlock } from './index'
 import { buildClassifiedSystem } from './build'
-import { BC_BONUS, BIG_M, BYPRODUCTS_FIRST_SLACK_COST, CONVERT_COST, buildLPModel, PIN_PROBE_LIMIT, runLP, solveLP } from './solve'
+import { BC_BONUS, BIG_M, BYPRODUCTS_FIRST_SLACK_COST, CONVERT_COST, LEFTOVER_COST, buildLPModel, PIN_PROBE_LIMIT, runLP, solveLP } from './solve'
 import type { GameData, GameRecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -691,6 +691,55 @@ describe('byproducts first', () => {
   it('creates no slack for a locked item', () => {
     const lp = buildLPModel(system(), new Map(), new Set(), new Set(['plate']), new Map(), new Set(), new Set(['plate']))
     expect(lp.variables.slack_plate).toBeUndefined()
+  })
+})
+
+describe('leftover off', () => {
+  function system() {
+    const gameData = makeGameData({
+      recipes: {
+        gear: recipe('gear', 1, [item('plate', 2)], [product('gear', 1)]),
+        'plate-from-ingot': recipe('plate-from-ingot', 1, [item('ingot', 1)], [product('plate', 1)]),
+        'ingot-from-ore': recipe('ingot-from-ore', 1, [item('ore', 1)], [product('ingot', 1)]),
+      },
+    })
+    return buildClassifiedSystem(gameData, ['gear', 'plate-from-ingot', 'ingot-from-ore'], new Map([['gear', 30]]))
+  }
+  const build = (ids: string[], elastic = false) =>
+    buildLPModel(system(), new Map(), new Set(), new Set(), new Map(), new Set(), new Set(), elastic, new Set(), { leftoverOff: new Set(ids) })
+  const rowOf = (lp: ReturnType<typeof build>, name: string) => Object.keys(lp.variables[name]).find(k => k !== '__obj__')!
+
+  it('makes an intermediate row an equality with a priced variable that has no import, stage-one or order price', () => {
+    const lp = build(['plate'])
+    const row = rowOf(lp, 'leftover_plate')
+    expect(lp.constraints[row]).toEqual({ equal: 0 })
+    expect(lp.variables.leftover_plate).toEqual({ __obj__: LEFTOVER_COST, [row]: -1 })
+    expect(lp.itemToLeftover.get('plate')).toBe('leftover_plate')
+    expect(lp.variables.slack_plate.__obj__).toBe(BIG_M)
+  })
+
+  it('makes a goal row an equality at the goal rate', () => {
+    const lp = build(['gear'])
+    expect(lp.constraints[rowOf(lp, 'leftover_gear')]).toEqual({ equal: 30 })
+  })
+
+  it('leaves an item outside the set with its inequality', () => {
+    const lp = build(['plate'])
+    expect(lp.variables.leftover_ingot).toBeUndefined()
+    expect(lp.constraints[rowOf(lp, 'slack_ingot')]).toEqual({ min: 0 })
+  })
+
+  it('gives a raw item (no row) no variable', () => {
+    const lp = build(['ore'])
+    expect(lp.itemToLeftover.size).toBe(0)
+  })
+
+  it('keeps the shortfall variable of an elastic goal row next to the leftover', () => {
+    const lp = build(['gear'], true)
+    const row = rowOf(lp, 'leftover_gear')
+    const short = Object.values(lp.variables).find(v => v.__short === 1)!
+    expect(short[row]).toBe(1)
+    expect(lp.variables.leftover_gear[row]).toBe(-1)
   })
 })
 

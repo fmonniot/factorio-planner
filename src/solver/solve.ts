@@ -37,6 +37,13 @@ function lpName(id: string): string {
 
 export const BIG_M = 1e6
 /**
+ * Objective cost per unit of an item's left-over when its rule has Leftover off: about 700 times the coolant loop's
+ * break-even (0.0148 runs per unit), so the LP spends runs to avoid a left-over that is cheap to avoid and not more.
+ * BIG_M / LEFTOVER_COST = 1e5, so an import still costs more than the left-over it would avoid, per unit: one imported unit
+ * that lets the loop absorb more than 1e5 units of left-over costs less than that left-over, and the LP then imports.
+ */
+export const LEFTOVER_COST = 10
+/**
  * Objective cost per unit of a conversion column (a made temperature moved to a range it fits, see build.ts): above
  * the solver's 1e-8 pivot precision, so the LP never converts for nothing (that would turn a surplus at one temperature
  * into one at "any"), and far below a run (1), the byproducts-first slack (1e-5) and SHIP_COST (1e-6).
@@ -93,6 +100,8 @@ export interface LPModel {
   itemToSlack: Map<string, string>
   /** itemId → supply variable name */
   itemToSupply: Map<string, string>
+  /** row key → its left-over variable name (only the rows of items with Leftover off that something makes) */
+  itemToLeftover: Map<string, string>
   /** goal itemId → shortfall variable name (elastic models only) */
   goalToShort: Map<string, string>
   /** the least total shortfall `D` `boundShortfall` found (elastic models, once bounded) */
@@ -111,6 +120,8 @@ export interface LPBuildOptions {
   extraSupplied?: ReadonlySet<string>
   /** split fluid → a cap on what its supplied keys take together (the pass-2 rule: own production first); Receive-it-first keys are not bounded by it */
   fluidCaps?: ReadonlyMap<string, number>
+  /** Base item ids whose rule has Leftover off: their goal and intermediate rows get a priced left-over variable (`LEFTOVER_COST`). */
+  leftoverOff?: ReadonlySet<string>
 }
 
 /** At most this many pins are probed one by one to tell which bind (see `bindingPins`). */
@@ -137,6 +148,9 @@ export function pinRowName(varName: string): string {
  *     - Connections-first items: u_i + Σ_{j∉N, S_ij<0} S_ij * x_j ≤ 0
  *       (supply covers at most what recipes outside N use; N = the flagged rows, or the whole chain in the fallback, see absorbers.ts)
  *     - Pinned recipes:     x_j = rate  (equality)
+ *     - Leftover off (options.leftoverOff): the goal and intermediate rows of such an item become equalities
+ *       Σ S_ij * x_j (+ s_i + u_i) − v_k = rhs, with v_k ≥ 0 the left-over, priced LEFTOVER_COST (no import cost, no
+ *       stage-one price); supplied `#in` keys and raw items get none
  *   Objective: minimize Σ c_j * x_j + Σ m_i * s_i
  *     where c_j = 1, BC_BONUS for the rewarded rows of an absorber chain (flagged byproduct consumers that take a
  *     bounded item), `feederCost` for the rows that only feed them (see absorbers.ts), and m_i = BYPRODUCTS_FIRST_SLACK_COST
@@ -234,6 +248,24 @@ export function buildLPModel(
     return unique
   }
 
+  // itemId (row key) → left-over variable name (Leftover off)
+  const itemToLeftover = new Map<string, string>()
+
+  /** Turns the row `cName` of `key` into an equality with a priced left-over variable, when the item has Leftover off and something makes it. */
+  function addLeftover(key: string, cName: string): void {
+    const set = options.leftoverOff
+    if (!set || set.size === 0) return
+    const info = system.flow?.info.get(key)
+    if (info?.supplied) return
+    if (!set.has(info?.itemId ?? key)) return
+    if (!S.get(key)) return
+    const row = constraints[cName]
+    constraints[cName] = { equal: row.min ?? 0 }
+    const name = named('leftover_', key)
+    variables[name] = { __obj__: LEFTOVER_COST, [cName]: -1 }
+    itemToLeftover.set(key, name)
+  }
+
   /** Adds the row for itemId and returns its constraint name. */
   function addConstraintWithSlack(itemId: string, rhs: number): string {
     const rowS = S.get(itemId)
@@ -271,6 +303,7 @@ export function buildLPModel(
       const varName = recipeToVar.get(recipeId)
       if (varName) variables[varName][cName] = (variables[varName][cName] ?? 0) + coeff
     }
+    addLeftover(itemId, cName)
     if (elasticGoals) {
       // Named after the goal's row, not its item: `lpName` can map a recipe or another goal to the same name.
       const shortName = `__short${goalIdx}`
@@ -291,6 +324,7 @@ export function buildLPModel(
   // Intermediate constraints: Σ S_ij * x_j + s_i ≥ 0  (elastic — slack allowed)
   for (const itemId of classification.intermediates) {
     const cName = addConstraintWithSlack(itemId, 0)
+    addLeftover(itemId, cName)
     const cap = supplyCaps.get(itemId) ?? 0
     const suppliedKey = system.flow?.supply.get(itemId)
     if (cap > 0) {
@@ -399,7 +433,7 @@ export function buildLPModel(
     variables[varName][cName] = 1
   }
 
-  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, goalToShort, absorbers, keySupplyVars }
+  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, itemToLeftover, goalToShort, absorbers, keySupplyVars }
 }
 
 type LPConstraints = LPModel['constraints']
@@ -550,11 +584,11 @@ export function solveLP(
   connectionsFirst: Set<string> = new Set(),
   byproductsFirst: Set<string> = new Set(),
   markedFeeders: ReadonlySet<string> = new Set(),
-  options: { fluidCaps?: ReadonlyMap<string, number> } = {},
+  options: { fluidCaps?: ReadonlyMap<string, number>; leftoverOff?: ReadonlySet<string> } = {},
 ): LPResult {
   const build = (elastic: boolean) => buildLPModel(
     system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, elastic, new Set(),
-    { markedFeeders, fluidCaps: options.fluidCaps },
+    { markedFeeders, fluidCaps: options.fluidCaps, leftoverOff: options.leftoverOff },
   )
   const lp = build(false)
   const result = runLP('__obj__', lp.constraints, lp.variables)

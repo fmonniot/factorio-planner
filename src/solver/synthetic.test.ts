@@ -181,6 +181,17 @@ function recipes(): GameRecipe[] {
     // Case 26 and 27 (connections carry keys): W makes the widget with 500 steam, W2 makes widget2 with 165 steam.
     recipe('case26-make-widget', 'smelting', 1, [item('case25-fuel', 1)], [item('case26-widget', 1), warm('case25-steam', 60, 500)]),
     recipe('case26-make-widget2', 'smelting', 1, [item('case25-fuel', 1)], [item('case26-widget2', 1), warm('case25-steam', 60, 165)]),
+    // Case 28 (Leftover off): use turns 100 coolant into the goal and 100 hot; a chain cools the hot in two steps and a filter makes 160 coolant from
+    // 200 cold (the cart variant also takes a cart); brew makes 100 coolant from nothing the block counts; twin makes the goal with 2 Q on the side.
+    recipe('case28-use', 'smelting', 1, [item('case28-coolant', 100)], [item('case28-p', 1), item('case28-hot', 100)]),
+    recipe('case28-cool-a', 'smelting', 1, [item('case28-hot', 200)], [item('case28-warm', 200)]),
+    recipe('case28-cool-b', 'smelting', 1, [item('case28-warm', 200)], [item('case28-cold', 200)]),
+    recipe('case28-filter', 'smelting', 1, [item('case28-cold', 200)], [item('case28-coolant', 160)]),
+    recipe('case28-filter-cart', 'smelting', 1, [item('case28-cold', 200), item('case28-cart', 1)], [item('case28-coolant', 160)]),
+    recipe('case28-brew', 'smelting', 1, [item('case28-ore', 1)], [item('case28-coolant', 100)]),
+    recipe('case28-make-cart', 'smelting', 1, [item('case28-ore', 1)], [item('case28-cart', 1)]),
+    recipe('case28-twin', 'smelting', 1, [item('case28-ore', 1)], [item('case28-p', 1), item('case28-q', 2)]),
+    recipe('case28-make-q', 'smelting', 1, [item('case28-ore', 1)], [item('case28-q', 1)]),
   ]
 }
 
@@ -3346,6 +3357,166 @@ describe('solver synthetic cases', () => {
       expect(shares(all)).toEqual([['C1', 1350], ['C2', 1350]])
       expect(servedParts(all, 'C1')).toEqual([{ temp: { at: 165 }, share: 900, got: 900 }, { temp: { at: 500 }, share: 450, got: 450 }])
       expect(servedParts(all, 'C2')).toEqual([{ temp: { at: 500 }, share: 1350, got: 1350 }])
+    })
+  })
+  describe('case 28: leftover off', () => {
+    // use turns 100 coolant into 1 P and 100 hot; cool-a, cool-b and filter turn 200 hot into 160 coolant; brew makes 100 coolant. Goal: 10 P.
+    // Without the rule the loop is not worth its runs and 1000 hot is left over; with it on hot, warm and cold the loop closes (27 runs against 20).
+    const [HOT, WARM, COLD, CART, P, Q] = ['hot', 'warm', 'cold', 'cart', 'p', 'q'].map(x => `case28-${x}`)
+    const off = (...ids: string[]): Record<string, SourceRule> => Object.fromEntries(ids.map(id => [id, { leftoverOff: true } as SourceRule]))
+    const LOOP = off(HOT, WARM, COLD)
+    const rowsOf = (...ids: string[]): RecipeNode[] => ids.map(id => planNode(`case28-${id}`))
+    function case28Block(opts: {
+      nodes?: RecipeNode[]; rules?: Record<string, SourceRule>; products?: Array<[string, number]>; rootPlan?: SubPlan; connections?: string[]
+    } = {}): Block {
+      return {
+        id: 'block-28',
+        name: 'Block',
+        color: '#60a5fa',
+        products: (opts.products ?? [[P, 10]]).map(([itemId, extraRate], i) => ({ id: `p${i}`, itemId, extraRate })),
+        sourceRules: opts.rules ?? {},
+        inputConnections: (opts.connections ?? []).map((itemId, i) => ({ id: `c${i}`, itemId, fromBlockId: 'upstream' })),
+        rootPlan: opts.rootPlan ?? subPlan('root', opts.nodes ?? rowsOf('use', 'cool-a', 'cool-b', 'filter', 'brew')),
+      }
+    }
+    const loopNodes = () => rowsOf('use', 'cool-a', 'cool-b', 'filter', 'brew')
+    const through = (r: SolverResult) => Object.fromEntries(['use', 'cool-a', 'cool-b', 'filter', 'brew'].map(id => [id, nodeOf(r, `case28-${id}`).throughput]))
+    const net = (r: SolverResult, id: string) => netBalance(r.nodes).get(id) ?? 0
+    const overItems = (r: SolverResult) => {
+      const w = r.warnings.find(x => x.type === 'overconstrained')
+      return w?.type === 'overconstrained' ? w.surplusItems.map(i => i.itemId) : []
+    }
+    const closed = (t: Record<string, number>) => {
+      expect(t.use).toBeCloseTo(10, 3)
+      expect(t['cool-a']).toBeCloseTo(5, 3)
+      expect(t['cool-b']).toBeCloseTo(5, 3)
+      expect(t.filter).toBeCloseTo(5, 3)
+      expect(t.brew).toBeCloseTo(2, 3)
+    }
+
+    it('a: no rule: use 10, brew 10, 1000 hot left over', () => {
+      const r = solve(flattenBlock(case28Block()), makeGameData())
+      const t = through(r)
+      expect(t.use).toBeCloseTo(10, 3)
+      expect(t.brew).toBeCloseTo(10, 3)
+      expect(t['cool-a'] + t['cool-b'] + t.filter).toBeCloseTo(0, 3)
+      expect(net(r, HOT)).toBeCloseTo(1000, 3)
+      expect(overItems(r)).toContain(HOT)
+    })
+
+    it('b: Leftover off on hot, warm and cold: the loop closes (27 runs)', () => {
+      const r = solve(flattenBlock(case28Block({ rules: LOOP })), makeGameData())
+      closed(through(r))
+      for (const id of [HOT, WARM, COLD]) expect(net(r, id), id).toBeCloseTo(0, 3)
+      expect(overItems(r)).toEqual([])
+    })
+
+    it('c: Leftover off on hot only: one cooler runs, warm is left over', () => {
+      const r = solve(flattenBlock(case28Block({ rules: off(HOT) })), makeGameData())
+      const t = through(r)
+      expect(t.use).toBeCloseTo(10, 3)
+      expect(t['cool-a']).toBeCloseTo(5, 3)
+      expect(t['cool-b']).toBeCloseTo(0, 3)
+      expect(t.brew).toBeCloseTo(10, 3)
+      expect(net(r, HOT)).toBeCloseTo(0, 3)
+      expect(net(r, WARM)).toBeCloseTo(1000, 3)
+    })
+
+    it('d: b with use in an area of its own: the same result', () => {
+      const use = planNode('case28-use')
+      const rest = rowsOf('cool-a', 'cool-b', 'filter', 'brew')
+      const rootPlan = subPlan('root', rest, [subPlan('S', [use], [], true)])
+      const r = solve(flattenBlock(case28Block({ rules: LOOP, rootPlan })), makeGameData())
+      closed(through(r))
+      for (const id of [HOT, WARM, COLD]) expect(net(r, id), id).toBeCloseTo(0, 3)
+    })
+
+    describe('a loop that needs an input', () => {
+      // filter-cart needs a cart; make-cart is pinned at 0, so a cart can only be imported (BIG_M) or received.
+      const cartNodes = () => [
+        ...rowsOf('use', 'cool-a', 'cool-b', 'filter-cart', 'brew'),
+        planNode('case28-make-cart', [], { pinnedRate: 0 }),
+      ]
+      const solveWith = (rules: Record<string, SourceRule>) =>
+        solveBlock(flattenBlock(case28Block({ nodes: cartNodes(), rules, connections: [CART] })), makeGameData(), new Map([[CART, 100]]))
+
+      it('e: a cart on the default rule: the loop stays open, nothing is received', () => {
+        const { result, received } = solveWith(LOOP)
+        expect(nodeOf(result, 'case28-use').throughput).toBeCloseTo(10, 3)
+        expect(nodeOf(result, 'case28-brew').throughput).toBeCloseTo(10, 3)
+        expect(nodeOf(result, 'case28-filter-cart').throughput).toBeCloseTo(0, 3)
+        expect(received.get(CART) ?? 0, 'cart received').toBeCloseTo(0, 3)
+        expect(net(result, HOT)).toBeCloseTo(1000, 3)
+      })
+
+      it('f: the cart on Receive it first: the loop closes on the received carts', () => {
+        const { result, received } = solveWith({ ...LOOP, [CART]: { makeHere: 'after-blocks' } })
+        expect(nodeOf(result, 'case28-use').throughput).toBeCloseTo(10, 3)
+        expect(nodeOf(result, 'case28-cool-a').throughput).toBeCloseTo(5, 3)
+        expect(nodeOf(result, 'case28-cool-b').throughput).toBeCloseTo(5, 3)
+        expect(nodeOf(result, 'case28-filter-cart').throughput).toBeCloseTo(5, 3)
+        expect(nodeOf(result, 'case28-brew').throughput).toBeCloseTo(2, 3)
+        expect(received.get(CART) ?? 0, 'cart received').toBeCloseTo(5, 3)
+      })
+    })
+
+    describe('a goal row', () => {
+      // twin makes 1 P and 2 Q for a run, make-q 1 Q: 10 P and 40 Q. At 20 twin runs P is 10 over its goal; with the rule on P the
+      // cost is 9t - 60 up to t = 20 (t = twin runs), so the minimum is t = 10 and make-q runs 20.
+      const nodes = () => rowsOf('twin', 'make-q')
+      const goals: Array<[string, number]> = [[P, 10], [Q, 40]]
+      it('g: no rule: twin runs 20, P is 10 over the goal', () => {
+        const r = solve(flattenBlock(case28Block({ nodes: nodes(), products: goals })), makeGameData())
+        expect(nodeOf(r, 'case28-twin').throughput).toBeCloseTo(20, 3)
+        expect(nodeOf(r, 'case28-make-q').throughput).toBeCloseTo(0, 3)
+        expect(net(r, P)).toBeCloseTo(20, 3)
+      })
+      it('h: Leftover off on P: twin runs 10, make-q 20, P is on its goal', () => {
+        const r = solve(flattenBlock(case28Block({ nodes: nodes(), products: goals, rules: off(P) })), makeGameData())
+        expect(nodeOf(r, 'case28-twin').throughput).toBeCloseTo(10, 3)
+        expect(nodeOf(r, 'case28-make-q').throughput).toBeCloseTo(20, 3)
+        expect(net(r, P)).toBeCloseTo(10, 3)
+      })
+    })
+
+    it('areas: a pair item takes the left-over through its sinks', () => {
+      // warm is made by cool-a in M and used by cool-b in N and in K; K takes no warm from M (areasOff), so warm is a pair item.
+      const sp = (id: string, nodes: RecipeNode[], rules?: SubPlan['sourceRules']) => ({ ...subPlan(id, nodes, [], true), ...(rules ? { sourceRules: rules } : {}) })
+      const rootPlan = subPlan('root', [], [
+        sp('M', [rowIn('case28-use', 'M'), rowIn('case28-cool-a', 'M')]),
+        sp('N', [rowIn('case28-cool-b', 'N'), rowIn('case28-filter', 'N'), rowIn('case28-brew', 'N')]),
+        sp('K', [rowIn('case28-cool-b', 'K')], { [WARM]: { areasOff: ['M'] } }),
+      ])
+      const r = solve(flattenBlock(case28Block({ rules: LOOP, rootPlan })), makeGameData())
+      expect(nodeOf(r, 'case28-use@M').throughput).toBeCloseTo(10, 3)
+      expect(nodeOf(r, 'case28-cool-a@M').throughput).toBeCloseTo(5, 3)
+      expect(nodeOf(r, 'case28-cool-b@N').throughput).toBeCloseTo(5, 3)
+      expect(nodeOf(r, 'case28-cool-b@K').throughput).toBeCloseTo(0, 3)
+      expect(nodeOf(r, 'case28-filter@N').throughput).toBeCloseTo(5, 3)
+      expect(nodeOf(r, 'case28-brew@N').throughput).toBeCloseTo(2, 3)
+      for (const id of [HOT, WARM, COLD]) expect(net(r, id), id).toBeCloseTo(0, 3)
+    })
+
+    it("areas: an area's own rule does not drop the block's Leftover off", () => {
+      // All rows sit in one area S whose rule for hot is Import off; the block's rule on hot, warm and cold still applies.
+      const rootPlan = subPlan('root', [], [{ ...subPlan('S', loopNodes(), [], true), sourceRules: { [HOT]: { importOff: true } } }])
+      const r = solve(flattenBlock(case28Block({ rules: LOOP, rootPlan })), makeGameData())
+      closed(through(r))
+    })
+
+    it('a switch is a cache miss', () => {
+      const cache = createSolveCache()
+      const gd = makeGameData()
+      const before = solveAll([case28Block({ nodes: loopNodes() })], gd, cache)
+      const after = solveAll([case28Block({ nodes: loopNodes(), rules: LOOP })], gd, cache)
+      expect(nodeOf(before.results['block-28'], 'case28-cool-a').throughput).toBeCloseTo(0, 3)
+      expect(nodeOf(after.results['block-28'], 'case28-cool-a').throughput).toBeCloseTo(5, 3)
+    })
+
+    it('area rule of an item cuts the block rule to its two keys', () => {
+      const area = { id: 'S', name: 'S', rank: 0 } as unknown as Parameters<typeof areaRuleOf>[0]
+      expect(areaRuleOf(area, { [HOT]: { importOff: true, leftoverOff: true } }, HOT)).toEqual({ importOff: true })
+      expect(areaRuleOf(area, { [HOT]: { leftoverOff: true } }, HOT)).toEqual({})
     })
   })
 })

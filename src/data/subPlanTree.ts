@@ -114,7 +114,8 @@ export function storedAreaRule(root: SubPlan, areaId: string, itemId: string): A
 /**
  * The rule the area `areaId` applies to an item: its own when it has one (a keyless `{}` is a rule), else the block's
  * rule for the item (`blockRules`, `Block.sourceRules`), else `{}`. The one reading every layer shares; the solver's
- * `areaRuleOf` is the same test on a `SolverArea`.
+ * `areaRuleOf` is the same test on a `SolverArea`, except that it cuts a block's rule to `makeHere` and `importOff`
+ * (`leftoverOff` is block-only; this function returns the block's rule whole).
  */
 export function effectiveAreaRule(root: SubPlan, blockRules: Record<string, SourceRule> | undefined, areaId: string, itemId: string): AreaSourceRule {
   const own = storedAreaRule(root, areaId, itemId)

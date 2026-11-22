@@ -353,7 +353,7 @@ export function solveBlock(
   const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
   const keySupplyPlan = keySupplyPlanOf(system)
   const offerFluidCaps = new Map([...(keySupplyPlan?.fluids ?? [])].map(([fluid, f]) => [fluid, f.offers]))
-  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst, markedFeeders, { fluidCaps: offerFluidCaps })
+  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst, markedFeeders, { fluidCaps: offerFluidCaps, leftoverOff: sets.leftoverOff })
 
   // Pass 2: supply fills only the residual of connected intermediates. Capping at
   // the residual keeps own production at its pass-1 level (replacing it would
@@ -365,7 +365,7 @@ export function solveBlock(
   if (pass2.run) {
     lp = solveLP(
       system, pinnedRates, bcRecipeIds, pass2.noImport,
-      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, markedFeeders, { fluidCaps: pass2.fluidCaps },
+      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, markedFeeders, { fluidCaps: pass2.fluidCaps, leftoverOff: sets.leftoverOff },
     )
   }
 
@@ -373,7 +373,7 @@ export function solveBlock(
   // has offer to spare, the order of connectionOrder.ts decides (least import, least received, fill).
   const order = {
     system, pinnedRates, bcRecipeIds, markedFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp,
-    fluidCaps: offerFluidCaps, keySupply: keySupplyPlan,
+    fluidCaps: offerFluidCaps, keySupply: keySupplyPlan, leftoverOff: sets.leftoverOff,
   }
   if (needsConnectionOrder(order)) lp = connectionOrder(order) ?? lp
 

@@ -294,6 +294,16 @@ describe('area what-ifs', () => {
     })
   })
 
+  describe('leftover off', () => {
+    it('applyWhatIf sets leftoverOff on the block rule and does not modify its input', () => {
+      const state = plan()
+      const before = JSON.stringify(state)
+      const next = applyWhatIf(state, state.blocks[0].id, { leftoverOff: ['sulfur'] })
+      expect(next.blocks[0].sourceRules).toEqual({ sulfur: { leftoverOff: true } })
+      expect(JSON.stringify(state)).toBe(before)
+    })
+  })
+
   describe('applyWhatIf', () => {
     it("builds the area's rule from the block's: first adds makeHere, here removes it", () => {
       const state = stateOf(['L', 'B'], ['L', 'B'], { [PLATE]: { importOff: true } })
@@ -304,6 +314,11 @@ describe('area what-ifs', () => {
       expect(rulesOf(here, 'L')).toEqual({ [PLATE]: { importOff: true } })
       const bare = applyWhatIf(stateOf(), 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'here' }] })
       expect(rulesOf(bare, 'L'), 'a rule is written even when it equals the block\'s').toEqual({ [PLATE]: {} })
+    })
+    it("cuts the block's rule an area starts from to its two keys: leftoverOff never reaches an area's rule", () => {
+      const state = stateOf(['L', 'B'], ['L', 'B'], { [PLATE]: { importOff: true, leftoverOff: true } })
+      expect(rulesOf(applyWhatIf(state, 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'first' }] }), 'L')).toEqual({ [PLATE]: { importOff: true, makeHere: 'after-blocks' } })
+      expect(rulesOf(applyWhatIf(state, 'H', { areaImportOff: [{ area: 'L', itemId: PLATE }] }), 'L')).toEqual({ [PLATE]: { importOff: true } })
     })
     it('turns Import off in an area, keeping the rest of its rule', () => {
       const state = applyWhatIf(stateOf(), 'H', { areaSourcing: [{ area: 'L', itemId: PLATE, mode: 'off' }], areaImportOff: [{ area: 'L', itemId: PLATE }] })

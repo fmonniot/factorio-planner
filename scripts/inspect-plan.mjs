@@ -2,7 +2,7 @@
 // Solves an exported plan (the JSON from the workspace menu's "Export plan") with the app's own
 // solver and prints what one block came out as: rows, left-over items, imports, the imports its connections replaced, warnings and
 // connection flows, the served lists and, for a block with areas, each area's rules and what each receives, imports and misses.
-// Optional what-if edits (pin, drop, sourcing, import-off, area-sourcing, area-import-off, area-off, no-area) answer "what would it
+// Optional what-if edits (pin, drop, sourcing, import-off, leftover-off, area-sourcing, area-import-off, area-off, no-area) answer "what would it
 // do if...?" without touching the file. The logic is src/solver/inspect.ts; this file only reads
 // the files and loads that module through Vite so TypeScript needs no build step.
 // Usage: node scripts/inspect-plan.mjs --help
@@ -24,6 +24,7 @@ const HELP = `Usage: node scripts/inspect-plan.mjs <plan.json> [options]
   --drop <recipe>          remove every row of a recipe (repeatable)
   --sourcing <item=mode>   byproducts-first | connections-first for an item (repeatable)
   --import-off <item>      turn Import off for an item (repeatable)
+  --leftover-off <item>    price an item's left-over (Leftover off) (repeatable)
   --area-sourcing <area>:<item>=<first|off|here>
                            an area's own rule for an item: Receive it first, Don't make more
                            here or Make it here, from the block's rule (repeatable)
@@ -49,6 +50,7 @@ const { values, positionals } = parseArgs({
     drop: { type: 'string', multiple: true },
     sourcing: { type: 'string', multiple: true },
     'import-off': { type: 'string', multiple: true },
+    'leftover-off': { type: 'string', multiple: true },
     'area-sourcing': { type: 'string', multiple: true },
     'area-import-off': { type: 'string', multiple: true },
     'area-off': { type: 'string', multiple: true },
@@ -120,6 +122,7 @@ try {
     drop: values.drop,
     sourcing: pairs(values.sourcing, '--sourcing'),
     importOff: values['import-off'],
+    leftoverOff: values['leftover-off'],
     areaSourcing: parseAreaSourcing(values['area-sourcing'] ?? []),
     areaImportOff: parseAreaImportOff(values['area-import-off'] ?? []),
     areaOff: parseAreaOff(values['area-off'] ?? []),
