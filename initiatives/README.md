@@ -24,7 +24,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
 | Surplus-aware objective     | Future   | [surplus-aware-objective/](surplus-aware-objective/plan.md) |
-| Surplus rule: close a loop on purpose | Future | [surplus-rule/](surplus-rule/plan.md) |
+| Surplus rule: close a loop on purpose | Active | [surplus-rule/](surplus-rule/plan.md) |
 | Fluid temperatures as first-class items | Shipped | [archive/fluid-temperatures/](archive/fluid-temperatures/plan.md) |
 | Sourcing priority: one Sources list per item | Shipped | [archive/sourcing-priority/](archive/sourcing-priority/plan.md) |
 | Visual refinement of the main screen | Shipped | [archive/visual-refinement/](archive/visual-refinement/plan.md) |
