@@ -39,7 +39,8 @@ export const BIG_M = 1e6
 /**
  * Objective cost per unit of an item's left-over when its rule has Leftover off: about 700 times the coolant loop's
  * break-even (0.0148 runs per unit), so the LP spends runs to avoid a left-over that is cheap to avoid and not more.
- * BIG_M / LEFTOVER_COST = 1e5, so an import still costs more than the left-over it would avoid.
+ * BIG_M / LEFTOVER_COST = 1e5, so an import still costs more than the left-over it would avoid, per unit: one imported unit
+ * that lets the loop absorb more than 1e5 units of left-over costs less than that left-over, and the LP then imports.
  */
 export const LEFTOVER_COST = 10
 /**

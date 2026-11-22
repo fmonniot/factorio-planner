@@ -47,13 +47,13 @@ describe('planKey', () => {
     expect(planKey({ ...flattenBlock(base), sourceRules: undefined })).toBe(planKey(flattenBlock(base)))
   })
 
-  it('differs when an item has Leftover off, and the fourth element of its sourcing key says so', () => {
+  it('differs when an item has Leftover off', () => {
     const nodes = [node('n', 'plate')]
     const base = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'))
     const off = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { sourceRules: { plate: { leftoverOff: true as const } } })
     expect(planKey(flattenBlock(off))).not.toBe(planKey(flattenBlock(base)))
-    expect(sourcingKey({ plate: { leftoverOff: true } })[0][3]).toBe(true)
-    expect(sourcingKey({ plate: { importOff: true } })[0][3]).toBe(false)
+    expect(sourcingKey({ plate: { leftoverOff: true } })).not.toEqual(sourcingKey({ plate: {} }))
+    expect(sourcingKey({ plate: { leftoverOff: true } })).not.toEqual(sourcingKey({ plate: { importOff: true } }))
   })
 
   it('does not depend on the order of the item sourcing entries', () => {

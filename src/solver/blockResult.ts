@@ -50,7 +50,10 @@ export interface SourcingSets {
   cannotImport: Set<string>
   /** Items whose import slack is cheap (`BYPRODUCTS_FIRST_SLACK_COST`). */
   byproductsFirst: Set<string>
-  /** Items (base ids) whose rule has Leftover off: their rows get a priced left-over variable. */
+  /**
+   * Items (base ids) whose rule has Leftover off: their rows get a priced left-over variable. Read from the plan passed in:
+   * the area path's `effective` copy drops the key, so `solveAreaBlock` builds its own set from the block's `sourceRules`.
+   */
   leftoverOff: Set<string>
 }
 

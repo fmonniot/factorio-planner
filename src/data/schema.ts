@@ -361,8 +361,8 @@ export const RecipeNodeSchema = z.preprocess(
 )
 
 /**
- * How one area sources an item (see `SubPlan.sourceRules`). The keys of a block's `SourceRule`, plus the areas of the
- * block this area takes nothing of the item from. Unlike a block's rule, a keyless one is kept: it says Make it here, Import on.
+ * How one area sources an item (see `SubPlan.sourceRules`). The `makeHere` and `importOff` keys of a block's `SourceRule` (`leftoverOff` is
+ * block-only), plus the areas of the block this area takes nothing of the item from. Unlike a block's rule, a keyless one is kept: it says Make it here, Import on.
  */
 export const AreaSourceRuleSchema = z
   .object({
