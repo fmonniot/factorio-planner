@@ -818,3 +818,98 @@ describe('absorber chains', () => {
     }
   })
 })
+
+describe('slack-less temperature rows', () => {
+  type R = GameData['recipes'][string]
+  const fluid = (itemId: string, amount: number, extra: object = {}) => ({ itemId, type: 'fluid' as const, amount, ...extra })
+  const fluidRecipe = (id: string, ingredients: R['ingredients'], products: R['products']): R => ({
+    id, name: id, category: 'crafting', craftingTime: 1, ingredients, products, madeIn: [],
+    allowProductivity: false, mainProduct: undefined, hidden: false, subgroup: '', order: '',
+  })
+  // hot makes 100 used at 300; each cooler takes 100 within its bounds and makes 100 at a lower temperature; filter takes ≤ 50.
+  const hot = () => fluidRecipe('hot', [], [fluid('used', 100, { temperature: 300 })])
+  const cool300 = () => fluidRecipe('cool300', [fluid('used', 100, { minimumTemperature: 250, maximumTemperature: 350 })], [fluid('used', 100, { temperature: 200 })])
+  const cool200 = () => fluidRecipe('cool200', [fluid('used', 100, { minimumTemperature: 150, maximumTemperature: 250 })], [fluid('used', 100, { temperature: 25 })])
+  const filter = () => fluidRecipe('filter', [fluid('used', 100, { maximumTemperature: 50 })], [product('clean', 1) as unknown as R['products'][number]])
+  const system = (recipes: R[], goals: [string, number][]) => {
+    const gd = makeGameData({ recipes: Object.fromEntries(recipes.map(r => [r.id, r])) })
+    return buildClassifiedSystem(gd, recipes.map(r => r.id), new Map(goals))
+  }
+  const chain = () => [hot(), cool300(), cool200(), filter()]
+  const run = (r: ReturnType<typeof solveLP>, id: string) => r.throughput.get(id)!
+
+  it('forces the chain for a fluid that cannot be imported when every class has a producer', () => {
+    const sys = system(chain(), [['clean', 60]])
+    const noImport = new Set(['used'])
+    const lp = buildLPModel(sys, new Map(), new Set(), noImport)
+    expect(lp.itemToTemperatureRows.get('used'), '6 rows, as with an import').toHaveLength(6)
+    expect(lp.lockedTemperatureItems.has('used')).toBe(true)
+    expect(lp.itemToSlack.has('used'), 'no slack').toBe(false)
+    const r = solveLP(sys, new Map(), new Set(), noImport)
+    for (const id of ['hot', 'cool300', 'cool200', 'filter']) expect(run(r, id), id).toBeCloseTo(60)
+    expect(r.slack.size, 'nothing imported').toBe(0)
+    expect(r.lockedTemperatures).toBe(true)
+  })
+
+  it('forces the chain for a goal fluid', () => {
+    // The goal takes 100 of it at any temperature; the pinned filter takes 6000 at 50° or less.
+    const sys = system(chain(), [['used', 100]])
+    const r = solveLP(sys, new Map([['filter', 60]]))
+    expect(run(r, 'hot')).toBeCloseTo(61)
+    for (const id of ['cool300', 'cool200', 'filter']) expect(run(r, id), id).toBeCloseTo(60)
+    expect(r.lockedTemperatures).toBe(true)
+  })
+
+  it('builds no rows when a consumer class has no producer', () => {
+    const sys = system([hot(), cool300(), filter()], [['clean', 60]])
+    const noImport = new Set(['used'])
+    const lp = buildLPModel(sys, new Map(), new Set(), noImport)
+    expect(lp.itemToTemperatureRows.has('used')).toBe(false)
+    const r = solveLP(sys, new Map(), new Set(), noImport)
+    expect(run(r, 'hot')).toBeCloseTo(60)
+    expect(run(r, 'filter')).toBeCloseTo(60)
+    expect(run(r, 'cool300')).toBeCloseTo(0)
+    expect(r.lockedTemperatures).toBe(false)
+  })
+
+  it('falls back to the model without the rows when they make it infeasible', () => {
+    // The filter's 6000 can only come from cool200, which is pinned to 10 runs: infeasible with the rows, feasible without.
+    const sys = system(chain(), [['clean', 60]])
+    const pins = new Map([['filter', 60], ['cool200', 10]])
+    const noImport = new Set(['used'])
+    expect(runLP('__obj__', ...(m => [m.constraints, m.variables] as const)(buildLPModel(sys, pins, new Set(), noImport))).feasible).toBe(false)
+    const r = solveLP(sys, pins, new Set(), noImport)
+    expect(r.feasible).toBe(true)
+    expect(run(r, 'hot')).toBeCloseTo(60)
+    expect(run(r, 'cool200')).toBeCloseTo(10)
+    expect(r.lockedTemperatures).toBe(false)
+    expect(r.warnings).toEqual([])
+  })
+
+  it('decides per solve whether to keep the rows (pass 1 and pass 2 are independent)', () => {
+    // The same block solved twice, as the two passes of `solveBlock` do with different pins or locks: the first
+    // solve keeps the rows, the second (a pin that cuts the chain) gives them up, and neither reads the other.
+    const sys = system(chain(), [['clean', 60]])
+    const noImport = new Set(['used'])
+    const first = solveLP(sys, new Map(), new Set(), noImport)
+    const second = solveLP(sys, new Map([['filter', 60], ['cool200', 10]]), new Set(), noImport)
+    expect(first.lockedTemperatures).toBe(true)
+    expect(second.lockedTemperatures).toBe(false)
+    expect(run(first, 'cool200')).toBeCloseTo(60)
+    expect(run(second, 'cool200')).toBeCloseTo(10)
+  })
+
+  it('reports a goal shortfall from the model without the rows', () => {
+    const sys = system(chain(), [['used', 60]])
+    const r = solveLP(sys, new Map([['hot', 0]]))
+    expect(r.feasible).toBe(true)
+    expect(r.shortfall.get('used')).toBeCloseTo(60)
+    expect(r.lockedTemperatures).toBe(false)
+  })
+
+  it('leaves the rows out when asked', () => {
+    const lp = buildLPModel(system(chain(), [['clean', 60]]), new Map(), new Set(), new Set(['used']), new Map(), new Set(), new Set(), false, new Set(), { lockedTemperatures: false })
+    expect(lp.itemToTemperatureRows.has('used')).toBe(false)
+    expect(lp.temperatureFitItems.size).toBe(0)
+  })
+})

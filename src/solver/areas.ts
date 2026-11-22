@@ -316,6 +316,8 @@ export interface AreaOrder {
   defaults: Set<string>
   byproductsFirst: Set<string>
   measure?: '__imp' | '__rec'
+  /** build the temperature rows without slack as `today` did (see `LPBuildOptions.lockedTemperatures`; default true) */
+  lockedTemperatures?: boolean
   importCap?: number
   receivedCap?: number
 }
@@ -362,11 +364,13 @@ function solveAreaLP(
   order?: AreaOrder,
 ): AreaLPResult {
   const args = [system, columns, pinnedRates, bcColumns, feederColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, areaItems] as const
-  const plain = solveAreaLPOnce(...args, false, order)
-  // The order runs only on a block whose passes were feasible; it never goes elastic.
-  if (plain.feasible || !hasGoalRow(system) || order) return plain
-  // As in `solveLP`: an infeasible plan is solved again with elastic goal rows, kept only if that is feasible.
-  const elastic = solveAreaLPOnce(...args, true)
+  const first = solveAreaLPOnce(...args, { elastic: false, lockedTemperatures: order?.lockedTemperatures ?? true }, order)
+  // The order runs only on a block whose passes were feasible; it never goes elastic nor drops the locked rows.
+  if (first.feasible || order) return first
+  // As in `solveLP`: the temperature rows without slack give way first, then goal rows go elastic (kept only if feasible).
+  const plain = first.lockedTemperatures ? solveAreaLPOnce(...args, { elastic: false, lockedTemperatures: false }) : first
+  if (plain.feasible || !hasGoalRow(system)) return plain
+  const elastic = solveAreaLPOnce(...args, { elastic: true, lockedTemperatures: false })
   return elastic.feasible ? elastic : plain
 }
 
@@ -381,9 +385,10 @@ function solveAreaLPOnce(
   connectionsFirst: Set<string>,
   byproductsFirst: Set<string>,
   areaItems: AreaItemSpec[],
-  elasticGoals: boolean,
+  mode: { elastic: boolean; lockedTemperatures: boolean },
   order?: AreaOrder,
 ): AreaLPResult {
+  const elasticGoals = mode.elastic
   const { S, classification } = system
   const specOf = new Map(areaItems.map(s => [s.itemId, s]))
   // An area item's block row keeps one slack as the template of the per-area ones: no lock, no supply here.
@@ -399,7 +404,7 @@ function solveAreaLPOnce(
     connectionsFirst, byproductsFirst, elasticGoals,
     // An area whose rule is Don't make more here has a cheap slack of its own for the item.
     new Set(areaItems.filter(s => s.areas.some(a => a.slackCost !== undefined && a.slackCost < BIG_M)).map(s => s.itemId)),
-    { markedFeeders: feederColumns, extraSupplied },
+    { markedFeeders: feederColumns, extraSupplied, lockedTemperatures: mode.lockedTemperatures },
   )
   const { constraints, variables } = base
   const colVar = new Map(columns.map(c => [c.id, base.recipeToVar.get(c.id)!]))
@@ -488,9 +493,13 @@ function solveAreaLPOnce(
       }
       areaNames.push(names)
     }
-    // `buildLPModel` builds no temperature row for an item with neither an import nor a supply: an area item that gets
-    // neither in any area (locked) has none either.
-    if (tmplName !== undefined && created === 0) for (const r of base.itemToTemperatureRows.get(itemId) ?? []) delete constraints[r]
+    // An area item that gets neither an import nor a supply in any area (locked) is like an item `buildLPModel` builds
+    // without them: its temperature rows (the template slack is gone, so they have none) stay as slack-less rows when
+    // every consumer class has a producer (`temperatureFitItems`), else they go.
+    if (tmplName !== undefined && created === 0) {
+      if (base.temperatureFitItems.has(itemId) && base.itemToTemperatureRows.get(itemId)?.length) base.lockedTemperatureItems.add(itemId)
+      else for (const r of base.itemToTemperatureRows.get(itemId) ?? []) delete constraints[r]
+    }
 
     const capRows = (x: (typeof info)[number]) => {
       const cols = byArea.get(x.area)!
@@ -1279,7 +1288,7 @@ export function solveAreaBlock(
     const step = (
       order: AreaOrder, noImport: Set<string>, stepCaps: Map<string, number>, connectionsFirst: Set<string>, stepSpecs: AreaItemSpec[],
     ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order)
-    const base = { defaults: plainDefaults, byproductsFirst }
+    const base = { defaults: plainDefaults, byproductsFirst, lockedTemperatures: today.lockedTemperatures }
     const defaultsFirst = new Set([...firstItems, ...plainDefaults])
     const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
     if (!step2.feasible || step2.measured === undefined) return undefined

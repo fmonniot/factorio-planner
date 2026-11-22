@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
 import { buildClassifiedSystem, discardProduct } from './build'
-import { temperatureRows } from './temperatureRows'
+import { analyseTemperatures, temperatureRows } from './temperatureRows'
 import type { GameData, GameRecipeNode } from '../data/types'
 import type { SolverPlan } from './blockResult'
 
@@ -128,10 +128,65 @@ describe('temperatureRows', () => {
   })
 })
 
+describe('analyseTemperatures', () => {
+  const rows = (recipes: GameRecipe[]) =>
+    buildClassifiedSystem(gameData(recipes), recipes.map(r => r.id), new Map()).fluidTemperatures!.get('used')!
+
+  it('fits when a chain has a producer for every class', () => {
+    expect(analyseTemperatures(rows([hot, cool300, cool200, filter])).everyClassFits).toBe(true)
+  })
+
+  it('does not fit when a class has no producer', () => {
+    expect(analyseTemperatures(rows([hot, cool300, filter])).everyClassFits, 'nothing at 50° or below').toBe(false)
+  })
+
+  it('fits when a producer has an unknown temperature', () => {
+    const reactor = recipe('reactor', [], [{ itemId: 'used', type: 'fluid', amount: 100, temperature: 750 }])
+    const f = rows([reactor, filter])
+    expect(analyseTemperatures({ ...f, producers: [...f.producers, { colId: 'x', temperature: undefined, amount: 1 }] }).everyClassFits).toBe(true)
+    expect(analyseTemperatures(f).everyClassFits, 'known temperatures only').toBe(false)
+  })
+
+  it('does not fit when the only producer of the class is its own consumer', () => {
+    // R takes `used` at 50° or below and returns 100 of it at 25°; F takes it at 50° or below too. One class {25};
+    // R nets 100 - 100 = 0 and F makes nothing, so no supply is left for F and the rows could only force it to zero.
+    const r = recipe('r', [fluid('used', 100, { maximumTemperature: 50 })], [fluid('used', 100, { temperature: 25 })])
+    const f = recipe('f', [fluid('used', 100, { maximumTemperature: 50 })], [{ itemId: 'clean', type: 'item', amount: 1 }])
+    expect(analyseTemperatures(rows([r, f])).everyClassFits).toBe(false)
+    // R now returns 150: it nets 150 - 100 = 50 > 0.
+    const r150 = recipe('r', [fluid('used', 100, { maximumTemperature: 50 })], [fluid('used', 150, { temperature: 25 })])
+    expect(analyseTemperatures(rows([r150, f])).everyClassFits).toBe(true)
+    // A second recipe that makes 100 at 25 and takes nothing nets 100.
+    const cold = recipe('cold', [], [fluid('used', 100, { temperature: 25 })])
+    expect(analyseTemperatures(rows([r, f, cold])).everyClassFits).toBe(true)
+  })
+
+  it('checks every class beyond MAX_ROWS unions', () => {
+    // 13 single-temperature classes (8191 unions, over the limit): only the single classes get rows, and fitting is still checked.
+    const temps = Array.from({ length: 13 }, (_, i) => (i + 1) * 10)
+    const makers = temps.map(t => recipe(`make${t}`, [], [fluid('used', 1, { temperature: t })]))
+    const takers = temps.map(t => recipe(`take${t}`, [fluid('used', 1, { minimumTemperature: t, maximumTemperature: t })], []))
+    expect(analyseTemperatures(rows([...makers, ...takers])).everyClassFits).toBe(true)
+    const stray = recipe('stray', [fluid('used', 1, { minimumTemperature: 999, maximumTemperature: 999 })], [])
+    expect(analyseTemperatures(rows([...makers, ...takers, stray])).everyClassFits, 'nothing made at 999°').toBe(false)
+  })
+
+  it('has no rows when every producer is unknown', () => {
+    const f = rows([hot, filter])
+    const unknown = { ...f, producers: f.producers.map(p => ({ ...p, temperature: undefined })) }
+    expect(analyseTemperatures(unknown)).toEqual({ rows: [], everyClassFits: true })
+  })
+
+  it('has the rows temperatureRows gives', () => {
+    const f = rows([hot, cool300, cool200, filter])
+    expect(analyseTemperatures(f).rows).toEqual(temperatureRows(f))
+  })
+})
+
 describe('goals and discarded products', () => {
   const gd = gameData([hot, filter])
 
-  it('gives a goal fluid no rows rather than making the LP infeasible', () => {
+  it('gives a goal fluid no rows when no producer fits, rather than making the LP infeasible', () => {
     // The goal takes 100 of the 300° coolant, the pinned filter wants 100 that cannot be at ≤ 50°.
     const goalPlan = plan(['hot', 'filter'], 'used', 100) as unknown as { nodes: Record<string, unknown>[] }
     goalPlan.nodes[1].pinnedRate = 1

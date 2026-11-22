@@ -23,6 +23,16 @@ function fluid(itemId: string, amount: number): Ingredient {
   return { itemId, type: 'fluid', amount }
 }
 
+// A fluid with a temperature: `temperature` on what a recipe makes, `minimumTemperature` / `maximumTemperature` on what it takes.
+function warm(itemId: string, amount: number, temperature?: number, minimumTemperature?: number, maximumTemperature?: number): Ingredient & Product {
+  return {
+    itemId, type: 'fluid', amount,
+    ...(temperature === undefined ? {} : { temperature }),
+    ...(minimumTemperature === undefined ? {} : { minimumTemperature }),
+    ...(maximumTemperature === undefined ? {} : { maximumTemperature }),
+  }
+}
+
 function recipe(
   id: string,
   category: string,
@@ -154,6 +164,13 @@ function recipes(): GameRecipe[] {
     recipe('case23-burn-roll', 'smelting', 1, [item('case23-roll', 1)], [item('case23-ash', 1)]),
     recipe('case23-mine-roll', 'smelting', 1, [item('case23-rock', 1)], [item('case23-roll', 1)]),
     recipe('case23-use-wood', 'smelting', 1, [item('case23-wood', 1)], [item('case23-lumber', 1)]),
+    // Case 24 (a cooling chain on a fluid with Import off): the heater makes 100 used at 300, each cooler takes 100 within its bounds and makes
+    // 100 colder, the filter takes 100 at 50 or less.
+    recipe('case24-heat', 'smelting', 1, [item('case24-ore', 1)], [warm('case24-used', 100, 300)]),
+    recipe('case24-cool-300', 'smelting', 1, [warm('case24-used', 100, undefined, 250, 350)], [warm('case24-used', 100, 200)]),
+    recipe('case24-cool-200', 'smelting', 1, [warm('case24-used', 100, undefined, 150, 250)], [warm('case24-used', 100, 100)]),
+    recipe('case24-cool-100', 'smelting', 1, [warm('case24-used', 100, undefined, 50, 150)], [warm('case24-used', 100, 25)]),
+    recipe('case24-filter', 'smelting', 1, [warm('case24-used', 100, undefined, undefined, 50)], [item('case24-clean', 1)]),
   ]
 }
 
@@ -2934,6 +2951,147 @@ describe('solver synthetic cases', () => {
         const over = r.warnings.find(w => w.type === 'overconstrained')
         expect(over?.type === 'overconstrained' ? over.surplusItems.map(i => [i.itemId, i.rate]) : undefined, 'tree is left over').toEqual([[TREE, 20]])
         expect(feeders(r), 'feeders').toEqual([])
+      })
+    })
+  })
+
+  describe('case 24: a cooling chain on a fluid with Import off', () => {
+    // The fluid cannot be imported and every consumer class has a producer, so the LP builds the temperature rows without slack and runs the
+    // whole chain. Values are derived by hand in spec/test-synthetic.md; none is edited to match the solver.
+    const USED = 'case24-used'
+    const HEAT = 'case24-heat'
+    const COOLERS = ['case24-cool-300', 'case24-cool-200', 'case24-cool-100']
+    const FILTER = 'case24-filter'
+    const rule: SourceRule = { importOff: true }
+    const mismatches = (r: SolverResult) => r.warnings.filter(w => w.type === 'temperature-mismatch')
+    const rowsOf = (recipeIds: string[], pins: Record<string, number> = {}, where: (id: string) => string = () => 'root') =>
+      recipeIds.map(id => rowIn(id, where(id))).map(n => ({ ...n, ...(pins[n.recipeId] === undefined ? {} : { pinnedRate: pins[n.recipeId] }) }))
+    const block = (rootPlan: SubPlan, sourceRule: SourceRule = rule): Block => ({
+      id: 'block-24', name: 'Block', color: '#60a5fa',
+      products: [{ id: 'p0', itemId: 'case24-clean', extraRate: 60 }],
+      sourceRules: { [USED]: sourceRule }, inputConnections: [], rootPlan,
+    })
+    // The temperature warnings come with `solveAll`.
+    const solveOne = (b: Block): SolverResult => solveAll([b], makeGameData()).results[b.id]
+    const flat = (recipeIds: string[], pins: Record<string, number> = {}, sourceRule: SourceRule = rule) =>
+      solveOne(block(subPlan('root', rowsOf(recipeIds, pins)), sourceRule))
+    const rate = (r: SolverResult, recipeId: string, where = 'root') => nodeOf(r, `${recipeId}@${where}`).throughput
+    const ALL = [HEAT, ...COOLERS, FILTER]
+
+    it('a: runs every step of the chain', () => {
+      const r = flat(ALL)
+      for (const id of ALL) expect(rate(r, id), id).toBeCloseTo(60, 6)
+      expect(unsatisfiedRate(r, USED), 'used is not imported').toBeUndefined()
+      expect(unsatisfiedRate(r, 'case24-ore'), 'ore').toBeCloseTo(60, 6)
+      expect(mismatches(r), 'no mismatch').toEqual([])
+    })
+
+    it('b: without the last cooler no row is built, the heater feeds the filter and the mismatch is reported', () => {
+      const r = flat([HEAT, 'case24-cool-300', 'case24-cool-200', FILTER])
+      expect(rate(r, HEAT), 'heat').toBeCloseTo(60, 6)
+      expect(rate(r, FILTER), 'filter').toBeCloseTo(60, 6)
+      expect(rate(r, 'case24-cool-300'), 'cool-300').toBeCloseTo(0, 6)
+      expect(rate(r, 'case24-cool-200'), 'cool-200').toBeCloseTo(0, 6)
+      const w = mismatches(r)
+      expect(w, 'one warning').toHaveLength(1)
+      expect(w[0]).toMatchObject({ recipeId: FILTER, itemId: USED, supplied: [300], maximum: 50 })
+      expect((w[0] as { imported?: number }).imported, 'nothing imported').toBeUndefined()
+    })
+
+    it('c: with Import on, the same chain', () => {
+      const r = flat(ALL, {}, {})
+      for (const id of ALL) expect(rate(r, id), id).toBeCloseTo(60, 6)
+      expect(unsatisfiedRate(r, USED), 'used is not imported').toBeUndefined()
+      expect(mismatches(r), 'no mismatch').toEqual([])
+    })
+
+    it('d: a cooler pinned too low gives up the rows, as before', () => {
+      const r = flat(ALL, { 'case24-cool-100': 10, [FILTER]: 60 })
+      expect(rate(r, HEAT), 'heat').toBeCloseTo(60, 6)
+      expect(rate(r, 'case24-cool-100'), 'cool-100').toBeCloseTo(10, 6)
+      expect(rate(r, 'case24-cool-300'), 'cool-300').toBeCloseTo(0, 6)
+      expect(rate(r, 'case24-cool-200'), 'cool-200').toBeCloseTo(0, 6)
+      expect(rate(r, FILTER), 'filter').toBeCloseTo(60, 6)
+      expect(r.warnings.some(x => x.type === 'infeasible-pins'), 'the pins are not blamed').toBe(false)
+      const w = mismatches(r)
+      expect(w, 'one warning').toHaveLength(1)
+      expect(w[0]).toMatchObject({ recipeId: 'case24-cool-100', itemId: USED, supplied: [300] })
+    })
+
+    describe('e, f: the cooling rows in an area of their own', () => {
+      const areaPlan = (pins: Record<string, number> = {}) => {
+        const cool = rowsOf([HEAT, ...COOLERS], pins, () => 'Cool')
+        const filter = rowsOf([FILTER], pins)
+        return subPlan('root', filter, [subPlan('Cool', cool, [], true)])
+      }
+
+      it('e: the same rates, the fluid leaves the area', () => {
+        const r = solveOne(block(areaPlan()))
+        for (const id of [HEAT, ...COOLERS]) expect(rate(r, id, 'Cool'), id).toBeCloseTo(60, 6)
+        expect(rate(r, FILTER), 'filter').toBeCloseTo(60, 6)
+        const leg = (r.areaRoutes ?? []).find(x => x.itemId === USED && x.from === 'Cool' && x.to === 'root')
+        expect(leg?.rate, 'used from Cool to the root').toBeCloseTo(6000, 6)
+        expect(mismatches(r), 'no mismatch').toEqual([])
+      })
+
+      it('f: d in areas', () => {
+        const r = solveOne(block(areaPlan({ 'case24-cool-100': 10, [FILTER]: 60 })))
+        expect(rate(r, HEAT, 'Cool'), 'heat').toBeCloseTo(60, 6)
+        expect(rate(r, 'case24-cool-100', 'Cool'), 'cool-100').toBeCloseTo(10, 6)
+        expect(rate(r, 'case24-cool-300', 'Cool'), 'cool-300').toBeCloseTo(0, 6)
+        expect(rate(r, 'case24-cool-200', 'Cool'), 'cool-200').toBeCloseTo(0, 6)
+        expect(rate(r, FILTER), 'filter').toBeCloseTo(60, 6)
+        expect(r.warnings.some(x => x.type === 'infeasible-pins'), 'the pins are not blamed').toBe(false)
+        expect(mismatches(r), 'one warning').toHaveLength(1)
+      })
+    })
+
+    // g, h: a block that also imports plate, which a connection (100) replaces (case 22 row A-b: P runs 10, 30 plates received).
+    // The connection order (`connectionOrder` and `areaConnectionOrder`) builds with the rows of the result it refines, so the chain
+    // still runs; without the rows the heater would feed the filter directly and no cooler would run.
+    describe('g, h: with a connection replacing an import', () => {
+      const PLATE = 'case22-plate'
+      const gear = () => planNode('case22-gear')
+      const plateP = () => ({ ...planNode('case22-plate-1-2'), id: 'P' })
+      const ingot = () => planNode('case22-ingot', [], { pinnedRate: 10 })
+      const offers = new Map([[PLATE, 100]])
+      const checkOrder = (result: SolverResult, received: Map<string, number>, chain: (id: string) => number) => {
+        expect(received.get(PLATE) ?? 0, 'plate received').toBeCloseTo(30, 6)
+        expect(nodeOf(result, 'P').throughput, 'P runs').toBeCloseTo(10, 6)
+        expect(nodeOf(result, 'case22-gear').throughput, 'G runs').toBeCloseTo(25, 6)
+        expect(chain(HEAT), 'heat').toBeCloseTo(60, 6)
+        expect(chain(FILTER), 'filter').toBeCloseTo(60, 6)
+        return chain
+      }
+
+      it('g: the order keeps the cooling rows (plain)', () => {
+        const nodes = [gear(), plateP(), ingot(), ...ALL.map(id => planNode(id))]
+        const plan = { goals: [{ id: 'g0', itemId: 'case22-gear', rate: 25 }, { id: 'g1', itemId: 'case24-clean', rate: 60 }], nodes, sourceRules: { [USED]: rule } }
+        const { result, received } = solveBlock(plan, makeGameData(), offers)
+        const chain = checkOrder(result, received, id => nodeOf(result, id).throughput)
+        for (const id of COOLERS) expect(chain(id), id).toBeCloseTo(60, 6)
+      })
+
+      it('g2: a cooler pinned too low gives up the rows before the order, and the order keeps that', () => {
+        const nodes = [gear(), plateP(), ingot(), ...ALL.map(id => planNode(id, [], id === 'case24-cool-100' ? { pinnedRate: 10 } : id === FILTER ? { pinnedRate: 60 } : {}))]
+        const plan = { goals: [{ id: 'g0', itemId: 'case22-gear', rate: 25 }, { id: 'g1', itemId: 'case24-clean', rate: 60 }], nodes, sourceRules: { [USED]: rule } }
+        const { result, received } = solveBlock(plan, makeGameData(), offers)
+        const chain = checkOrder(result, received, id => nodeOf(result, id).throughput)
+        expect(chain('case24-cool-100'), 'cool-100').toBeCloseTo(10, 6)
+        expect(chain('case24-cool-300'), 'cool-300').toBeCloseTo(0, 6)
+      })
+
+      it('h: the same in areas', () => {
+        const sp = (id: string, ns: RecipeNode[]) => subPlan(id, ns, [], true)
+        const b: Block = {
+          id: 'H', name: 'H', color: '#60a5fa',
+          products: [{ id: 'p-H-0', itemId: 'case22-gear', extraRate: 25 }, { id: 'p-H-1', itemId: 'case24-clean', extraRate: 60 }],
+          sourceRules: { [USED]: rule }, inputConnections: [],
+          rootPlan: subPlan('root', [], [sp('L', [gear()]), sp('M', [plateP(), ingot()]), sp('Cool', ALL.map(id => planNode(id)))]),
+        }
+        const { result, received } = solveBlock(flattenBlock(b), makeGameData(), offers)
+        const chain = checkOrder(result, received, id => nodeOf(result, id).throughput)
+        for (const id of COOLERS) expect(chain(id), id).toBeCloseTo(60, 6)
       })
     })
   })

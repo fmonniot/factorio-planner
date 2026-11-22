@@ -123,7 +123,7 @@ describe('temperature-mismatch warning', () => {
   })
 
   it('warns as before, without an import, when the fluid is also a goal', () => {
-    // A goal fluid gets no temperature rows (it has no import to fall back on): the cold boiler runs.
+    // No producer fits the turbine, so a goal fluid gets no temperature rows (it has no import to fall back on): the cold boiler runs.
     const gd = gameData([boiler('b165', 165), generator('turbine', 465)], STEAM_ITEMS())
     const goals: Product[] = [{ id: 'ge', itemId: 'electricity', extraRate: 60 }, { id: 'gs', itemId: 'steam', extraRate: 10 }]
     const all = solveAll([block('A', [node('b', 'b165'), node('t', 'turbine')], goals)], gd)
@@ -131,6 +131,28 @@ describe('temperature-mismatch warning', () => {
     expect(w).toHaveLength(1)
     expect(w[0].imported, 'not imported').toBeUndefined()
     expect(w[0].supplied).toEqual([165])
+  })
+
+  it('runs the fitting boiler for a fluid that cannot be imported', () => {
+    const gd = gameData([boiler('b165', 165), boiler('b465', 465), generator('turbine', 465)], STEAM_ITEMS())
+    const b = block('A', [node('b1', 'b165'), node('b2', 'b465'), node('t', 'turbine')])
+    b.sourceRules = { steam: { importOff: true } } as Block['sourceRules']
+    const all = solveAll([b], gd)
+    const byId = (id: string) => all.results.A.nodes.find(n => n.recipeNodeId === id)!.throughput
+    expect(byId('b2'), 'the 465° boiler').toBeCloseTo(60)
+    expect(byId('b1'), 'the 165° boiler is not needed').toBeCloseTo(0)
+    expect(mismatches(all.results.A.warnings)).toHaveLength(0)
+  })
+
+  it('runs only the boiler inside a bounded range for a fluid that cannot be imported', () => {
+    const gd = gameData([boiler('b165', 165), boiler('b315', 315), boiler('b465', 465), generator('turbine', 300, 400)], STEAM_ITEMS())
+    const b = block('A', [node('b1', 'b165'), node('b2', 'b315'), node('b3', 'b465'), node('t', 'turbine')])
+    b.sourceRules = { steam: { importOff: true } } as Block['sourceRules']
+    const all = solveAll([b], gd)
+    const byId = (id: string) => all.results.A.nodes.find(n => n.recipeNodeId === id)!.throughput
+    expect(byId('b2'), 'the 315° boiler').toBeCloseTo(60)
+    expect(byId('b1') + byId('b3'), 'the others').toBeCloseTo(0)
+    expect(mismatches(all.results.A.warnings)).toHaveLength(0)
   })
 
   it('stays silent when one of two producers fits', () => {
