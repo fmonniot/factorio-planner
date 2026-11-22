@@ -36,7 +36,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   const beacon: BeaconConfig | undefined = beacons[0]
   const updateNodeBeacons = useBlockStore(s => s.updateNodeBeacons)
   const horizon = useHorizon(gameData)
-  const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
+  const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId, recipeId)
 
   /** One store command: the default beacon type and count with the chosen module in its slots. */
   function createWith(moduleId: string) {

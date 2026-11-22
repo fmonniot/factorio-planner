@@ -184,7 +184,7 @@ export function projectSnapshot(
         const category = recipe?.category
         const machine = category === undefined
           ? node.machineId
-          : resolveRowMachine(gameData, { ...horizon, defaultMachines }, category, node.machineId).machineId
+          : resolveRowMachine(gameData, { ...horizon, defaultMachines }, category, node.machineId, node.recipeId).machineId
         const s = solved.get(node.id)
         const inputs = s ? itemRates(s.inputRates, ref) : []
         // The row's product: what the node or the recipe names, else the first product. A recipe that is explicitly

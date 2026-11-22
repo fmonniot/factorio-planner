@@ -6,7 +6,7 @@ import { solve, solveAll, flattenBlock, netBalance } from './index'
 import { loadGameDataFromJson, parseAppState } from '../data/loader'
 import { flowKey, sumByItem } from '../data/flowKey'
 import { availableMachinesFor } from '../data/defaultMachines'
-import type { Horizon } from '../data/horizon'
+import { recipeFallbackKey, type Horizon } from '../data/horizon'
 import { rowMachine } from './effects'
 import type { Block, BlockConnection, GameRecipeNode, Product, SolverGoal, RecipeNode, SolverResult } from '../data/types'
 
@@ -626,6 +626,13 @@ describe('additional crafting categories on the real Seablock data', () => {
   it('runs an explicit electronics machine at its speed and keeps the primary default otherwise', () => {
     expect(rowMachine(row('bob-electronics-machine-3'), seablock)?.craftingSpeed).toBe(4)
     expect(rowMachine(row(), seablock)?.id).toBe('bob-assembling-machine-6')
+  })
+
+  it('falls back to an electronics machine when the horizon has no primary-category machine', () => {
+    const fallback = { ...seablock.defaultMachines }
+    delete fallback[recipe.category]
+    fallback[recipeFallbackKey(recipe.id)] = 'bob-electronics-machine-3'
+    expect(rowMachine(row(), { ...seablock, defaultMachines: fallback })?.id).toBe('bob-electronics-machine-3')
   })
 })
 

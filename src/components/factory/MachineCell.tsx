@@ -27,7 +27,7 @@ export function MachineCell({
   gameData,
 }: MachineCellProps) {
   const horizon = useHorizon(gameData)
-  const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
+  const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId, recipeId)
   const { machine } = row
   const flagged = row.beyondHorizon || row.noMachineInHorizon
   const title = row.noMachineInHorizon

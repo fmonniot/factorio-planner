@@ -572,7 +572,7 @@ export function RecipeRow({
   const temperatureLabels = ingredientTemperatureLabels(recipe)
   const productTemperatures = productTemperatureLabels(recipe)
 
-  const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
+  const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId, recipe.id)
 
   const primaryItemId = dedicatedProduct(planNode, recipe)
   const isMultiOutput = recipe.products.length > 1

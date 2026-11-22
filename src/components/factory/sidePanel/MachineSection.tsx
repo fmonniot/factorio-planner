@@ -41,7 +41,7 @@ export function MachineSection({ node, solved, gameData }: {
 
   const recipe = gameData.recipes[node.recipeId]
   const category = recipe?.category ?? ''
-  const row = resolveRowMachine(gameData, horizon, category, node.machineId)
+  const row = resolveRowMachine(gameData, horizon, category, node.machineId, node.recipeId)
   const { machine } = row
   const slotCount = machine?.moduleSlots ?? 0
   const used = node.modules.reduce((sum, m) => sum + m.count, 0)
