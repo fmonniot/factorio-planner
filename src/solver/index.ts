@@ -214,8 +214,12 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
  * (least received, fill, refill) may retry once with looser bounds, so at most seven in all; see connectionOrder.ts).
  *
  * The solve cache key (see solveCache.ts) must grow if this ever reads
- * anything beyond `plan`, `gameData` and `supplyCaps`; `connectionOrder` reads only those
- * (the plan, the game data and the offers), so the key is unchanged.
+ * anything beyond `plan`, `gameData`, `supplyCaps` and `keySupply` (a split fluid's offers per connection and key, its ranges
+ * across the plan and the connections' limits, see `keySupplyKey`); `connectionOrder` reads only those
+ * (the plan, the game data and the offers), so the key is `planKey`, the caps and `keySupplyKey`.
+ *
+ * `keySupply` hands a split fluid over by key: each offered key is a supplied key with its own variables, and the result says
+ * what each connection delivered of each key (`receivedParts`), and what a probe received per range key (`receivedKeys`).
  */
 export function solveBlock(
   plan: SolverPlan,
