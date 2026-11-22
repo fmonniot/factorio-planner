@@ -2835,24 +2835,105 @@ describe('solver synthetic cases', () => {
       })
     })
 
-    it('h: connected supply of an item two areas trade does not feed the chain', () => {
-      // The block receives plate first (offer 100): the supply covers what ordinary rows use (U, pinned at 4), not what the feeder K takes.
-      const wood = subPlan('Wood', [
-        { ...rowIn('case23-saw-wood', 'Wood'), byproductConsumer: true },
-        rowIn('case23-make-saw', 'Wood'),
-        { ...rowIn('case23-use-plate', 'Wood'), pinnedRate: 4 },
-      ], [], true)
-      const plates = subPlan('Plates', [rowIn('case23-make-plate', 'Plates')], [], true)
-      const block: Block = {
-        id: 'H', name: 'H', color: '#60a5fa',
-        products: [{ id: 'p0', itemId: 'case23-goal', extraRate: 10 }],
-        sourceRules: { 'case23-plate': { makeHere: 'after-blocks' } }, inputConnections: [],
-        rootPlan: subPlan('root', [rowIn('case23-grow', 'root')], [wood, plates]),
+    describe('h: connected supply of an item two areas trade', () => {
+      // The block receives plate first (offer 100). Wood has S flagged, K, and U (ordinary, pinned at 4); P is in an area of its own.
+      const plateBlock = (kFlagged: boolean): Block => {
+        const wood = subPlan('Wood', [
+          { ...rowIn('case23-saw-wood', 'Wood'), byproductConsumer: true },
+          { ...rowIn('case23-make-saw', 'Wood'), ...(kFlagged ? { byproductConsumer: true } : {}) },
+          { ...rowIn('case23-use-plate', 'Wood'), pinnedRate: 4 },
+        ], [], true)
+        const plates = subPlan('Plates', [rowIn('case23-make-plate', 'Plates')], [], true)
+        return {
+          id: 'H', name: 'H', color: '#60a5fa',
+          products: [{ id: 'p0', itemId: 'case23-goal', extraRate: 10 }],
+          sourceRules: { 'case23-plate': { makeHere: 'after-blocks' } }, inputConnections: [],
+          rootPlan: subPlan('root', [rowIn('case23-grow', 'root')], [wood, plates]),
+        }
       }
-      const { result, received } = solveBlock(flattenBlock(block), makeGameData(), new Map([['case23-plate', 100]]))
-      expect(received.get('case23-plate') ?? 0, 'plate received').toBeCloseTo(4, 6)
-      expect(nodeOf(result, 'case23-make-saw@Wood').throughput, 'make-saw').toBeCloseTo(0, 6)
-      expect(nodeOf(result, 'case23-saw-wood@Wood').throughput, 'saw-wood').toBeCloseTo(0, 6)
+      const solvePlates = (kFlagged: boolean) => solveBlock(flattenBlock(plateBlock(kFlagged)), makeGameData(), new Map([['case23-plate', 100]]))
+
+      it('connected supply feeds a feeder of the chain, never a flagged row', () => {
+        const { result, received } = solvePlates(false)
+        expect(received.get('case23-plate'), 'plate received').toBeCloseTo(6, 6)
+        expect(nodeOf(result, 'case23-saw-wood@Wood').throughput, 'saw-wood').toBeCloseTo(20, 6)
+        expect(nodeOf(result, 'case23-make-saw@Wood').throughput, 'make-saw').toBeCloseTo(2, 6)
+        expect(nodeOf(result, 'case23-make-plate@Plates').throughput, 'make-plate').toBeCloseTo(0, 6)
+        expect(feeders(result), 'feeders').toEqual(['case23-make-saw@Wood'])
+      })
+
+      it('h2: a flagged K takes none of the supply', () => {
+        const { result, received } = solvePlates(true)
+        expect(received.get('case23-plate') ?? 0, 'plate received').toBeCloseTo(4, 6)
+        expect(nodeOf(result, 'case23-make-saw@Wood').throughput, 'make-saw').toBeCloseTo(0, 6)
+        expect(nodeOf(result, 'case23-saw-wood@Wood').throughput, 'saw-wood').toBeCloseTo(0, 6)
+      })
+    })
+
+    // j, k: no areas. The rows sit in the root of a block that receives an item first.
+    const flatBlock = (nodes: GameRecipeNode[], sourceRule: string, goals: Array<[string, number]> = GOAL): Block => ({
+      id: 'J', name: 'J', color: '#60a5fa',
+      products: goals.map(([itemId, extraRate], i) => ({ id: `p${i}`, itemId, extraRate })),
+      sourceRules: { [sourceRule]: { makeHere: 'after-blocks' } }, inputConnections: [],
+      rootPlan: subPlan('root', nodes),
+    })
+
+    it('j: a plate supply feeds the saw maker of a flagged saw row, without a plate row', () => {
+      const nodes = [planNode('case23-grow'), flag('case23-saw-wood'), planNode('case23-make-saw'), planNode('case23-make-plate')]
+      const { result, received } = solveBlock(flattenBlock(flatBlock(nodes, 'case23-plate')), makeGameData(), new Map([['case23-plate', 100]]))
+      expect(received.get('case23-plate'), 'plate received').toBeCloseTo(2, 6)
+      expect(nodeOf(result, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(0, 6)
+      expect(nodeOf(result, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(2, 6)
+      expect(nodeOf(result, 'case23-saw-wood').throughput, 'saw-wood').toBeCloseTo(20, 6)
+      expect(unsat(result, 'case23-roll'), 'roll imported').toBeCloseTo(0, 6)
+      expect(feeders(result), 'feeders').toEqual(['case23-make-saw'])
+    })
+
+    it('k: a roll supply never reaches the plate row that only feeds a flagged saw maker, whatever the offer', () => {
+      // An ordinary row (burn-roll) also takes roll, so mine-roll is an ordinary row and roll is bounded.
+      for (const offer of [100, Infinity]) {
+        const nodes = [
+          planNode('case23-grow'), flag('case23-make-saw'), planNode('case23-make-plate'), planNode('case23-mine-roll'), planNode('case23-burn-roll'),
+        ]
+        const { result, received } = solveBlock(flattenBlock(flatBlock(nodes, 'case23-roll')), makeGameData(), new Map([['case23-roll', offer]]))
+        expect(nodeOf(result, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(0, 6)
+        expect(nodeOf(result, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(0, 6)
+        expect(nodeOf(result, 'case23-mine-roll').throughput, 'mine-roll').toBeCloseTo(0, 6)
+        expect(nodeOf(result, 'case23-grow').throughput, 'grow').toBeCloseTo(10, 6)
+        expect(received.get('case23-roll') ?? 0, `roll received (offer ${offer})`).toBeCloseTo(0, 6)
+      }
+    })
+
+    describe('l, m: a row marked to feed absorbing rows', () => {
+      const mark = (recipeId: string, extra: Partial<GameRecipeNode> = {}): GameRecipeNode => planNode(recipeId, [], { absorberFeeder: true, ...extra })
+      const rows = (plate: GameRecipeNode): RecipeNode[] => [
+        flag('case23-saw-wood'), planNode('case23-make-saw'), plate, planNode('case23-grow'), planNode('case23-use-plate'),
+      ]
+
+      it('l: d with Feed absorbing rows on the plate row', () => {
+        const r = solveRows([...GOAL, ['case23-gadget', 4]], rows(mark('case23-make-plate')))
+        expect(nodeOf(r, 'case23-grow').throughput, 'grow').toBeCloseTo(10, 6)
+        expect(nodeOf(r, 'case23-saw-wood').throughput, 'saw-wood').toBeCloseTo(20, 6)
+        expect(nodeOf(r, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(2, 6)
+        expect(nodeOf(r, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(1.5, 6)
+        expect(nodeOf(r, 'case23-use-plate').throughput, 'use-plate').toBeCloseTo(4, 6)
+        expect(nodeOf(r, 'case23-saw-wood').outputRates['case23-wood'], 'wood').toBeCloseTo(160, 6)
+        expect(unsat(r, 'case23-roll'), 'roll').toBeCloseTo(1.5, 6)
+        expect(unsat(r, 'case23-seed'), 'seed').toBeCloseTo(10, 6)
+        expect(r.warnings.map(w => w.type), 'no warning').toEqual([])
+        // K runs 2 and only feeds S, so it is marked too, as in b.
+        expect(feeders(r), 'feeders').toEqual(['case23-make-plate', 'case23-make-saw'])
+      })
+
+      it('m: l with the plate row pinned at 1 is d', () => {
+        const r = solveRows([...GOAL, ['case23-gadget', 4]], rows(mark('case23-make-plate', { pinnedRate: 1 })))
+        expect(nodeOf(r, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(1, 6)
+        expect(nodeOf(r, 'case23-saw-wood').throughput, 'saw-wood').toBeCloseTo(0, 6)
+        expect(nodeOf(r, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(0, 6)
+        const over = r.warnings.find(w => w.type === 'overconstrained')
+        expect(over?.type === 'overconstrained' ? over.surplusItems.map(i => [i.itemId, i.rate]) : undefined, 'tree is left over').toEqual([[TREE, 20]])
+        expect(feeders(r), 'feeders').toEqual([])
+      })
     })
   })
 })

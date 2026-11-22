@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ItemSchema, RecipeSchema, MachineSchema, BeaconEntitySchema } from './schema'
+import { ItemSchema, RecipeSchema, MachineSchema, BeaconEntitySchema, GameRecipeNodeSchema } from './schema'
 
 const base = { id: 'x', name: 'X', type: 'item', iconPath: '/i/x.png' }
 
@@ -47,5 +47,13 @@ describe('RecipeSchema.additionalCategories', () => {
   it('round-trips a list and reads a Lua empty table as an empty list', () => {
     expect(RecipeSchema.parse({ ...recipe, additionalCategories: ['electronics'] }).additionalCategories).toEqual(['electronics'])
     expect(RecipeSchema.parse({ ...recipe, additionalCategories: {} }).additionalCategories).toEqual([])
+  })
+})
+
+describe('GameRecipeNodeSchema.absorberFeeder', () => {
+  const node = { kind: 'game-recipe', id: 'n', recipeId: 'r', modules: [], byproductPolicy: {} }
+  it('survives parsing; absent stays absent', () => {
+    expect(GameRecipeNodeSchema.parse({ ...node, absorberFeeder: true }).absorberFeeder).toBe(true)
+    expect('absorberFeeder' in GameRecipeNodeSchema.parse(node)).toBe(false)
   })
 })

@@ -59,6 +59,7 @@ function gd(): GameData {
     // The absorber chain: eat-x takes x (r-main's byproduct) and f, make-f makes f.
     recipe('eat-x', [['x', 1], ['f', 1]], [['v', 1]]),
     recipe('make-f', [['ore', 1]], [['f', 1]]),
+    recipe('use-f', [['f', 1]], [['g', 1]]),
     // Scenario 8
     recipe('gear', [['iron', 2]], [['gear', 1]], { allowProductivity: true }),
     recipe('belt', [['gear', 1]], [['belt', 1]]),
@@ -574,6 +575,25 @@ describe('areas in the solve', () => {
     expect(node(result, 'make-f@s').feedsAbsorber, 'feeder in S').toBe(true)
     expect(node(result, 'make-f@t').feedsAbsorber, 'same recipe in T').toBeUndefined()
     expect(node(result, 'eat-x@s').feedsAbsorber, 'the absorber itself').toBeUndefined()
+  })
+
+  it('a row marked to feed absorbing rows runs for them and for an ordinary row in another area', () => {
+    // r-main makes 10 x for y 10; eat-x (flagged, in S) takes x and f. use-f (ordinary, in the root) also takes f, for g 3.
+    const plan = (feeder: Partial<GameRecipeNode>): Block => blk(
+      root([row('r-main', 'root'), row('use-f', 'root')], [
+        sub('S', [row('eat-x', 's', { byproductConsumer: true }), row('make-f', 's', feeder)], [], true),
+      ]),
+      [['y', 10], ['g', 3]],
+    )
+    const marked = solveBlock(flattenBlock(plan({ absorberFeeder: true })), gd(), new Map()).result
+    expect(node(marked, 'eat-x@s').throughput, 'eat-x').toBeCloseTo(10, 6)
+    expect(node(marked, 'make-f@s').throughput, 'make-f').toBeCloseTo(13, 6)
+    expect(node(marked, 'use-f@root').throughput, 'use-f').toBeCloseTo(3, 6)
+    expect(node(marked, 'make-f@s').feedsAbsorber, 'marked row feeds the absorber').toBe(true)
+    const plain = solveBlock(flattenBlock(plan({})), gd(), new Map()).result
+    expect(node(plain, 'eat-x@s').throughput, 'eat-x unmarked').toBeCloseTo(0, 6)
+    expect(node(plain, 'make-f@s').throughput, 'make-f unmarked').toBeCloseTo(3, 6)
+    expect(node(plain, 'make-f@s').feedsAbsorber, 'unmarked row is no feeder').toBeUndefined()
   })
 
   describe("the pair don't make more here + Import off (area LP)", () => {

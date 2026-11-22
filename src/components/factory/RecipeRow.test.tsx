@@ -550,7 +550,7 @@ describe('RecipeRow context menu', () => {
     openMenu()
     expect(screen.getByRole('menu')).toBeInTheDocument()
     const labels = screen.getAllByRole('menuitem').map(i => i.textContent)
-    expect(labels).toEqual(['Absorb byproduct', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
+    expect(labels).toEqual(['Absorb byproduct', 'Feed absorbing rows', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
   })
 
   it('Remove recipe removes the node and closes the menu', () => {
@@ -633,6 +633,42 @@ describe('RecipeRow context menu', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Absorb byproduct' }))
     const node = nodes()[0]
     expect(node.kind === 'game-recipe' && node.byproductConsumer).toBe(true)
+  })
+
+  it('Feed absorbing rows marks the node as a feeder of absorbing rows', () => {
+    renderRow()
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Feed absorbing rows' }))
+    const node = nodes()[0]
+    expect(node.kind === 'game-recipe' && node.absorberFeeder).toBe(true)
+  })
+
+  it('a marked row shows Stop feeding absorbing rows and no pin item', () => {
+    const marked: RecipeNode = { ...ironPlateRecipeNode, absorberFeeder: true }
+    renderRow({ planNode: marked })
+    openMenu()
+    expect(screen.getByRole('menuitem', { name: 'Stop feeding absorbing rows' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /pin rate/i })).not.toBeInTheDocument()
+  })
+
+  it('an absorber row and a pinned row have no Feed absorbing rows item', () => {
+    const bc: RecipeNode = { ...ironPlateRecipeNode, byproductConsumer: true }
+    const { unmount } = renderRow({ planNode: bc })
+    openMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Feed absorbing rows' })).not.toBeInTheDocument()
+    unmount()
+    renderRow({ planNode: { ...ironPlateRecipeNode, pinnedRate: 5 } })
+    openMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Feed absorbing rows' })).not.toBeInTheDocument()
+  })
+
+  it('a marked row that feeds an absorber has its own badge title; an unmarked feeder keeps the usual one', () => {
+    const marked: RecipeNode = { ...ironPlateRecipeNode, absorberFeeder: true }
+    const { unmount } = renderRow({ planNode: marked, solvedNode: { ...solvedNode, feedsAbsorber: true } })
+    expect(screen.getByRole('img', { name: 'Feeds an absorbing row' }).getAttribute('title')).toMatch(/besides what other rows use/)
+    unmount()
+    renderRow({ solvedNode: { ...solvedNode, feedsAbsorber: true } })
+    expect(screen.getByRole('img', { name: 'Feeds an absorbing row' }).getAttribute('title')).toMatch(/runs only to supply/)
   })
 
   it('Wrap in subfactory asks for a name in a dialog and wraps the node', () => {
@@ -885,7 +921,7 @@ describe('RecipeRow byproduct context menu', () => {
     fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
     expect(screen.getAllByRole('menu')).toHaveLength(1)
     expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(
-      ['Absorb byproduct', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'],
+      ['Absorb byproduct', 'Feed absorbing rows', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'],
     )
     fireEvent.contextMenu(oxygenTile())
     expect(screen.getAllByRole('menu')).toHaveLength(1)
@@ -1560,7 +1596,7 @@ describe('RecipeRow in a block with areas', () => {
     renderAreaRow('e-root')
     openMenu()
     expect(labels()).toEqual(
-      ['Absorb byproduct', 'Pin rate', 'Wrap in subfactory…', 'Build also in…', 'Go to row in…', 'Remove recipe'],
+      ['Absorb byproduct', 'Feed absorbing rows', 'Pin rate', 'Wrap in subfactory…', 'Build also in…', 'Go to row in…', 'Remove recipe'],
     )
   })
 
@@ -1653,7 +1689,7 @@ describe('RecipeRow in a block with areas', () => {
     renderAreaRow('e-root', {}, { areas: false })
     expect(screen.queryByTestId('multi-area-badge')).not.toBeInTheDocument()
     openMenu()
-    expect(labels()).toEqual(['Absorb byproduct', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
+    expect(labels()).toEqual(['Absorb byproduct', 'Feed absorbing rows', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
   })
 
   it('explains in a block with areas what the primary product decides', () => {

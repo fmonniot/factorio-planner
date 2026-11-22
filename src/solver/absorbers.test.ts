@@ -154,4 +154,75 @@ describe('absorberRoles', () => {
       expect(roles.feederCost.get('B2')!, 'tiny').toBeLessThan(1e-3)
     }
   })
+
+  describe('marked feeders and supplied items', () => {
+    const mine: Row = ['M', { rock: 1 }, { roll: 1 }]
+    const set = (...xs: string[]) => new Set(xs)
+
+    it('12: a marked row is a feeder though an ordinary row uses its product', () => {
+      const system = systemOf([grow, saw, makeSaw, makePlate, usePlate], { goal: 10, gadget: 4 })
+      const roles = absorberRoles(system, set('A', 'K'), none, new Set(), { markedFeeders: set('H') })
+      expect(ids(roles.chain), 'chain').toEqual(['A', 'H', 'K'])
+      expect(ids(roles.rewarded), 'rewarded').toEqual(['A'])
+      expect(ids(roles.live), 'live').toEqual(['A', 'H', 'K'])
+      expect(roles.feederCost.has('H'), 'H costs feederCost').toBe(true)
+      expect(roles.feederCost.has('K'), 'K costs feederCost').toBe(true)
+    })
+
+    it('13: a pinned marked row is ignored', () => {
+      const system = systemOf([grow, saw, makeSaw, makePlate, usePlate], { goal: 10, gadget: 4 })
+      const roles = absorberRoles(system, set('A', 'K'), new Map([['H', 1]]), new Set(), { markedFeeders: set('H') })
+      expect(ids(roles.chain), 'chain').toEqual(['A', 'K'])
+      expect(ids(roles.rewarded), 'rewarded').toEqual(['A', 'K'])
+    })
+
+    it('14: marking a row no candidate consumes does nothing', () => {
+      const system = systemOf([grow, saw, makeSaw, makePlate, usePlate], { goal: 10, gadget: 4 })
+      const roles = absorberRoles(system, set('A', 'K'), none, new Set(), { markedFeeders: set('U') })
+      expect(ids(roles.chain), 'chain').toEqual(['A', 'K'])
+      expect(ids(roles.rewarded), 'rewarded').toEqual(['A', 'K'])
+    })
+
+    it('15: a marked row whose product is a goal can still be a candidate', () => {
+      const system = systemOf([grow, saw, makeSaw, makePlate], { goal: 10, plate: 5 })
+      const marked = absorberRoles(system, set('A'), none, new Set(), { markedFeeders: set('H') })
+      expect(ids(marked.chain), 'marked').toEqual(['A', 'H', 'K'])
+      expect(ids(absorberRoles(system, set('A'), none).chain), 'unmarked').toEqual(['A', 'K'])
+    })
+
+    it('16: a row both flagged and marked is a flagged row', () => {
+      const system = systemOf([grow, saw, makeSaw, makePlate, usePlate], { goal: 10, gadget: 4 })
+      const flagged = set('A', 'K')
+      const roles = absorberRoles(system, flagged, none, new Set(), { markedFeeders: set('K') })
+      const plain = absorberRoles(system, flagged, none)
+      expect(ids(roles.chain)).toEqual(ids(plain.chain))
+      expect(ids(roles.rewarded)).toEqual(ids(plain.rewarded))
+      expect(isFeeder(roles, flagged, 'K'), 'K is flagged').toBe(false)
+    })
+
+    it('17: a supplied item that anchors only a feeder leaves the flagged rows out of the supply, not the chain', () => {
+      const system = systemOf([grow, saw, makeSaw, makePlate, usePlate], { goal: 10, gadget: 4 })
+      const roles = absorberRoles(system, set('A'), none, new Set(), { supplied: set('plate') })
+      expect(ids(roles.noSupply), 'noSupply').toEqual(['A'])
+      expect(ids(roles.rewarded), 'rewarded').toEqual(['A'])
+      expect(ids(roles.chain), 'chain').toEqual(['A', 'K'])
+    })
+
+    it('18: a flagged row anchored only by a supplied item keeps the whole chain out', () => {
+      const system = systemOf([grow, saw, makeSaw, makePlate, usePlate], { goal: 10, gadget: 4 })
+      const roles = absorberRoles(system, set('A', 'K'), none, new Set(), { supplied: set('plate') })
+      expect(ids(roles.rewarded), 'rewarded').toEqual(['A', 'K'])
+      expect(ids(roles.noSupply), 'noSupply').toEqual(['A', 'K'])
+    })
+
+    it('19: the fallback leaves the whole chain out of the supply', () => {
+      // An ordinary row (B) also takes roll, so the row that mines it is not a feeder and roll is bounded.
+      const burn: Row = ['B', { roll: 1 }, { ash: 1 }]
+      const system = systemOf([grow, makeSaw, makePlate, mine, burn], { goal: 10 })
+      const roles = absorberRoles(system, set('K'), none, new Set(), { supplied: set('roll') })
+      expect(ids(roles.rewarded), 'rewarded').toEqual(['K'])
+      expect(ids(roles.noSupply), 'noSupply').toEqual(['H', 'K'])
+      expect(ids(absorberRoles(system, set('K'), none).noSupply), 'no supplied item').toEqual(['K'])
+    })
+  })
 })

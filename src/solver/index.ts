@@ -183,7 +183,7 @@ export function solveBlock(
   // recipe's objective coefficient, making the LP prefer to run it up to
   // whatever surplus the intermediate constraints allow — without overriding
   // goal-meeting decisions. The rows that only feed a flagged row run along
-  // with it at no cost (`absorberRoles`, see spec/solver.md, "Absorber chains").
+  // with it at no cost (`absorberRoles`, see spec/solver.md, "Absorber chains"); a row marked `absorberFeeder` runs for them too.
   const gameRecipeNodes = plan.nodes.filter(n => n.kind === 'game-recipe') as
     Extract<(typeof plan.nodes)[number], { kind: 'game-recipe' }>[]
 
@@ -226,6 +226,10 @@ export function solveBlock(
 
   const bcRecipeIds = new Set(
     representatives.filter(n => n.byproductConsumer).map(n => n.recipeId),
+  )
+
+  const markedFeeders = new Set(
+    representatives.filter(n => n.absorberFeeder && !n.byproductConsumer).map(n => n.recipeId),
   )
 
   const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, nodeEffectsMap)
@@ -286,7 +290,7 @@ export function solveBlock(
     ),
   )
   const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
-  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst)
+  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst, markedFeeders)
 
   // Pass 2: supply fills only the residual of connected intermediates. Capping at
   // the residual keeps own production at its pass-1 level (replacing it would
@@ -298,13 +302,13 @@ export function solveBlock(
   if (pass2.run) {
     lp = solveLP(
       system, pinnedRates, bcRecipeIds, pass2.noImport,
-      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst,
+      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, markedFeeders,
     )
   }
 
   // A connection replaces an import: when the two passes still import an intermediate while a connection
   // has offer to spare, the order of connectionOrder.ts decides (least import, least received, fill).
-  const order = { system, pinnedRates, bcRecipeIds, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp }
+  const order = { system, pinnedRates, bcRecipeIds, markedFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp }
   if (needsConnectionOrder(order)) lp = connectionOrder(order) ?? lp
 
   const { throughput: throughputMap, warnings } = lp

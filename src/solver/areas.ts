@@ -281,7 +281,7 @@ export interface AreaItemArea {
   slackCost?: number
   /** cap of the area's supply `u_a` (Infinity: only the shared offer); undefined: no supply variable */
   supplyCap?: number
-  /** `u_a` covers at most what the area's own columns outside the absorber chains use (connections first) */
+  /** `u_a` covers at most what the area's own columns outside the flagged rows (or the chain, see absorbers.ts) use (connections first) */
   supUse: boolean
   /** `u_a` counts in the least received of the order of a connection replacing an import (see `AreaOrder`) */
   received?: boolean
@@ -353,6 +353,7 @@ function solveAreaLP(
   columns: Column[],
   pinnedRates: Map<string, number>,
   bcColumns: Set<string>,
+  feederColumns: Set<string>,
   noImportItems: Set<string>,
   supplyCaps: Map<string, number>,
   connectionsFirst: Set<string>,
@@ -360,7 +361,7 @@ function solveAreaLP(
   areaItems: AreaItemSpec[],
   order?: AreaOrder,
 ): AreaLPResult {
-  const args = [system, columns, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, areaItems] as const
+  const args = [system, columns, pinnedRates, bcColumns, feederColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, areaItems] as const
   const plain = solveAreaLPOnce(...args, false, order)
   // The order runs only on a block whose passes were feasible; it never goes elastic.
   if (plain.feasible || !hasGoalRow(system) || order) return plain
@@ -374,6 +375,7 @@ function solveAreaLPOnce(
   columns: Column[],
   pinnedRates: Map<string, number>,
   bcColumns: Set<string>,
+  feederColumns: Set<string>,
   noImportItems: Set<string>,
   supplyCaps: Map<string, number>,
   connectionsFirst: Set<string>,
@@ -385,6 +387,11 @@ function solveAreaLPOnce(
   const { S, classification } = system
   const specOf = new Map(areaItems.map(s => [s.itemId, s]))
   // An area item's block row keeps one slack as the template of the per-area ones: no lock, no supply here.
+  // The items whose supply gets an `auuse` row below never anchor an unflagged candidate (see absorbers.ts).
+  const extraSupplied = new Set(
+    areaItems.filter(s => s.offer > 0 && classification.intermediates.has(s.itemId)
+      && s.areas.some(a => a.supUse && a.supplyCap !== undefined)).map(s => s.itemId),
+  )
   const base = buildLPModel(
     system, pinnedRates, bcColumns,
     specOf.size === 0 ? noImportItems : new Set([...noImportItems].filter(id => !specOf.has(id))),
@@ -392,6 +399,7 @@ function solveAreaLPOnce(
     connectionsFirst, byproductsFirst, elasticGoals,
     // An area whose rule is Don't make more here has a cheap slack of its own for the item.
     new Set(areaItems.filter(s => s.areas.some(a => a.slackCost !== undefined && a.slackCost < BIG_M)).map(s => s.itemId)),
+    { markedFeeders: feederColumns, extraSupplied },
   )
   const { constraints, variables } = base
   const colVar = new Map(columns.map(c => [c.id, base.recipeToVar.get(c.id)!]))
@@ -472,7 +480,7 @@ function solveAreaLPOnce(
           constraints[`auuse${i}`] = { max: 0 }
           u[`auuse${i}`] = 1
           for (const { col, coeff } of cols) {
-            if (coeff < 0 && !base.absorbers.chain.has(col.id)) variables[colVar.get(col.id)!][`auuse${i}`] = coeff
+            if (coeff < 0 && !base.absorbers.noSupply.has(col.id)) variables[colVar.get(col.id)!][`auuse${i}`] = coeff
           }
         }
         variables[names.supply] = u
@@ -1123,6 +1131,7 @@ export function solveAreaBlock(
     if (col.node.pinnedRate !== undefined) pinnedRates.set(col.id, col.node.pinnedRate)
   }
   const bcColumns = new Set(columns.filter(c => c.node.byproductConsumer).map(c => c.id))
+  const feederColumns = new Set(columns.filter(c => c.node.absorberFeeder && !c.node.byproductConsumer).map(c => c.id))
 
   // Ingredients of byproduct consumers (see solveBlock).
   const consumerIngredients = new Set<string>()
@@ -1223,7 +1232,7 @@ export function solveAreaBlock(
     }
   })
 
-  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs())
+  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs())
 
   /**
    * The order of connectionOrder.ts on the area LP: when the passes end with an import (a slack at BIG_M, per area for an
@@ -1269,7 +1278,7 @@ export function solveAreaBlock(
     const specs = areaItemSpecs(undefined, { relock: new Set() })
     const step = (
       order: AreaOrder, noImport: Set<string>, stepCaps: Map<string, number>, connectionsFirst: Set<string>, stepSpecs: AreaItemSpec[],
-    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order)
+    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order)
     const base = { defaults: plainDefaults, byproductsFirst }
     const defaultsFirst = new Set([...firstItems, ...plainDefaults])
     const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
@@ -1331,7 +1340,7 @@ export function solveAreaBlock(
   const areaPass2 = [...openResidual].some(([itemId, r]) => r > surplusTolerance(itemGrossFlow(system.S.get(itemId), lp.throughput)))
   if (pass2.run || areaPass2) {
     lp = solveAreaLP(
-      system, columns, pinnedRates, bcColumns, pass2.noImport,
+      system, columns, pinnedRates, bcColumns, feederColumns, pass2.noImport,
       new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual),
     )
   }

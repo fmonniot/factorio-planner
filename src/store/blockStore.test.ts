@@ -2961,6 +2961,7 @@ describe('buildRowAlsoIn', () => {
       byproductPolicy: { oxygen: 'discard' },
       primaryProduct: 'hydrogen',
       byproductConsumer: true,
+      absorberFeeder: true,
     })
     const g = planOf('G', [gameRow('g1', 'iron-plate')])
     const a = planOf('A', [handleOf(g)], [g], true)
@@ -2988,6 +2989,7 @@ describe('buildRowAlsoIn', () => {
     })
     expect('pinnedRate' in copy, 'pin is not copied').toBe(false)
     expect('byproductConsumer' in copy, 'consumer flag is not copied').toBe(false)
+    expect('absorberFeeder' in copy, 'feeder flag is not copied').toBe(false)
     expect(copy.modules).not.toBe(rowIn('root', 'src').modules)
     expect(copy.beaconConfigs).not.toBe(rowIn('root', 'src').beaconConfigs)
   })
@@ -3214,6 +3216,21 @@ describe('updateNodeNeighbourCount', () => {
     expect(rowIn('root', 'r2').neighbourCount).toBeUndefined()
     useBlockStore.getState().updateNodeRecipe('r1', 'other')
     expect(count()).toBeUndefined()
+  })
+})
+
+describe('updateNodeAbsorberFeeder', () => {
+  const marked = () => rowIn('root', 'r1').absorberFeeder
+
+  it('sets the flag, undoes and redoes', () => {
+    loadRoot(planOf('root', [gameRow('r1', 'smelt'), gameRow('r2', 'smelt')]))
+    useBlockStore.getState().updateNodeAbsorberFeeder('r1', true)
+    expect(marked()).toBe(true)
+    expect(rowIn('root', 'r2').absorberFeeder).toBeUndefined()
+    useBlockStore.getState().undo()
+    expect(marked()).toBeUndefined()
+    useBlockStore.getState().redo()
+    expect(marked()).toBe(true)
   })
 })
 

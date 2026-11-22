@@ -101,8 +101,8 @@ export function pinRowName(varName: string): string {
  *     - Intermediate items: Σ S_ij * x_j + s_i ≥ 0
  *     - Intermediate items with a cap: Σ S_ij * x_j + s_i + u_i ≥ 0,  u_i ≤ cap_i
  *       (no cap row when the cap is infinite)
- *     - Connections-first items: u_i + Σ_{j∉BC, S_ij<0} S_ij * x_j ≤ 0
- *       (supply covers at most what recipes outside the absorber chains use)
+ *     - Connections-first items: u_i + Σ_{j∉N, S_ij<0} S_ij * x_j ≤ 0
+ *       (supply covers at most what recipes outside N use; N = the flagged rows, or the whole chain in the fallback, see absorbers.ts)
  *     - Pinned recipes:     x_j = rate  (equality)
  *   Objective: minimize Σ c_j * x_j + Σ m_i * s_i
  *     where c_j = 1, BC_BONUS for the rewarded rows of an absorber chain (flagged byproduct consumers that take a
@@ -127,6 +127,8 @@ export function buildLPModel(
   elasticGoals = false,
   /** Items imported cheaply in some other way than `byproductsFirst` (the areas' own slacks); never bounded for an absorber. */
   extraCheapImports: ReadonlySet<string> = new Set(),
+  /** Rows marked to feed absorbing rows, and items supplied by something other than `supplyCaps` (the areas' own supply rows). */
+  absorberInputs: { markedFeeders?: ReadonlySet<string>; extraSupplied?: ReadonlySet<string> } = {},
 ): LPModel {
   const { S, recipes, classification } = system
 
@@ -151,7 +153,14 @@ export function buildLPModel(
   // absorber chain contribute BC_BONUS (a tiny negative number) so the LP prefers to run them up to the surplus
   // their intermediates allow, and the rows that only feed them cost `feederCost`.
   const cheapImports = new Set([...byproductsFirst, ...extraCheapImports].filter(itemId => !noImportItems.has(itemId)))
-  const absorbers = absorberRoles(system, bcRecipeIds, pinnedRates, cheapImports)
+  // The items whose supply gets a supply-use row below: they never anchor an unflagged candidate (see absorbers.ts).
+  const supplied = new Set([
+    ...[...connectionsFirst].filter(i => classification.intermediates.has(i) && (supplyCaps.get(i) ?? 0) > 0),
+    ...(absorberInputs.extraSupplied ?? []),
+  ])
+  const absorbers = absorberRoles(system, bcRecipeIds, pinnedRates, cheapImports, {
+    markedFeeders: absorberInputs.markedFeeders, supplied,
+  })
   for (const recipeId of recipes) {
     const varName = recipeToVar.get(recipeId)!
     variables[varName] = { __obj__: absorbers.rewarded.has(recipeId) ? BC_BONUS : (absorbers.feederCost.get(recipeId) ?? 1) }
@@ -226,14 +235,14 @@ export function buildLPModel(
         variables[supplyName][capName] = 1
       }
       if (connectionsFirst.has(itemId)) {
-        // Supply covers at most what the recipes outside the absorber chains use.
-        // Without this row a free u_i could feed a chain for its bonus, and be
+        // Supply covers at most what the recipes outside the flagged rows use (the whole chain in the fallback, see absorbers.ts).
+        // Without this row a free u_i could feed a flagged row for its bonus, and be
         // unbounded when the cap is infinite.
         const useName = `supuse_${lpName(itemId)}`
         constraints[useName] = { max: 0 }
         variables[supplyName][useName] = 1
         for (const [recipeId, coeff] of S.get(itemId) ?? []) {
-          if (coeff < 0 && !absorbers.chain.has(recipeId)) {
+          if (coeff < 0 && !absorbers.noSupply.has(recipeId)) {
             const varName = recipeToVar.get(recipeId)
             if (varName) variables[varName][useName] = coeff
           }
@@ -418,14 +427,17 @@ export function solveLP(
   supplyCaps: Map<string, number> = new Map(),
   connectionsFirst: Set<string> = new Set(),
   byproductsFirst: Set<string> = new Set(),
+  markedFeeders: ReadonlySet<string> = new Set(),
 ): LPResult {
-  const lp = buildLPModel(system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst)
+  const lp = buildLPModel(
+    system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, false, new Set(), { markedFeeders },
+  )
   const result = runLP('__obj__', lp.constraints, lp.variables)
   if (result.feasible === true || !hasGoalRow(system)) {
     return readLPResult(result, lp, system.recipes, pinnedRates, result.feasible === true)
   }
   const elastic = buildLPModel(
-    system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, true,
+    system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, true, new Set(), { markedFeeders },
   )
   if (boundShortfall(elastic) === undefined) {
     const second = runLP('__obj__', elastic.constraints, elastic.variables)

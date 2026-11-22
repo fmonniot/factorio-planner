@@ -313,6 +313,8 @@ export const GameRecipeNodeSchema = z.object({
   byproductPolicy: z.record(z.string(), z.enum(['discard', 'feed-back'])),
   primaryProduct: z.string().optional(),
   byproductConsumer: z.boolean().optional(),
+  // Feed absorbing rows: also run for absorber chains when ordinary rows use the product; ignored on a pinned or byproduct-consumer row (see solver.md, Absorber chains)
+  absorberFeeder: z.boolean().optional(),
   // Burner rows: the fuel item burnt. An id the machine does not accept is ignored (kept, like
   // defaultMachineOverrides); absent = the lowest-value accepted fuel (see src/data/fuel.ts).
   fuelItemId: z.string().optional(),
