@@ -51,7 +51,7 @@ The only change the owner asked for after trying the two: **show the item's icon
 - **Edge weight and colour.** Line width grows with the number of items on the edge; colour is the source block's, amber when limited, grey when unused (as today). Back edges are dashed and run along the bottom.
 - **Labels only where you point.** No chips by default. Pointing at (or focusing) a block lights its edges and dims the rest; pointing at an edge lights it; a count badge sits on the lit edge next to its consumer.
 - **Detail strip.** A strip under the graph, so nothing floats over it: for a block, two columns headed **Receives from** and **Supplies** (block, item count); for an edge, one column headed **Items on this edge** (item, rate, `existing`, `limited`, `not used`). The headers are always on the top line.
-- **Fit.** The graph is scaled to fit the board, no pan or zoom. At 15 blocks that is about 0.46, so block names come out around 6 px: see the open questions.
+- **Fit.** The graph is scaled to fit the board, no pan or zoom. At 15 blocks that is about 0.46, so block names come out around 6 px: accepted, see decision 3.
 
 Reference implementation: `tools/layout-prototype.mjs` (a throwaway, run on the data from `tools/extract-plan.mjs`).
 
@@ -61,7 +61,7 @@ A grid with one row per supplying block and one column per consuming block (15 �
 
 ## What the prototype does not cover
 
-The tickets must decide or build all of these:
+The tickets must build or decide all of these:
 
 - **Item icons** (the owner's request).
 - **Editing.** The app's chips have a limit control and a `×` that removes the connection, and a block can start connect mode from its `→` handle. The prototype lists items read-only.
@@ -72,13 +72,15 @@ The tickets must decide or build all of these:
 - **Fluid temperatures** in the item lines.
 - Real tooltips (the app uses `TooltipLayer`, not the native `title`), light theme, and graphs with areas.
 
-## Open questions
+## Decisions
 
-1. **Back edges: the layout's or the solver's?** Today a back edge is the solver's (`backConnectionIds` of a loop, entry block first). The prototype picks its own ordering for the picture only. Recommended: the layout computes its own set for drawing and the solver is untouched; `data-loop` keeps meaning "member of a loop" (solver) while `data-back` means "drawn right to left" (layout). The spec's Layout and Loops bullets then change wording. Check that nothing else reads `BlockEdgeLayout.back` as the solver's notion.
-2. **Where do limit and remove live in option A?** Recommended: reuse the existing summary chip and `graph-edge-list` popover for every edge (a count badge that opens the full chips), so limit and `×` stay one click away, and lower the threshold `MAX_EDGE_CHIPS` to zero for the tidy layout. The prototype's hover-only badge would then be that summary chip, always on a lit edge.
-3. **Is about 6 px text at fit acceptable at 15 blocks?** The owner judged it good on the artifact; confirm in the app. If not, fall back to scrolling below some scale, or a semantic zoom.
-4. **Where does the matrix live?** Recommended: a second view inside the Block graph modal (a **Graph | Matrix** switch in the header), not a new top-bar button. Check [spec/ui.md](../../spec/ui.md) for the areas matrices before building, and reuse what fits.
-5. **Does the graph choose the matrix automatically past some block count?** Recommended: no, the player picks; remember the choice with the other UI state.
+Settled with the owner on 2026-11-22. They replace the open questions of the first draft.
+
+1. **Back edges are the layout's.** The layout computes its own back-edge set, for drawing only, with the ordering that leaves the fewest; the solver and its loop entry are untouched. `data-loop` keeps meaning "member of a loop" (solver); `data-back` means "drawn right to left" (layout). The spec's Layout and Loops bullets change wording. T1 first checks that nothing else reads `BlockEdgeLayout.back` as the solver's notion (today only `BlockGraph.tsx` and its test do, for `data-back`).
+2. **Limit and remove live in the summary chip.** Every edge of the tidy layout gets the existing summary chip (`graph-edge-summary`, the count in the chip) and its list popover (`graph-edge-list`, full chips with the limit control and `×`), so editing stays one click away and no new UI is needed. `MAX_EDGE_CHIPS` stops deciding for this layout: every edge collapses.
+3. **Text at fit is accepted.** The graph always fits the modal, at about 0.46 on the 15-block plan (block names about 6 px); the detail strip carries the readable text. Revisit only if a real plan shows it failing; the fallbacks would be a minimum scale with scrolling, or a semantic zoom.
+4. **The matrix is a second view in the Block graph modal.** A **Graph | Matrix** switch in the modal's header, not a new top-bar button. T2 reads the areas matrices in [spec/ui.md](../../spec/ui.md) first and reuses what fits.
+5. **The player picks the view, and it is remembered.** The modal opens in the view used last, stored with the other UI state; no automatic switch by block count.
 
 ## Tickets
 
@@ -91,14 +93,14 @@ In `src/utils/blockGraphLayout.ts` (and `BlockGraph.tsx` for what it draws):
 1. The ordering, layering, dummy vertices, crossing minimisation and row placement of the prototype, deterministic (ties by plan order), keeping `layoutBlockGraph`'s role. Carry the ports and the routed edge paths in `BlockEdgeLayout`.
 2. Layout tests against [real-plan.layout.json](real-plan.layout.json): at most 6 back edges, no two blocks overlap, every edge point lies in a gap between blocks, same input gives the same output, plus a case where a loop's entry is not the first block (the Sciences case). Keep or update the existing synthetic layout tests.
 3. Fit-to-view: scale the graph to the modal, no pan or zoom.
-4. Hover and focus lighting, edge weight by item count, the detail strip with item icons, and the answer to open question 2.
+4. Hover and focus lighting, edge weight by item count, the detail strip with item icons, and a summary chip on every edge (decision 2).
 5. Update [spec/ui.md](../../spec/ui.md#block-graph) (Layout, Edges, Loops) and the e2e specs for the block graph (`e2e/block-graph*.spec.ts`).
 
 Done when the 15-block fixture opens with every block and label visible and no edge runs across an unrelated block.
 
 ### T2. Dependency matrix view
 
-A **Matrix** view in the Block graph modal as described above, in dependency or plan order, with the cell panel (items, rates, status tags and icons) and the editing controls the chip list already has. Unit tests for the cell model (counts, status, loop cells); an e2e spec on the fixture; [spec/ui.md](../../spec/ui.md#block-graph) section.
+A **Graph | Matrix** switch in the Block graph modal's header (decisions 4 and 5: remembered with the other UI state) and the **Matrix** view as described above, in dependency or plan order, with the cell panel (items, rates, status tags and icons) and the editing controls the chip list already has. Unit tests for the cell model (counts, status, loop cells); an e2e spec on the fixture; [spec/ui.md](../../spec/ui.md#block-graph) section.
 
 Done when a 15-block plan can be read as a matrix with no horizontal scroll at 1280 px, and a limit set from a cell shows in the graph.
 
