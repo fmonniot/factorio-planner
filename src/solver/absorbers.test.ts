@@ -38,11 +38,11 @@ describe('isFeeder', () => {
   it('is true for a live feeder, false for a flagged row and for a row outside the chain', () => {
     const flagged = new Set(['A'])
     const roles = absorberRoles(systemOf([grow, saw, makeSaw, makePlate, usePlate], { goal: 10, gadget: 4 }), flagged, none)
-    // Case 3 without K flagged: the plate row is used by an ordinary row, so only A is in the chain.
+    // The plate row is used by an ordinary row, so it is not a feeder; K, which only feeds A, is.
     expect(isFeeder(roles, flagged, 'A'), 'flagged').toBe(false)
     expect(isFeeder(roles, flagged, 'U'), 'unrelated').toBe(false)
-    expect(isFeeder(roles, flagged, 'K'), 'plate also used by an ordinary row').toBe(false)
-    expect(isFeeder(roles, flagged, 'H'), 'plate also used by an ordinary row').toBe(false)
+    expect(isFeeder(roles, flagged, 'K'), 'its saw only feeds A').toBe(true)
+    expect(isFeeder(roles, flagged, 'H'), 'its plate is also used by an ordinary row').toBe(false)
     const feeding = absorberRoles(systemOf([grow, saw, makeSaw, makePlate], { goal: 10 }), flagged, none)
     expect(isFeeder(feeding, flagged, 'K'), 'live feeder').toBe(true)
     expect(isFeeder(feeding, flagged, 'H'), 'live feeder, one more step back').toBe(true)
