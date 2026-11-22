@@ -360,6 +360,18 @@ describe('ComesFrom, the Leftover switch', () => {
     expect(screen.queryByTestId('no-effect')).not.toBeInTheDocument()
   })
 
+  it('shows that grey line at area scope too, since the rule is the block\'s', () => {
+    setup({ block: { ore: { leftoverOff: true } }, L: { ore: {} } })
+    // No row makes Ore in this block: the line is the block rule's, and its Remove clears it.
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => ({ ...sp, nodes: [] })) } })) }))
+    render(<ComesFrom itemId="ore" areaId="L" />)
+    fireEvent.click(scope('Line L'))
+    const line = screen.getByTestId('no-effect')
+    expect(line).toHaveAttribute('data-rule', 'leftover-off')
+    fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
+    expect(mainBlock().sourceRules).toEqual({})
+  })
+
   it('shows no grey line for an item no row uses', () => {
     setup({ areas: false, block: { plate: { leftoverOff: true } } })
     render(<ComesFrom itemId="plate" />)

@@ -9,7 +9,7 @@ import { detail, pane, slotById } from './support/summary'
  * 2,432 used coolant per minute over, where the player wants every used unit cooled, filtered and reused. The Leftover rule
  * (surplus rule) closes that loop.
  */
-const FIXTURE = path.resolve('e2e/fixtures/leftover-coolant-seablock.json')
+const FIXTURE = path.resolve('initiatives/archive/surplus-rule/coolant-loop.plan.json')
 const USED = 'angels-liquid-coolant-used'
 const STEAM = 'steam'
 /** Raw in Metals: no row of the block makes it. */

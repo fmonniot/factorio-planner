@@ -77,7 +77,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
   const unavailable = useMemo(() => {
     if (!block || !gameData) return []
     const blockIds = new Set(blocks.map(b => b.id))
-    return sourceRules(block, gameData, blockIds).filter(r => r.itemId === itemId && r.noEffect !== undefined && r.areaId === area)
+    return sourceRules(block, gameData, blockIds).filter(r => r.itemId === itemId && r.noEffect !== undefined && (r.areaId === area || r.kind === 'leftover-off'))
   }, [block, blocks, gameData, itemId, area])
 
   if (!block || !gameData) return null
@@ -163,7 +163,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
         {area !== undefined && (
           <>
             <span data-testid="leftover-block-note" className="text-[11px] text-gray-500">{LEFTOVER_BLOCK_NOTE}</span>
-            <button type="button" data-testid="leftover-whole-block" onClick={() => setScope(undefined)} className={MINI_BUTTON_CLASS}>{LEFTOVER_BLOCK_BUTTON}</button>
+            <button type="button" data-testid="leftover-whole-block" aria-label={`${LEFTOVER_BLOCK_BUTTON}: change Leftover`} onClick={() => setScope(undefined)} className={MINI_BUTTON_CLASS}>{LEFTOVER_BLOCK_BUTTON}</button>
           </>
         )}
         <span className="group relative flex">

@@ -315,6 +315,11 @@ describe('rules of areas', () => {
     expect([...areaRuleItems(b, gameData, [b]).get('L')!]).toEqual(['plate'])
   })
 
+  it('keeps the block\'s Leftover off on the rows of an area that has its own rule for the item', () => {
+    const b = areaBlock({ block: { plate: { makeHere: 'off', leftoverOff: true } }, L: { plate: { makeHere: 'after-blocks' } } })
+    expect([...rowRuleItems(b, gameData, [b], 'L')]).toContain('plate')
+  })
+
   it('counts the import-on override as a rule of the area on its rows', () => {
     const b = areaBlock({ block: { plate: { importOff: true } }, L: { plate: {} } })
     expect([...rowRuleItems(b, gameData, [b], 'L')]).toEqual(['plate'])
