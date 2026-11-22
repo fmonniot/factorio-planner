@@ -608,6 +608,25 @@ describe('RecipeRow context menu', () => {
     expect(screen.queryByRole('img', { name: 'Absorbs byproduct' })).toBeNull()
   })
 
+  it('a row that feeds an absorber shows the feeder badge with an explanatory title and no absorbs-byproduct badge', () => {
+    renderRow({ solvedNode: { ...solvedNode, feedsAbsorber: true } })
+    const badge = screen.getByRole('img', { name: 'Feeds an absorbing row' })
+    expect(badge.getAttribute('title'), 'title').toContain('runs only to supply')
+    expect(screen.queryByRole('img', { name: 'Absorbs byproduct' }), 'no absorber badge').toBeNull()
+  })
+
+  it('a default row has no feeder badge', () => {
+    renderRow()
+    expect(screen.queryByRole('img', { name: 'Feeds an absorbing row' })).toBeNull()
+  })
+
+  it('a byproduct consumer with a stray feeder mark shows only the absorber badge', () => {
+    const bc: RecipeNode = { ...ironPlateRecipeNode, byproductConsumer: true }
+    renderRow({ planNode: bc, solvedNode: { ...solvedNode, feedsAbsorber: true } })
+    expect(screen.getByRole('img', { name: 'Absorbs byproduct' })).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: 'Feeds an absorbing row' })).toBeNull()
+  })
+
   it('Absorb byproduct marks the node as a byproduct consumer', () => {
     renderRow()
     openMenu()

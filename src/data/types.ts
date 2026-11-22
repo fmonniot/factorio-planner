@@ -54,6 +54,8 @@ export interface SolvedNode {
   powerKw: number
   /** Burner rows: the fuel item burnt (already counted in `inputRates`; `powerKw` is then 0). */
   fuelItemId?: string
+  /** Set (never `false`) on a row that only runs to feed a row absorbing a byproduct, while it runs. Not part of the snapshot. */
+  feedsAbsorber?: true
 }
 
 export interface UnsatisfiedItem {

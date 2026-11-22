@@ -161,6 +161,7 @@ export function solvedNodeOf(
   effects: NodeEffects,
   prodBonus: number,
   gameData: GameData,
+  feeder = false,
 ): SolvedNode {
   // A missing default (no machine for the category, or none within the research horizon) leaves
   // count and power at 0; rates do not depend on the machine, except a burner's fuel.
@@ -197,6 +198,7 @@ export function solvedNodeOf(
     machineCountCeil,
     powerKw,
     ...(effects.fuel ? { fuelItemId: effects.fuel.itemId } : {}),
+    ...(feeder && throughput > FLOW_TOLERANCE ? { feedsAbsorber: true as const } : {}),
   }
 }
 
