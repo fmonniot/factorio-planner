@@ -18,7 +18,10 @@ import { fmtItemRateText, fmtRate, inputRateUnit } from './ItemTile'
 import { Popover } from './Popover'
 import { RateInput } from './RateInput'
 import { cappedTitle, cappingLimit, REQUEST_IGNORED_TITLE } from './summarySegments'
-import type { Block, BlockLoop, ConnectionFlow, GameData, Item } from '../../data/types'
+import type { Block, BlockLoop, ConnectionFlow, ConnectionPart, GameData, Item } from '../../data/types'
+import { fmtFluidTag } from '../../data/flowKey'
+import { FLOW_TOLERANCE } from '../../solver/index'
+import { fmtPartTemp } from './temperature'
 import { BlockSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
 import { servedListOf } from '../../data/servedEntries'
@@ -283,6 +286,12 @@ function ConnectionChip({
     title += ` — requested: ${sourceName} makes ${fmt(flow.requested ?? 0)} for ${targetName}`
   } else if (flow?.requestIgnored) {
     title += ` — taken as existing: ${REQUEST_IGNORED_TITLE[flow.requestIgnored]}`
+  }
+  const parts = flow?.parts
+  if (parts && (parts.length >= 2 || (parts.length === 1 && fmtFluidTag(parts[0].temp) !== ''))) {
+    const part = (p: ConnectionPart) =>
+      `${fmt(p.rate)} at ${fmtPartTemp(p.temp)}${p.available > p.rate + FLOW_TOLERANCE ? ` (of ${fmt(p.available)} offered)` : ''}`
+    title += ` — carries ${parts.map(part).join(', ')}`
   }
   if (line) {
     const places = mine.some(l => l.areaId !== undefined)

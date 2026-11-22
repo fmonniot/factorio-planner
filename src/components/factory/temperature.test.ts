@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { GameData, Recipe } from '../../data/types'
-import { fmtTemperatureValue, fmtTemperatureRange, ingredientTemperatureLabels, productTemperatureLabels, fmtTemperatureWarning, fmtNoFittingTemperature } from './temperature'
+import { fmtTemperatureValue, fmtTemperatureRange, ingredientTemperatureLabels, productTemperatureLabels, fmtTemperatureWarning, fmtNoFittingTemperature, fmtPartTemp } from './temperature'
 
 function makeRecipe(ingredients: Recipe['ingredients']): Recipe {
   return {
@@ -137,5 +137,16 @@ describe('fmtNoFittingTemperature', () => {
       .toBe('Steam Turbine, Steam Engine and Mill need Steam at ≤50°C, but nothing in this block makes it and it cannot be imported.')
     expect(fmtNoFittingTemperature({ type: 'no-fitting-temperature', itemId: 'steam', min: 100, max: 200, recipeIds: ['turbine', 'engine'] }, gd))
       .toContain('Steam Turbine and Steam Engine need Steam at 100–200°C')
+  })
+})
+
+describe('fmtPartTemp', () => {
+  it.each([
+    [{ at: 165 }, '165°C'],
+    [{ min: 465 }, '≥465°C'],
+    [{ at: null }, 'unknown temperature'],
+    [{}, 'any temperature'],
+  ])('names %j as %s', (tag, label) => {
+    expect(fmtPartTemp(tag)).toBe(label)
   })
 })

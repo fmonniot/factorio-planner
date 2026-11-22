@@ -23,12 +23,12 @@ const area = (areaId: string) => ({
 
 // A sends 600 units/min (10 MW): 300 to B, 300 outside.
 const elecRow: MatrixRow = {
-  itemId: ELEC, name: 'Electricity', groupId: 'power', cells: { A: 600, B: -300 },
+  key: ELEC, itemId: ELEC, name: 'Electricity', groupId: 'power', cells: { A: 600, B: -300 },
   fromOutside: 0, toOutside: 300, total: 600,
   pairs: [{ from: 'A', to: 'B', rate: 300 }, { from: 'A', to: OUTSIDE, rate: 300 }],
 }
 const plateRow: MatrixRow = {
-  itemId: 'plate', name: 'Plate', groupId: 'other-items', cells: { A: -30, B: 30 },
+  key: 'plate', itemId: 'plate', name: 'Plate', groupId: 'other-items', cells: { A: -30, B: 30 },
   fromOutside: 0, toOutside: 0, total: 30, pairs: [{ from: 'B', to: 'A', rate: 30 }],
 }
 const matrix: BlockMatrix = {
@@ -131,7 +131,7 @@ describe('BlockAreaMatrix power units', () => {
 
   it('folds a long list of trades after four and unfolds it', () => {
     const rows: MatrixRow[] = ['a', 'b', 'c', 'd', 'e'].map((id, i) => ({
-      itemId: id, name: id.toUpperCase(), groupId: 'other-items', cells: { A: 10 - i, B: -(10 - i) },
+      key: id, itemId: id, name: id.toUpperCase(), groupId: 'other-items', cells: { A: 10 - i, B: -(10 - i) },
       fromOutside: 0, toOutside: 0, total: 10 - i, pairs: [{ from: 'A', to: 'B', rate: 10 - i }],
     }))
     renderMatrix({ matrix: { ...matrix, rows }, focusedAreaId: 'A' })
@@ -140,5 +140,27 @@ describe('BlockAreaMatrix power units', () => {
     expect(toggle.textContent).toBe('Show all 5')
     fireEvent.click(toggle)
     expect(screen.getByTestId('trade-lines-B').querySelectorAll('li')).toHaveLength(5)
+  })
+})
+
+describe('BlockAreaMatrix rows of a split fluid', () => {
+  const steam = (key: string, temp: MatrixRow['temp'], total: number): MatrixRow => ({
+    key, itemId: 'steam', temp, name: 'Steam', groupId: 'power', cells: { A: total, B: -total },
+    fromOutside: 0, toOutside: 0, total, pairs: [{ from: 'A', to: 'B', rate: total }],
+  })
+
+  it('renders one row per key with its label and data attributes', () => {
+    renderMatrix({ matrix: { ...matrix, rows: [steam('steam@165', { at: 165 }, 60), steam('steam[465,]', { min: 465 }, 30)] } })
+    const rows = [...document.querySelectorAll('tr[data-item-id="steam"]')]
+    expect(rows.map(r => r.getAttribute('data-flow-key'))).toEqual(['steam@165', 'steam[465,]'])
+    expect(rows.map(r => r.querySelector('[data-testid="matrix-row-temperature"]')?.textContent)).toEqual(['165°C', '≥465°C'])
+  })
+
+  it('lists the trade lines of a focus per key', () => {
+    renderMatrix({ matrix: { ...matrix, rows: [steam('steam@165', { at: 165 }, 60), steam('steam[465,]', { min: 465 }, 30)] }, focusedAreaId: 'A' })
+    const lines = [...screen.getByTestId('trade-lines-B').querySelectorAll('li')]
+    expect(lines).toHaveLength(2)
+    expect(lines.every(l => l.getAttribute('data-item-id') === 'steam')).toBe(true)
+    expect(lines.map(l => l.textContent)).toEqual([expect.stringContaining('Steam 165°C'), expect.stringContaining('Steam ≥465°C')])
   })
 })

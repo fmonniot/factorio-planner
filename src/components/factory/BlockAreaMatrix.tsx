@@ -4,9 +4,10 @@ import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import {
-  OUTSIDE, flowOrder, focusArea, groupRows, groupTotal, type GroupTotal, itemGroupMap, matchQuery, totalRows,
+  OUTSIDE, flowOrder, focusArea, groupRows, groupTotal, type GroupTotal, itemGroupMap, matchQuery, rowDisplayName, totalRows,
   type BlockMatrix, type ColumnMode, type FocusView, type MatrixArea, type MatrixRow, type RowMode,
 } from './areaMatrix'
+import { fmtFluidTag } from '../../data/flowKey'
 import { fmtAmount, fmtAmountUnit, fmtSigned, tradeRateText } from './matrixFormat'
 import { isEnergyItem } from '../../data/electricity'
 import { FoldedList } from './FoldedList'
@@ -103,8 +104,8 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   const rows = useMemo(() => {
     let list = match?.rows ?? []
     if (counterpartMode && focus) {
-      const keep = new Set(focus.rows.map(r => r.itemId))
-      list = list.filter(r => keep.has(r.itemId))
+      const keep = new Set(focus.rows.map(r => r.key))
+      list = list.filter(r => keep.has(r.key))
     }
     return list
   }, [match, counterpartMode, focus])
@@ -120,13 +121,13 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   function cellValue(row: MatrixRow, areaId: string): { text: string; kind: 'send' | 'receive'; counterpart: boolean; title?: string } | null {
     const v = row.cells[areaId] ?? 0
     if (counterpartMode && focus && areaId !== focus.areaId) {
-      const c = focus.counterpart[row.itemId]?.[areaId] ?? 0
+      const c = focus.counterpart[row.key]?.[areaId] ?? 0
       if (c <= 0) return null
       const sends = v > 0
       const energy = isEnergyItem(row.itemId)
       const n = fmtAmount(c, rateUnit, energy)
       const area = areaById.get(areaId)!.name
-      const item = row.name
+      const item = rowDisplayName(row)
       const per = fmtAmountUnit(c, rateUnit, energy)
       return {
         text: sends ? `${n} →` : `→ ${n}`,
@@ -147,7 +148,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     if (!counterpartMode || !focus || raw === 0) return raw
     const sends = (row.cells[focus.areaId] ?? 0) > 0
     if ((side === 'to') !== sends) return 0
-    return focus.counterpart[row.itemId]?.[OUTSIDE] ?? 0
+    return focus.counterpart[row.key]?.[OUTSIDE] ?? 0
   }
 
   const groupCell = (list: MatrixRow[], areaId: string) =>
@@ -163,7 +164,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     const energy = isEnergyItem(row.itemId)
     const marker = sourceRuleMarker?.(row.itemId)
     return (
-      <tr key={row.itemId} data-item-id={row.itemId} className="hover:bg-gray-800/40">
+      <tr key={row.key} data-item-id={row.itemId} data-flow-key={row.key} className="hover:bg-gray-800/40">
         <th scope="row" className="sticky left-0 z-10 bg-gray-900 px-2 py-0.5 text-left font-normal text-gray-200 border-b border-gray-800">
           <span className="flex items-center gap-2 min-w-0">
             <span className="relative flex shrink-0">
@@ -174,7 +175,12 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               )}
               {marker && <span className="absolute -top-1.5 -right-1.5 flex">{marker}</span>}
             </span>
-            <span className="truncate" title={row.name}>{row.name}</span>
+            <span className="truncate" title={rowDisplayName(row)}>
+              {row.name}
+              {row.temp !== undefined && fmtFluidTag(row.temp) !== '' && (
+                <span data-testid="matrix-row-temperature" className="ml-1 font-mono text-[10px] text-orange-300">{fmtFluidTag(row.temp)}</span>
+              )}
+            </span>
           </span>
         </th>
         <td data-col="from-outside" data-rate={fromV} className={`${OUTSIDE_COL} px-1 py-0.5 text-center font-mono tabular-nums text-gray-300 border-b border-gray-800`}>
@@ -270,7 +276,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               >
                 {tailOpen
                   ? 'Show fewer'
-                  : `+ ${g.tail.length} more, ${fmtAmountUnit(g.tail[0].total, rateUnit, isEnergyItem(g.tail[0].itemId))} and below: ${g.tail.slice(0, 4).map(r => r.name).join(', ')}${g.tail.length > 4 ? '…' : ''}`}
+                  : `+ ${g.tail.length} more, ${fmtAmountUnit(g.tail[0].total, rateUnit, isEnergyItem(g.tail[0].itemId))} and below: ${g.tail.slice(0, 4).map(rowDisplayName).join(', ')}${g.tail.length > 4 ? '…' : ''}`}
               </button>
             </td>
           </tr>
@@ -452,7 +458,7 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
                   testId={`trade-lines-${t.partyId}`}
                   className="mt-1 ml-2 space-y-0.5"
                   renderItem={l => (
-                    <li key={`${l.itemId}:${l.direction}`} data-item-id={l.itemId} data-direction={l.direction} className="flex items-baseline gap-2 text-[11px]">
+                    <li key={`${l.key}:${l.direction}`} data-item-id={l.itemId} data-direction={l.direction} className="flex items-baseline gap-2 text-[11px]">
                       <span className="flex-1 min-w-0 truncate text-gray-300" title={l.name}>{l.name}</span>
                       <span className="tabular-nums text-gray-400">{fmtAmountUnit(l.rate, rateUnit, l.energy)} {l.direction}</span>
                     </li>

@@ -323,6 +323,13 @@ describe('what the lines read', () => {
     expect(line('import')).toHaveTextContent('Missing')
     expect(line('import')).toHaveTextContent('12')
   })
+
+  it('lists an item imported over several ranges once, with the sum', () => {
+    solved({ unsatisfied: [{ itemId: 'ore', rate: 12, temp: { min: 465 } }, { itemId: 'ore', rate: 5, temp: {} }] as never })
+    openList()
+    expect(screen.getAllByTestId('sources-line').filter(l => l.getAttribute('data-line') === 'import')).toHaveLength(1)
+    expect(line('import')).toHaveTextContent('17')
+  })
 })
 
 describe('a solved dedicated row', () => {

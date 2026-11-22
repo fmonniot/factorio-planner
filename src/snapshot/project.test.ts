@@ -208,6 +208,25 @@ describe('projectSnapshot', () => {
     ])
   })
 
+  it('adds up the imports of a fluid taken over several ranges into one entry per item', () => {
+    const s = project([makeBlock('a')], solveOf({
+      results: {
+        a: result({
+          unsatisfied: [
+            { itemId: 'steam', rate: 30, temp: { min: 465 } },
+            { itemId: 'plate', rate: 9 },
+            { itemId: 'steam', rate: 12.0004, temp: {} },
+          ],
+        }),
+      },
+    }))
+    expect(s.blocks[0].imports).toEqual([
+      { id: 'steam', type: 'fluid', rate: 42 },
+      { id: 'plate', type: 'item', rate: 9 },
+    ])
+    expect(SnapshotSchema.safeParse(s).success).toBe(true)
+  })
+
   it('keeps a block whose solve failed, with its message, its rows without solved values and the result\'s imports', () => {
     const a = makeBlock('a', {
       name: 'Broken', products: [{ id: 'p', itemId: 'plate', extraRate: 4 }],

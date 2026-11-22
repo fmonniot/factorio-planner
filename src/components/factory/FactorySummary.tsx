@@ -11,6 +11,7 @@ import { ItemPicker } from '../ItemPicker'
 import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { offerByItem, parseFlowKey } from '../../data/flowKey'
+import { flowAtKey, flowShares } from './flowParts'
 import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
@@ -232,8 +233,13 @@ export function FactorySummary() {
     () => allFlows.filter(f => f.fromBlockId === activeBlockId && f.rate > FLOW_TOLERANCE),
     [allFlows, activeBlockId],
   )
-  const exportedPerMin = new Map<string, number>()
-  for (const f of outputFlows) exportedPerMin.set(f.itemId, (exportedPerMin.get(f.itemId) ?? 0) + f.rate)
+  // By flow key: a split fluid's connection leaves the block at the keys its parts carry.
+  const exportedByKey = new Map<string, number>()
+  for (const f of outputFlows) {
+    for (const share of flowShares(f)) {
+      if (share.rate > FLOW_TOLERANCE) exportedByKey.set(share.key, (exportedByKey.get(share.key) ?? 0) + share.rate)
+    }
+  }
 
   // What other blocks request from this one, by item, in solve order. Uses every flow (a request for 0 draws nothing).
   const requestsByItem = useMemo(() => {
@@ -249,18 +255,16 @@ export function FactorySummary() {
 
   // Byproducts: net positive balance of items that are not products, minus what other blocks take;
   // a leftover that is only LP rounding noise (see isLeftover) gets no tile.
-  // What other blocks take of an item is subtracted from its keys in turn.
-  const exportLeft = new Map(exportedPerMin)
+  // What other blocks take at a key is subtracted from that key.
   const byproductItems = [...netBalance]
     .map(([key, net]) => ({ key, net, ...parseFlowKey(key) }))
     .filter(({ itemId }) => !productItemIds.has(itemId))
     .map(({ key, net, itemId, tag }) => {
-      const taken = Math.min(Math.max(0, net), exportLeft.get(itemId) ?? 0)
-      if (taken > 0) exportLeft.set(itemId, (exportLeft.get(itemId) ?? 0) - taken)
+      const taken = Math.min(Math.max(0, net), exportedByKey.get(key) ?? 0)
       return { itemId, key, ...(tag ? { temp: tag } : {}), ratePerMin: net - taken }
     })
     .filter(({ key, ratePerMin }) => isLeftover(ratePerMin, gross.get(key) ?? 0))
-  const exportedByproducts = [...exportedPerMin.keys()].filter(id => !productItemIds.has(id))
+  const exportedByproducts = [...exportedByKey.keys()].filter(key => !productItemIds.has(parseFlowKey(key).itemId))
   const byproductRowList = byproductRows(byproductItems, exportedByproducts)
 
   // Ingredients: unsatisfied raw inputs
@@ -271,6 +275,7 @@ export function FactorySummary() {
   const ingredientRowList = ingredientRows(
     connections, ingredientItems, noImportItems,
     activeBlock && areaRoutes ? areaMissingOf(activeBlock.sourceRules, activeBlock.rootPlan, areaRoutes) : undefined,
+    inputFlows,
   )
   const limitConnection =
     limitEditor && limitEditor.toBlockId === activeBlockId
@@ -313,13 +318,13 @@ export function FactorySummary() {
       requests,
     )
   })
-  // The deliveries of an item sit on the first slot of it.
-  const exportShown = new Set<string>()
-  const byproductSlots = byproductRowList.map(r => {
-    const first = !exportShown.has(r.itemId)
-    exportShown.add(r.itemId)
-    return byproductSlot(r, first ? exportsOf(r.itemId) : [])
-  })
+  // The deliveries of a split fluid sit on the slot of the key their part carries.
+  const exportsOfKey = (key: string) =>
+    outputFlows.flatMap(f => {
+      const at = flowAtKey(f, key)
+      return at && at.rate > FLOW_TOLERANCE ? [at] : []
+    })
+  const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOfKey(r.key)))
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds, ruleItems))
   // A product shortfall cannot receive supply (products have no import slack either).
   const connectable = (itemId: string) => (activeBlock ? !hasProduct(activeBlock, itemId) : false)
@@ -539,7 +544,7 @@ export function FactorySummary() {
           }}
           renderControls={slot => <ComesFrom itemId={slot.itemId} listInPopover />}
           // Slot ids of the Ingredients pane are item ids.
-          openRequest={opened ? { seq: opened.seq, slotId: opened.itemId } : undefined}
+          openRequest={opened ? { seq: opened.seq, slotId: ingredientSlots.find(s => s.itemId === opened.itemId)?.id ?? opened.itemId } : undefined}
           onOpenBlock={setActiveBlock}
           onConnectionContextMenu={(connectionId, e) =>
             setConnectionChipMenu({ connectionId, x: e.clientX, y: e.clientY })}

@@ -1,6 +1,7 @@
 import type { Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
+import { fmtFluidTag } from '../../data/flowKey'
 import { StackedBar } from './StackedBar'
 import type { BarSegment } from './StackedBar'
 import { segmentLook } from './segmentLooks'
@@ -136,6 +137,8 @@ export function SummaryDetailStrip({
   }
 
   const itemName = item?.name ?? slot.itemId
+  const tagLabel = fmtFluidTag(slot.temp)
+  const shownName = tagLabel ? `${itemName} ${tagLabel}` : itemName
   const editable = state === 'selected' || state === 'editing'
   const entries: (Segment | Overlay)[] = [...slot.segments, ...slot.overlays]
   // A slot with nothing allocated (an unused source, Import off) shows its overlays across the bar;
@@ -180,7 +183,7 @@ export function SummaryDetailStrip({
     <div data-testid="summary-detail" data-state={state} data-tall={tall ? 'true' : undefined} className={`${root} pt-[5px] pb-[3px] gap-[3px]`}>
       <div className="flex items-center gap-2 h-5 shrink-0 min-w-0">
         {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />}
-        <span className="text-xs font-semibold text-gray-100 truncate">{itemName}</span>
+        <span className="text-xs font-semibold text-gray-100 truncate">{shownName}</span>
         {!editable && (
           <span className="shrink-0 text-[10px] text-gray-400 border border-gray-700 rounded-[3px] px-1">preview</span>
         )}
@@ -199,7 +202,7 @@ export function SummaryDetailStrip({
         )}
       </div>
       <div className="shrink-0">
-        <StackedBar segments={segments} tickAt={slot.product?.tickAt ?? null} label={`${itemName} allocation`} />
+        <StackedBar segments={segments} tickAt={slot.product?.tickAt ?? null} label={`${shownName} allocation`} />
       </div>
       {showActions && (
         <div className="flex items-center gap-1.5 shrink-0 h-[22px]">

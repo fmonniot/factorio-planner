@@ -1,4 +1,5 @@
-import type { Block, GameData, SolverResult, SubPlan } from '../../data/types'
+import type { Block, FluidTag, GameData, SolverResult, SubPlan } from '../../data/types'
+import { compareTags, fmtFluidTag, flowKey, parseFlowKey } from '../../data/flowKey'
 import { placingItemIds } from '../../data/horizon'
 import { outsideResidual } from '../../solver/index'
 import { findSubPlan } from '../../data/subPlanTree'
@@ -7,7 +8,7 @@ import { isEnergyItem } from '../../data/electricity'
 import { routeEnds } from './areaRouteEnds'
 
 // ---------------------------------------------------------------------------
-// The balance matrix of a block's areas: items as rows, areas as columns, an outside column at each
+// The balance matrix of a block's areas: flow keys as rows (a split fluid has a row per temperature or range), areas as columns, an outside column at each
 // end. All rates are items/min. A cell is the area's net of the item (+ it sends, − it receives),
 // which is exactly what the solver reports per area (`SolvedArea.sends/receives`); the outside
 // columns are the residual that balances the row.
@@ -42,8 +43,14 @@ export interface MatrixArea {
 }
 
 export interface MatrixRow {
+  /** Unique within the matrix: the flow key of a split fluid's temperature or range, the item id otherwise. */
+  key: string
+  /** The base item: what its icon, energy check and rule are about. */
   itemId: string
+  /** The base item's name; `rowDisplayName` adds the temperature. */
   name: string
+  /** A split fluid's temperature or range. */
+  temp?: FluidTag
   groupId: string
   /** areaId -> signed net (+ sends, − receives); absent = 0 */
   cells: Record<string, number>
@@ -136,8 +143,14 @@ export function itemGroupOf(itemId: string, gameData: GameData, machines: Set<st
   return { id: group.id, name: group.name, order: group.order }
 }
 
-const byTotalThenName = (a: { total: number; name: string }, b: { total: number; name: string }) =>
-  b.total - a.total || a.name.localeCompare(b.name)
+const byTotalThenName = (a: { total: number; name: string; temp?: FluidTag }, b: { total: number; name: string; temp?: FluidTag }) =>
+  b.total - a.total || a.name.localeCompare(b.name) || (a.temp && b.temp ? compareTags(a.temp, b.temp) : 0)
+
+/** A row's name with its temperature or range: "Steam ≥465°C"; the plain name when it has none. */
+export function rowDisplayName(row: { name: string; temp?: FluidTag }): string {
+  const label = fmtFluidTag(row.temp)
+  return label ? `${row.name} ${label}` : row.name
+}
 
 /** The matrix of a block's areas; undefined when the block has no separate area. */
 export function blockMatrix(block: Block, result: SolverResult, gameData: GameData, machines: Set<string>): BlockMatrix | undefined {
@@ -152,25 +165,27 @@ export function blockMatrix(block: Block, result: SolverResult, gameData: GameDa
   }))
 
   const cellsOf = new Map<string, Record<string, number>>()
-  const add = (itemId: string, areaId: string, v: number) => {
-    let cells = cellsOf.get(itemId)
-    if (!cells) cellsOf.set(itemId, (cells = {}))
+  const add = (key: string, areaId: string, v: number) => {
+    let cells = cellsOf.get(key)
+    if (!cells) cellsOf.set(key, (cells = {}))
     cells[areaId] = (cells[areaId] ?? 0) + v
   }
   for (const a of result.areas) {
-    for (const f of a.sends) add(f.itemId, a.areaId, f.rate)
-    for (const f of a.receives) add(f.itemId, a.areaId, -f.rate)
+    for (const f of a.sends) add(flowKey(f.itemId, f.temp), a.areaId, f.rate)
+    for (const f of a.receives) add(flowKey(f.itemId, f.temp), a.areaId, -f.rate)
   }
 
   const pairsOf = new Map<string, PairFlow[]>()
   for (const r of result.areaRoutes ?? []) {
-    const list = pairsOf.get(r.itemId) ?? []
+    const key = flowKey(r.itemId, r.temp)
+    const list = pairsOf.get(key) ?? []
     list.push({ from: r.from ?? OUTSIDE, to: r.to ?? OUTSIDE, rate: r.rate })
-    pairsOf.set(r.itemId, list)
+    pairsOf.set(key, list)
   }
 
   const rows: MatrixRow[] = []
-  for (const [itemId, cells] of cellsOf) {
+  for (const [key, cells] of cellsOf) {
+    const { itemId, tag } = parseFlowKey(key)
     let pos = 0
     let neg = 0
     for (const v of Object.values(cells)) {
@@ -179,14 +194,16 @@ export function blockMatrix(block: Block, result: SolverResult, gameData: GameDa
     }
     const { fromOutside, toOutside } = outsideResidual(pos, neg)
     rows.push({
+      key,
       itemId,
+      ...(tag ? { temp: tag } : {}),
       name: gameData.items[itemId]?.name ?? itemId,
       groupId: itemGroupOf(itemId, gameData, machines).id,
       cells,
       fromOutside,
       toOutside,
       total: pos + fromOutside,
-      pairs: pairsOf.get(itemId) ?? [],
+      pairs: pairsOf.get(key) ?? [],
     })
   }
   rows.sort(byTotalThenName)
@@ -232,7 +249,7 @@ export function flowOrder(m: BlockMatrix): string[] {
  * Splits rows into groups by the row mode, and each group into a head and a tail (the small rows).
  * `category`: item-group order, then Other, then Machines; `rate`: one group by total; `name`: one A–Z group, no tail.
  */
-export function groupRows<R extends { itemId: string; name: string; total: number; groupId: string }>(
+export function groupRows<R extends { itemId: string; name: string; temp?: FluidTag; total: number; groupId: string }>(
   rows: R[],
   mode: RowMode,
   groups: Map<string, ItemGroupInfo>,
@@ -276,8 +293,11 @@ export function groupRows<R extends { itemId: string; name: string; total: numbe
 
 /** One item a focus area trades with one party, in one direction (`in`: the party sends it to the focus). */
 export interface TradeLine {
+  /** The row's flow key. */
+  key: string
   itemId: string
   name: string
+  temp?: FluidTag
   direction: 'in' | 'out'
   /** items/min, or power for energy */
   rate: number
@@ -288,7 +308,7 @@ export interface FocusView {
   areaId: string
   /** the rows where the area has a cell */
   rows: MatrixRow[]
-  /** itemId -> partyId -> rate (from the solver's routes) between the focus and that party, either direction */
+  /** flow key -> partyId -> rate (from the solver's routes) between the focus and that party, either direction */
   counterpart: Record<string, Record<string, number>>
   tradingAreaIds: string[]
   /**
@@ -323,10 +343,10 @@ export function focusArea(m: BlockMatrix, areaId: string): FocusView {
           else t.outRate += end.rate
         } else if (energy) t.inEnergy += end.rate
         else t.inRate += end.rate
-        t.lines.push({ itemId: row.itemId, name: row.name, direction: direction === 'sends' ? 'out' : 'in', rate: end.rate, energy })
+        t.lines.push({ key: row.key, itemId: row.itemId, ...(row.temp ? { temp: row.temp } : {}), name: rowDisplayName(row), direction: direction === 'sends' ? 'out' : 'in', rate: end.rate, energy })
       }
     }
-    counterpart[row.itemId] = per
+    counterpart[row.key] = per
   }
   const tradingAreaIds = m.areas.map(a => a.areaId).filter(id => id !== areaId && trade.has(id))
   const trades = [...trade.entries()]
@@ -419,7 +439,7 @@ export function groupTotal(all: MatrixRow[], areaId: string, focus: FocusView | 
     let out = 0
     let inn = 0
     for (const r of list) {
-      const c = focus.counterpart[r.itemId]?.[areaId] ?? 0
+      const c = focus.counterpart[r.key]?.[areaId] ?? 0
       if (c <= 1e-9) continue
       // A relay between the two areas goes both ways: the routes say how much each way.
       const sent = r.pairs.filter(p => p.from === areaId && p.to === focus.areaId).reduce((n, p) => n + p.rate, 0)
