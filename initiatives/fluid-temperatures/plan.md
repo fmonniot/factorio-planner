@@ -9,7 +9,7 @@ To the solver a fluid is one item, whatever temperature it is made at. Temperatu
 - **A fluid nothing takes disappears.** Steam from a boiler pinned too cold, or a co-product at a temperature no row accepts, nets against the import that replaces it. It is not shown as a byproduct, not offered to other blocks, and only appears as `unused` on the `temperature-mismatch` warning.
 - **A connection carries "steam", not "500°C steam".** The consumer block cannot plan on the temperature it receives; only the warning checks it after the solve, and a source block that passes the fluid on makes it unknown.
 - **Area routes ignore it.** The temperature rows are block-wide, so the routes between areas can show a too-cold fluid going to the row that refused it.
-- **Locked fluids are only checked when the block can fit them.** A goal or Import-off fluid gets temperature rows without slack when every consumer class has a producer at an accepted temperature, and none otherwise (see *Related items* below for the local fix, shipped in the pull request that added case 24).
+- **Locked fluids are only checked when the block can fit them.** A goal or Import-off fluid gets temperature rows without slack when every consumer class has a producer at an accepted temperature, and none otherwise (see *Related items* below for the local fix, shipped in PR #361).
 
 ## What the solver does today
 
@@ -30,7 +30,7 @@ Moved from the backlog on 2026-11-21.
 
 ## Related items left in the backlog
 
-- **Goal and no-import fluids get no temperature rows.** Shipped (see the pull request that added case 24 to spec/test-synthetic.md): a local fix in `buildLPModel`, done ahead of this initiative because it is small and a real plan needs it. Its policy is carried here as a decision (below).
+- **Goal and no-import fluids get no temperature rows.** Shipped in PR #361 (case 24 in spec/test-synthetic.md): a local fix in `buildLPModel`, done ahead of this initiative because it is small and a real plan needs it. Its policy is carried here as a decision (below).
 - **Reactor heat temperature is not in the LP.** It needs a model of the reactor's working temperature first. Once that exists, heat becomes one more fluid under whatever this initiative builds.
 - **Nullius bundle: *Temperatures*.** Data, not solver: until the patch runs, Nullius has no temperatures to carry.
 
