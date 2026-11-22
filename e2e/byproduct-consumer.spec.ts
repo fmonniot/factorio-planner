@@ -4,7 +4,7 @@ import { loadPlanFixture } from './support/loadPlan'
 import { openRowMenu, clickRowAction } from './support/rowMenu'
 
 /**
- * Three fixtures cover different aspects of the byproduct consumer feature:
+ * Four fixtures cover different aspects of the byproduct consumer feature:
  *
  * BASE  (byproduct-consumer-base.json)
  *   Goal: hydrogen. Recipes: steam-electrolysis + acid-sulfuric + acid-nitric.
@@ -22,11 +22,17 @@ import { openRowMenu, clickRowAction } from './support/rowMenu'
  *   Main is 1×1 square; oxygen is a byproduct of the main solve with non-zero
  *   surplus (50/min), so acid-nitric runs at 2.5 exec/min to consume it.
  *   Tests that the bc recipe actually derives a positive throughput.
+ *
+ * FEEDER  (byproduct-consumer-feeder.json)
+ *   SURPLUS plus an ammonia row. Nitric acid takes oxygen and ammonia, and only the
+ *   absorber consumes ammonia, so the ammonia row runs only to feed it and carries
+ *   the feeder badge.
  */
 
 const BASE_FIXTURE = path.resolve('e2e/fixtures/byproduct-consumer-base.json')
 const ACTIVE_FIXTURE = path.resolve('e2e/fixtures/byproduct-consumer-active.json')
 const SURPLUS_FIXTURE = path.resolve('e2e/fixtures/byproduct-consumer-surplus.json')
+const FEEDER_FIXTURE = path.resolve('e2e/fixtures/byproduct-consumer-feeder.json')
 
 async function waitForRows(page: import('@playwright/test').Page) {
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
@@ -83,6 +89,22 @@ test.describe('Byproduct consumer mode', () => {
     await expect(row).toBeVisible()
     // Output item icons appear in the Products td; any img suffices.
     await expect(row.locator('img').first()).toBeVisible({ timeout: 5000 })
+  })
+
+  test('a row that only feeds an absorber says so', async ({ page }) => {
+    await loadPlanFixture(page, FEEDER_FIXTURE)
+    await waitForRows(page)
+
+    const rowOf = (name: string) => page
+      .locator('main table tbody tr')
+      .filter({ has: page.getByTestId('recipe-name').getByText(name, { exact: true }) })
+    const ammonia = rowOf('Ammonia')
+    const badge = ammonia.getByRole('img', { name: 'Feeds an absorbing row' })
+    await expect(badge).toBeVisible()
+    await expect(badge).toHaveAttribute('title', /runs only to supply/)
+    await expect(page.getByRole('img', { name: 'Absorbs byproduct' })).toHaveCount(1)
+    await expect(page.getByRole('img', { name: 'Feeds an absorbing row' })).toHaveCount(1)
+    await expect(rowOf('Steam electrolysis').getByRole('img', { name: /absorb/i })).toHaveCount(0)
   })
 
   test('toggling byproduct consumer off restores the underdetermined warning', async ({ page }) => {

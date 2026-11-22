@@ -20,6 +20,7 @@ import {
   type LPModel, type LPResult,
 } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
+import { isFeeder } from './absorbers'
 import { boundOf, boundedStep, improvesImport } from './connectionOrder'
 import {
   FLOW_TOLERANCE,
@@ -1349,6 +1350,7 @@ export function solveAreaBlock(
     if (!col.recipe) continue
     nodes.push(solvedNodeOf(
       planNode, col.recipe, throughput.get(col.id) ?? 0, col.effects, col.effects.productivityBonus, gameData,
+      isFeeder(lp.absorbers, bcColumns, col.id),
     ))
   }
 

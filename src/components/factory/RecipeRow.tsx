@@ -49,6 +49,9 @@ import { ingredientTemperatureLabels, productTemperatureLabels } from './tempera
 const BYPRODUCT_CONSUMER_HINT =
   'Absorbs byproduct: runs only to consume surplus from other recipes and never imports what it absorbs. Rows that only feed it run along with it. Right-click the row to stop absorbing.'
 
+const FEEDER_HINT =
+  'Feeds an absorbing row: runs only to supply a row that absorbs a byproduct, and runs only as much as that row does. Stop absorbing on that row to make this one an ordinary row.'
+
 const PRIMARY_AREA_HINT = '; the primary product decides what this row builds for its area'
 
 /**
@@ -571,6 +574,7 @@ export function RecipeRow({
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
+  const isFeeder = !isByproductConsumer && solvedNode?.feedsAbsorber === true
 
   const index = areaView?.index
   const hasAreas = index?.hasAreas === true
@@ -741,6 +745,16 @@ export function RecipeRow({
                 aria-label="Absorbs byproduct"
                 title={BYPRODUCT_CONSUMER_HINT}
                 className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-600 text-white text-[9px] leading-none flex items-center justify-center select-none"
+              >
+                ↓
+              </span>
+            )}
+            {isFeeder && (
+              <span
+                role="img"
+                aria-label="Feeds an absorbing row"
+                title={FEEDER_HINT}
+                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border border-amber-500 bg-gray-900 text-amber-400 text-[9px] leading-none flex items-center justify-center select-none"
               >
                 ↓
               </span>

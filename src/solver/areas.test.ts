@@ -56,6 +56,9 @@ function gd(): GameData {
     recipe('x-make', [['ore', 1]], [['x', 2]]),
     recipe('use-x', [['x', 1]], [['z', 1]]),
     recipe('use-x2', [['x', 1]], [['w', 1]]),
+    // The absorber chain: eat-x takes x (r-main's byproduct) and f, make-f makes f.
+    recipe('eat-x', [['x', 1], ['f', 1]], [['v', 1]]),
+    recipe('make-f', [['ore', 1]], [['f', 1]]),
     // Scenario 8
     recipe('gear', [['iron', 2]], [['gear', 1]], { allowProductivity: true }),
     recipe('belt', [['gear', 1]], [['belt', 1]]),
@@ -554,6 +557,23 @@ describe('areas in the solve', () => {
     const pair = run(withSourcing({ x: 'byproducts-first' }, ['x']))
     expect(pair).toEqual(run(withSourcing({ x: 'byproducts-first' }, [])))
     expect(pair.result.nodes.find(n => n.recipeNodeId === 'x-make@s')!.throughput).toBeCloseTo(0, 6)
+  })
+
+  it('marks the feeder of an absorbing row in its own area, not the same recipe in an area without an absorber', () => {
+    // S absorbs r-main's x with eat-x (flagged); make-f there runs only to supply the f it takes. T holds the same recipe, pinned, so it is no feeder.
+    const b = blk(
+      root([row('r-main', 'root')], [
+        sub('S', [row('eat-x', 's', { byproductConsumer: true }), row('make-f', 's')], [], true),
+        sub('T', [pin('make-f', 't', 1)], [], true),
+      ]),
+      [['y', 10]],
+    )
+    const { result } = solveBlock(flattenBlock(b), gd(), new Map())
+    expect(node(result, 'make-f@s').throughput, 'the feeder runs').toBeGreaterThan(0)
+    expect(node(result, 'make-f@t').throughput, 'the pinned row runs').toBeCloseTo(1, 6)
+    expect(node(result, 'make-f@s').feedsAbsorber, 'feeder in S').toBe(true)
+    expect(node(result, 'make-f@t').feedsAbsorber, 'same recipe in T').toBeUndefined()
+    expect(node(result, 'eat-x@s').feedsAbsorber, 'the absorber itself').toBeUndefined()
   })
 
   describe("the pair don't make more here + Import off (area LP)", () => {

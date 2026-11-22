@@ -599,6 +599,12 @@ describe('projectSnapshot', () => {
     })
   })
 
+  it('leaves the absorber feeder mark out of the snapshot', () => {
+    const root = plan('root', 'Main', [rowNode('n1', 'smelt')])
+    const s = project([makeBlock('a', { rootPlan: root })], solveOf({ results: { a: result({ nodes: [solved('n1', { feedsAbsorber: true })] }) } }))
+    expect(s.blocks[0].rows[0], 'the row has no feedsAbsorber').not.toHaveProperty('feedsAbsorber')
+  })
+
   it('is pure: it does not change its inputs', () => {
     const blocks = [makeBlock('a', { products: [{ id: 'p', itemId: 'plate', extraRate: 1 }] })]
     const state = stateOf(blocks)

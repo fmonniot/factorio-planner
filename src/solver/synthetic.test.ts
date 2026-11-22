@@ -2708,6 +2708,8 @@ describe('solver synthetic cases', () => {
     const solveRows = (goals: Array<[string, number]>, nodes: RecipeNode[]): SolverResult =>
       solve({ goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })), nodes }, makeGameData())
 
+    const feeders = (r: SolverResult) => r.nodes.filter(n => n.feedsAbsorber).map(n => n.recipeNodeId).sort()
+
     const expectChain = (r: SolverResult) => {
       expect(nodeOf(r, 'case23-grow').throughput, 'grow').toBeCloseTo(10, 6)
       expect(nodeOf(r, 'case23-saw-wood').throughput, 'saw-wood').toBeCloseTo(20, 6)
@@ -2720,15 +2722,21 @@ describe('solver synthetic cases', () => {
     }
 
     it('a: the saw row and the saw maker are flagged', () => {
-      expectChain(solveRows(GOAL, nodesOf(['case23-saw-wood', 'case23-make-saw'], ['case23-grow', 'case23-make-plate'])))
+      const r = solveRows(GOAL, nodesOf(['case23-saw-wood', 'case23-make-saw'], ['case23-grow', 'case23-make-plate']))
+      expectChain(r)
+      expect(feeders(r), 'feeders').toEqual(['case23-make-plate'])
     })
 
     it('b: only the saw row is flagged, the saw maker is a feeder', () => {
-      expectChain(solveRows(GOAL, nodesOf(['case23-saw-wood'], ['case23-grow', 'case23-make-saw', 'case23-make-plate'])))
+      const r = solveRows(GOAL, nodesOf(['case23-saw-wood'], ['case23-grow', 'case23-make-saw', 'case23-make-plate']))
+      expectChain(r)
+      expect(feeders(r), 'feeders').toEqual(['case23-make-plate', 'case23-make-saw'])
     })
 
     it('c: all three are flagged', () => {
-      expectChain(solveRows(GOAL, nodesOf(['case23-saw-wood', 'case23-make-saw', 'case23-make-plate'], ['case23-grow'])))
+      const r = solveRows(GOAL, nodesOf(['case23-saw-wood', 'case23-make-saw', 'case23-make-plate'], ['case23-grow']))
+      expectChain(r)
+      expect(feeders(r), 'feeders').toEqual([])
     })
 
     it('d: an ordinary row also uses the plate, so the plate row is not a feeder', () => {
@@ -2739,6 +2747,14 @@ describe('solver synthetic cases', () => {
       expect(nodeOf(r, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(0, 6)
       const over = r.warnings.find(w => w.type === 'overconstrained')
       expect(over?.type === 'overconstrained' ? over.surplusItems.map(i => [i.itemId, i.rate]) : undefined, 'tree is left over').toEqual([[TREE, 20]])
+      expect(feeders(r), 'feeders').toEqual([])
+    })
+
+    it('d2: a live feeder that runs 0 times is not marked', () => {
+      const r = solveRows([...GOAL, ['case23-gadget', 4]],
+        nodesOf(['case23-saw-wood'], ['case23-grow', 'case23-make-saw', 'case23-make-plate', 'case23-use-plate']))
+      expect(nodeOf(r, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(0, 6)
+      expect(feeders(r), 'feeders').toEqual([])
     })
 
     it('e: a flagged row that takes only a raw item does not run', () => {
@@ -2765,12 +2781,26 @@ describe('solver synthetic cases', () => {
       expect(nodeOf(r, 'case23-saw-wood@Wood').throughput, 'saw-wood').toBeCloseTo(20, 6)
       expect(nodeOf(r, 'case23-make-saw@Wood').throughput, 'make-saw').toBeCloseTo(2, 6)
       expect(nodeOf(r, 'case23-make-plate@Wood').throughput, 'make-plate').toBeCloseTo(0.5, 6)
+      expect(feeders(r), 'feeders').toEqual(['case23-make-plate@Wood'])
       const area = r.areas!.find(a => a.areaId === 'Wood')!
       expect(area.receives.find(f => f.itemId === TREE)?.rate, 'Wood receives tree').toBeCloseTo(20, 6)
       const leg = (r.areaRoutes ?? []).find(x => x.itemId === TREE && x.to === 'Wood')
       expect(leg?.from, 'tree comes from the root').toBe('root')
       expect(leg?.rate, 'tree leg').toBeCloseTo(20, 6)
       expect(r.warnings.map(w => w.type), 'no warning').toEqual([])
+    })
+
+    it('i: a recipe present twice marks only its representative row', () => {
+      const r = solveRows(GOAL, [
+        flag('case23-saw-wood'), planNode('case23-grow'), planNode('case23-make-plate'),
+        planNode('case23-make-saw'), planNode('case23-make-saw', [], { id: 'case23-make-saw-2' }),
+      ])
+      const first = nodeOf(r, 'case23-make-saw')
+      const second = nodeOf(r, 'case23-make-saw-2')
+      expect(first.feedsAbsorber, 'representative is marked').toBe(true)
+      expect(first.throughput, 'representative runs').toBeCloseTo(2, 6)
+      expect(second.throughput, 'duplicate is a zero node').toBe(0)
+      expect('feedsAbsorber' in second, 'duplicate carries no field').toBe(false)
     })
 
     describe('g: between blocks', () => {

@@ -17,6 +17,11 @@ export interface AbsorberRoles {
   feederCost: ReadonlyMap<string, number>
 }
 
+/** A chain row that is not flagged: it runs only to feed a flagged row (or another feeder). */
+export function isFeeder(roles: AbsorberRoles, flagged: ReadonlySet<string>, id: string): boolean {
+  return roles.chain.has(id) && !flagged.has(id)
+}
+
 /**
  * The absorber chains of a system: which columns run on a byproduct's surplus, and what the objective charges them.
  *

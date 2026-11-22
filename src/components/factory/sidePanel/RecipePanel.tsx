@@ -32,7 +32,7 @@ export function RecipePanel({ node, solved, gameData, onClose }: {
           ? <Icon iconPath={iconPath} alt="" className="w-8 h-8 object-contain" />
           : <span className="w-8 h-8 bg-gray-800 rounded text-[10px] text-gray-400 flex items-center justify-center">{recipe.name.substring(0, 2).toUpperCase()}</span>}
         title={recipe.name}
-        subtitle={node.byproductConsumer ? 'Absorbs byproduct' : undefined}
+        subtitle={node.byproductConsumer ? 'Absorbs byproduct' : solved?.feedsAbsorber ? 'Feeds an absorbing row' : undefined}
         onClose={onClose}
       />
       <RateSection node={node} solved={solved} gameData={gameData} />

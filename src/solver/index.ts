@@ -18,6 +18,7 @@ import type {
 import { blockAreas, explicitMainProduct, solveAreaBlock, withAreaRules } from './areas'
 import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount } from './build'
 import { solveLP } from './solve'
+import { isFeeder } from './absorbers'
 import { connectionOrder, needsConnectionOrder } from './connectionOrder'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
@@ -322,7 +323,9 @@ export function solveBlock(
     const throughput = throughputMap.get(planNode.recipeId) ?? 0
     const effects = nodeEffectsMap.get(planNode.recipeId)!
     const prodBonus = productivityMap.get(planNode.recipeId) ?? 0
-    nodes.push(solvedNodeOf(planNode, recipe, throughput, effects, prodBonus, gameData))
+    nodes.push(solvedNodeOf(
+      planNode, recipe, throughput, effects, prodBonus, gameData, isFeeder(lp.absorbers, bcRecipeIds, planNode.recipeId),
+    ))
   }
 
   const { overconstrained, itemSurplus, itemGross, unsatisfied, received } = blockDiagnostics({

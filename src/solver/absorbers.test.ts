@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { absorberRoles } from './absorbers'
+import { absorberRoles, isFeeder } from './absorbers'
 import { buildClassifiedSystem, type ClassifiedSystem } from './build'
 import type { GameData } from '../data/types'
 
@@ -33,6 +33,23 @@ const usePlate: Row = ['U', { plate: 1 }, { gadget: 1 }]
 
 const ids = (s: ReadonlySet<string>) => [...s].sort()
 const none = new Map<string, number>()
+
+describe('isFeeder', () => {
+  it('is true for a live feeder, false for a flagged row and for a row outside the chain', () => {
+    const flagged = new Set(['A'])
+    const roles = absorberRoles(systemOf([grow, saw, makeSaw, makePlate, usePlate], { goal: 10, gadget: 4 }), flagged, none)
+    // The plate row is used by an ordinary row, so it is not a feeder; K, which only feeds A, is.
+    expect(isFeeder(roles, flagged, 'A'), 'flagged').toBe(false)
+    expect(isFeeder(roles, flagged, 'U'), 'unrelated').toBe(false)
+    expect(isFeeder(roles, flagged, 'K'), 'its saw only feeds A').toBe(true)
+    expect(isFeeder(roles, flagged, 'H'), 'its plate is also used by an ordinary row').toBe(false)
+    const feeding = absorberRoles(systemOf([grow, saw, makeSaw, makePlate], { goal: 10 }), flagged, none)
+    expect(isFeeder(feeding, flagged, 'K'), 'live feeder').toBe(true)
+    expect(isFeeder(feeding, flagged, 'H'), 'live feeder, one more step back').toBe(true)
+    expect(isFeeder(feeding, flagged, 'A'), 'flagged').toBe(false)
+    expect(isFeeder(feeding, flagged, 'G'), 'unrelated').toBe(false)
+  })
+})
 
 describe('absorberRoles', () => {
   it('1: the flagged saw and saw maker; the plate row feeds them', () => {

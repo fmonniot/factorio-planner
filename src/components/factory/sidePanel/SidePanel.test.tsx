@@ -83,6 +83,26 @@ describe('SidePanel — selection', () => {
     ])
   })
 
+  it('says in the subtitle whether the row absorbs a byproduct or feeds a row that does', () => {
+    setPlan([{ ...row('n1', 'r-plate'), byproductConsumer: true }, row('n2', 'r-gear'), row('n3', 'r-gear')])
+    const result: SolverResult = {
+      nodes: [solvedRow('n1', 1, 90), { ...solvedRow('n2', 1, 90), feedsAbsorber: true as const }, solvedRow('n3', 1, 90)],
+      unsatisfied: [], warnings: [],
+    }
+    const subtitle = () => within(screen.getByTestId('side-panel'))
+    select('n1')
+    const { unmount } = renderPanel(result)
+    expect(subtitle().getByText('Absorbs byproduct'), 'absorber').toBeInTheDocument()
+    unmount()
+    select('n2')
+    const second = renderPanel(result)
+    expect(subtitle().getByText('Feeds an absorbing row'), 'feeder').toBeInTheDocument()
+    second.unmount()
+    select('n3')
+    renderPanel(result)
+    expect(within(screen.getByTestId('side-panel')).queryByText('Feeds an absorbing row'), 'ordinary row').toBeNull()
+  })
+
   it('brings Effects on this row back once a module is set', () => {
     setPlan([{ ...row('n1', 'r-plate'), modules: [{ moduleId: 'speed-1', count: 1 }] }])
     select('n1')
