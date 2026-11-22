@@ -721,28 +721,62 @@ describe('absorber chains', () => {
     expect(cost('grow')).toBe(1)
   })
 
-  it('leaves the chain out of the supply-use row of a connections-first item', () => {
-    const lp = buildLPModel(system(), new Map(), new Set(['saw']), new Set(), new Map([['plate', 100]]), new Set(['plate']))
-    const useOf = (id: string) => lp.variables[lp.recipeToVar.get(id)!].supuse_plate
-    expect(useOf('make-saw'), 'the feeder').toBeUndefined()
-    expect(useOf('use-plate'), 'an ordinary row').toBe(-1)
+  it('leaves only the flagged rows out of the supply-use row of a connections-first item', () => {
+    const useOf = (flagged: string[], id: string) => {
+      const lp = buildLPModel(system(), new Map(), new Set(flagged), new Set(), new Map([['plate', 100]]), new Set(['plate']))
+      return lp.variables[lp.recipeToVar.get(id)!].supuse_plate
+    }
+    expect(useOf(['saw'], 'make-saw'), 'the feeder takes supply').toBe(-1)
+    expect(useOf(['saw'], 'use-plate'), 'an ordinary row').toBe(-1)
+    expect(useOf(['saw', 'make-saw'], 'make-saw'), 'a flagged row').toBeUndefined()
   })
+
+  it('lets a connections-first supply feed a feeder, bounded with an unlimited offer', () => {
+    const caps = new Map([['plate', Infinity]])
+    const first = new Set(['plate'])
+    const lp = buildLPModel(system(), new Map(), new Set(['saw']), new Set(), caps, first)
+    expect(runLP('__obj__', lp.constraints, lp.variables).bounded, 'bounded').not.toBe(false)
+    const result = solveLP(system(), new Map(), new Set(['saw']), new Set(), caps, first)
+    expect(result.throughput.get('saw'), 'saw').toBeCloseTo(20, 6)
+    expect(result.throughput.get('make-saw'), 'make-saw').toBeCloseTo(2, 6)
+    expect(result.throughput.get('make-plate'), 'make-plate').toBeCloseTo(0, 6)
+    expect(result.supply.get('plate'), 'plate received').toBeCloseTo(3, 6)
+  })
+
   // Rows as [id, ingredients, products]; the system is classified by `buildClassifiedSystem`, as in a block solve.
   type Row = [id: string, ingredients: Record<string, number>, products: Record<string, number>]
-  function lpOf(rows: Row[], goals: Record<string, number>, flagged: string[], byproductsFirst: string[] = []) {
+  function lpOf(
+    rows: Row[], goals: Record<string, number>, flagged: string[], byproductsFirst: string[] = [],
+    caps: Map<string, number> = new Map(), first: string[] = [],
+  ) {
     const recipes: GameData['recipes'] = {}
     for (const [id, ing, prod] of rows) {
       recipes[id] = recipe(id, 1, Object.entries(ing).map(([i, n]) => item(i, n)), Object.entries(prod).map(([i, n]) => product(i, n)))
     }
     const system = buildClassifiedSystem(makeGameData({ recipes }), rows.map(r => r[0]), new Map(Object.entries(goals)))
     const bf = new Set(byproductsFirst)
-    const lp = buildLPModel(system, new Map(), new Set(flagged), new Set(), new Map(), new Set(), bf)
+    const lp = buildLPModel(system, new Map(), new Set(flagged), new Set(), caps, new Set(first), bf)
     const raw = runLP('__obj__', lp.constraints, lp.variables)
-    const result = solveLP(system, new Map(), new Set(flagged), new Set(), new Map(), new Set(), bf)
-    return { raw, result }
+    const result = solveLP(system, new Map(), new Set(flagged), new Set(), caps, new Set(first), bf)
+    return { raw, result, lp }
   }
   const GROW: Row = ['grow', { seed: 1 }, { goal: 1, tree: 2 }]
   const SAWING: Row = ['sawr', { tree: 1, saw: 1 }, { wood: 8, saw: 0.9 }]
+
+  it('keeps the whole chain out when the supply would take a reward away', () => {
+    // An ordinary row (mine) makes the roll and burn also takes it; a supply of roll must not reach make-plate, or make-saw would lose its reward.
+    const rows: Row[] = [
+      GROW, ['make-saw', { plate: 1 }, { saw: 1 }], ['make-plate', { roll: 1 }, { plate: 4 }],
+      ['mine', { rock: 1 }, { roll: 1 }], ['burn', { roll: 1 }, { ash: 1 }],
+    ]
+    for (const cap of [100, Infinity]) {
+      const { raw, result, lp } = lpOf(rows, { goal: 10 }, ['make-saw'], [], new Map([['roll', cap]]), ['roll'])
+      expect([...lp.absorbers.noSupply].sort(), 'noSupply').toEqual(['make-plate', 'make-saw'])
+      expect(raw.bounded, 'bounded').not.toBe(false)
+      expect(result.throughput.get('make-saw'), 'make-saw').toBeCloseTo(0, 6)
+      expect(result.supply.get('roll'), 'roll received').toBeUndefined()
+    }
+  })
 
   it('stays bounded when an item with a byproducts-first rule feeds the chain', () => {
     const rows: Row[] = [

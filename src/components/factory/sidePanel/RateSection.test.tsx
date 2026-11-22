@@ -107,6 +107,19 @@ describe('RateSection — pin', () => {
     expect(screen.getByRole('switch', { name: 'Pin rate' })).toBeDisabled()
   })
 
+  it('cannot pin a row marked to feed absorbing rows', () => {
+    renderRate(electrolysis({ absorberFeeder: true }))
+    expect(screen.getByRole('switch', { name: 'Pin rate' })).toBeDisabled()
+  })
+
+  it('lets a pinned marked row be unpinned', () => {
+    renderRate(electrolysis({ absorberFeeder: true, pinnedRate: 5 }))
+    const box = screen.getByRole('switch', { name: 'Pin rate' })
+    expect(box).toBeEnabled()
+    fireEvent.click(box)
+    expect(stored()).toBeUndefined()
+  })
+
   it('lets a pinned row that absorbs a byproduct be unpinned', () => {
     renderRate(electrolysis({ byproductConsumer: true, pinnedRate: 5 }))
     const box = screen.getByRole('switch', { name: 'Pin rate' })

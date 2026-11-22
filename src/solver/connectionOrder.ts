@@ -26,6 +26,8 @@ export interface ConnectionOrderInput {
   system: ClassifiedSystem
   pinnedRates: Map<string, number>
   bcRecipeIds: Set<string>
+  /** Rows marked to feed absorbing rows. */
+  markedFeeders: Set<string>
   /** Pass 1's no-import set: the block's locked items less the connected ones. */
   pass1NoImport: Set<string>
   /** The block's locked items (Import off, byproduct consumers' ingredients). */
@@ -115,7 +117,7 @@ export function improvesImport(least: number, todayImport: number): boolean {
  *      total received, not per item, so when two connections tie on units the runs decide (D5).
  *
  * Every supply has the `supuse` row of connections first (supply covers at most what the recipes
- * outside the absorber chains use), so a free supply never feeds an absorber chain and is bounded
+ * outside the flagged rows, or the whole chain in the fallback of absorbers.ts, use), so a free supply never feeds a flagged row and is bounded
  * with an unlimited offer. *Don't make more here* items get no supply in steps 2 and 3 (their slack is
  * free there) and, in step 4, a supply capped at step 4's own residual for them: one more LP, today's
  * pass 2 on the bounded model, only when such an item is short.
@@ -128,14 +130,17 @@ export function improvesImport(least: number, todayImport: number): boolean {
  * Returns undefined when today's result stands: step 2 finds no smaller import, or a step is infeasible.
  */
 export function connectionOrder(input: ConnectionOrderInput): LPResult | undefined {
-  const { system, pinnedRates, bcRecipeIds, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today } = input
+  const { system, pinnedRates, bcRecipeIds, markedFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today } = input
   const defaults = defaultItems(input)
   const supplied = new Set([...firstItems, ...defaults])
   const bfConnected = [...totalCaps.keys()].filter(itemId =>
     system.classification.intermediates.has(itemId) && byproductsFirst.has(itemId))
   const caps = new Map([...supplied, ...bfConnected].map(itemId => [itemId, totalCaps.get(itemId)!]))
   // `connectionsFirst` here only adds the `supuse` row; it changes no cost.
-  const lp = buildLPModel(system, pinnedRates, bcRecipeIds, pass1NoImport, caps, new Set([...supplied, ...bfConnected]), byproductsFirst)
+  const lp = buildLPModel(
+    system, pinnedRates, bcRecipeIds, pass1NoImport, caps, new Set([...supplied, ...bfConnected]), byproductsFirst, false, new Set(),
+    { markedFeeders },
+  )
 
   const importSlacks = [...lp.itemToSlack].filter(([itemId]) => !byproductsFirst.has(itemId)).map(([, name]) => name)
   const defaultSupplies = defaults.map(itemId => lp.itemToSupply.get(itemId)).filter((n): n is string => n !== undefined)

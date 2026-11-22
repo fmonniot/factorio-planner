@@ -50,7 +50,10 @@ const BYPRODUCT_CONSUMER_HINT =
   'Absorbs byproduct: runs only to consume surplus from other recipes and never imports what it absorbs. Rows that only feed it run along with it. Right-click the row to stop absorbing.'
 
 const FEEDER_HINT =
-  'Feeds an absorbing row: runs only to supply a row that absorbs a byproduct, and runs only as much as that row does. Stop absorbing on that row to make this one an ordinary row.'
+  'Feeds an absorbing row: runs only to supply a row that absorbs a byproduct, or a row marked to feed one, and runs only as much as that row does. Stop absorbing on that row to make this one an ordinary row.'
+
+const MARKED_FEEDER_HINT =
+  'Feeds absorbing rows: besides what other rows use, it runs for the rows that absorb a byproduct, as much as they need. Right-click the row to stop feeding them.'
 
 const PRIMARY_AREA_HINT = '; the primary product decides what this row builds for its area'
 
@@ -134,6 +137,7 @@ export function RecipeRow({
   const moveNode = useBlockStore(s => s.moveNode)
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
   const updateNodeByproductConsumer = useBlockStore(s => s.updateNodeByproductConsumer)
+  const updateNodeAbsorberFeeder = useBlockStore(s => s.updateNodeAbsorberFeeder)
   const updateNodePrimaryProduct = useBlockStore(s => s.updateNodePrimaryProduct)
   const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const wrapNodeInSubPlan = useBlockStore(s => s.wrapNodeInSubPlan)
@@ -575,6 +579,7 @@ export function RecipeRow({
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
   const isFeeder = !isByproductConsumer && solvedNode?.feedsAbsorber === true
+  const isMarkedFeeder = planNode.absorberFeeder === true
 
   const index = areaView?.index
   const hasAreas = index?.hasAreas === true
@@ -622,7 +627,13 @@ export function RecipeRow({
       label: isByproductConsumer ? 'Stop absorbing byproduct' : 'Absorb byproduct',
       onSelect: handleToggleByproductConsumer,
     },
-    ...(!isByproductConsumer
+    ...((!isByproductConsumer && !isPinned) || isMarkedFeeder
+      ? [{
+        label: isMarkedFeeder ? 'Stop feeding absorbing rows' : 'Feed absorbing rows',
+        onSelect: () => updateNodeAbsorberFeeder(planNode.id, !isMarkedFeeder),
+      }]
+      : []),
+    ...(!isByproductConsumer && (!isMarkedFeeder || isPinned)
       ? [{ label: isPinned ? 'Unpin rate' : 'Pin rate', onSelect: isPinned ? handleUnpin : handlePin }]
       : []),
     {
@@ -753,7 +764,7 @@ export function RecipeRow({
               <span
                 role="img"
                 aria-label="Feeds an absorbing row"
-                title={FEEDER_HINT}
+                title={isMarkedFeeder ? MARKED_FEEDER_HINT : FEEDER_HINT}
                 className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border border-amber-500 bg-gray-900 text-amber-400 text-[9px] leading-none flex items-center justify-center select-none"
               >
                 ↓

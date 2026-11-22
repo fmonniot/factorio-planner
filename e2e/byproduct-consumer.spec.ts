@@ -4,7 +4,7 @@ import { loadPlanFixture } from './support/loadPlan'
 import { openRowMenu, clickRowAction } from './support/rowMenu'
 
 /**
- * Four fixtures cover different aspects of the byproduct consumer feature:
+ * Five fixtures cover different aspects of the byproduct consumer feature:
  *
  * BASE  (byproduct-consumer-base.json)
  *   Goal: hydrogen. Recipes: steam-electrolysis + acid-sulfuric + acid-nitric.
@@ -27,12 +27,18 @@ import { openRowMenu, clickRowAction } from './support/rowMenu'
  *   SURPLUS plus an ammonia row. Nitric acid takes oxygen and ammonia, and only the
  *   absorber consumes ammonia, so the ammonia row runs only to feed it and carries
  *   the feeder badge.
+ *
+ * SHARED FEEDER  (byproduct-consumer-shared-feeder.json)
+ *   FEEDER plus an ordinary ammonia barrel row and a goal of 6 barrels. Ammonia is also used by that
+ *   row, so it is no feeder by itself and the absorber starves (nitric acid at 0, oxygen left over)
+ *   until the ammonia row is marked Feed absorbing rows.
  */
 
 const BASE_FIXTURE = path.resolve('e2e/fixtures/byproduct-consumer-base.json')
 const ACTIVE_FIXTURE = path.resolve('e2e/fixtures/byproduct-consumer-active.json')
 const SURPLUS_FIXTURE = path.resolve('e2e/fixtures/byproduct-consumer-surplus.json')
 const FEEDER_FIXTURE = path.resolve('e2e/fixtures/byproduct-consumer-feeder.json')
+const SHARED_FEEDER_FIXTURE = path.resolve('e2e/fixtures/byproduct-consumer-shared-feeder.json')
 
 async function waitForRows(page: import('@playwright/test').Page) {
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
@@ -105,6 +111,26 @@ test.describe('Byproduct consumer mode', () => {
     await expect(page.getByRole('img', { name: 'Absorbs byproduct' })).toHaveCount(1)
     await expect(page.getByRole('img', { name: 'Feeds an absorbing row' })).toHaveCount(1)
     await expect(rowOf('Steam electrolysis').getByRole('img', { name: /absorb/i })).toHaveCount(0)
+  })
+
+  test('a row marked to feed absorbing rows runs for the absorber', async ({ page }) => {
+    await loadPlanFixture(page, SHARED_FEEDER_FIXTURE)
+    await waitForRows(page)
+
+    const ammonia = page
+      .locator('main table tbody tr')
+      .filter({ has: page.getByTestId('recipe-name').getByText('Ammonia', { exact: true }) })
+    const badge = ammonia.getByRole('img', { name: 'Feeds an absorbing row' })
+    await expect(badge).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /warning/ })).toBeVisible()
+
+    await clickRowAction(page, ammonia, 'Feed absorbing rows')
+    await expect(badge).toBeVisible()
+    await expect(badge).toHaveAttribute('title', /besides what other rows use/)
+    await expect(page.getByRole('button', { name: /warning/ })).not.toBeVisible({ timeout: 5000 })
+
+    await clickRowAction(page, ammonia, 'Stop feeding absorbing rows')
+    await expect(badge).toHaveCount(0)
   })
 
   test('toggling byproduct consumer off restores the underdetermined warning', async ({ page }) => {

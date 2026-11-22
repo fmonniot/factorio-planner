@@ -718,6 +718,7 @@ export interface BlockStoreState {
   updateNodeNeighbourCount: (nodeId: string, count: number | undefined) => void
   updateNodeByproductPolicy: (nodeId: string, policy: Record<string, 'discard' | 'feed-back'>) => void
   updateNodeByproductConsumer: (nodeId: string, value: boolean) => void
+  updateNodeAbsorberFeeder: (nodeId: string, value: boolean) => void
   updateNodePrimaryProduct: (nodeId: string, itemId: string | undefined) => void
   updateNodeRecipe: (nodeId: string, recipeId: string) => void
   wrapNodeInSubPlan: (nodeId: string, name: string) => void
@@ -1912,6 +1913,21 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       const cmd = nodeCommand(block, nodeId,
         n => n.kind === 'game-recipe' ? { ...n, byproductConsumer: value } : n,
         n => n.kind === 'game-recipe' ? { ...n, byproductConsumer: oldValue } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
+    }),
+
+  updateNodeAbsorberFeeder: (nodeId, value) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
+      const old = subPlan?.nodes.find(n => n.id === nodeId)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldValue = old.absorberFeeder
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, absorberFeeder: value } : n,
+        n => n.kind === 'game-recipe' ? { ...n, absorberFeeder: oldValue } : n,
       )
       return cmd ? applyCommand(state, cmd) : state
     }),
