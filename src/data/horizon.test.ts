@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   hasTechnologies, technologyClosure, availableRecipeIds, availableItemIds,
   withinHorizon, placingItemIds, availableMachineIds, availableBeaconIds, availableModuleIds,
-  horizonDefaultMachines, horizonDefaultFuels, applyDefaultMachineOverrides, resolveRowMachine, computeHorizon, recipeUnlock, technologyUnlocks,
+  horizonDefaultMachines, defaultMachineIdOf, recipeFallbackKey, horizonDefaultFuels, applyDefaultMachineOverrides, resolveRowMachine, computeHorizon, recipeUnlock, technologyUnlocks,
 } from './horizon'
 import type { GameData } from './types'
 
@@ -864,5 +864,37 @@ describe('technologyUnlocks', () => {
     const d = makeEquipmentData()
     d.technologies.b.unlockedRecipes = ['r-beacon', 'r-speed']
     expect(ids(technologyUnlocks(d, 'b').recipes)).toEqual(['r-beacon', 'r-speed'])
+  })
+})
+
+describe('additional-category fallback', () => {
+  function makeData(): GameData {
+    const d = makeEquipmentData()
+    d.recipes['r-multi'] = { ...makeRecipe('r-multi', 'am1'), category: 'adv-smelting', additionalCategories: ['smelting', 'crafting'] }
+    return d
+  }
+  it('falls back to the fastest machine of the additional categories when the primary one has none', () => {
+    const d = makeData()
+    const r = horizonDefaultMachines(d, computeHorizon(d, ['x']).machineIds)
+    expect('adv-smelting' in r, 'the category itself still has no default').toBe(false)
+    // furnace (smelting, 1) beats am1 (crafting, 0.5); the hidden machine never counts
+    expect(r[recipeFallbackKey('r-multi')]).toBe('furnace')
+    expect(defaultMachineIdOf(r, 'adv-smelting', 'r-multi')).toBe('furnace')
+    expect(defaultMachineIdOf(r, 'adv-smelting', 'r-other'), 'another recipe of the category gets nothing').toBeUndefined()
+  })
+  it('does not use the fallback while the primary category has a machine', () => {
+    const d = makeData()
+    const r = horizonDefaultMachines(d, computeHorizon(d, ['c']).machineIds)
+    expect(recipeFallbackKey('r-multi') in r).toBe(false)
+    expect(defaultMachineIdOf(r, 'adv-smelting', 'r-multi')).toBe('adv-furnace')
+  })
+  it('resolveRowMachine gives the row the fallback machine and no flag', () => {
+    const d = makeData()
+    const h = computeHorizon(d, ['x'])
+    const r = resolveRowMachine(d, h, 'adv-smelting', undefined, 'r-multi')
+    expect(r.machine?.id).toBe('furnace')
+    expect(r.noMachineInHorizon).toBe(false)
+    expect(r.beyondHorizon).toBe(false)
+    expect(resolveRowMachine(d, h, 'adv-smelting', undefined).noMachineInHorizon, 'without the recipe the row is still flagged').toBe(true)
   })
 })

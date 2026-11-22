@@ -330,7 +330,32 @@ export function horizonDefaultMachines(
     }
     if (best) result[category] = best.id
   }
+  // A recipe whose primary category lost its default can still be made in a machine of an additional category.
+  for (const recipe of Object.values(gameData.recipes)) {
+    if (!recipe.additionalCategories?.length || !(recipe.category in gameData.defaultMachines) || recipe.category in result) continue
+    let best: Machine | undefined
+    for (const m of Object.values(gameData.machines)) {
+      if (m.hidden || !machineIds.has(m.id) || !recipe.additionalCategories.some(c => m.craftingCategories.includes(c))) continue
+      if (!best || m.craftingSpeed > best.craftingSpeed) best = m
+    }
+    if (best) result[recipeFallbackKey(recipe.id)] = best.id
+  }
   return result
+}
+
+/**
+ * Key, in a default-machines map, of the machine a recipe falls back to when its primary category has no default
+ * inside the horizon but a machine of one of its additional categories does (the fastest such machine).
+ */
+export function recipeFallbackKey(recipeId: string): string {
+  return `recipe-fallback:${recipeId}`
+}
+
+/** The default machine id of a recipe in a default-machines map: its category's, else its additional-category fallback. */
+export function defaultMachineIdOf(
+  defaults: Readonly<Record<string, string>>, category: string, recipeId: string | undefined,
+): string | undefined {
+  return defaults[category] ?? (recipeId === undefined ? undefined : defaults[recipeFallbackKey(recipeId)])
 }
 
 /**
@@ -422,8 +447,9 @@ export function resolveRowMachine(
   horizon: Horizon,
   category: string,
   machineId: string | undefined,
+  recipeId?: string,
 ): RowMachine {
-  const id = machineId ?? horizon.defaultMachines[category]
+  const id = machineId ?? defaultMachineIdOf(horizon.defaultMachines, category, recipeId)
   const machine = id ? gameData.machines[id] : undefined
   return {
     machineId: id,
@@ -433,6 +459,6 @@ export function resolveRowMachine(
       machineId === undefined &&
       horizon.machineIds !== null &&
       category in gameData.defaultMachines &&
-      !(category in horizon.defaultMachines),
+      id === undefined,
   }
 }

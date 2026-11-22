@@ -1,5 +1,6 @@
 import type { GameData, GameRecipeNode, Ingredient, Machine } from '../data/types'
 import { resolveRowFuel } from '../data/fuel'
+import { defaultMachineIdOf } from '../data/horizon'
 
 // ---------------------------------------------------------------------------
 // Module and beacon effects
@@ -54,7 +55,7 @@ export function effectAllowed(effect: string, ...lists: (readonly string[] | und
 /** The machine a row runs on: its own choice, else the category default. */
 export function rowMachine(node: GameRecipeNode, gameData: GameData): Machine | undefined {
   const recipe = gameData.recipes[node.recipeId]
-  const id = node.machineId ?? (recipe && gameData.defaultMachines[recipe.category])
+  const id = node.machineId ?? (recipe && defaultMachineIdOf(gameData.defaultMachines, recipe.category, recipe.id))
   return id ? gameData.machines[id] : undefined
 }
 

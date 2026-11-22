@@ -4,6 +4,7 @@ import { useBlockStore } from '../../../store/blockStore'
 import { useUiStore } from '../../../store/uiStore'
 import { useAvailableRecipeIds, useHorizon } from '../../../store/horizon'
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../../data/defaultMachines'
+import { defaultMachineIdOf } from '../../../data/horizon'
 import { groupPowerRecipes } from '../../../data/powerFuelGroups'
 import { Picker, PickerRow, PickerEmpty } from '../Picker'
 import { AlternateRecipeList } from './AlternateRecipeList'
@@ -31,7 +32,10 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
   const recipe = gameData.recipes[recipeId]
   const availableMachines = availableMachinesFor(gameData, horizon, recipeCategory, recipe?.additionalCategories)
   const defaultMachineId = horizon.defaultMachines[recipeCategory]
-  const defaultMachineName = defaultMachineId ? gameData.machines[defaultMachineId]?.name : undefined
+  // The "Default (name)" row names what the row really uses, which may be an additional-category fallback;
+  // only the category's own default gets the badge below.
+  const rowDefaultId = defaultMachineIdOf(horizon.defaultMachines, recipeCategory, recipeId)
+  const defaultMachineName = rowDefaultId ? gameData.machines[rowDefaultId]?.name : undefined
   const defaultRowCounts = useMemo(() => defaultMachineRowCounts(blocks, gameData), [blocks, gameData])
   const defaultRowCount = defaultRowCounts.get(recipeCategory) ?? 0
 

@@ -209,7 +209,7 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
   })
   const horizon = useHorizon(gameData)
   const recipe = gameData.recipes[node.recipeId]
-  const row = resolveRowMachine(gameData, horizon, recipe?.category ?? '', node.machineId)
+  const row = resolveRowMachine(gameData, horizon, recipe?.category ?? '', node.machineId, node.recipeId)
 
   // Configurations have no id yet, so cards are keyed by position. `expected` is the list this section last
   // produced or saw; when the prop differs from it the list changed from outside (undo, "Apply to every row",

@@ -350,9 +350,12 @@ at all is still never gated. A hidden machine is never the horizon's default mac
 it is the static default. No limit means everything is available.
 
 A row without an explicit machine uses the horizon's default machine for its recipe
-category (the primary `category` only, not its additional categories): the category's static `defaultMachines` entry if that machine is available, else the
+category (the primary `category`): the category's static `defaultMachines` entry if that machine is available, else the
 fastest available non-hidden machine of the category (first one wins a tie), else none (the
-category has no entry). A category the data has no default for at all is not affected. The plan's
+category has no entry). A category the data has no default for at all is not affected. When the category has no
+machine in the horizon, a recipe with `additionalCategories` falls back to the fastest available non-hidden machine of
+those (stored in the same map under `recipeFallbackKey(recipeId)`, read with `defaultMachineIdOf`); defaults are per
+primary category, so the fallback is per recipe and is not offered as a category default. The plan's
 `defaultMachineOverrides` (see [AppState](#appstate)) are then layered on top
 (`applyDefaultMachineOverrides`): an override replaces the category's default when its machine exists,
 is not hidden, crafts the category and is inside the horizon; any other override is ignored but kept,
