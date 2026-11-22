@@ -17,7 +17,8 @@ import { selectRow, sidePanel } from './support/sidePanel'
  * `connection-replaces-import-mirror.json` is row g, the mirror: the block "Gears" makes 30 gears per minute from
  * plates, and 4 iron ingots make 3 plates. The ingot row is pinned at 5 executions per minute (10 ingots) and the
  * connection from "Ingots" is on the ingot, the item upstream of the plate. The connection delivers 30 ingots and the
- * block imports no plate.
+ * block imports no plate. (The gear recipe also needs rods, which no row of the block makes: they are a raw input, 15 per
+ * minute, and have nothing to do with the check.)
  */
 const FIXTURE = path.resolve('e2e/fixtures/connection-replaces-import.json')
 const MIRROR = path.resolve('e2e/fixtures/connection-replaces-import-mirror.json')

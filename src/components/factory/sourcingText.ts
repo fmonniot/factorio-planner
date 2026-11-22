@@ -28,7 +28,7 @@ export interface ItemConnection {
   blockName: string
   /** items/min the source offers over the connection. */
   offered: number
-  /** items/min taken (informational; the sentence speaks of what the rows make). */
+  /** items/min taken; the Make it here sentence of a block prints it as "and taken from {block} ({rate})". */
   taken: number
 }
 
