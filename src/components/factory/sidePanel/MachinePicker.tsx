@@ -86,7 +86,20 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
           />
         )
         // Defaults are per primary category, so a machine that only crafts an additional category is a per-row choice.
-        if (!m.craftingCategories.includes(recipeCategory)) return <div key={m.id} className="flex items-center">{row}</div>
+        if (!m.craftingCategories.includes(recipeCategory)) {
+          return (
+            <div key={m.id} className="flex items-center">
+              {row}
+              <span
+                data-testid="row-only-label"
+                title={`Defaults are per primary category (${categoryLabel(recipeCategory, gameData)}). This machine only crafts an additional category of the recipe, so it can only be chosen for this row.`}
+                className="px-1.5 text-[10px] text-gray-400"
+              >
+                row only, no default
+              </span>
+            </div>
+          )
+        }
         return (
           <div key={m.id} className="group flex items-center">
             {row}

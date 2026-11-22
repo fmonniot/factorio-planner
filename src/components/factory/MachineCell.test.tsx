@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MachineCell } from './MachineCell'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import type { GameData, GameRecipeNode } from '../../data/types'
@@ -87,6 +87,10 @@ describe('MachineCell', () => {
       expect(screen.getByTestId('default-machine-badge')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Make Assembler 2/ })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /Make Electronics machine/ })).toBeNull()
+      const rowOf = (id: string) => screen.getAllByTestId('machine-option').find(o => o.getAttribute('data-machine-id') === id)!.parentElement!
+      expect(within(rowOf('elec')).getByTestId('row-only-label')).toBeInTheDocument()
+      expect(within(rowOf('am1')).queryByTestId('row-only-label')).toBeNull()
+      expect(within(rowOf('am2')).queryByTestId('row-only-label')).toBeNull()
     })
 
     it('sets the machine of the row to one that only crafts the additional category', () => {
