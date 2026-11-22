@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { defineConfig, devices } from '@playwright/test'
 
 // The e2e suite runs against its own dev server on a random port, so it never
@@ -12,6 +13,9 @@ process.env.E2E_PORT = String(port)
 // ships and avoids the dev server's on-demand transforms. E2E_SERVER=dev starts the dev server instead.
 const useDev = process.env.E2E_SERVER === 'dev'
 // A trailing slash matters: specs go to `./`, which resolves under the production base path.
+if (!useDev && !existsSync('dist/index.html')) {
+  throw new Error('e2e runs against the production build: run `npm run build` first (or use `npm run test:e2e`), or set E2E_SERVER=dev')
+}
 const baseURL = `http://localhost:${port}${useDev ? '/' : '/factorio-planner/'}`
 
 // The summary strip starts collapsed to one line per pane, and most specs work with its slots and its Add product button.

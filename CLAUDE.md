@@ -31,7 +31,8 @@ npm run contract   # regenerate contract/ (snapshot JSON Schema + fixtures) afte
 npm test           # unit + e2e (test:unit then test:e2e)
 npm run test:unit  # Vitest, all projects, once
 npm run test:watch # Vitest in watch mode
-npm run test:e2e   # Playwright; starts the dev server itself
+npm run test:e2e   # builds, then Playwright against dist/ served by vite preview (it starts the server itself)
+npm run test:e2e:dev # Playwright against the dev server, no build
 ```
 
 To see what the solver does with an exported plan (rows, left-over items, imports, the imports its connections replaced, warnings, connection flows, served lists) without writing a throwaway script, run `node scripts/inspect-plan.mjs <plan.json> --block <name>`; `--pin`, `--drop`, `--sourcing`, `--leftover-off`, `--area-sourcing`, `--area-import-off`, `--area-off` and `--no-area` ask what-if questions, `--list` names the blocks and `--help` has the rest. It reads the data set from the plan's stamp.
