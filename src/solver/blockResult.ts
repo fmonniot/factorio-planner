@@ -153,7 +153,11 @@ export function zeroNode(recipeNodeId: string): SolvedNode {
   }
 }
 
-/** The rates, machine count and power of one row running at `throughput` executions/min. */
+/**
+ * The rates, machine count and power of one row running at `throughput` executions/min.
+ * `feeder` says the row is a feeder of an absorber chain; it is marked `feedsAbsorber` only while
+ * it runs (throughput above `FLOW_TOLERANCE`).
+ */
 export function solvedNodeOf(
   planNode: GameRecipeNode,
   recipe: Recipe,

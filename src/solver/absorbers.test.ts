@@ -41,6 +41,8 @@ describe('isFeeder', () => {
     // Case 3 without K flagged: the plate row is used by an ordinary row, so only A is in the chain.
     expect(isFeeder(roles, flagged, 'A'), 'flagged').toBe(false)
     expect(isFeeder(roles, flagged, 'U'), 'unrelated').toBe(false)
+    expect(isFeeder(roles, flagged, 'K'), 'plate also used by an ordinary row').toBe(false)
+    expect(isFeeder(roles, flagged, 'H'), 'plate also used by an ordinary row').toBe(false)
     const feeding = absorberRoles(systemOf([grow, saw, makeSaw, makePlate], { goal: 10 }), flagged, none)
     expect(isFeeder(feeding, flagged, 'K'), 'live feeder').toBe(true)
     expect(isFeeder(feeding, flagged, 'H'), 'live feeder, one more step back').toBe(true)

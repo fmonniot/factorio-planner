@@ -1198,5 +1198,5 @@ e: B takes only a raw item and feeds nothing: not rewarded, not live, so it cost
 f: the rows of a, in an area: the same figures, and the trees cross from the root to Wood.
 g: the wood only reads S's offer: a take never makes S run harder; the roll of the chain is requested from M like any raw input.
 h: the area's supply covers what the rows outside the chain use (U, 4); the chain would use 2 more (K), and `auuse` leaves K out of that sum.
-feeders: the rows that run only to feed S are marked `feedsAbsorber`: P in a, K and P in b, none in c (all flagged) and none in d (a feeder at 0 is not marked either).
+feeders: the rows that run only to feed S are marked `feedsAbsorber`: P in a, K and P in b, none in c (all flagged) and none in d (a feeder at 0 is not marked either), the plate row in f (`case23-make-plate@Wood`). Two more checks: d2 is d with K unflagged, where K is a live feeder running at 0 and is not marked; i has two rows of the saw recipe with S flagged, and only the first (the one that carries the column) is marked.
 ```
