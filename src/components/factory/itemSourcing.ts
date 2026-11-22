@@ -37,11 +37,44 @@ export const IMPORT_SWITCH = {
   title: 'Bring it in from outside the plan. Off: what the other sources leave is shown as missing.',
 }
 
-/** The name of each kind of rule: the preset's name, and the Import switch turned off. */
+/**
+ * The Leftover switch (on unless the item's block rule has `leftoverOff`): its name and fixed help text. Off is the surplus rule
+ * of the solver (`LEFTOVER_COST`): the rows use the item up where they can. The text carries the two limits of the rule.
+ */
+const LEFTOVER_HELP = 'Off: the rows of this block use all of it they can. What they cannot use is still left over, and the warning names it.'
+export const LEFTOVER_SWITCH = {
+  label: 'Leftover',
+  /** The rule's own line in the Source rules list. */
+  help: LEFTOVER_HELP,
+  /** The tooltip: the line and the two limits. */
+  title: `${LEFTOVER_HELP} Turn it off on every item of a chain, or the leftover moves to the next item. An input the loop needs from a connection: set it to Receive it first.`,
+}
+
+/** The note under the Leftover switch at area scope: the rule is the block's, so the control only shows it. */
+export const LEFTOVER_BLOCK_NOTE = 'Set for the whole block'
+
+/** The button of that note: it switches the control to the whole block, where the switch is. */
+export const LEFTOVER_BLOCK_BUTTON = 'Whole block'
+
+/** The strip action of a Byproducts slot that turns Leftover off for the item: its name and tooltip. */
+export const USE_IT_ALL_ACTION = {
+  label: 'Use it all here',
+  title: 'Turn Leftover off for this item: the rows of this block use all of it they can.',
+  /** The action when Leftover is already off for the item: the rows cannot use more of it. */
+  offTitle: 'Leftover is already off for this item: no row of this block can use more of it.',
+}
+
+/** The grey note under the Leftover switch for a block that takes the item from this one. */
+export function leftoverTakeNote(blockName: string, itemName: string): string {
+  return `${blockName} takes ${itemName} from this block. It gets only what the rows here cannot use; make ${itemName} a product to send it more.`
+}
+
+/** The name of each kind of rule: the preset's name, and the Import and Leftover switches turned off. */
 export const SOURCE_RULE_NAMES: Record<SourceRuleKind, string> = {
   'connections-first': ITEM_SOURCING_CHOICES[1].label,
   'byproducts-first': ITEM_SOURCING_CHOICES[2].label,
   'import-off': `${IMPORT_SWITCH.label} off`,
+  'leftover-off': `${LEFTOVER_SWITCH.label} off`,
   'make-here': ITEM_SOURCING_CHOICES[0].label,
   'import-on': `${IMPORT_SWITCH.label} on`,
   'takes-nothing': 'Takes nothing',

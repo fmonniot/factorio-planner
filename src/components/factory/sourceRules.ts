@@ -14,11 +14,12 @@ import { blockMakesItem } from '../../solver/index'
 // ---------------------------------------------------------------------------
 
 /**
+ * `leftover-off` is the block's Leftover switch off (block rules only, an area has none).
  * `make-here` is an area's rule with no preset that overrides a block rule that has one (the area makes it here, whatever
  * the block says); `import-on` is an area's rule with Import on that overrides a block rule that has it off; `takes-nothing` is
  * one area switched off as a supplier of the item (`areasOff`), named by `otherAreaId`.
  */
-export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off' | 'make-here' | 'import-on' | 'takes-nothing'
+export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off' | 'leftover-off' | 'make-here' | 'import-on' | 'takes-nothing'
 export type NoEffectReason = 'product' | 'not-made' | 'no-connection'
 
 export interface SourceRulePart {
@@ -51,6 +52,7 @@ export function sourceRules(block: Block, gameData: GameData, blockIds: Readonly
     const kind = presetOf(rule)
     if (kind) rules.push(withEffect(block, gameData, blockIds, { itemId, kind }))
     if (rule.importOff) rules.push(withEffect(block, gameData, blockIds, { itemId, kind: 'import-off' }))
+    if (rule.leftoverOff) rules.push(withEffect(block, gameData, blockIds, { itemId, kind: 'leftover-off' }))
   }
   for (const area of blockAreas(block.rootPlan) ?? []) {
     const stored = findSubPlan(block.rootPlan, area.id)?.sourceRules
@@ -93,7 +95,8 @@ function noEffectReason(
     const other = new Set(blockAreas(block.rootPlan)?.find(a => a.id === otherAreaId)?.nodeIds)
     return blockMakesItem(block, gameData, itemId, other) || blockUsesItem(block, gameData, itemId, other) ? undefined : 'not-made'
   }
-  if (hasProduct(block, itemId)) return 'product'
+  // Leftover off is about the item's surplus, which a goal has too: a product does not switch it off.
+  if (kind !== 'leftover-off' && hasProduct(block, itemId)) return 'product'
   // An area's rule is about the rows of that area: with none making the item it changes nothing there.
   const rows = areaId === undefined ? undefined : new Set(blockAreas(block.rootPlan)?.find(a => a.id === areaId)?.nodeIds)
   if (!blockMakesItem(block, gameData, itemId, rows)) return 'not-made'
@@ -123,6 +126,8 @@ interface RuleItems {
   blocks: readonly Block[]
   /** The items whose rule of the block has an effect. */
   items: ReadonlySet<string>
+  /** The items whose Leftover off has an effect: block-only, so an area's own rule never replaces it. */
+  leftover: ReadonlySet<string>
   /** Per area that has a rule with an effect, the items it changes. */
   areas: ReadonlyMap<string, ReadonlySet<string>>
 }
@@ -133,15 +138,17 @@ function ruleItemsOf(block: Block, gameData: GameData, blocks: readonly Block[])
   if (cached && cached.gameData === gameData && cached.blocks === blocks) return cached
   // A block without a rule, the usual case, needs no walk and shares one empty set.
   let items = NO_ITEMS
+  let leftover = NO_ITEMS
   let areas = NO_AREA_ITEMS
   if (hasAnyRule(block)) {
     const parts = sourceRules(block, gameData, new Set(blocks.map(b => b.id))).filter(r => r.noEffect === undefined)
     items = new Set(parts.filter(r => r.areaId === undefined).map(r => r.itemId))
+    leftover = new Set(parts.filter(r => r.kind === 'leftover-off').map(r => r.itemId))
     const byArea = new Map<string, Set<string>>()
     for (const r of parts) if (r.areaId !== undefined) (byArea.get(r.areaId) ?? byArea.set(r.areaId, new Set()).get(r.areaId)!).add(r.itemId)
     areas = byArea
   }
-  const entry = { rows: new Map<string, ReadonlySet<string>>(), gameData, blocks, items, areas }
+  const entry = { rows: new Map<string, ReadonlySet<string>>(), gameData, blocks, items, leftover, areas }
   ruleItemsCache.set(block, entry)
   return entry
 }
@@ -163,7 +170,7 @@ export function areaRuleItems(block: Block, gameData: GameData, blocks: readonly
 
 /**
  * The items of `block` whose rule shows on the rows of the area `areaId`: the block's items, except those the area has a
- * rule of its own for (its rule replaces the block's, whole), plus the items its own rules change. Without an area it is
+ * rule of its own for (its rule replaces the block's, whole, except Leftover off, which stays), plus the items its own rules change. Without an area it is
  * `sourceRuleItems`.
  */
 export function rowRuleItems(block: Block, gameData: GameData, blocks: readonly Block[], areaId: string | undefined): ReadonlySet<string> {
@@ -178,6 +185,8 @@ export function rowRuleItems(block: Block, gameData: GameData, blocks: readonly 
   if (cached) return cached
   const items = new Set([...base].filter(id => !own || !Object.hasOwn(own, id)))
   for (const id of changed ?? []) items.add(id)
+  // Leftover off is the block's alone: an area's own rule replaces the rest of the block's rule, never this.
+  for (const id of entry.leftover) items.add(id)
   entry.rows.set(areaId, items)
   return items
 }

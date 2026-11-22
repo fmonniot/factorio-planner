@@ -1,11 +1,12 @@
 import { useId, useMemo, useState } from 'react'
 import { areaIdsOf, areaName as areaNameOf, effectiveAreaRule, storedAreaRule } from '../../data/subPlanTree'
 import { blockAreas } from '../../solver/areas'
+import { hasProduct } from '../../solver/blockGraph'
 import { Segment, Segmented } from '../SegmentedControl'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, ruleLabel, SOURCES_BUTTON_LABEL, makeHereOf, presetOf } from './itemSourcing'
+import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, LEFTOVER_BLOCK_BUTTON, LEFTOVER_BLOCK_NOTE, LEFTOVER_SWITCH, leftoverTakeNote, ruleLabel, SOURCES_BUTTON_LABEL, makeHereOf, presetOf } from './itemSourcing'
 import { noEffectText, ruleId, scopeAreasOf, sourceRules } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
@@ -57,6 +58,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
   const blocks = useBlockStore(s => s.blocks)
   const setMakeHere = useBlockStore(s => s.setMakeHere)
   const toggleImportOff = useBlockStore(s => s.toggleImportOff)
+  const toggleLeftoverOff = useBlockStore(s => s.toggleLeftoverOff)
   const setAreaMakeHere = useBlockStore(s => s.setAreaMakeHere)
   const toggleAreaImportOff = useBlockStore(s => s.toggleAreaImportOff)
   const clearAreaRule = useBlockStore(s => s.clearAreaRule)
@@ -75,7 +77,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
   const unavailable = useMemo(() => {
     if (!block || !gameData) return []
     const blockIds = new Set(blocks.map(b => b.id))
-    return sourceRules(block, gameData, blockIds).filter(r => r.itemId === itemId && r.noEffect !== undefined && r.areaId === area)
+    return sourceRules(block, gameData, blockIds).filter(r => r.itemId === itemId && r.noEffect !== undefined && (r.areaId === area || r.kind === 'leftover-off'))
   }, [block, blocks, gameData, itemId, area])
 
   if (!block || !gameData) return null
@@ -85,6 +87,13 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
   const rule = area !== undefined ? effectiveAreaRule(block.rootPlan, block.sourceRules, area, itemId) : block.sourceRules[itemId]
   const preset = presetOf(rule)
   const importOn = !rule?.importOff
+  // Leftover is the block's rule alone: an area's control reads it from the block, never from the area's effective rule.
+  const leftoverOn = !block.sourceRules[itemId]?.leftoverOff
+  // The blocks that take the item from this one (a connection of the item whose source is this block): with Leftover off they
+  // get only what the rows here cannot use, unless the item is a product, which turns the connection into a request.
+  const takers = leftoverOn || hasProduct(block, itemId)
+    ? []
+    : blocks.filter(b => b.id !== block.id && b.inputConnections.some(c => c.itemId === itemId && c.fromBlockId === block.id))
   // The areas the scope control offers: the one it was opened for, the one it is on, and those with a rule of their own for the item.
   const scopeAreas = scopeAreasOf(block, itemId, areaId, area)
   const showScope = !listInPopover && scopeAreas.length > 0
@@ -149,6 +158,24 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
           <Tip id={`${baseId}-import`} align="end">{IMPORT_SWITCH.title}</Tip>
         </span>
       </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-x-2">
+        {area !== undefined && (
+          <>
+            <span data-testid="leftover-block-note" className="text-[11px] text-gray-500">{LEFTOVER_BLOCK_NOTE}</span>
+            <button type="button" data-testid="leftover-whole-block" aria-label={`${LEFTOVER_BLOCK_BUTTON}: change Leftover`} onClick={() => setScope(undefined)} className={MINI_BUTTON_CLASS}>{LEFTOVER_BLOCK_BUTTON}</button>
+          </>
+        )}
+        <span className="group relative flex">
+          <Switch on={leftoverOn} label={LEFTOVER_SWITCH.label} testId="leftover-switch" describedBy={`${baseId}-leftover`} disabled={area !== undefined} onToggle={() => toggleLeftoverOff(itemId)}>
+            {LEFTOVER_SWITCH.label}
+          </Switch>
+          <Tip id={`${baseId}-leftover`} align="end">{LEFTOVER_SWITCH.title}</Tip>
+        </span>
+      </div>
+      {takers.map(b => (
+        <p key={b.id} data-testid="leftover-take-note" className="text-[11px] leading-snug text-gray-500">{leftoverTakeNote(b.name, name)}</p>
+      ))}
 
       {area !== undefined && (
         stored === undefined

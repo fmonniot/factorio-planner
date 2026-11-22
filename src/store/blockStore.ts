@@ -279,8 +279,9 @@ function withSourceRule(block: Block, itemId: string, rule: SourceRule, at?: num
   const clean: SourceRule = {
     ...(rule.makeHere !== undefined && { makeHere: rule.makeHere }),
     ...(rule.importOff !== undefined && { importOff: rule.importOff }),
+    ...(rule.leftoverOff !== undefined && { leftoverOff: rule.leftoverOff }),
   }
-  const empty = clean.makeHere === undefined && clean.importOff === undefined
+  const empty = clean.makeHere === undefined && clean.importOff === undefined && clean.leftoverOff === undefined
   const entries = Object.entries(block.sourceRules)
   if (Object.hasOwn(block.sourceRules, itemId))
     return { ...block, sourceRules: Object.fromEntries(empty ? entries.filter(([id]) => id !== itemId) : entries.map(([id, r]) => [id, id === itemId ? clean : r])) }
@@ -637,6 +638,8 @@ export interface BlockStoreState {
   setMakeHere: (itemId: string, makeHere: 'after-blocks' | 'off' | undefined) => void
   /** Turn Import off for an item in the active block, or back on. Undoable. */
   toggleImportOff: (itemId: string) => void
+  /** Turn Leftover off for an item in the active block (the solver then uses the item up where it can), or back on. Block rule only; the item's other keys stay. Undoable. */
+  toggleLeftoverOff: (itemId: string) => void
   /**
    * Set where "Make more here" sits in an area's rule for an item (undefined = before the block lines). An area with no
    * rule of its own starts from the block's. Active block only; undoable; no-op when `areaId` is not an area of the block
@@ -1316,6 +1319,15 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       if (!block) return state
       const before = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : {}
       const after: SourceRule = before.importOff ? { ...before, importOff: undefined } : { ...before, importOff: true }
+      return applyCommand(state, sourceRuleCommand(block, itemId, before, after))
+    }),
+
+  toggleLeftoverOff: (itemId) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const before = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : {}
+      const after: SourceRule = before.leftoverOff ? { ...before, leftoverOff: undefined } : { ...before, leftoverOff: true }
       return applyCommand(state, sourceRuleCommand(block, itemId, before, after))
     }),
 

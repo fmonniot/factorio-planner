@@ -8,12 +8,14 @@ export const MINI_BUTTON_CLASS =
  * A switch (`role="switch"`) with the track the Comes from control draws. `children` is its visible name; without it the
  * switch is named by `label` (a line of the Sources list already shows the name).
  */
-export function Switch({ on, label, testId, describedBy, onToggle, children }: {
+export function Switch({ on, label, testId, describedBy, onToggle, disabled = false, children }: {
   on: boolean
   label: string
   testId: string
   describedBy?: string
   onToggle: () => void
+  /** Shows the state and cannot change it (the Leftover switch at area scope). */
+  disabled?: boolean
   children?: React.ReactNode
 }) {
   return (
@@ -24,8 +26,9 @@ export function Switch({ on, label, testId, describedBy, onToggle, children }: {
       aria-label={children ? undefined : label}
       aria-describedby={describedBy}
       data-testid={testId}
+      disabled={disabled}
       onClick={onToggle}
-      className="inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-[11px] leading-4 text-gray-300 outline-none hover:text-gray-100 focus-visible:ring-2 focus-visible:ring-teal-400"
+      className="inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-[11px] leading-4 text-gray-300 outline-none hover:text-gray-100 focus-visible:ring-2 focus-visible:ring-teal-400 disabled:opacity-50 disabled:hover:text-gray-300"
     >
       {children}
       <span aria-hidden="true" className={`relative inline-block w-6 h-3 rounded-full ${on ? 'bg-teal-600' : 'bg-gray-600'}`}>

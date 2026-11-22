@@ -24,6 +24,7 @@ describe('the vocabulary', () => {
       'connections-first': 'Receive it first',
       'byproducts-first': "Don't make more here",
       'import-off': 'Import off',
+      'leftover-off': 'Leftover off',
       'make-here': 'Make it here',
       'import-on': 'Import on',
       'takes-nothing': 'Takes nothing',
@@ -74,6 +75,7 @@ describe('ruleLabel', () => {
   const plan = { ...root, subPlans: [sub('L'), sub('M1')] }
   it('names a block part, an area part and a switch', () => {
     expect(ruleLabel({ kind: 'import-off' }, plan)).toBe('Import off')
+    expect(ruleLabel({ kind: 'leftover-off' }, plan)).toBe('Leftover off')
     expect(ruleLabel({ kind: 'connections-first', areaId: 'L' }, plan)).toBe('Line L: Receive it first')
     expect(ruleLabel({ kind: 'takes-nothing', areaId: 'L', otherAreaId: 'M1' }, plan)).toBe('Line L: takes nothing from Line M1')
   })

@@ -814,6 +814,53 @@ describe('toggleImportOff', () => {
   })
 })
 
+describe('toggleLeftoverOff', () => {
+  const rulesOf = () => useBlockStore.getState().blocks[0].sourceRules
+
+  it('writes leftoverOff on the first call and removes the entry on the second', () => {
+    const t = useBlockStore.getState().toggleLeftoverOff
+    t('coolant')
+    expect(rulesOf()).toEqual({ coolant: { leftoverOff: true } })
+    t('coolant')
+    expect(rulesOf()).toEqual({})
+  })
+
+  it('keeps the item\'s other keys, and the other switches and presets keep it', () => {
+    const s = useBlockStore.getState()
+    s.setMakeHere('coolant', 'off')
+    s.toggleImportOff('coolant')
+    s.toggleLeftoverOff('coolant')
+    expect(rulesOf()).toEqual({ coolant: { makeHere: 'off', importOff: true, leftoverOff: true } })
+    s.toggleImportOff('coolant')
+    expect(rulesOf()).toEqual({ coolant: { makeHere: 'off', leftoverOff: true } })
+    s.setMakeHere('coolant', undefined)
+    expect(rulesOf()).toEqual({ coolant: { leftoverOff: true } })
+    s.toggleLeftoverOff('coolant')
+    expect(rulesOf()).toEqual({})
+  })
+
+  it('undoes and redoes, an undone removal back at its place in the map', () => {
+    const s = useBlockStore.getState()
+    s.toggleLeftoverOff('a'); s.toggleLeftoverOff('b'); s.toggleLeftoverOff('c')
+    s.toggleLeftoverOff('b')
+    expect(Object.keys(rulesOf())).toEqual(['a', 'c'])
+    s.undo()
+    expect(Object.keys(rulesOf())).toEqual(['a', 'b', 'c'])
+    s.redo()
+    expect(Object.keys(rulesOf())).toEqual(['a', 'c'])
+  })
+
+  it('is not carried into an area\'s rule when the area is edited from the block\'s', () => {
+    const area = { ...makeEmptySubPlan('Line L'), id: 'L', area: true as const }
+    const b = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({ blocks: [{ ...b, rootPlan: { ...b.rootPlan, subPlans: [area] } }] })
+    useBlockStore.getState().toggleLeftoverOff('coolant')
+    useBlockStore.getState().setAreaMakeHere('L', 'coolant', 'off')
+    expect(useBlockStore.getState().blocks[0].rootPlan.subPlans[0].sourceRules).toEqual({ coolant: { makeHere: 'off' } })
+    expect(rulesOf()).toEqual({ coolant: { leftoverOff: true } })
+  })
+})
+
 describe('setItemSourcing', () => {
   const store = () => useBlockStore.getState()
   const sourcing = (i = 0) => Object.fromEntries(Object.entries(store().blocks[i].sourceRules).map(([id, r]) => [id, r.makeHere === 'after-blocks' ? 'connections-first' : 'byproducts-first']))

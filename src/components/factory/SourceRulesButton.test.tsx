@@ -46,12 +46,15 @@ interface Rules {
   locked?: string[]
   /** A connection for Ore from the other block. */
   connected?: boolean
+  /** Items whose Leftover switch is off. */
+  leftoverOff?: string[]
 }
 
 /** The active block "Main" (rows Smelt and Ore Synth) with the given rules, and a block "Source" beside it. */
-function setup({ sourcing = {}, locked = [], connected = false }: Rules = {}) {
+function setup({ sourcing = {}, locked = [], connected = false, leftoverOff = [] }: Rules = {}) {
   const source: Block = { ...makeEmptyBlock('Source'), id: 'source', products: [{ id: 'p', itemId: 'ore' }] }
   const main: Block = { ...makeEmptyBlock('Main'), id: 'main', sourceRules: sourceRulesOf(sourcing, locked) }
+  for (const id of leftoverOff) main.sourceRules[id] = { ...main.sourceRules[id], leftoverOff: true }
   main.rootPlan = { ...main.rootPlan, nodes: [makeRecipeNode('smelt'), makeRecipeNode('ore-synth')] }
   if (connected) main.inputConnections = [{ id: 'c', itemId: 'ore', fromBlockId: 'source' }]
   useBlockStore.setState({ blocks: [main, source], activeBlockId: 'main', history: {} })
@@ -116,6 +119,44 @@ describe('Source rules — the button', () => {
     expect(button()).toHaveAttribute('aria-controls', popover().id)
     openPopover()
     expect(screen.queryByTestId('source-rules-popover')).not.toBeInTheDocument()
+  })
+})
+
+describe('Source rules — Leftover off', () => {
+  it('lists the rule after the item\'s other parts, with its name and the switch\'s help text, and marks the item', () => {
+    setup({ locked: ['plate'], leftoverOff: ['plate'] })
+    render(<SourceRulesButton />)
+    openPopover()
+    expect(entries().map(e => [e.dataset.itemId, e.dataset.rule, e.dataset.noEffect])).toEqual([
+      ['plate', 'import-off', undefined],
+      ['plate', 'leftover-off', undefined],
+    ])
+    const e = entry('plate', 'leftover-off')
+    expect(within(e).getByTestId('source-rule-name')).toHaveTextContent('Leftover off')
+    expect(text(e)).toContain('the rows of this block use all of it they can')
+    expect(remove(e)).toHaveAccessibleName('Remove the Leftover off rule of Plate')
+  })
+
+  it('says why a rule on an item no row makes does nothing, and Remove keeps the item\'s other rule', () => {
+    setup({ locked: ['water'], leftoverOff: ['water'] })
+    render(<SourceRulesButton />)
+    openPopover()
+    const e = entry('water', 'leftover-off')
+    expect(e).toHaveAttribute('data-no-effect', 'not-made')
+    expect(text(e)).toBe('No row in this block makes Water.')
+    fireEvent.click(remove(e))
+    expect(mainBlock().sourceRules).toEqual({ water: { importOff: true } })
+  })
+
+  it('expands the Comes from control with the switch on, to turn it back on', () => {
+    setup({ leftoverOff: ['plate'] })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(within(entry('plate', 'leftover-off')).getByTestId('source-rule-item'))
+    const sw = within(popover()).getByTestId('leftover-switch')
+    expect(sw).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(sw)
+    expect(mainBlock().sourceRules).toEqual({})
   })
 })
 
