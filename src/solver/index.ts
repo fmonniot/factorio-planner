@@ -1538,9 +1538,9 @@ function computeRequests(
       for (let i = 0; i < end; i++) {
         const e = pair.listed[i]
         if (e.kind === 'extra') {
-          if (pair.extraRate > 0) {
-            sub(allocateKeys(pair.itemId, allocKeysOfMap(pair.itemId, rest, ranges.get(pair.itemId) ?? []), [[{ id: 'extra', needs: [{ range: {}, rate: pair.extraRate }], weight: 1 }]]).grants.get('extra') ?? new Map())
-          }
+          // As `grantPair` asks it with no allocation: the extra is the goal on any temperature, held on `item[,]`.
+          const any = flowKey(pair.itemId, {})
+          if (pair.extraRate > 0) sub(new Map([[any, Math.min(pair.extraRate, rest.get(any) ?? 0)]]))
           continue
         }
         if (!rankedTake.has(e.connection.id) || counted.has(e.connection.id)) continue
@@ -1746,6 +1746,8 @@ function computeRequests(
           roundLimit,
           loop.blockIds,
           loop.backConnectionIds,
+          // The ranges of the split fluids (every block's ingredients, not only the members') shape the credits and the parts.
+          [...ranges].map(([itemId, rs]) => [itemId, rs.map(r => flowKey(itemId, r))]),
           members.map(m => {
             const flat = flattenBlock(m)
             return [
@@ -1947,6 +1949,15 @@ function computeRequests(
             return [id, Math.min(Math.max(0, next), maxRateOf(id))]
           }),
         )
+        // The parts of one connection (a split fluid) share its `maxRate`: scaled down together when the extrapolation pushed them over it.
+        const total = new Map<string, number>()
+        for (const [id, v] of input) if (id.includes('\0')) total.set(connectionOfInput(id), (total.get(connectionOfInput(id)) ?? 0) + v)
+        for (const [id, v] of input) {
+          const c = connectionOfInput(id)
+          const sum = total.get(c)
+          const max = maxRateOf(id)
+          if (id.includes('\0') && sum !== undefined && sum > max) input.set(id, v * (max / sum))
+        }
       }
       // Not settled: round 1 again, the back connections taking existing output instead of a share.
       // A back credit keeps the last round's value: reading 0 would credit members more than the source has left.
@@ -2249,7 +2260,7 @@ export function solveAll(
     for (const b of blocks) {
       const result = results[b.id]
       if (!result) continue
-      const goalRanges = new Set((requestPlan.goals.get(b.id) ?? flattenBlock(b).goals).filter(g => split.has(g.itemId)).map(g => goalMapKey(g)))
+      const goalRanges = new Set((requestPlan.goals.get(b.id) ?? flattenBlock(b).goals).filter(g => split.has(g.itemId)).map(g => flowKey(g.itemId, g.temp ?? {})))
       const connections: Extract<SolverWarning, { type: 'connection-temperature' }>['connections'] = []
       for (const f of flows) {
         if (f.toBlockId !== b.id || !f.parts) continue

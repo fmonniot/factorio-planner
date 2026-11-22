@@ -165,8 +165,10 @@ export function pass2Plan(args: {
       continue
     }
     for (const k of plan.keys) if (!args.firstItems.has(k)) caps.set(k, args.totalCaps.get(k)!)
-    fluidCaps.set(fluid, Math.min(plan.offers, residual))
-    if (plan.fit(perRange) < residual - FLOW_TOLERANCE) for (const k of plan.rangeKeys) noImport.delete(k)
+    // Own production first: what the offered keys cannot serve (a range none of them fits) is not theirs to replace.
+    const fit = plan.fit(perRange)
+    fluidCaps.set(fluid, Math.min(plan.offers, residual, fit))
+    if (fit < residual - FLOW_TOLERANCE) for (const k of plan.rangeKeys) noImport.delete(k)
     let gross = 0
     for (const k of plan.rangeKeys) gross += itemGrossFlow(args.S.get(k), args.throughput)
     if (residual > surplusTolerance(gross)) run = true

@@ -225,7 +225,17 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
     const slacks = fluid === undefined ? [lp.itemToSlack.get(itemId) ?? ''] : itemKeys(system, fluid).map(k => lp.itemToSlack.get(k) ?? '')
     const residual = sumOf(step4, slacks)
     if (residual <= FLOW_TOLERANCE) continue
-    const offer = fluid === undefined ? totalCaps.get(itemId)! : (input.keySupply?.fluids.get(fluid)?.offers ?? Infinity)
+    let offer = fluid === undefined ? totalCaps.get(itemId)! : (input.keySupply?.fluids.get(fluid)?.offers ?? Infinity)
+    // As `pass2Plan`: no more than the offered keys can serve of the range keys' slacks.
+    const plan = fluid === undefined ? undefined : input.keySupply?.fluids.get(fluid)
+    if (plan) {
+      const perRange = new Map<string, number>()
+      for (const k of plan.rangeKeys) {
+        const r = sumOf(step4, [lp.itemToSlack.get(k) ?? ''])
+        if (r > FLOW_TOLERANCE) perRange.set(k, r)
+      }
+      offer = Math.min(offer, plan.fit(perRange))
+    }
     lp.constraints[row] = { max: Math.min(offer, residual) }
     refill = true
   }

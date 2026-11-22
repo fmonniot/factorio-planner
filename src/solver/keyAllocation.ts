@@ -1,5 +1,5 @@
 import type { FluidTag } from '../data/types'
-import { fitsRange, flowKey, type FluidRange } from '../data/flowKey'
+import { fitsRange, flowKey, rangeDepth, type FluidRange } from '../data/flowKey'
 import { FLOW_TOLERANCE } from './blockResult'
 import { runLP } from './solve'
 
@@ -25,7 +25,10 @@ export interface KeyAllocation {
   held: Map<string, number>
 }
 
-/** The solver rounds each returned value to 1e-8; a lower bound read back from it gets this much room. */
+/**
+ * The solver rounds each returned value to 1e-8 and a level is read back as a sum of its member's f columns: a lower bound read
+ * back from it gets `LEVEL_ABS` of room per column (a Seablock steam fluid has up to 9 keys x 6 ranges), more on a retry.
+ */
 const LEVEL_REL = 1e-12
 const LEVEL_ABS = 2e-8
 /** Two levels closer than this are the same level. */
@@ -121,27 +124,46 @@ export function allocateKeys(itemId: string, keys: AllocKey[], groups: AllocMemb
   const base = baseModel(keys, members)
   const levels = new Map<string, number>() // frozen members → their level
   let slack = 1
-  const lowerBound = (v: number): number => Math.max(0, v * (1 - LEVEL_REL * slack) - LEVEL_ABS * slack)
+  // The room a lower bound read back from `id`'s columns gets.
+  const lowerBound = (v: number, id: string): number =>
+    Math.max(0, v * (1 - LEVEL_REL * slack) - LEVEL_ABS * slack * Math.max(1, base.cols.get(id)?.length ?? 1))
+  // An LP made with the room of `slack` 1, once more with 1e3 when it comes back infeasible (the levels were read back from a rounded solve).
+  const solveWithRetry = (make: () => Model): { model: Model; result: ReturnType<typeof runLP> } => {
+    slack = 1
+    let model = make()
+    let result = runLP('__obj__', model.constraints, model.variables)
+    if (result.feasible !== true) {
+      slack = 1e3
+      model = make()
+      result = runLP('__obj__', model.constraints, model.variables)
+      slack = 1
+    }
+    return { model, result }
+  }
 
   for (const group of groups) {
     const active = group.filter(m => (demand.get(m.id) ?? 0) > FLOW_TOLERANCE && (base.cols.get(m.id)?.length ?? 0) > 0)
     for (const m of group) if (!active.includes(m)) levels.set(m.id, 0)
     if (active.length === 1) {
       const m = active[0]
-      const model = clone(base)
-      for (const [id, l] of levels) levelRow(model, id, `hold_${id}`, lowerBound(l))
-      for (const col of base.cols.get(m.id)!) model.variables[col].__obj__ = -1
-      const r = runLP('__obj__', model.constraints, model.variables)
+      const { result: r } = solveWithRetry(() => {
+        const model = clone(base)
+        for (const [id, l] of levels) levelRow(model, id, `hold_${id}`, lowerBound(l, id))
+        for (const col of base.cols.get(m.id)!) model.variables[col].__obj__ = -1
+        return model
+      })
       levels.set(m.id, r.feasible === true ? totalOf(r, base.cols.get(m.id)!) : 0)
       continue
     }
     const left = [...active]
     while (left.length > 0) {
-      const model = clone(base)
-      model.variables.t = { __obj__: -1 }
-      for (const [id, l] of levels) levelRow(model, id, `hold_${id}`, lowerBound(l))
-      for (const m of left) levelRow(model, m.id, `lvl_${m.id}`, 0, m.weight)
-      const r = runLP('__obj__', model.constraints, model.variables)
+      const { result: r } = solveWithRetry(() => {
+        const model = clone(base)
+        model.variables.t = { __obj__: -1 }
+        for (const [id, l] of levels) levelRow(model, id, `hold_${id}`, lowerBound(l, id))
+        for (const m of left) levelRow(model, m.id, `lvl_${m.id}`, 0, m.weight)
+        return model
+      })
       const t = r.feasible === true ? valueOf(r, 't') : 0
       const frozen: AllocMember[] = []
       for (const m of left) {
@@ -154,11 +176,13 @@ export function allocateKeys(itemId: string, keys: AllocKey[], groups: AllocMemb
       if (frozen.length === 0) {
         // Members that cannot grow beyond the common level are frozen at it.
         for (const m of left) {
-          const probe = clone(base)
-          for (const [id, l] of levels) levelRow(probe, id, `hold_${id}`, lowerBound(l))
-          for (const o of left) if (o !== m) levelRow(probe, o.id, `lvl_${o.id}`, lowerBound(o.weight * t))
-          for (const col of base.cols.get(m.id)!) probe.variables[col].__obj__ = -1
-          const pr = runLP('__obj__', probe.constraints, probe.variables)
+          const { result: pr } = solveWithRetry(() => {
+            const probe = clone(base)
+            for (const [id, l] of levels) levelRow(probe, id, `hold_${id}`, lowerBound(l, id))
+            for (const o of left) if (o !== m) levelRow(probe, o.id, `lvl_${o.id}`, lowerBound(o.weight * t, o.id))
+            for (const col of base.cols.get(m.id)!) probe.variables[col].__obj__ = -1
+            return probe
+          })
           const best = pr.feasible === true ? totalOf(pr, base.cols.get(m.id)!) : 0
           if (best <= m.weight * t + LEVEL_TOL) {
             levels.set(m.id, m.weight * t)
@@ -177,42 +201,51 @@ export function allocateKeys(itemId: string, keys: AllocKey[], groups: AllocMemb
   // Final: every level held, the most flow, then the least versatile keys.
   const finalModel = (): Model => {
     const fin = clone(base)
-    for (const m of members) if (levels.has(m.id)) levelRow(fin, m.id, `hold_${m.id}`, lowerBound(levels.get(m.id)!))
+    for (const m of members) if (levels.has(m.id)) levelRow(fin, m.id, `hold_${m.id}`, lowerBound(levels.get(m.id)!, m.id))
     return fin
   }
-  let fin = finalModel()
   // A unit of flow pays more than any versatility costs, so the totals are the largest the levels allow (a lower bound with its
-  // rounding room is never used up to save a key), then the keys are the least versatile.
-  const reward = Math.max(...keys.map(k => k.versatility)) + 1
-  for (const col of fin.all) fin.variables[col.name].__obj__ = keys[col.key].versatility - reward
+  // rounding room is never used up to save a key), then, as the consumer's own solve does (`SUPPLY_DEPTH`), a short supply serves the
+  // narrowest range first (a term in steps above any versatility), then the keys are the least versatile. With no shortage every
+  // range is covered and the depth term is constant.
+  const needRanges = new Map<string, FluidRange>()
+  for (const m of members) for (const n of m.needs) needRanges.set(flowKey(itemId, n.range), n.range)
+  const rangeList = [...needRanges.values()]
+  const step = Math.max(...keys.map(k => k.versatility), 1) + 1
+  const reward = step * (rangeList.length + 1) + 1
+  const objective = (fin: Model): void => {
+    for (const col of fin.all) {
+      const range = needsOfMember.get(col.member)![col.range].range
+      const depthCost = step * Math.max(0, rangeList.length - rangeDepth(range, rangeList))
+      fin.variables[col.name].__obj__ = keys[col.key].versatility + depthCost - reward
+    }
+  }
+  const needsOfMember = new Map(members.map(m => [m.id, m.needs]))
+  let fin = finalModel()
+  objective(fin)
   let result = runLP('__obj__', fin.constraints, fin.variables)
   if (result.feasible !== true) {
     // The levels were read back from a rounded solve: give them more room once.
     slack = 1e3
     fin = finalModel()
-    for (const col of fin.all) fin.variables[col.name].__obj__ = keys[col.key].versatility - reward
+    objective(fin)
     result = runLP('__obj__', fin.constraints, fin.variables)
   }
   if (result.feasible !== true) return { grants, covered, held }
-  const needsOf = new Map(members.map(m => [m.id, m.needs]))
+  // Clamped: LP rounding must not give a key more than it offers, in the grants and in the need met alike.
+  const totals = keys.map(() => 0)
+  for (const col of fin.all) totals[col.key] += valueOf(result, col.name)
+  const scales = keys.map((k, i) => (totals[i] > k.offer && totals[i] > 0 ? k.offer / totals[i] : 1))
   for (const col of fin.all) {
-    const amount = valueOf(result, col.name)
+    const amount = valueOf(result, col.name) * scales[col.key]
     if (amount <= 0) continue
     const mg = grants.get(col.member)!
     mg.set(keys[col.key].key, (mg.get(keys[col.key].key) ?? 0) + amount)
-    const range = needsOf.get(col.member)![col.range].range
-    const rk = flowKey(itemId, range)
+    const rk = flowKey(itemId, needsOfMember.get(col.member)![col.range].range)
     const mc = covered.get(col.member)!
     mc.set(rk, (mc.get(rk) ?? 0) + amount)
   }
-  // Clamped: LP rounding must not give a key more than it offers.
-  for (const k of keys) {
-    let total = 0
-    for (const mg of grants.values()) total += mg.get(k.key) ?? 0
-    const scale = total > k.offer && total > 0 ? k.offer / total : 1
-    if (scale < 1) for (const mg of grants.values()) if (mg.has(k.key)) mg.set(k.key, mg.get(k.key)! * scale)
-    held.set(k.key, Math.min(k.offer, total))
-  }
+  keys.forEach((k, i) => held.set(k.key, Math.min(k.offer, totals[i])))
   return { grants, covered, held }
 }
 

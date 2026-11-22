@@ -2544,7 +2544,7 @@ describe('pass2Plan, a fluid whose connections supply keys', () => {
     keySupply: { fluids: new Map([['steam', { keys: ['s#in'], rangeKeys: ['r1', 'r2'], offers: over.offers, fit: () => over.fit }]]) },
   })
 
-  it('caps the supplied keys together at the smaller of the offers and the residual summed over the range keys', () => {
+  it('caps the supplied keys together at the smaller of the offers, the residual summed over the range keys and what the offered keys fit', () => {
     const p = plan({ slack1: 30, slack2: 20, offers: 100, fit: 50 })
     expect(p.run).toBe(true)
     expect(p.fluidCaps.get('steam')).toBe(50)
@@ -2552,9 +2552,9 @@ describe('pass2Plan, a fluid whose connections supply keys', () => {
     expect(p.noImport.has('r1'), 'the supply can cover it all: the locks stay').toBe(true)
   })
 
-  it('unlocks every range key when what the offered keys fit is below the residual', () => {
+  it('unlocks every range key when what the offered keys fit is below the residual, and caps the supply at what they fit', () => {
     const p = plan({ slack1: 30, slack2: 20, offers: 100, fit: 30 })
-    expect(p.fluidCaps.get('steam')).toBe(50)
+    expect(p.fluidCaps.get('steam')).toBe(30)
     expect(p.noImport.has('r1')).toBe(false)
     expect(p.noImport.has('r2')).toBe(false)
   })

@@ -92,3 +92,36 @@ describe('maxFit', () => {
     expect(maxFit([at500(1000), at165(1000)], [{ range: ge465, rate: 1800 }, { range: any, rate: 1500 }])).toBeCloseTo(2000, 4)
   })
 })
+
+describe('allocateKeys, review findings', () => {
+  it('a short supply covers the narrowest range first, as the consumer\'s own solve does', () => {
+    // C needs 900 at any temperature and 900 at 465 or more; A offers 900 at 500 only. Put on `[,]` the 500 steam would leave the
+    // `>= 465` need open (C would ask for 465 steam it does not need); C's solve sends it to `>= 465`.
+    for (const needs of [[{ range: any, rate: 900 }, { range: ge465, rate: 900 }], [{ range: ge465, rate: 900 }, { range: any, rate: 900 }]]) {
+      const a = allocateKeys('steam', [at500(900)], [[{ id: 'C', needs, weight: 1 }]])
+      expect(a.covered.get('C')?.get('steam[465,]')).toBeCloseTo(900, 4)
+      expect(a.covered.get('C')?.get('steam[,]') ?? 0).toBeCloseTo(0, 4)
+    }
+  })
+
+  it('a wide fluid (9 keys x 6 ranges, several groups) keeps every level: no group freezes at 0 and the leftover goes by rank', () => {
+    const temps = [15, 100, 165, 250, 300, 400, 500, 600, 800]
+    const keys: AllocKey[] = temps.map((t, i) => ({ key: `steam@${t}`, tag: { at: t }, offer: 1000 + 37.3 * i, versatility: 1 + (i % 4) }))
+    const ranges = [{}, { min: 100 }, { min: 300 }, { min: 465 }, { max: 400 }, { min: 100, max: 500 }]
+    const member = (id: string, rate: number): AllocMember => ({ id, needs: ranges.map((range, i) => ({ range, rate: rate * (1 + i / 7) })), weight: 1 })
+    const a = allocateKeys('steam', keys, [[member('g1a', 33.3), member('g1b', 41.7)], [member('g2', 123.4567)], [member('g3', 150.1)], [member('g4', 3000.3)]])
+    const total = (id: string) => [...(a.grants.get(id)?.values() ?? [])].reduce((t, v) => t + v, 0)
+    const offered = keys.reduce((t, k) => t + k.offer, 0)
+    // The offers cover the first three groups in full; the last gets what is left, not 0.
+    expect(total('g1a') + total('g1b') + total('g2') + total('g3') + total('g4')).toBeCloseTo(offered, 3)
+    expect(total('g4')).toBeGreaterThan(0)
+    expect(total('g2')).toBeCloseTo(123.4567 * (6 + 15 / 7), 3)
+    for (const k of keys) expect(a.held.get(k.key) ?? 0).toBeLessThanOrEqual(k.offer + 1e-9)
+  })
+
+  it('the need met never exceeds what a key offers (the clamp scales the need met with the grants)', () => {
+    const a = allocateKeys('steam', [at500(100)], [[{ id: 'C', needs: [{ range: ge465, rate: 500 }], weight: 1 }]])
+    expect(a.covered.get('C')?.get('steam[465,]')).toBeCloseTo(a.grants.get('C')?.get('steam@500') ?? -1, 9)
+    expect(a.covered.get('C')?.get('steam[465,]') ?? 0).toBeLessThanOrEqual(100 + 1e-9)
+  })
+})

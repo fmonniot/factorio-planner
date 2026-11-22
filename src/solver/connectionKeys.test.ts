@@ -23,6 +23,8 @@ const gameData = (): GameData => ({
     recipe('engine', [fluid('steam', 60)], [item('work2', 1)]),
     // A cycle of requests: the consumer of work needs steam, the steam block needs work.
     recipe('use-work', [item('work', 1)], [item('goal', 1)]),
+    // A boiler that needs work itself: with the turbine it makes a loop whose demand settles geometrically.
+    recipe('boil-w', [item('work', 0.2)], [fluid('steam', 30, { temperature: 500 })]),
   ].map(r => [r.id, r])),
 }) as GameData
 
@@ -122,6 +124,15 @@ describe('connection-temperature', () => {
   })
 })
 
+describe('connection-temperature next to a goal shortfall on any temperature (review finding 9)', () => {
+  it('is still raised when the block also has an extra output of the fluid it cannot make', () => {
+    const src = block('A', [['fuel', 1]], [node('boil-165', { pinnedRate: 10 })]) // only 165 steam on offer
+    const b = block('B', [['work', 30], ['steam', 100]], [node('turbine')], [{ id: 'c', itemId: 'steam', fromBlockId: 'A' }])
+    const all = solveAll([src, b], gameData())
+    expect(all.results.B.warnings.filter(w => w.type === 'connection-temperature')).toHaveLength(1)
+  })
+})
+
 describe('a consumer with areas', () => {
   // B's turbine and engine are separate areas: each area takes its own range of the connected steam.
   const area = (id: string, nodes: GameRecipeNode[]) => ({ id, name: id, nodes, subPlans: [], area: true as const, createdAt: now, updatedAt: now })
@@ -151,5 +162,76 @@ describe('a consumer with areas', () => {
     ])
     expect(all.results.B.unsatisfied.filter(u => u.itemId === 'steam')).toEqual([])
     expect(all.errors).toEqual({})
+  })
+})
+
+describe('own production comes first when the offered keys do not fit every range (review finding 1)', () => {
+  it('B keeps its own boiler for the engine: the offered 165 steam fits no range the turbine needs', () => {
+    const src = block('A', [['fuel', 1]], [node('boil-165', { pinnedRate: 30 })]) // 1800 steam at 165
+    const b = block('B', [['work', 30], ['work2', 30]], [node('turbine'), node('engine'), node('boil-165')], [{ id: 'c', itemId: 'steam', fromBlockId: 'A' }])
+    const all = solveAll([src, b], gameData())
+    expect(all.results.B.nodes.find(n => n.recipeNodeId === 'boil-165')!.throughput).toBeGreaterThan(29)
+    expect(r6(all.flows.find(f => f.connectionId === 'c')!.rate)).toBe(0)
+  })
+})
+
+describe('a list that names only the extra (review findings 2 and 7)', () => {
+  // A makes 1200 steam at 500 (pinned) and 600 of it is extra output, listed alone; A receives steam too, so C's connection to A is a
+  // take, not a request. In the source's leftover estimate the extra is already out of the temperature keys (it sits on `steam[,]`),
+  // so C's take, which the list does not name, is credited the 600 that are left, not 1200 and not 0.
+  it('credits a take the list does not name what the listed extra leaves', () => {
+    const x = block('X', [['steam', 0]], [])
+    const a: Block = {
+      ...block('A', [['steam', 600]], [node('boil-500', { pinnedRate: 40 })], [{ id: 'c-x', itemId: 'steam', fromBlockId: 'X' }]),
+      servedOrder: { steam: [{ kind: 'extra' }] },
+    }
+    const r = block('R', [['steam', 0]], [node('boil-500')])
+    const c = block('C', [['work', 30]], [node('turbine')], [
+      { id: 'c-req', itemId: 'steam', fromBlockId: 'R' },
+      { id: 'c-take', itemId: 'steam', fromBlockId: 'A' },
+    ])
+    const all = solveAll([x, a, r, c], gameData())
+    const asked = all.served.A.steam.extra
+    expect(asked).toMatchObject({ asked: 600, got: 600 })
+    expect(r6(all.flows.find(f => f.connectionId === 'c-take')!.rate)).toBe(600)
+    expect(r6(all.flows.find(f => f.connectionId === 'c-req')!.requested ?? 0)).toBe(1200)
+  })
+})
+
+describe('a listed extra above a take served in list order (review finding 7)', () => {
+  // A makes 2400 steam at 165 (pinned), 600 of it extra output, and lists [extra, C]. C's take from A is not its first take of steam
+  // (F2), so it is credited in list order. The extra is already off the temperature keys (it sits on `steam[,]`): the grant asks it
+  // there, so the credit of C's take must leave the 165 steam alone (a tie in versatility must not put the extra on the 165 key).
+  it('credits the take what the extra leaves, as the grant gives it', () => {
+    const x = block('X', [['steam', 0]], [])
+    const a: Block = {
+      ...block('A', [['steam', 600]], [node('boil-165', { pinnedRate: 40 })], [{ id: 'c-x', itemId: 'steam', fromBlockId: 'X' }]),
+      servedOrder: { steam: [{ kind: 'extra' }, { kind: 'block', blockId: 'C' }] },
+    }
+    const s0 = block('S0', [['fuel', 1]], [node('boil-500', { pinnedRate: 5 })])
+    const r = block('R', [['steam', 0]], [node('boil-500')])
+    const c = block('C', [['work2', 30]], [node('engine')], [
+      { id: 'c-s0', itemId: 'steam', fromBlockId: 'S0' },
+      { id: 'c-take', itemId: 'steam', fromBlockId: 'A' },
+      { id: 'c-req', itemId: 'steam', fromBlockId: 'R' },
+    ])
+    const all = solveAll([x, a, s0, r, c], gameData())
+    expect(all.served.A.steam.extra).toMatchObject({ asked: 600, got: 600 })
+    const take = all.flows.find(f => f.connectionId === 'c-take')!
+        expect(r6(take.rate)).toBe(1650) // 5 runs of S0 at 500 (150) are credited first
+  })
+})
+
+describe('a cycle of requests with a maxRate on a split fluid (review finding 6)', () => {
+  // B makes 10 work for the goal and 20 work2 (engine, any temperature) and needs the steam of A, whose boilers need work of B: the
+  // demand settles at 1800 steam at 465 or more and 1200 at any temperature. The connection's limit is 2500 for both ranges together.
+  const a = () => block('A', [['steam', 0]], [node('boil-w')], [{ id: 'c-work', itemId: 'work', fromBlockId: 'B' }])
+  const b = () => block('B', [['work', 10], ['work2', 20]], [node('turbine'), node('engine')], [{ id: 'c-steam', itemId: 'steam', fromBlockId: 'A', maxRate: 2500 }])
+  it('never asks more than the limit in all', () => {
+    const all = solveAll([a(), b()], gameData())
+    const f = all.flows.find(x => x.connectionId === 'c-steam')!
+    expect(all.requestLoops).toHaveLength(1)
+    expect(f.requested ?? 0).toBeLessThanOrEqual(2500 + 1e-6)
+    expect(f.parts!.reduce((t, p) => t + (p.requested ?? 0), 0)).toBeLessThanOrEqual(2500 + 1e-6)
   })
 })

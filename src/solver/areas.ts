@@ -1353,7 +1353,8 @@ export function solveAreaBlock(
     const specs = areaItemSpecs(undefined, { relock: new Set() })
     const step = (
       order: AreaOrder, noImport: Set<string>, stepCaps: Map<string, number>, connectionsFirst: Set<string>, stepSpecs: AreaItemSpec[],
-    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order, offerFluidCaps)
+      fluidCaps: ReadonlyMap<string, number> = offerFluidCaps,
+    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order, fluidCaps)
     const base = { defaults: plainDefaults, byproductsFirst }
     const defaultsFirst = new Set([...firstItems, ...plainDefaults])
     const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
@@ -1370,22 +1371,40 @@ export function solveAreaBlock(
     for (const o of step3.outside) {
       if (areaItems.has(o.itemId) && totalCaps.has(o.itemId) && isLocked(o.area, o.itemId) && o.slack <= FLOW_TOLERANCE) relock.add(lockKey(o.itemId, o.area))
     }
-    const fill = (fillCaps: Map<string, number>, connectionsFirst: Set<string>, fillSpecs: AreaItemSpec[]) => boundedStep(looser => step({
+    const fill = (
+      fillCaps: Map<string, number>, connectionsFirst: Set<string>, fillSpecs: AreaItemSpec[], fillFluidCaps?: ReadonlyMap<string, number>,
+    ) => boundedStep(looser => step({
       ...base,
       importCap: boundOf(step2.measured!, step2.measuredTerms!, looser),
       receivedCap: boundOf(step3.measured!, step3.measuredTerms!, looser),
-    }, noImport, fillCaps, connectionsFirst, fillSpecs))
+    }, noImport, fillCaps, connectionsFirst, fillSpecs, fillFluidCaps))
     const fill1 = fill(caps, defaultsFirst, areaItemSpecs(undefined, { relock }))
     if (!fill1) return undefined
     // A Don't make more here item or area has no supply in steps 2 and 3, so its slack is arbitrary there: the fill measured
     // its residual with no supply, and its supply now fills that residual (min(offer, residual), as `pass2Plan`).
     const refillPlain = new Map<string, number>()
+    // A split fluid's supplied keys are bounded together, once per fluid: the offered keys' fit of the range keys' residuals.
+    const refillFluid = new Map<string, number>()
     for (const [itemId, cap] of plainCaps) {
-      // A supplied key's residual is its fluid's: the sum of the slacks of the fluid's range keys.
       const fluid = system.flow?.supply.get(itemId)?.fluid
-      const r = fluid === undefined ? fill1.slack.get(itemId) ?? 0
-        : itemKeys(system, fluid).reduce((t, k) => t + (system.flow!.info.get(k)!.supplied ? 0 : fill1.slack.get(k) ?? 0), 0)
-      if (intermediate(itemId) && byproductsFirst.has(itemId) && r > FLOW_TOLERANCE) refillPlain.set(itemId, Math.min(cap, r))
+      if (fluid === undefined) {
+        const r = fill1.slack.get(itemId) ?? 0
+        if (intermediate(itemId) && byproductsFirst.has(itemId) && r > FLOW_TOLERANCE) refillPlain.set(itemId, Math.min(cap, r))
+        continue
+      }
+      if (!intermediate(itemId) || !byproductsFirst.has(itemId)) continue
+      const plan = keySupplyPlan?.fluids.get(fluid)
+      let r = 0
+      const perRange = new Map<string, number>()
+      for (const k of itemKeys(system, fluid)) {
+        if (system.flow!.info.get(k)!.supplied) continue
+        const slack = fill1.slack.get(k) ?? 0
+        r += slack
+        if (slack > FLOW_TOLERANCE && plan?.rangeKeys.includes(k)) perRange.set(k, slack)
+      }
+      if (r <= FLOW_TOLERANCE) continue
+      refillPlain.set(itemId, cap)
+      refillFluid.set(fluid, Math.min(offerFluidCaps.get(fluid) ?? Infinity, r, plan?.fit(perRange) ?? Infinity))
     }
     const refillAreas = new Map<string, Map<number, number>>()
     for (const o of fill1.outside) {
@@ -1397,6 +1416,7 @@ export function solveAreaBlock(
     if (refillPlain.size === 0 && refillAreas.size === 0) return fill1
     return fill(
       new Map([...caps, ...refillPlain]), new Set([...defaultsFirst, ...refillPlain.keys()]), areaItemSpecs(undefined, { relock, refill: refillAreas }),
+      new Map([...offerFluidCaps, ...refillFluid]),
     )
   }
 
