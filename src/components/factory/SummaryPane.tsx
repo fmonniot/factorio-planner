@@ -311,7 +311,7 @@ export function SummaryPane({
           onDragOver={onReorder ? handleGridDragOver : undefined}
           onDragEnter={onReorder ? handleGridDragEnter : undefined}
           onDragLeave={onReorder ? handleGridDragLeave : undefined}
-          className="max-h-[97px] min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2.5"
+          className={`${pane !== 'ingredients' ? 'max-h-[97px] group-has-[[data-tall=true]]/panes:max-h-[181px]' : 'max-h-[97px]'} min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2.5`}
         >
           <div ref={contentRef} className="flex flex-wrap gap-1">
             {slots.map((slot, index) => (

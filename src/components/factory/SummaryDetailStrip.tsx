@@ -123,7 +123,7 @@ export function SummaryDetailStrip({
       }
     })
     return (
-      <div data-testid="summary-detail" data-state="overview" className={`${root} ${rows.length > 0 ? 'pt-[5px] pb-[3px] gap-[3px]' : 'pt-1.5 pb-1 gap-[5px]'}`}>
+      <div data-testid="summary-detail" data-state="overview" data-tall={tall ? 'true' : undefined} className={`${root} ${rows.length > 0 ? 'pt-[5px] pb-[3px] gap-[3px]' : 'pt-1.5 pb-1 gap-[5px]'}`}>
         <div className="flex items-center justify-between h-5 shrink-0">
           <span className="text-xs font-semibold text-gray-100">Overview</span>
           {rows.length > 0 && (
@@ -177,7 +177,7 @@ export function SummaryDetailStrip({
   const showActions = editable && (actions.length > 0 || !!keyExtra)
 
   return (
-    <div data-testid="summary-detail" data-state={state} className={`${root} pt-[5px] pb-[3px] gap-[3px]`}>
+    <div data-testid="summary-detail" data-state={state} data-tall={tall ? 'true' : undefined} className={`${root} pt-[5px] pb-[3px] gap-[3px]`}>
       <div className="flex items-center gap-2 h-5 shrink-0 min-w-0">
         {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />}
         <span className="text-xs font-semibold text-gray-100 truncate">{itemName}</span>

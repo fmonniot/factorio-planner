@@ -61,6 +61,20 @@ test.describe('summary panes with many items', () => {
     expect(await first.boundingBox()).toEqual(firstBefore)
   })
 
+  test('the Products grid gets the height the Ingredients strip gains when an ingredient is selected', async ({ page }) => {
+    await setup(page)
+    const before = (await grid(page, 'Products').boundingBox())!.height
+    const ownBefore = (await grid(page, 'Ingredients').boundingBox())!.height
+    const ingredient = slots(page, 'Ingredients').first()
+    await ingredient.click()
+    await expect(detail(page, 'Ingredients')).toHaveAttribute('data-tall', 'true')
+    // The strip gains 84px (156 - 72); the Products grid takes it up to its content or its larger cap.
+    await expect.poll(async () => (await grid(page, 'Products').boundingBox())!.height).toBeGreaterThan(before + 40)
+    expect((await grid(page, 'Ingredients').boundingBox())!.height, 'the Ingredients grid keeps its cap').toBe(ownBefore)
+    await ingredient.click()
+    await expect.poll(async () => (await grid(page, 'Products').boundingBox())!.height).toBe(before)
+  })
+
   test('each export segment sits on the slot of its own item', async ({ page }) => {
     await setup(page)
     const productSlots = slots(page, 'Products')
