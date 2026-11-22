@@ -3204,6 +3204,7 @@ describe('solver synthetic cases', () => {
         { temp: { at: 500 }, rate: 1800, available: 3600 },
       ])
       expect(steamImports(all.results.B), 'no steam import').toEqual([])
+      expect(all.results.B.warnings, 'no warning: the connection offers a key that fits').toEqual([])
       expect(nodeOf(all.results.B, T).throughput, 'T').toBeCloseTo(30, 6)
       expect(nodeOf(all.results.B, E).throughput, 'E').toBeCloseTo(30, 6)
     })

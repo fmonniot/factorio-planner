@@ -13,6 +13,7 @@ import type {
   AreaSourceRule,
   Block,
   ConnectionFlow,
+  FluidTag,
   GameData,
   MultiBlockSolve,
   SourceRule,
@@ -520,7 +521,14 @@ export function formatReport(report: InspectReport, options: FormatOptions = {})
 
   const flows = report.flows.filter(f => options.allItems || f.rate > NET_NOISE || f.available > NET_NOISE)
   out.push('', 'Connections (from → to, item, delivered, available, status):')
-  for (const f of flows) out.push(`  ${f.fromBlockId.slice(0, 8)} → ${f.toBlockId.slice(0, 8)}  ${f.itemId}  ${num(f.rate)}  ${num(f.available)}  ${f.status}`)
+  for (const f of flows) {
+    out.push(`  ${f.fromBlockId.slice(0, 8)} → ${f.toBlockId.slice(0, 8)}  ${f.itemId}  ${num(f.rate)}  ${num(f.available)}  ${f.status}`)
+    // A split fluid: what each key carried, delivered / on offer.
+    if (f.parts && f.parts.length > 0) {
+      const label = (t: FluidTag) => fmtFluidTag(t) || ('at' in t ? 'unknown' : 'any')
+      out.push(`    parts: ${f.parts.map(p => `${label(p.temp)} ${num(p.rate)}/${num(p.available)}${p.requested !== undefined ? ` (asked ${num(p.requested)})` : ''}`).join(', ')}`)
+    }
+  }
   if (flows.length === 0) out.push('  none')
 
   if (report.served.length > 0) {

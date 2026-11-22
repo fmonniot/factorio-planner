@@ -160,7 +160,7 @@ export function rangeDepth(range: FluidRange, ranges: readonly FluidRange[]): nu
 }
 
 /** The keys of `map` that belong to `itemId`: a plain item is its own key. */
-export function keysOfItem(map: ReadonlyMap<string, number>, itemId: string): string[] {
+export function keysOfItem(map: ReadonlyMap<string, unknown>, itemId: string): string[] {
   const out: string[] = []
   for (const key of map.keys()) if (key === itemId || parseFlowKey(key).itemId === itemId) out.push(key)
   return out

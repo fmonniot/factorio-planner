@@ -26,8 +26,8 @@ export interface KeyAllocation {
 }
 
 /** The solver rounds each returned value to 1e-8; a lower bound read back from it gets this much room. */
-const LEVEL_REL = 1e-9
-const LEVEL_ABS = 1e-9
+const LEVEL_REL = 1e-12
+const LEVEL_ABS = 2e-8
 /** Two levels closer than this are the same level. */
 const LEVEL_TOL = 1e-6
 
@@ -120,7 +120,8 @@ export function allocateKeys(itemId: string, keys: AllocKey[], groups: AllocMemb
 
   const base = baseModel(keys, members)
   const levels = new Map<string, number>() // frozen members → their level
-  const lowerBound = (v: number): number => Math.max(0, v * (1 - LEVEL_REL) - LEVEL_ABS)
+  let slack = 1
+  const lowerBound = (v: number): number => Math.max(0, v * (1 - LEVEL_REL * slack) - LEVEL_ABS * slack)
 
   for (const group of groups) {
     const active = group.filter(m => (demand.get(m.id) ?? 0) > FLOW_TOLERANCE && (base.cols.get(m.id)?.length ?? 0) > 0)
@@ -173,11 +174,25 @@ export function allocateKeys(itemId: string, keys: AllocKey[], groups: AllocMemb
     }
   }
 
-  // Final: every level held, the least versatile keys.
-  const fin = clone(base)
-  for (const m of members) if (levels.has(m.id)) levelRow(fin, m.id, `hold_${m.id}`, lowerBound(levels.get(m.id)!))
-  for (const col of fin.all) fin.variables[col.name].__obj__ = keys[col.key].versatility
-  const result = runLP('__obj__', fin.constraints, fin.variables)
+  // Final: every level held, the most flow, then the least versatile keys.
+  const finalModel = (): Model => {
+    const fin = clone(base)
+    for (const m of members) if (levels.has(m.id)) levelRow(fin, m.id, `hold_${m.id}`, lowerBound(levels.get(m.id)!))
+    return fin
+  }
+  let fin = finalModel()
+  // A unit of flow pays more than any versatility costs, so the totals are the largest the levels allow (a lower bound with its
+  // rounding room is never used up to save a key), then the keys are the least versatile.
+  const reward = Math.max(...keys.map(k => k.versatility)) + 1
+  for (const col of fin.all) fin.variables[col.name].__obj__ = keys[col.key].versatility - reward
+  let result = runLP('__obj__', fin.constraints, fin.variables)
+  if (result.feasible !== true) {
+    // The levels were read back from a rounded solve: give them more room once.
+    slack = 1e3
+    fin = finalModel()
+    for (const col of fin.all) fin.variables[col.name].__obj__ = keys[col.key].versatility - reward
+    result = runLP('__obj__', fin.constraints, fin.variables)
+  }
   if (result.feasible !== true) return { grants, covered, held }
   const needsOf = new Map(members.map(m => [m.id, m.needs]))
   for (const col of fin.all) {

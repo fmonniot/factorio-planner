@@ -1,4 +1,5 @@
 import type { Block, ConnectionFlow, ServedConsumer, ServedExtra, ServedList } from '../data/types'
+import { flowKey, sumOfItem } from '../data/flowKey'
 import { FLOW_TOLERANCE } from './blockResult'
 import { areaLines, type AreaReport } from './servedAreas'
 import type { ServedRank } from './servedRank'
@@ -23,6 +24,8 @@ export function buildServed(
   rankOf?: (sourceId: string, itemId: string) => ServedRank | undefined,
   takeInfo?: { needs: ReadonlyMap<string, number>; uncredited: ReadonlySet<string>; inListOrder?: ReadonlySet<string> },
   areaReport?: AreaReport,
+  /** A split fluid: what a connection is reserved per flow key (its request's parts or its take's credit); gives a block line its `parts`. */
+  keySharesOf?: (connectionId: string) => ReadonlyMap<string, number> | undefined,
 ): Record<string, Record<string, ServedList>> {
   const bySource = new Map<string, Map<string, ServedConsumer[]>>()
   for (const f of flows) {
@@ -33,6 +36,10 @@ export function buildServed(
     if (!consumers) items.set(f.itemId, (consumers = []))
     if (consumers.some(c => c.blockId === f.toBlockId)) continue
     const consumer: ServedConsumer = { blockId: f.toBlockId, connectionId: f.connectionId, kind: f.kind, share: shareOf(f.connectionId), got: f.rate }
+    if (f.parts) {
+      const shares = keySharesOf?.(f.connectionId)
+      consumer.parts = f.parts.map(p => ({ temp: p.temp, share: shares?.get(flowKey(f.itemId, p.temp)) ?? 0, got: p.rate }))
+    }
     if (takeInfo && f.kind === 'take') {
       const need = takeInfo.needs.get(f.connectionId)
       if (need !== undefined) consumer.need = need
@@ -65,7 +72,7 @@ export function buildServed(
       const extra: ServedExtra = {
         place: place ?? (rank ? Math.min(rank.extraPlace, consumers.length) : consumers.length),
         asked,
-        got: Math.min(asked, left.get(sourceId)?.get(itemId) ?? 0),
+        got: Math.min(asked, sumOfItem(left.get(sourceId), itemId)),
       }
       return [itemId, { consumers, extra }]
     })),

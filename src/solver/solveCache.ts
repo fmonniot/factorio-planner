@@ -31,8 +31,12 @@ export interface RequestLoopSolve {
   shares: Map<string, number>
   /** take connection id → items/min credited, for the members' takes credited more than 0. */
   credits: Map<string, number>
-  /** [take source, item, leftover estimate after the members' takes]. */
+  /** [take source, flow key (the item id for a plain item), leftover estimate after the members' takes]. */
   credited: [string, string, number][]
+  /** A split fluid: request connection id → items/min requested per range key. Optional so a hand-built outcome stays valid. */
+  shareParts?: Map<string, Map<string, number>>
+  /** A split fluid: take connection id → items/min credited per flow key. */
+  creditParts?: Map<string, Map<string, number>>
   /** take connection id → items/min of its member's need still uncovered when the take was reached. */
   needs: Map<string, number>
   /** take connection ids reached before they could be credited. */
