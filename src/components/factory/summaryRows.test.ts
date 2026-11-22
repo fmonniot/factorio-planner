@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { BlockConnection } from '../../data/types'
+import type { BlockConnection, ConnectionFlow, FluidTag } from '../../data/types'
 import { ingredientRows, byproductRows, isLeftover, areaMissingPerMin } from './summaryRows'
 import type { AreaRoute, AreaSourceRule, SubPlan } from '../../data/types'
 
@@ -11,22 +11,86 @@ function unsat(itemId: string, rate: number) {
 }
 
 describe('rows of a split fluid', () => {
-  it('ingredientRows sums the ranges of one item and names the range only when there is one', () => {
-    const one = ingredientRows([], [{ itemId: 'steam', rate: 60, temp: { min: 465 } }], [])
-    expect(one).toMatchObject([{ itemId: 'steam', importPerMin: 60, temp: { min: 465 } }])
-    const two = ingredientRows([], [{ itemId: 'steam', rate: 60, temp: { min: 465 } }, { itemId: 'steam', rate: 30, temp: {} }], [])
-    expect(two).toHaveLength(1)
-    expect(two[0].importPerMin).toBe(90)
-    expect(two[0].temp).toBeUndefined()
+  const flowWith = (parts: { temp: FluidTag; rate: number }[], status: ConnectionFlow['status'] = 'ok'): ConnectionFlow => ({
+    connectionId: 'c1', fromBlockId: 'b1', toBlockId: 'me', itemId: 'steam', available: 99, capped: false,
+    rate: parts.reduce((t, p) => t + p.rate, 0), status, kind: 'take',
+    parts: parts.map(p => ({ ...p, available: p.rate })),
   })
 
-  it('byproductRows keeps one row per flow key', () => {
+  it('ingredientRows makes one row per import range, untagged first', () => {
+    const rows = ingredientRows([], [{ itemId: 'steam', rate: 60, temp: { min: 465 } }, { itemId: 'steam', rate: 30, temp: {} }], [])
+    expect(rows.map(r => r.key)).toEqual(['steam[,]', 'steam[465,]'])
+    expect(rows.map(r => r.importPerMin)).toEqual([30, 60])
+    expect(rows[1].temp).toEqual({ min: 465 })
+  })
+
+  it('adds up imports of the same range and sorts temperatures before ranges', () => {
+    const rows = ingredientRows(
+      [conn({ id: 'c1', itemId: 'steam' })],
+      [{ itemId: 'steam', rate: 5, temp: { min: 465 } }, { itemId: 'steam', rate: 7, temp: { min: 465 } }],
+      [],
+      undefined,
+      new Map([['c1', flowWith([{ temp: { at: 165 }, rate: 10 }])]]),
+    )
+    expect(rows.map(r => r.key)).toEqual(['steam@165', 'steam[465,]'])
+    expect(rows[1].importPerMin).toBe(12)
+  })
+
+  it('places a connection on the row of each key its parts carry', () => {
+    const c = conn({ id: 'c1', itemId: 'steam' })
+    const rows = ingredientRows([c], [], [], undefined, new Map([['c1', flowWith([{ temp: { at: 165 }, rate: 10 }, { temp: { at: 465 }, rate: 20 }])]]))
+    expect(rows.map(r => r.key)).toEqual(['steam@165', 'steam@465'])
+    expect(rows.every(r => r.connections.includes(c))).toBe(true)
+  })
+
+  it('merges a request part into the row of the import range', () => {
+    const c = conn({ id: 'c1', itemId: 'steam' })
+    const rows = ingredientRows([c], [{ itemId: 'steam', rate: 4, temp: { min: 465 } }], [], undefined, new Map([['c1', flowWith([{ temp: { min: 465 }, rate: 20 }])]]))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ key: 'steam[465,]', importPerMin: 4 })
+    expect(rows[0].connections).toEqual([c])
+  })
+
+  it('puts a connection that delivers nothing on the first row of its item', () => {
+    const c = conn({ id: 'c1', itemId: 'steam' })
+    const unused = new Map([['c1', { ...flowWith([{ temp: { at: 165 }, rate: 0 }], 'unused') }]])
+    const rows = ingredientRows([c], [{ itemId: 'steam', rate: 4, temp: { min: 465 } }, { itemId: 'steam', rate: 2, temp: {} }], [], undefined, unused)
+    expect(rows.map(r => r.key)).toEqual(['steam[,]', 'steam[465,]'])
+    expect(rows[0].connections).toEqual([c])
+    expect(rows[1].connections).toEqual([])
+    const alone = ingredientRows([c], [], [], undefined, unused)
+    expect(alone).toMatchObject([{ key: 'steam', connections: [c] }])
+  })
+
+  it('gives a locked split item with no row an untagged one, and locks all its rows otherwise', () => {
+    expect(ingredientRows([], [], ['steam'])).toMatchObject([{ key: 'steam', locked: true }])
+    const rows = ingredientRows([], [{ itemId: 'steam', rate: 4, temp: { min: 465 } }, { itemId: 'steam', rate: 2, temp: {} }], ['steam'])
+    expect(rows.map(r => r.locked)).toEqual([true, true])
+  })
+
+  it('asks for the missing amount of a key row with its temperature', () => {
+    const asked: unknown[] = []
+    ingredientRows([], [{ itemId: 'steam', rate: 4, temp: { min: 465 } }], [], (id, rate, temp) => { asked.push([id, rate, temp]); return undefined })
+    expect(asked).toEqual([['steam', 4, { min: 465 }]])
+  })
+
+  it('keeps the key of a plain item equal to its id', () => {
+    expect(ingredientRows([], [unsat('plate', 3)], [])).toMatchObject([{ key: 'plate', itemId: 'plate' }])
+  })
+
+  it('byproductRows lists the keys of an item together, temperatures ascending', () => {
     const rows = byproductRows([
-      { itemId: 'steam', key: 'steam@165', temp: { at: 165 }, ratePerMin: 10 },
       { itemId: 'steam', key: 'steam@500', temp: { at: 500 }, ratePerMin: 5 },
-    ], ['steam', 'slag'])
-    expect(rows.map(r => r.key)).toEqual(['steam@165', 'steam@500', 'slag'])
-    expect(rows[0].temp).toEqual({ at: 165 })
+      { itemId: 'plate', ratePerMin: 2 },
+      { itemId: 'steam', key: 'steam@165', temp: { at: 165 }, ratePerMin: 10 },
+    ], [])
+    expect(rows.map(r => r.key)).toEqual(['steam@165', 'steam@500', 'plate'])
+  })
+
+  it('byproductRows marks exports per key and makes export-only rows from a key', () => {
+    const rows = byproductRows([{ itemId: 'steam', key: 'steam@500', temp: { at: 500 }, ratePerMin: 5 }], ['steam@165', 'slag'])
+    expect(rows.map(r => [r.key, r.exported])).toEqual([['steam@165', true], ['steam@500', false], ['slag', true]])
+    expect(rows[0]).toMatchObject({ itemId: 'steam', temp: { at: 165 }, leftPerMin: undefined })
   })
 })
 
@@ -41,7 +105,7 @@ describe('ingredientRows', () => {
 
   it('gives a locked item with no import a row of its own', () => {
     const rows = ingredientRows([], [], ['iron-ore'])
-    expect(rows).toEqual([{ itemId: 'iron-ore', connections: [], importPerMin: undefined, locked: true }])
+    expect(rows).toEqual([{ key: 'iron-ore', itemId: 'iron-ore', connections: [], importPerMin: undefined, locked: true }])
   })
 
   it('leaves importPerMin undefined for a fully delivered item', () => {
@@ -166,5 +230,15 @@ describe('areaMissingPerMin', () => {
     const tree = root(sub('L', { gear: { importOff: true } }), sub('B'))
     expect(areaMissingPerMin('plate', 20, { plate: { importOff: true } }, tree, [leg('L', 12)])).toBeUndefined()
     expect(areaMissingPerMin('plate', 20, {}, root(), [])).toBeUndefined()
+  })
+
+  it('counts only the routes of the key asked about', () => {
+    const tree = root(sub('L', { steam: { importOff: true } }), sub('B'))
+    const routes: AreaRoute[] = [
+      { itemId: 'steam', temp: { min: 465 }, to: 'L', rate: 12 },
+      { itemId: 'steam', temp: {}, to: 'L', rate: 5 },
+    ]
+    expect(areaMissingPerMin('steam', 20, {}, tree, routes, { min: 465 })).toBe(12)
+    expect(areaMissingPerMin('steam', 20, {}, tree, routes, {})).toBe(5)
   })
 })

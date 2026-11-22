@@ -36,6 +36,16 @@ export function round3(x: number): number | undefined {
   return Number.isFinite(r) && r >= 0 ? r + 0 : undefined
 }
 
+/** `unsatisfied` summed per item, in order of first appearance, each as a rated item. */
+function mergeImports(
+  unsatisfied: readonly { itemId: string; rate: number }[],
+  withRate: (id: string, r: number) => SnapshotItemRate,
+): SnapshotItemRate[] {
+  const sums = new Map<string, number>()
+  for (const u of unsatisfied) sums.set(u.itemId, (sums.get(u.itemId) ?? 0) + u.rate)
+  return [...sums].map(([id, rate]) => withRate(id, rate))
+}
+
 /** A required rate: three decimals, 0 when the value is unusable. */
 const rate3 = (x: number): number => round3(x) ?? 0
 
@@ -217,7 +227,8 @@ export function projectSnapshot(
       products,
       ...(groups.length > 0 ? { groups } : {}),
       rows,
-      imports: result.unsatisfied.map(u => withRate(u.itemId, u.rate)),
+      // One entry per base item: a split fluid imported over several ranges is one import.
+      imports: mergeImports(result.unsatisfied, withRate),
       ...(error !== undefined ? { error } : {}),
     }
   }

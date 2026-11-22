@@ -3,7 +3,8 @@ import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { FLOW_TOLERANCE } from '../../solver/index'
 import { Icon } from '../Icon'
-import { groupRows, itemGroupMap, matchQuery, type RowMode } from './areaMatrix'
+import { groupRows, itemGroupMap, matchQuery, rowDisplayName, type RowMode } from './areaMatrix'
+import { fmtFluidTag } from '../../data/flowKey'
 import { primaryAreas, type PlanMatrixBlock, type PlanMatrixRow } from './planAreaMatrix'
 import { fmtAmount, fmtAmountUnit, fmtSigned, fmtSignedUnit } from './matrixFormat'
 import { isEnergyItem } from '../../data/electricity'
@@ -23,8 +24,9 @@ export interface AllBlocksMatrixProps {
   onCrossingOnly: (v: boolean) => void
   expandedBlocks: Set<string>
   onToggleBlock: (blockId: string) => void
-  selectedItemId: string | null
-  onSelectItem: (itemId: string) => void
+  /** The flow key of the selected row. */
+  selectedKey: string | null
+  onSelectKey: (key: string) => void
   groupOverrides: Map<string, boolean>
   onToggleGroup: (groupId: string, open: boolean) => void
   closedTails: Set<string>
@@ -38,7 +40,7 @@ const BLOCK_EDGE = 'border-l border-gray-700'
 export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
   const {
     model, gameData, rateUnit, rowMode, query, crossingOnly, onCrossingOnly, expandedBlocks, onToggleBlock,
-    selectedItemId, onSelectItem, groupOverrides, onToggleGroup, closedTails, onToggleTail,
+    selectedKey, onSelectKey, groupOverrides, onToggleGroup, closedTails, onToggleTail,
   } = props
   const groups = useMemo(() => itemGroupMap(gameData), [gameData])
   const blockName = useMemo(() => new Map(model.blocks.map(b => [b.blockId, b.name])), [model.blocks])
@@ -64,7 +66,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
   const isExpanded = (b: PlanMatrixBlock) => b.areas.length > 0 && expandedBlocks.has(b.blockId)
   const colSpan = 1 + columns.reduce((n, b) => n + (isExpanded(b) ? b.areas.length + 1 : b.areas.length > 0 ? 2 : 1), 0) + 1 + (showNotSupplied ? 1 : 0)
 
-  const selected = rows.find(r => r.itemId === selectedItemId)
+  const selected = rows.find(r => r.key === selectedKey)
 
   function areaCell(row: PlanMatrixRow, b: PlanMatrixBlock, areaId: string, edge: boolean) {
     const v = row.areaCells[b.blockId]?.[areaId] ?? 0
@@ -82,15 +84,15 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
 
   function renderRow(row: PlanMatrixRow) {
     const item = gameData.items[row.itemId]
-    const isSel = row.itemId === selectedItemId
+    const isSel = row.key === selectedKey
     const energy = isEnergyItem(row.itemId)
     return (
-      <tr key={row.itemId} data-item-id={row.itemId} className={isSel ? 'bg-teal-500/10' : 'hover:bg-gray-800/40'}>
+      <tr key={row.key} data-item-id={row.itemId} data-flow-key={row.key} className={isSel ? 'bg-teal-500/10' : 'hover:bg-gray-800/40'}>
         <th scope="row" className="sticky left-0 z-10 bg-gray-900 px-2 py-0.5 text-left font-normal border-b border-gray-800">
           <button
             type="button"
             aria-pressed={isSel}
-            onClick={() => onSelectItem(row.itemId)}
+            onClick={() => onSelectKey(row.key)}
             className={`flex items-center gap-2 min-w-0 w-full text-left ${isSel ? 'text-teal-200' : 'text-gray-200 hover:text-white'}`}
           >
             {item?.iconPath ? (
@@ -98,7 +100,12 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
             ) : (
               <span aria-hidden className="w-4 h-4 shrink-0" />
             )}
-            <span className="truncate" title={row.name}>{row.name}</span>
+            <span className="truncate" title={rowDisplayName(row)}>
+              {row.name}
+              {row.temp !== undefined && fmtFluidTag(row.temp) !== '' && (
+                <span data-testid="matrix-row-temperature" className="ml-1 font-mono text-[10px] text-orange-300">{fmtFluidTag(row.temp)}</span>
+              )}
+            </span>
           </button>
         </th>
         {columns.map(b => {
@@ -185,7 +192,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
               >
                 {tailOpen
                   ? 'Show fewer'
-                  : `+ ${g.tail.length} more, ${fmtAmountUnit(g.tail[0].total, rateUnit, isEnergyItem(g.tail[0].itemId))} and below: ${g.tail.slice(0, 4).map(r => r.name).join(', ')}${g.tail.length > 4 ? '…' : ''}`}
+                  : `+ ${g.tail.length} more, ${fmtAmountUnit(g.tail[0].total, rateUnit, isEnergyItem(g.tail[0].itemId))} and below: ${g.tail.slice(0, 4).map(rowDisplayName).join(', ')}${g.tail.length > 4 ? '…' : ''}`}
               </button>
             </td>
           </tr>
@@ -297,8 +304,8 @@ function Inspector({ row, blockName, blocks, rateUnit }: {
   const energy = isEnergyItem(row.itemId)
   const name = (id: string) => blockName.get(id) ?? id
   return (
-    <section aria-label={`${row.name} across blocks`} className="m-3 rounded border border-gray-700 p-3 text-xs text-gray-300 flex flex-col gap-1">
-      <h3 className="text-sm font-semibold text-gray-100">{row.name} across blocks</h3>
+    <section aria-label={`${rowDisplayName(row)} across blocks`} className="m-3 rounded border border-gray-700 p-3 text-xs text-gray-300 flex flex-col gap-1">
+      <h3 className="text-sm font-semibold text-gray-100">{rowDisplayName(row)} across blocks</h3>
       {blocks.map(b => {
         const net = row.net[b.blockId] ?? 0
         if (net === 0) return null

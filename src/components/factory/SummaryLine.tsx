@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { GameData } from '../../data/types'
+import { fmtFluidTag } from '../../data/flowKey'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import { useHoverPopup } from '../useHoverPopup'
@@ -63,7 +64,9 @@ const CHIP_TONE: Record<SummaryPaneKind, Exclude<ChipTone, 'neutral'>> = {
 
 function LineChip({ pane, slot, items, rateUnit }: { pane: SummaryPaneKind; slot: SlotModel; items: GameData['items']; rateUnit: RateUnit }) {
   const item = items[slot.itemId]
-  const name = item?.name ?? slot.itemId
+  const label = fmtFluidTag(slot.temp)
+  const baseName = item?.name ?? slot.itemId
+  const name = label ? `${baseName} ${label}` : baseName
   const { shown, actual, short, hasGoal } = lineRate(pane, slot)
   const text = (perMin: number) => fmtItemRateText(slot.itemId, perMin / 60, rateUnit)
   const title = slot.empty
@@ -77,7 +80,8 @@ function LineChip({ pane, slot, items, rateUnit }: { pane: SummaryPaneKind; slot
     <IconChip
       iconPath={item?.iconPath || undefined}
       alt={name}
-      fallback={name}
+      fallback={baseName}
+      corner={label ? <span data-testid="summary-line-temperature">{label}</span> : undefined}
       quantity={slot.empty ? '—' : fmtChipQuantity(slot.itemId, shown / 60, rateUnit)}
       quantityTestId="summary-line-quantity"
       tone={CHIP_TONE[pane]}
@@ -130,7 +134,8 @@ function LineMore({ pane, label, slots, hiddenCount, items, rateUnit }: {
           <ul>
             {slots.map(slot => {
               const item = items[slot.itemId]
-              const name = item?.name ?? slot.itemId
+              const label = fmtFluidTag(slot.temp)
+              const name = label ? `${item?.name ?? slot.itemId} ${label}` : (item?.name ?? slot.itemId)
               const { shown, actual, short } = lineRate(pane, slot)
               const text = (perMin: number) => fmtItemRateText(slot.itemId, perMin / 60, rateUnit)
               return (

@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor, act, cleanup } from '@testing-library/react'
 import { BlockGraphButton } from './BlockGraph'
 import { useBlockStore, makeEmptyBlock, makeEmptySubPlan, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
-import type { Block, ConnectionFlow, GameData, Product, SolverResult } from '../../data/types'
+import type { Block, ConnectionFlow, ConnectionPart, GameData, Product, SolverResult } from '../../data/types'
 
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
@@ -454,6 +454,30 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(screen.getByTestId('graph-edge-label').getAttribute('title')).toMatch(/^Limited by this connection's limit/)
+    })
+  })
+
+  describe('parts of a split fluid', () => {
+    const titleWith = (parts: ConnectionPart[] | undefined) => {
+      setup({ connected: true, flow: { rate: 30, available: 50, ...(parts ? { parts } : {}) } })
+      render(<BlockGraphButton />)
+      open()
+      return screen.getByTestId('graph-edge-label').getAttribute('title')!
+    }
+    it('lists the parts of a connection that carries two', () => {
+      const title = titleWith([
+        { temp: { at: 165 }, rate: 20, available: 30 },
+        { temp: { at: 465 }, rate: 10, available: 10 },
+      ])
+      expect(title).toMatch(/ — carries 20\.0\/m at 165°C \(of 30\.0\/m offered\), 10\.0\/m at 465°C$/)
+    })
+    it('names a single labelled part', () => {
+      expect(titleWith([{ temp: { min: 465 }, rate: 30, available: 30 }])).toMatch(/ — carries 30\.0\/m at ≥465°C$/)
+    })
+    it('says nothing for one unlabelled part or a plain flow', () => {
+      expect(titleWith([{ temp: { at: null }, rate: 30, available: 30 }])).not.toMatch(/carries/)
+      cleanup()
+      expect(titleWith(undefined)).not.toMatch(/carries/)
     })
   })
 

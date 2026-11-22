@@ -136,7 +136,7 @@ export const SnapshotBlockSchema = z.strictObject({
   groups: z.array(SnapshotGroupSchema).optional(),
   /** The plan's recipe rows in table order, whether or not the block solved. */
   rows: z.array(SnapshotRowSchema),
-  /** What must come from outside the block, in the solver's `unsatisfied` order. */
+  /** What must come from outside the block: one entry per base item, summed over ranges, in order of first appearance in the solver's `unsatisfied`. */
   imports: z.array(SnapshotItemRateSchema),
   /** The solver's message when this block's solve failed; then its rows carry no solved values and `imports` is the result's, which the solver leaves empty. */
   error: z.string().optional(),

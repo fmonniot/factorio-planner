@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { AllBlocksMatrix, type AllBlocksMatrixProps } from './AllBlocksMatrix'
 import type { PlanMatrixRow } from './planAreaMatrix'
 import type { GameData } from '../../data/types'
@@ -13,7 +13,7 @@ const gameData = {
 
 // Block A leaves 600 units/min (10 MW); 300 are taken by B, 300 are not taken.
 const row: PlanMatrixRow = {
-  itemId: ELEC, name: 'Electricity', groupId: 'power',
+  key: ELEC, itemId: ELEC, name: 'Electricity', groupId: 'power',
   net: { A: 600, B: -300 }, areaCells: {},
   delivered: 300, notTaken: 300, notSupplied: 0, total: 600,
   flows: [{
@@ -40,8 +40,8 @@ function renderMatrix(over: Partial<AllBlocksMatrixProps> = {}) {
       onCrossingOnly={vi.fn()}
       expandedBlocks={new Set()}
       onToggleBlock={vi.fn()}
-      selectedItemId={null}
-      onSelectItem={vi.fn()}
+      selectedKey={null}
+      onSelectKey={vi.fn()}
       groupOverrides={new Map()}
       onToggleGroup={vi.fn()}
       closedTails={new Set()}
@@ -62,11 +62,42 @@ describe('AllBlocksMatrix power units', () => {
   })
 
   it('words the inspector in power units', () => {
-    const { container } = renderMatrix({ selectedItemId: ELEC })
+    const { container } = renderMatrix({ selectedKey: ELEC })
     const text = container.textContent ?? ''
     expect(text).toContain('Alpha +10.0MW leaves the block')
     expect(text).toContain('Alpha → Bravo: 5.0MW')
     expect(text).toContain('5.0MW is not taken by any block')
     expect(text).not.toContain('/m')
+  })
+})
+
+describe('AllBlocksMatrix rows of a split fluid', () => {
+  const steamRow = (key: string, temp: PlanMatrixRow['temp'], total: number): PlanMatrixRow => ({
+    key, itemId: 'steam', temp, name: 'Steam', groupId: 'power',
+    net: { A: total }, areaCells: {}, delivered: 0, notTaken: total, notSupplied: 0, total, flows: [],
+  })
+  const model = {
+    blocks: [{ blockId: 'A', name: 'Alpha', color: '#111111', areas: [] }],
+    rows: [steamRow('steam@165', { at: 165 }, 60), steamRow('steam@465', { at: 465 }, 30)],
+  }
+  const gd = {
+    ...gameData,
+    items: { ...gameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid', iconPath: '', subgroup: 'power' } },
+  } as unknown as GameData
+
+  it('renders one row per key with its label', () => {
+    renderMatrix({ model, gameData: gd })
+    const rows = [...document.querySelectorAll('tr[data-item-id="steam"]')]
+    expect(rows.map(r => r.getAttribute('data-flow-key'))).toEqual(['steam@165', 'steam@465'])
+    expect(rows.map(r => r.querySelector('[data-testid="matrix-row-temperature"]')?.textContent)).toEqual(['165°C', '465°C'])
+  })
+
+  it('selects a key and names the inspector after it', () => {
+    const onSelectKey = vi.fn()
+    renderMatrix({ model, gameData: gd, onSelectKey })
+    fireEvent.click(document.querySelector('tr[data-flow-key="steam@465"] button')!)
+    expect(onSelectKey).toHaveBeenCalledWith('steam@465')
+    renderMatrix({ model, gameData: gd, selectedKey: 'steam@465' })
+    expect(screen.getByRole('region', { name: 'Steam 465°C across blocks' })).toBeTruthy()
   })
 })

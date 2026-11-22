@@ -1,10 +1,11 @@
-import type { Block, ConnectionFlow, GameData, SolverResult } from '../../data/types'
-import { sumByItem } from '../../data/flowKey'
+import type { Block, ConnectionFlow, FluidTag, GameData, SolverResult } from '../../data/types'
+import { parseFlowKey } from '../../data/flowKey'
+import { flowAtKey, flowShares } from './flowParts'
 import { FLOW_TOLERANCE, grossFlow, netBalance, surplusTolerance } from '../../solver/index'
-import { blockMatrix, itemGroupOf, type MatrixArea } from './areaMatrix'
+import { blockMatrix, compareTempKeys, itemGroupOf, type MatrixArea } from './areaMatrix'
 
 // ---------------------------------------------------------------------------
-// The plan-level matrix: items as rows, blocks as columns. A block's net is its boundary balance
+// The plan-level matrix: flow keys (a plain item is its own key; a split fluid has a key per temperature or range) as rows, blocks as columns. A block's net is its boundary balance
 // (`netBalance` of its solved nodes, the quantity the solver offers to other blocks, before any
 // discard of byproducts); its area cells are the area nets of the block's own matrix, so with a
 // discarded byproduct the area cells may not add up to the net.
@@ -19,8 +20,14 @@ export interface PlanMatrixBlock {
 }
 
 export interface PlanMatrixRow {
+  /** Unique within the matrix: the flow key of a split fluid's temperature or range, the item id otherwise. */
+  key: string
+  /** The base item. */
   itemId: string
+  /** The base item's name; `rowDisplayName` adds the temperature. */
   name: string
+  /** A split fluid's temperature or range. */
+  temp?: FluidTag
   groupId: string
   /** blockId -> signed boundary net (+ leaves the block, − enters it) */
   net: Record<string, number>
@@ -30,7 +37,7 @@ export interface PlanMatrixRow {
   notTaken: number
   notSupplied: number
   total: number
-  /** the active flows of this item */
+  /** the active flows of this key: for a split fluid each connection's part at the key */
   flows: ConnectionFlow[]
 }
 
@@ -48,49 +55,53 @@ export function planMatrix(
   const active = flows.filter(isActive)
   const withNodes = blocks.filter(b => (results[b.id]?.nodes.length ?? 0) > 0)
 
-  const nets = new Map<string, Map<string, number>>() // blockId -> itemId -> net (tolerance applied)
-  const cells = new Map<string, Record<string, Record<string, number>>>() // blockId -> itemId -> areaId -> v
+  const nets = new Map<string, Map<string, number>>() // blockId -> flow key -> net (tolerance applied)
+  const cells = new Map<string, Record<string, Record<string, number>>>() // blockId -> flow key -> areaId -> v
   const matrices = new Map<string, MatrixArea[]>()
   for (const b of withNodes) {
     const result = results[b.id]
-    // The matrix is per item: a split fluid's keys add up to its net.
-    const gross = sumByItem(grossFlow(result.nodes, result.conversions))
+    const gross = grossFlow(result.nodes, result.conversions)
     const net = new Map<string, number>()
-    for (const [itemId, v] of sumByItem(netBalance(result.nodes, result.conversions))) {
-      if (Math.abs(v) > surplusTolerance(gross.get(itemId) ?? 0)) net.set(itemId, v)
+    for (const [key, v] of netBalance(result.nodes, result.conversions)) {
+      if (Math.abs(v) > surplusTolerance(gross.get(key) ?? 0)) net.set(key, v)
     }
     nets.set(b.id, net)
     const m = blockMatrix(b, result, gameData, machines)
     matrices.set(b.id, m?.areas ?? [])
-    const byItem: Record<string, Record<string, number>> = {}
-    for (const r of m?.rows ?? []) byItem[r.itemId] = r.cells
-    cells.set(b.id, byItem)
+    const byKey: Record<string, Record<string, number>> = {}
+    for (const r of m?.rows ?? []) byKey[r.key] = r.cells
+    cells.set(b.id, byKey)
   }
 
   const flowsOf = new Map<string, ConnectionFlow[]>()
   for (const f of active) {
-    const list = flowsOf.get(f.itemId)
-    if (list) list.push(f)
-    else flowsOf.set(f.itemId, [f])
+    for (const share of flowShares(f)) {
+      if (share.rate <= FLOW_TOLERANCE) continue
+      const at = flowAtKey(f, share.key)!
+      const list = flowsOf.get(share.key)
+      if (list) list.push(at)
+      else flowsOf.set(share.key, [at])
+    }
   }
 
   const ends = new Set(active.flatMap(f => [f.fromBlockId, f.toBlockId]))
   const shown = opts.crossingOnly ? blocks.filter(b => ends.has(b.id)) : withNodes
   const shownIds = new Set(shown.map(b => b.id))
 
-  const itemIds = new Set<string>()
+  const keys = new Set<string>()
   if (opts.crossingOnly) {
-    for (const [itemId, list] of flowsOf) if (list.reduce((n, f) => n + f.rate, 0) > FLOW_TOLERANCE) itemIds.add(itemId)
+    for (const [key, list] of flowsOf) if (list.reduce((n, f) => n + f.rate, 0) > FLOW_TOLERANCE) keys.add(key)
   } else {
     for (const b of shown) {
-      for (const itemId of nets.get(b.id)?.keys() ?? []) itemIds.add(itemId)
-      for (const itemId of Object.keys(cells.get(b.id) ?? {})) itemIds.add(itemId)
+      for (const key of nets.get(b.id)?.keys() ?? []) keys.add(key)
+      for (const key of Object.keys(cells.get(b.id) ?? {})) keys.add(key)
     }
   }
 
   const rows: PlanMatrixRow[] = []
-  for (const itemId of itemIds) {
-    const itemFlows = flowsOf.get(itemId) ?? []
+  for (const key of keys) {
+    const { itemId, tag } = parseFlowKey(key)
+    const itemFlows = flowsOf.get(key) ?? []
     const delivered = itemFlows.reduce((n, f) => n + f.rate, 0)
     let pos = 0
     let neg = 0
@@ -99,16 +110,18 @@ export function planMatrix(
     // Not taken and not supplied count every block with a solve, shown or not, so they do not depend on
     // the crossing filter; only the shown blocks get a column.
     for (const b of withNodes) {
-      const v = nets.get(b.id)?.get(itemId) ?? 0
+      const v = nets.get(b.id)?.get(key) ?? 0
       if (v > 0) pos += v
       else if (v < 0) neg -= v
       if (!shownIds.has(b.id)) continue
       if (v !== 0) net[b.id] = v
-      const c = cells.get(b.id)?.[itemId]
+      const c = cells.get(b.id)?.[key]
       if (c) areaCells[b.id] = c
     }
     rows.push({
+      key,
       itemId,
+      ...(tag ? { temp: tag } : {}),
       name: gameData.items[itemId]?.name ?? itemId,
       groupId: itemGroupOf(itemId, gameData, machines).id,
       net,
@@ -120,7 +133,7 @@ export function planMatrix(
       flows: itemFlows,
     })
   }
-  rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+  rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name) || compareTempKeys(a, b))
 
   return {
     blocks: shown.map(b => ({ blockId: b.id, name: b.name, color: b.color, areas: matrices.get(b.id) ?? [] })),

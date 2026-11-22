@@ -2604,6 +2604,7 @@ describe('FactorySummary — opening an Ingredients slot on request', () => {
     open('slag')
     expect(ingredientIds()).toEqual(['iron-ore'])
     expect(strip('Ingredients')).not.toHaveAttribute('data-state', 'selected')
+    expect(within(pane('Ingredients')).queryAllByTestId('summary-slot').filter(x => x.getAttribute('aria-pressed') === 'true')).toEqual([])
     expect(within(pane('Ingredients')).queryByTestId('comes-from')).not.toBeInTheDocument()
   })
 
@@ -2992,5 +2993,148 @@ describe('FactorySummary — Served order', () => {
     expect(screen.getByTestId('served-order-popover')).toBeInTheDocument()
     act(() => useBlockStore.setState({ activeBlockId: 'b' }))
     expect(screen.queryByTestId('served-order-popover')).toBeNull()
+  })
+})
+
+describe('FactorySummary — a split fluid per temperature and range', () => {
+  const steamData = () => ({ ...mockGameData, items: { ...mockGameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false } } }) as unknown as GameData
+  const node = (id: string, extra: Partial<SolverResult['nodes'][number]>): SolverResult['nodes'][number] =>
+    ({ recipeNodeId: id, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, ...extra })
+  const steamFlow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
+    connectionId: 'c1', fromBlockId: 'boilers', toBlockId: 'me', itemId: 'steam',
+    available: 50, capped: false, rate: 30, status: 'ok', kind: 'take', ...over,
+  })
+
+  /** The active block 'me' takes steam from 'boilers' and has `result`; `flows` are the solver's flows. */
+  function setup(result: SolverResult, opts: { products?: Product[]; connected?: boolean; flows?: ConnectionFlow[] } = {}) {
+    const me: Block = {
+      ...makeEmptyBlock('Me'), id: 'me', products: opts.products ?? [ironGoal],
+      inputConnections: opts.connected ? [{ id: 'c1', itemId: 'steam', fromBlockId: 'boilers' }] : [],
+    }
+    const boilers: Block = { ...makeEmptyBlock('Boilers'), id: 'boilers' }
+    useBlockStore.setState({ blocks: [me, boilers], activeBlockId: 'me', history: {} })
+    useUiStore.setState({ rateUnit: 'min', summaryCollapsed: false, connectionMenu: null, ingredientSlotRequest: null })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: steamData(), sourceId: 'test' } })
+    useSolverStore.setState({
+      status: { type: 'idle' }, lastResult: result, lastResults: { me: result }, flows: opts.flows ?? [], served: {}, _setStatus: () => {},
+    })
+  }
+  const slotNames = (paneName: string) =>
+    within(pane(paneName)).getAllByTestId('summary-slot').map(s => s.getAttribute('aria-label')?.split(',')[0])
+  const importResult = (): SolverResult => ({
+    nodes: [node('n1', { outputRates: { 'iron-plate': 60 }, inputRates: { steam: 90 }, inputTags: { steam: { min: 465 } } })],
+    unsatisfied: [{ itemId: 'steam', rate: 60, temp: { min: 465 } }, { itemId: 'steam', rate: 30, temp: {} }],
+    warnings: [],
+  })
+
+  it('shows one Ingredients slot per import range, the untagged one first', () => {
+    setup(importResult())
+    render(<FactorySummary />)
+    expect(slotNames('Ingredients')).toEqual(['Steam', 'Steam ≥465°C'])
+    expect(within(pane('Ingredients')).getAllByTestId('summary-slot').map(s => s.getAttribute('data-item-id'))).toEqual(['steam', 'steam'])
+  })
+
+  it('gives a connection one slot per part, each with its own source amount', () => {
+    setup(
+      { nodes: [node('n1', { outputRates: { 'iron-plate': 60 } })], unsatisfied: [], warnings: [] },
+      {
+        connected: true,
+        flows: [steamFlow({ parts: [{ temp: { at: 165 }, rate: 10, available: 20 }, { temp: { at: 465 }, rate: 20, available: 30 }] })],
+      },
+    )
+    render(<FactorySummary />)
+    expect(slotNames('Ingredients')).toEqual(['Steam 165°C', 'Steam 465°C'])
+    select('Ingredients', 'Steam 465°C')
+    expect(segments('Ingredients', 'source')).toHaveLength(1)
+    expect(entryText(segments('Ingredients', 'source')[0])).toContain('20.0')
+  })
+
+  it('sorts the byproducts by temperature and puts an export on the key its part carries', () => {
+    setup(
+      {
+        nodes: [
+          node('n1', { outputRates: { 'iron-plate': 60, steam: 60 }, outputTags: { steam: { at: 500 } } }),
+          node('n2', { outputRates: { steam: 40 }, outputTags: { steam: { at: 165 } } }),
+        ],
+        unsatisfied: [], warnings: [],
+      },
+      { flows: [steamFlow({ fromBlockId: 'me', toBlockId: 'boilers', rate: 20, parts: [{ temp: { at: 500 }, rate: 20, available: 60 }] })] },
+    )
+    render(<FactorySummary />)
+    expect(slotNames('Byproducts')).toEqual(['Steam 165°C', 'Steam 500°C'])
+    select('Byproducts', 'Steam 165°C')
+    expect(segments('Byproducts', 'export')).toHaveLength(0)
+    select('Byproducts', 'Steam 500°C')
+    expect(segments('Byproducts', 'export')).toHaveLength(1)
+    expect(segments('Byproducts', 'left')).toHaveLength(1)
+  })
+
+  it('opens the connection menu of the item from a range slot', () => {
+    setup(importResult())
+    render(<FactorySummary />)
+    select('Ingredients', 'Steam ≥465°C')
+    fireEvent.click(within(strip('Ingredients')).getByRole('button', { name: 'Receive from…' }))
+    expect(useUiStore.getState().connectionMenu?.itemId).toBe('steam')
+  })
+
+  it('selects the first slot of the item for a request to show it', () => {
+    setup(importResult())
+    render(<FactorySummary />)
+    act(() => useUiStore.getState().openIngredientSlot('steam'))
+    expect(within(pane('Ingredients')).getAllByTestId('summary-slot').map(s => s.getAttribute('aria-pressed'))).toEqual(['true', 'false'])
+  })
+
+  it('shows no byproduct slot for a product, and counts every temperature it leaves in the product', () => {
+    setup(
+      {
+        nodes: [
+          node('n1', { outputRates: { steam: 30 }, outputTags: { steam: { at: 465 } } }),
+          node('n2', { outputRates: { steam: 60 }, outputTags: { steam: { at: 165 } } }),
+        ],
+        unsatisfied: [], warnings: [],
+      },
+      { products: [{ id: 'g1', itemId: 'steam', extraRate: 30 }] },
+    )
+    render(<FactorySummary />)
+    expect(within(pane('Byproducts')).queryAllByTestId('summary-slot')).toHaveLength(0)
+    expect(within(pane('Products')).getByRole('button', { name: /^Steam, 90\.0 per minute/ })).toBeInTheDocument()
+    expect(within(pane('Products')).queryByTestId('summary-slot-temperature')).toBeNull()
+  })
+
+  it('lists the strip header with the label', () => {
+    setup(importResult())
+    render(<FactorySummary />)
+    select('Ingredients', 'Steam ≥465°C')
+    expect(within(strip('Ingredients')).getByText('Steam ≥465°C')).toBeInTheDocument()
+  })
+
+  describe('collapsed', () => {
+    const proto = HTMLElement.prototype
+    const savedWidth = Object.getOwnPropertyDescriptor(proto, 'clientWidth')
+    afterEach(() => {
+      if (savedWidth) Object.defineProperty(proto, 'clientWidth', savedWidth)
+      else delete (proto as unknown as Record<string, unknown>).clientWidth
+    })
+    const withRoom = (px: number) => Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => px })
+
+    it('labels a chip in its corner', () => {
+      setup(importResult())
+      useUiStore.setState({ summaryCollapsed: true })
+      withRoom(300)
+      render(<FactorySummary />)
+      const chips = within(pane('Ingredients')).getAllByTestId('summary-line-chip')
+      expect(chips).toHaveLength(2)
+      expect(within(pane('Ingredients')).getByTestId('summary-line-temperature')).toHaveTextContent('≥465°C')
+      expect(chips[1]).toHaveAttribute('aria-label', expect.stringContaining('Steam ≥465°C'))
+    })
+
+    it('names the label in the +N list', () => {
+      setup(importResult())
+      useUiStore.setState({ summaryCollapsed: true })
+      withRoom(0)
+      render(<FactorySummary />)
+      fireEvent.click(within(pane('Ingredients')).getByTestId('summary-line-more'))
+      expect(within(screen.getByTestId('summary-line-popup')).getByText('Steam ≥465°C')).toBeInTheDocument()
+    })
   })
 })

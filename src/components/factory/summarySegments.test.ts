@@ -38,6 +38,7 @@ const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
 const conn = (id: string, fromBlockId: string): BlockConnection => ({ id, itemId: 'iron-plate', fromBlockId })
 
 const ingredientRow = (over: Partial<IngredientRow> = {}): IngredientRow => ({
+  key: over.itemId ?? 'iron-plate',
   itemId: 'iron-plate',
   connections: [],
   importPerMin: undefined,
@@ -140,6 +141,32 @@ describe('byproductSlot', () => {
     ])
     expect(shape(slot.segments)).toEqual([['to:X', 4], ['to:Y', 6], ['left', 5]])
     expect(slot.scale).toBe(15)
+  })
+})
+
+describe('ingredientSlot on a key row of a split fluid', () => {
+  const blocks = new Set(['A'])
+  const steamFlow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => flow({
+    itemId: 'steam', rate: 30, available: 50,
+    parts: [{ temp: { at: 165 }, rate: 10, available: 20 }, { temp: { at: 465 }, rate: 20, available: 30 }],
+    ...over,
+  })
+  const steamRow = (over: Partial<IngredientRow> = {}): IngredientRow => ({
+    key: 'steam@465', itemId: 'steam', temp: { at: 465 }, connections: [{ id: 'c1', itemId: 'steam', fromBlockId: 'A' }],
+    importPerMin: undefined, locked: false, ...over,
+  })
+
+  it('is identified by the flow key and carries the part of the connection, not its total', () => {
+    const slot = ingredientSlot(steamRow(), new Map([['c1', steamFlow()]]), blocks)
+    expect(slot).toMatchObject({ id: 'steam@465', itemId: 'steam', temp: { at: 465 } })
+    expect(slot.segments).toMatchObject([{ kind: 'source', amount: 20, available: 30 }])
+  })
+
+  it('falls back to the whole flow for a connection with no part at the key', () => {
+    const unused = steamFlow({ status: 'unused', rate: 0 })
+    const slot = ingredientSlot(steamRow({ key: 'steam[,]', temp: {} }), new Map([['c1', unused]]), blocks)
+    expect(slot.id).toBe('steam[,]')
+    expect(slot.overlays).toMatchObject([{ kind: 'unused', connectionId: 'c1' }])
   })
 })
 

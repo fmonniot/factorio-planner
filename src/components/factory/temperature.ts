@@ -1,4 +1,5 @@
-import type { GameData, Recipe, SolverWarning } from '../../data/types'
+import type { FluidTag, GameData, Recipe, SolverWarning } from '../../data/types'
+import { fmtFluidTag } from '../../data/flowKey'
 import { fmtTemperatureRange, fmtTemperatureValue } from '../../data/temperature'
 
 export { fmtTemperatureRange, fmtTemperatureValue }
@@ -79,4 +80,11 @@ export function fmtConnectionTemperature(
       return `${item} from ${sourceName(c.connectionId)} is ${offered}, but this block needs ${item.toLowerCase()} at ${needed}.`
     })
     .join(' ')
+}
+
+/** How a connection's part names its temperature: "165°C", "≥465°C", "unknown temperature" or "any temperature". */
+export function fmtPartTemp(tag: FluidTag): string {
+  const label = fmtFluidTag(tag)
+  if (label !== '') return label
+  return 'at' in tag ? 'unknown temperature' : 'any temperature'
 }

@@ -1,6 +1,7 @@
 import type { ConnectionFlow, FluidTag, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { FLOW_TOLERANCE, surplusTolerance } from '../../solver/index'
+import { flowAtKey } from './flowParts'
 import { fmtPower } from './ItemTile'
 import { isEnergyItem } from '../../data/electricity'
 import { possessive } from './productChangeText'
@@ -301,7 +302,9 @@ export function ingredientSlot(
   const segments: Segment[] = []
   const overlays: Overlay[] = []
   for (const c of row.connections) {
-    const flow = flows.get(c.id)
+    const full = flows.get(c.id)
+    // A split fluid's row takes the connection's part at its key; a connection with none keeps the whole flow.
+    const flow = full && (flowAtKey(full, row.key) ?? full)
     const key = `from:${c.fromBlockId}`
     const status = flow?.status ?? (blockIds.has(c.fromBlockId) ? undefined : 'missing-source')
     // No flow for an existing source: the first solve has not landed yet.
@@ -343,7 +346,7 @@ export function ingredientSlot(
 
   const need = sum(segments)
   return {
-    id: row.itemId,
+    id: row.key,
     itemId: row.itemId,
     ...(row.temp !== undefined ? { temp: row.temp } : {}),
     rate: need,

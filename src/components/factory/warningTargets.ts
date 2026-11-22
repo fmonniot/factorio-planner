@@ -1,6 +1,7 @@
 import { blockAreas } from '../../solver/areas'
 import type { SolverWarning, SubPlan, GameData } from '../../data/types'
 import { areaName } from '../../data/subPlanTree'
+import { rangeOf } from '../../data/flowKey'
 import type { ConnectionLink } from './temperature'
 
 /** Where a warning's link goes: a row of the active block, or another block. */
@@ -41,6 +42,20 @@ function areaTargets(rootPlan: SubPlan, entries: { areaId: string }[]): WarningT
   })
 }
 
+/** A link per block a `connection-temperature` warning's connections take from. */
+function connectionSources(
+  w: Extract<SolverWarning, { type: 'connection-temperature' }>,
+  connections: readonly ConnectionLink[],
+  blockName: (id: string) => string,
+): WarningTarget[] {
+  const sources = new Set(w.connections.flatMap(c => connections.find(x => x.id === c.connectionId)?.fromBlockId ?? []))
+  return [...sources].map(id => ({ kind: 'block', label: `Go to ${blockName(id)}`, blockId: id }))
+}
+
+function sameRange(a: { min?: number; max?: number }, b: { min?: number; max?: number }): boolean {
+  return a.min === b.min && a.max === b.max
+}
+
 /**
  * The links of a warning, in the order the warning names them: the first row of each recipe it
  * names (the first one of the area for an area's duplicate), the handle row of each area, or each
@@ -54,15 +69,11 @@ export function warningTargets(
   activeBlockId?: string,
   connections: readonly ConnectionLink[] = [],
 ): WarningTarget[] {
-  if (w.type === 'connection-temperature') {
-    const sources = new Set(w.connections.flatMap(c => connections.find(x => x.id === c.connectionId)?.fromBlockId ?? []))
-    return [...sources].map(id => ({ kind: 'block', label: `Go to ${blockName(id)}`, blockId: id }))
-  }
   if (w.type === 'loop-not-converged' || w.type === 'request-loop-not-converged') {
     // The block that is open already shows its own rows: a link to it would do nothing.
     return w.blockIds.filter(id => id !== activeBlockId).map(id => ({ kind: 'block', label: `Go to ${blockName(id)}`, blockId: id }))
   }
-  if (!rootPlan) return []
+  if (!rootPlan) return w.type === 'connection-temperature' ? connectionSources(w, connections, blockName) : []
   const rows = collectRows(rootPlan)
   const recipeTarget = (recipeId: string, areaId?: string): WarningTarget[] => {
     // Without areas (a stale warning, or the area is gone) the whole block is searched.
@@ -73,6 +84,20 @@ export function warningTargets(
     return [{ kind: 'row', label: `Go to ${gameData.recipes[recipeId]?.name ?? recipeId}`, nodeId: row.id }]
   }
   switch (w.type) {
+    case 'connection-temperature': {
+      // The source blocks, then each recipe of this block that takes the fluid over a range the connection could not meet.
+      const blockLinks = connectionSources(w, connections, blockName)
+      const recipeIds: string[] = []
+      for (const c of w.connections) {
+        for (const row of rows) {
+          const takes = gameData.recipes[row.recipeId]?.ingredients.some(
+            ing => ing.itemId === c.itemId && c.needed.some(n => sameRange(rangeOf(ing), n)),
+          )
+          if (takes && !recipeIds.includes(row.recipeId)) recipeIds.push(row.recipeId)
+        }
+      }
+      return [...blockLinks, ...uniqueRows(recipeIds.flatMap(id => recipeTarget(id)))]
+    }
     case 'duplicate-recipe': return recipeTarget(w.recipeId, w.areaId)
     case 'infeasible-pins': return uniqueRows(w.recipeIds.flatMap(id => recipeTarget(id)))
     case 'temperature-mismatch': return recipeTarget(w.recipeId)

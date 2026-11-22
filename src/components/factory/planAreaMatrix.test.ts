@@ -49,6 +49,44 @@ function setup() {
 }
 const machines = new Set<string>()
 
+describe('planMatrix of a split fluid', () => {
+  const steamData = (): GameData => {
+    const gd = makeGameData()
+    gd.items.steam = { id: 'steam', name: 'Steam', type: 'fluid', iconPath: '', hidden: false, subgroup: '', order: '' } as GameData['items'][string]
+    return gd
+  }
+  const steamNode = (over: Partial<SolvedNode>): SolvedNode => ({ ...node({}), ...over })
+  const steamFlow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => flow({
+    itemId: 'steam', rate: 666, available: 720,
+    parts: [{ temp: { at: 465 }, rate: 666, available: 720 }], ...over,
+  })
+  const blocks = [block('A', 'Alpha'), block('B', 'Bravo')]
+  const results = (consumer: SolvedNode, conversions: SolverResult['conversions']): Record<string, SolverResult> => ({
+    A: { nodes: [steamNode({ outputRates: { steam: 720 }, outputTags: { steam: { at: 465 } } })], unsatisfied: [], warnings: [] },
+    B: { nodes: [consumer], unsatisfied: [], warnings: [], ...(conversions ? { conversions } : {}) },
+  })
+
+  it('makes one row per key and counts a part at its own key', () => {
+    const consumer = steamNode({ inputRates: { steam: 666 }, inputTags: { steam: { min: 465 } } })
+    const r = results(consumer, [{ itemId: 'steam', from: { at: 465 }, to: { min: 465 }, rate: 666, supplied: true }])
+    const m = planMatrix(blocks, r, [steamFlow()], steamData(), machines, { crossingOnly: false })
+    expect(m.rows.map(x => x.key)).toEqual(['steam@465'])
+    expect(m.rows[0]).toMatchObject({ itemId: 'steam', temp: { at: 465 }, delivered: 666, notTaken: 54, notSupplied: 0 })
+    expect(m.rows[0].net).toEqual({ A: 720, B: -666 })
+    expect(m.rows[0].flows).toMatchObject([{ rate: 666, available: 720 }])
+    const only = planMatrix(blocks, r, [steamFlow()], steamData(), machines, { crossingOnly: true })
+    expect(only.rows.map(x => x.key)).toEqual(['steam@465'])
+  })
+
+  it('leaves an unmatched range import not supplied on its own row', () => {
+    const consumer = steamNode({ inputRates: { steam: 50 }, inputTags: { steam: { min: 465 } } })
+    const m = planMatrix(blocks, results(consumer, undefined), [], steamData(), machines, { crossingOnly: false })
+    expect(m.rows.map(x => x.key)).toEqual(['steam@465', 'steam[465,]'])
+    expect(m.rows[1]).toMatchObject({ temp: { min: 465 }, delivered: 0, notSupplied: 50, notTaken: 0 })
+    expect(m.rows[0]).toMatchObject({ notTaken: 720, notSupplied: 0 })
+  })
+})
+
 describe('planMatrix', () => {
   it('computes not taken and not supplied from the nets and the delivered flow', () => {
     const { blocks, results } = setup()

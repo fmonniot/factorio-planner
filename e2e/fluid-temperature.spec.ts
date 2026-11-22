@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { detail, pane, selectSlot, slot } from './support/summary'
 
 /** One Seablock block: 12.5% semiheavy water (needs ≤30°C and ≥95°C fluids) plus the enriched H2S recipe (needs 125–165°C steam). */
 const FIXTURE = path.resolve('e2e/fixtures/fluid-temperature-seablock.json')
@@ -36,7 +37,7 @@ test('a steam turbine on boiler steam imports steam at ≥465°C without a warni
 
   // The block imports the steam at the range the turbine accepts, and nothing is wrong with that.
   await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
-  await expect(page.locator('[data-testid="summary-slot"][data-item-id="steam"] [data-testid="summary-slot-temperature"]')).toHaveText('≥465°C')
+  await expect(pane(page, 'Ingredients').locator('[data-testid="summary-slot"][data-item-id="steam"] [data-testid="summary-slot-temperature"]')).toHaveText('≥465°C')
 })
 
 test('a steam engine on boiler steam raises no warning', async ({ page }) => {
@@ -71,4 +72,44 @@ test('a burner reactor 2 under a heat exchanger 4 raises no warning', async ({ p
   await page.locator('[data-testid="block-tab"] button[aria-label="Hot enough"]').click()
   await expect(page.locator('main [aria-label^="Heat (≥765°C)"]').first()).toBeVisible()
   await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+})
+
+/**
+ * Three Seablock blocks. "Pinned" runs a carbon boiler at 1 execution/min (60 steam/min at 165°C, nobody takes it) beside a steam
+ * turbine (needs ≥465°C), so it imports steam at ≥465°C and keeps the 165°C steam as a byproduct. "Hot steam" makes 465°C steam
+ * (bob boiler 3) for "Turbines", which requests it over a connection.
+ */
+// Kept in a subfolder: `legacyParity.test.ts` solves every plan directly in e2e/fixtures and records it in its golden file.
+const FLOWS_FIXTURE = path.resolve('e2e/fixtures/not-in-golden/fluid-temperature-flows-seablock.json')
+const HOT_STEAM_TO_TURBINES = 'eeee0003-c000-0000-0000-000000000001'
+
+test('a boiler pinned at 165°C feeding a turbine shows a steam 165°C byproduct and a steam ≥465°C import', async ({ page }) => {
+  await loadPlanFixture(page, FLOWS_FIXTURE, 'kompetenz-seablock')
+  await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
+
+  const byproduct = slot(page, 'Byproducts', 'Steam 165°C')
+  const ingredient = slot(page, 'Ingredients', 'Steam ≥465°C')
+  await expect(byproduct.getByTestId('summary-slot-temperature')).toHaveText('165°C')
+  await expect(ingredient.getByTestId('summary-slot-temperature')).toHaveText('≥465°C')
+  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Collapse summary' }).click()
+  await expect(pane(page, 'Byproducts').getByTestId('summary-line-temperature')).toHaveText('165°C')
+  await expect(pane(page, 'Ingredients').getByTestId('summary-line-temperature')).toHaveText('≥465°C')
+})
+
+test('a connection delivering 465°C steam shows no import and its tooltip lists the part', async ({ page }) => {
+  await loadPlanFixture(page, FLOWS_FIXTURE, 'kompetenz-seablock')
+  await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
+  await page.locator('[data-testid="block-tab"] button[aria-label="Turbines"]').click()
+
+  await expect(pane(page, 'Ingredients').getByTestId('summary-slot')).toHaveCount(1)
+  await selectSlot(page, 'Ingredients', 'Steam ≥465°C')
+  await expect(detail(page, 'Ingredients').locator('[data-kind="source"]')).toHaveCount(1)
+  await expect(detail(page, 'Ingredients').locator('[data-kind="import"]')).toHaveCount(0)
+  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Block graph' }).click()
+  const chip = page.locator(`[data-testid="graph-edge-label"][data-connection-id="${HOT_STEAM_TO_TURBINES}"]`)
+  await expect(chip).toHaveAttribute('title', /carries .* at ≥465°C/)
 })

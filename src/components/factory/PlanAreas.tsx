@@ -46,7 +46,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
   const [closedTails, setClosedTails] = useState<Set<string>>(() => new Set())
   const [crossingOnly, setCrossingOnly] = useState(true)
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(() => new Set([activeBlockId]))
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
 
   const machines = useMemo(() => machineItemIds(gameData), [gameData])
   const block = tab === ALL ? undefined : withAreas.find(b => b.id === tab)
@@ -67,7 +67,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
     setTab(next)
     setFocusedAreaId(null)
     setShowAllAreas(false)
-    setSelectedItemId(null)
+    setSelectedKey(null)
     setGroupOverrides(new Map())
     setClosedTails(new Set())
   }
@@ -180,8 +180,8 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
             if (!next.delete(id)) next.add(id)
             return next
           })}
-          selectedItemId={selectedItemId}
-          onSelectItem={id => setSelectedItemId(cur => (cur === id ? null : id))}
+          selectedKey={selectedKey}
+          onSelectKey={id => setSelectedKey(cur => (cur === id ? null : id))}
           groupOverrides={groupOverrides}
           onToggleGroup={toggleGroup}
           closedTails={closedTails}

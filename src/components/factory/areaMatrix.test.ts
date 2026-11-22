@@ -1,16 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import {
-  areaContents, blockMatrix, cancels, groupTotal, totalRows, flowOrder, focusArea, groupRows, itemGroupOf, matchQuery,
+  areaContents, blockMatrix, rowDisplayName, cancels, groupTotal, totalRows, flowOrder, focusArea, groupRows, itemGroupOf, matchQuery,
   MACHINES_GROUP, OTHER_GROUP, OUTSIDE, type BlockMatrix, type ItemGroupInfo, type MatrixRow, type PairFlow,
 } from './areaMatrix'
 import { makeEmptyBlock } from '../../store/blockStore'
-import type { Block, GameData, SolvedArea, SolverResult, SubPlan } from '../../data/types'
+import type { Block, FluidTag, GameData, SolvedArea, SolverResult, SubPlan } from '../../data/types'
 
 function makeGameData(): GameData {
   return {
     factorioVersion: '2.0.0',
     modSet: {},
     items: {
+      steam: { id: 'steam', name: 'Steam', type: 'fluid', iconPath: '', hidden: false, subgroup: 'fluids', order: '' },
       h2: { id: 'h2', name: 'Hydrogen', type: 'fluid', iconPath: '', hidden: false, subgroup: 'fluids', order: '' },
       plate: { id: 'plate', name: 'Plate', type: 'item', iconPath: '', hidden: false, subgroup: 'orphan', order: '' },
       drill: { id: 'drill', name: 'Drill', type: 'item', iconPath: '', hidden: false, subgroup: 'fluids', order: '', placeResult: 'drill-entity' },
@@ -125,7 +126,7 @@ describe('blockMatrix', () => {
 })
 
 const row = (cells: Record<string, number>, fromOutside = 0, toOutside = 0, pairs: PairFlow[] = []): MatrixRow => ({
-  itemId: 'x', name: 'X', groupId: 'g', cells, fromOutside, toOutside,
+  key: 'x', itemId: 'x', name: 'X', groupId: 'g', cells, fromOutside, toOutside,
   total: Object.values(cells).filter(v => v > 0).reduce((a, b) => a + b, 0) + fromOutside,
   pairs,
 })
@@ -141,6 +142,54 @@ function matrixOf(areaIds: string[], rows: MatrixRow[]): BlockMatrix {
     rows,
   }
 }
+
+describe('blockMatrix of a split fluid', () => {
+  const steam = (rate: number, temp?: FluidTag) => ({ itemId: 'steam', rate, boundary: false, ...(temp ? { temp } : {}) })
+  const r: SolverResult = {
+    ...result([
+      { areaId: 'root', receives: [], sends: [steam(30, { at: 165 })] },
+      { areaId: 'A', receives: [steam(10, { min: 465 }), steam(5, { at: 165 })], sends: [] },
+    ]),
+    areaRoutes: [
+      { itemId: 'steam', temp: { at: 165 }, from: 'root', to: 'A', rate: 5 },
+      { itemId: 'steam', temp: { min: 465 }, to: 'A', rate: 10 },
+    ],
+  }
+  const m = blockMatrix(makeBlock(), r, makeGameData(), machines)!
+
+  it('makes one row per key, in total order, with the tag', () => {
+    expect(m.rows.map(x => [x.key, x.itemId, x.temp])).toEqual([
+      ['steam@165', 'steam', { at: 165 }],
+      ['steam[465,]', 'steam', { min: 465 }],
+    ])
+    expect(m.rows[0].cells).toEqual({ root: 30, A: -5 })
+    expect(m.rows[1].cells).toEqual({ A: -10 })
+    expect(m.rows[1].fromOutside).toBeCloseTo(10)
+  })
+
+  it('keeps the pairs of each key apart', () => {
+    expect(m.rows[0].pairs).toEqual([pf('root', 'A', 5)])
+    expect(m.rows[1].pairs).toEqual([pf(OUTSIDE, 'A', 10)])
+  })
+
+  it('keys the counterparts of a focus by flow key', () => {
+    const v = focusArea(m, 'A')
+    expect(v.counterpart['steam@165'].root).toBeCloseTo(5)
+    expect(v.counterpart['steam[465,]'][OUTSIDE]).toBeCloseTo(10)
+    expect(v.counterpart.steam).toBeUndefined()
+  })
+
+  it('keeps a plain item key equal to its id', () => {
+    const plain = blockMatrix(makeBlock(), result([{ areaId: 'root', receives: [], sends: [f('h2', 3)] }]), makeGameData(), machines)!
+    expect(plain.rows[0]).toMatchObject({ key: 'h2', itemId: 'h2' })
+    expect(plain.rows[0].temp).toBeUndefined()
+  })
+
+  it('names a keyed row with its label', () => {
+    expect(rowDisplayName(m.rows[1])).toBe('Steam ≥465°C')
+    expect(rowDisplayName({ name: 'Plate' })).toBe('Plate')
+  })
+})
 
 describe('flowOrder', () => {
   it('puts senders before receivers', () => {
@@ -243,12 +292,12 @@ describe('groupRows', () => {
   })
 })
 
-const r2b = { ...row({ A: 5, B: -5 }, 0, 0, [pf('A', 'B', 5)]), itemId: 'two' }
+const r2b = { ...row({ A: 5, B: -5 }, 0, 0, [pf('A', 'B', 5)]), itemId: 'two', key: 'two' }
 
 describe('focusArea', () => {
-  const r1 = { ...row({ A: 30, B: -10, C: -20 }, 0, 0, [pf('A', 'B', 10), pf('A', 'C', 20)]), itemId: 'one' }
-  const r2 = { ...row({ B: 5, C: -5 }, 0, 0, [pf('B', 'C', 5)]), itemId: 'two' }
-  const r3 = { ...row({ A: 4, C: -4 }, 0, 0, [pf('A', 'C', 4)]), itemId: 'three' }
+  const r1 = { ...row({ A: 30, B: -10, C: -20 }, 0, 0, [pf('A', 'B', 10), pf('A', 'C', 20)]), itemId: 'one', key: 'one' }
+  const r2 = { ...row({ B: 5, C: -5 }, 0, 0, [pf('B', 'C', 5)]), itemId: 'two', key: 'two' }
+  const r3 = { ...row({ A: 4, C: -4 }, 0, 0, [pf('A', 'C', 4)]), itemId: 'three', key: 'three' }
   const m = matrixOf(['A', 'B', 'C', 'D'], [r1, r2, r3])
 
   it('keeps the rows of the area and the counterparts', () => {
@@ -260,14 +309,14 @@ describe('focusArea', () => {
   })
 
   it('follows the routes: C gets 20 from A and nothing from B', () => {
-    const two = { ...row({ A: 20, B: 10, C: -20, D: -10 }, 0, 0, [pf('A', 'C', 20), pf('B', 'D', 10)]), itemId: 'x2' }
+    const two = { ...row({ A: 20, B: 10, C: -20, D: -10 }, 0, 0, [pf('A', 'C', 20), pf('B', 'D', 10)]), itemId: 'x2', key: 'x2' }
     const v = focusArea(matrixOf(['A', 'B', 'C', 'D'], [two]), 'C')
     expect(v.counterpart.x2).toEqual({ A: 20 })
     expect(v.tradingAreaIds).toEqual(['A'])
   })
 
   it('summarises the trades, the outside last', () => {
-    const out = { ...row({ A: 10 }, 0, 10, [pf('A', OUTSIDE, 10)]), itemId: 'out' }
+    const out = { ...row({ A: 10 }, 0, 10, [pf('A', OUTSIDE, 10)]), itemId: 'out', key: 'out' }
     const v = focusArea(matrixOf(['A', 'B'], [out, r1]), 'A')
     expect(v.trades.at(-1)?.partyId).toBe(OUTSIDE)
     const toB = v.trades.find(t => t.partyId === 'B')!
@@ -279,7 +328,7 @@ describe('focusArea', () => {
   })
 
   it('keeps electricity apart from the item rates of a trade', () => {
-    const elec = { ...row({ A: 600, B: -600 }, 0, 0, [pf('A', 'B', 600)]), itemId: 'power:electricity' }
+    const elec = { ...row({ A: 600, B: -600 }, 0, 0, [pf('A', 'B', 600)]), itemId: 'power:electricity', key: 'power:electricity' }
     const v = focusArea(matrixOf(['A', 'B'], [r2b, elec]), 'A')
     const toB = v.trades.find(t => t.partyId === 'B')!
     expect(toB).toMatchObject({ items: 2, inRate: 0, outRate: 5, inEnergy: 0, outEnergy: 600 })
@@ -288,8 +337,8 @@ describe('focusArea', () => {
   })
 
   it('orders the trades by item rate, then by energy', () => {
-    const elec = { ...row({ A: 600, B: -600, C: 0 }, 0, 0, [pf('A', 'B', 600)]), itemId: 'power:electricity' }
-    const item = { ...row({ A: 5, C: -5 }, 0, 0, [pf('A', 'C', 5)]), itemId: 'it' }
+    const elec = { ...row({ A: 600, B: -600, C: 0 }, 0, 0, [pf('A', 'B', 600)]), itemId: 'power:electricity', key: 'power:electricity' }
+    const item = { ...row({ A: 5, C: -5 }, 0, 0, [pf('A', 'C', 5)]), itemId: 'it', key: 'it' }
     const v = focusArea(matrixOf(['A', 'B', 'C'], [elec, item]), 'A')
     expect(v.trades.map(t => t.partyId)).toEqual(['C', 'B'])
   })
@@ -316,12 +365,12 @@ describe('a relay (an area that receives an item and sends it on)', () => {
 })
 
 describe('focusArea trade lines', () => {
-  const item = (itemId: string, name: string, pairs: PairFlow[]) => ({ ...row({}, 0, 0, pairs), itemId, name })
+  const item = (itemId: string, name: string, pairs: PairFlow[]) => ({ ...row({}, 0, 0, pairs), itemId, key: itemId, name })
 
   it('lists what is traded with a partner, with its direction', () => {
     const one = { ...item('one', 'One', [pf('A', 'B', 10)]), cells: { A: 10, B: -10 } }
     const v = focusArea(matrixOf(['A', 'B'], [one]), 'A')
-    expect(v.trades.find(t => t.partyId === 'B')!.lines).toEqual([{ itemId: 'one', name: 'One', direction: 'out', rate: 10, energy: false }])
+    expect(v.trades.find(t => t.partyId === 'B')!.lines).toEqual([{ key: 'one', itemId: 'one', name: 'One', direction: 'out', rate: 10, energy: false }])
   })
 
   it('lists the outside in both directions', () => {
@@ -366,6 +415,24 @@ describe('areaContents', () => {
   })
 })
 
+describe('keys of one item', () => {
+  type R = { itemId: string; name: string; total: number; groupId: string; temp?: FluidTag }
+  const steam = (temp: FluidTag | undefined, total = 5): R => ({ itemId: 'steam', name: 'Steam', total, groupId: 'g', ...(temp ? { temp } : {}) })
+  const rows = [steam({ min: 465 }), steam({ at: 500 }), steam(undefined), steam({ at: 165 })]
+  const order = ['', '165', '500', '≥465']
+  const labels = (rs: R[]) => rs.map(r => (r.temp ? rowDisplayName(r).replace('Steam ', '').replace('°C', '') : ''))
+
+  it('orders untagged first, then temperatures, then ranges, in name mode', () => {
+    const g = groupRows(rows, 'name', new Map(), { collapseTail: false })[0]
+    expect(labels(g.rows)).toEqual(order)
+  })
+
+  it('orders them the same in rate mode at equal totals', () => {
+    const g = groupRows([...rows].reverse(), 'rate', new Map(), { collapseTail: false })[0]
+    expect(labels(g.rows)).toEqual(order)
+  })
+})
+
 describe('matchQuery', () => {
   const rows = [
     { itemId: 'h', name: 'Hydrogen' },
@@ -373,6 +440,15 @@ describe('matchQuery', () => {
   ]
   const cols = [{ id: 'c1', names: ['Compression', 'Oxide'] }, { id: 'c2', names: ['Chlorides'] }]
   const has = (r: { itemId: string }, c: string) => (c === 'c1' ? r.itemId === 'h' : r.itemId === 'o')
+
+  it('matches the display name with its temperature or range', () => {
+    const steam = [
+      { itemId: 'steam', name: 'Steam', temp: { min: 465 } as FluidTag },
+      { itemId: 'steam', name: 'Steam', temp: { at: 165 } as FluidTag },
+    ]
+    expect(matchQuery('≥465', steam, [], () => false)!.rows).toEqual([steam[0]])
+    expect(matchQuery('steam 165', steam, [], () => false)!.rows).toEqual([steam[1]])
+  })
 
   it('returns everything for an empty query', () => {
     expect(matchQuery('  ', rows, cols, has)).toEqual({ rows, columnIds: null })
@@ -410,7 +486,7 @@ describe('matchQuery', () => {
 
 describe('groupTotal', () => {
   const row = (itemId: string, cells: Record<string, number>): MatrixRow =>
-    ({ itemId, name: itemId, groupId: 'g', cells, fromOutside: 0, toOutside: 0, total: 1, pairs: [] })
+    ({ key: itemId, itemId, name: itemId, groupId: 'g', cells, fromOutside: 0, toOutside: 0, total: 1, pairs: [] })
   const focus = (counterpart: Record<string, Record<string, number>>) =>
     ({ areaId: 'B', rows: [], counterpart, tradingAreaIds: [], trades: [] })
 
@@ -458,7 +534,7 @@ describe('totalRows', () => {
 
 describe('groupTotal with energy', () => {
   const row = (itemId: string, cells: Record<string, number>): MatrixRow =>
-    ({ itemId, name: itemId, groupId: 'g', cells, fromOutside: 0, toOutside: 0, total: 1, pairs: [] })
+    ({ key: itemId, itemId, name: itemId, groupId: 'g', cells, fromOutside: 0, toOutside: 0, total: 1, pairs: [] })
 
   it('sums an electricity-only group in power units', () => {
     expect(groupTotal([row('power:electricity', { A: 600 })], 'A', null)).toEqual({ kind: 'net', t: 600, energy: true })
