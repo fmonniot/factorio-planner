@@ -50,7 +50,7 @@ const BYPRODUCT_CONSUMER_HINT =
   'Absorbs byproduct: runs only to consume surplus from other recipes and never imports what it absorbs. Rows that only feed it run along with it. Right-click the row to stop absorbing.'
 
 const FEEDER_HINT =
-  'Feeds an absorbing row: runs only to supply a row that absorbs a byproduct, and runs only as much as that row does. Stop absorbing on that row to make this one an ordinary row.'
+  'Feeds an absorbing row: runs only to supply a row that absorbs a byproduct, or a row marked to feed one, and runs only as much as that row does. Stop absorbing on that row to make this one an ordinary row.'
 
 const MARKED_FEEDER_HINT =
   'Feeds absorbing rows: besides what other rows use, it runs for the rows that absorb a byproduct, as much as they need. Right-click the row to stop feeding them.'
@@ -627,13 +627,13 @@ export function RecipeRow({
       label: isByproductConsumer ? 'Stop absorbing byproduct' : 'Absorb byproduct',
       onSelect: handleToggleByproductConsumer,
     },
-    ...(!isByproductConsumer && (!isPinned || isMarkedFeeder)
+    ...((!isByproductConsumer && !isPinned) || isMarkedFeeder
       ? [{
         label: isMarkedFeeder ? 'Stop feeding absorbing rows' : 'Feed absorbing rows',
         onSelect: () => updateNodeAbsorberFeeder(planNode.id, !isMarkedFeeder),
       }]
       : []),
-    ...(!isByproductConsumer && !isMarkedFeeder
+    ...(!isByproductConsumer && (!isMarkedFeeder || isPinned)
       ? [{ label: isPinned ? 'Unpin rate' : 'Pin rate', onSelect: isPinned ? handleUnpin : handlePin }]
       : []),
     {

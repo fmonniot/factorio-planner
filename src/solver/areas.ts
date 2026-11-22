@@ -1376,7 +1376,7 @@ export function solveAreaBlock(
   // Pins that cannot be met make the flows meaningless for this check.
   const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
     goals: plan.goals, system, throughput, slack: lp.slack, itemSurplus, itemGross,
-    fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.chain]), noImportItems: cannotImport, recipeOf: id => recipeOfCol.get(id) ?? id,
+    fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.absorberOnly]), noImportItems: cannotImport, recipeOf: id => recipeOfCol.get(id) ?? id,
     mainItemOf: id => mainItemOfCol.get(id),
   })
   if (coproductDriven) warnings.push(coproductDriven)
@@ -1405,7 +1405,7 @@ export function solveAreaBlock(
       }
     }
     const needed = (area: number, itemId: string) => columns.some(col =>
-      col.area === area && !lp.absorbers.chain.has(col.id) && (system.S.get(itemId)?.get(col.id) ?? 0) < 0 &&
+      col.area === area && !lp.absorbers.absorberOnly.has(col.id) && (system.S.get(itemId)?.get(col.id) ?? 0) < 0 &&
       [...neededItems].some(id => (system.S.get(id)?.get(col.id) ?? 0) > 0))
     const cut: { area: number; itemId: string }[] = []
     for (const itemId of pairItems) {

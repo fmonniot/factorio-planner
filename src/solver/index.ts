@@ -345,7 +345,7 @@ export function solveBlock(
   // Pins that cannot be met make the flows meaningless for this check.
   const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
     goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, itemSurplus, itemGross,
-    fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.chain]), noImportItems: cannotImport, recipeOf: id => id,
+    fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.absorberOnly]), noImportItems: cannotImport, recipeOf: id => id,
     mainItemOf: id => mainItemOfRecipe.get(id),
   })
   if (coproductDriven) warnings.push(coproductDriven)

@@ -651,6 +651,18 @@ describe('RecipeRow context menu', () => {
     expect(screen.queryByRole('menuitem', { name: /pin rate/i })).not.toBeInTheDocument()
   })
 
+  it('a pinned marked row can be unpinned, and a marked absorber row can still stop feeding', () => {
+    const { unmount } = renderRow({ planNode: { ...ironPlateRecipeNode, absorberFeeder: true, pinnedRate: 5 } })
+    openMenu()
+    expect(screen.getByRole('menuitem', { name: 'Unpin rate' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Stop feeding absorbing rows' })).toBeInTheDocument()
+    unmount()
+    renderRow({ planNode: { ...ironPlateRecipeNode, absorberFeeder: true, byproductConsumer: true } })
+    openMenu()
+    expect(screen.getByRole('menuitem', { name: 'Stop feeding absorbing rows' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /pin rate/i })).not.toBeInTheDocument()
+  })
+
   it('an absorber row and a pinned row have no Feed absorbing rows item', () => {
     const bc: RecipeNode = { ...ironPlateRecipeNode, byproductConsumer: true }
     const { unmount } = renderRow({ planNode: bc })

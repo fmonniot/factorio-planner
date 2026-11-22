@@ -167,6 +167,7 @@ describe('absorberRoles', () => {
       expect(ids(roles.live), 'live').toEqual(['A', 'H', 'K'])
       expect(roles.feederCost.has('H'), 'H costs feederCost').toBe(true)
       expect(roles.feederCost.has('K'), 'K costs feederCost').toBe(true)
+      expect(ids(roles.absorberOnly), 'absorberOnly leaves the marked H out').toEqual(['A', 'K'])
     })
 
     it('13: a pinned marked row is ignored', () => {

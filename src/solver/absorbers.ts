@@ -20,6 +20,11 @@ export interface AbsorberRoles {
    * feeder for a rewarded row to stay rewarded.
    */
   noSupply: ReadonlySet<string>
+  /**
+   * The chain rows that run only for an absorber: the flagged columns and the unmarked feeders. A marked feeder also runs for
+   * ordinary rows, so diagnostics that ask "what drives this row" treat it as an ordinary row.
+   */
+  absorberOnly: ReadonlySet<string>
 }
 
 export interface AbsorberInputs {
@@ -185,5 +190,6 @@ export function absorberRoles(
     }
     feederCost.set(id, CHAIN_COST * (1 + taken / (taken + made)))
   }
-  return { chain, rewarded, live, feederCost, noSupply }
+  const absorberOnly = new Set([...chain].filter(id => !marked.has(id)))
+  return { chain, rewarded, live, feederCost, noSupply, absorberOnly }
 }

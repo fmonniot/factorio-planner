@@ -2910,7 +2910,7 @@ describe('solver synthetic cases', () => {
         flag('case23-saw-wood'), planNode('case23-make-saw'), plate, planNode('case23-grow'), planNode('case23-use-plate'),
       ]
 
-      it('l: d with Feed absorbing rows on the plate row', () => {
+      it('l: d2 (only S flagged) with Feed absorbing rows on the plate row', () => {
         const r = solveRows([...GOAL, ['case23-gadget', 4]], rows(mark('case23-make-plate')))
         expect(nodeOf(r, 'case23-grow').throughput, 'grow').toBeCloseTo(10, 6)
         expect(nodeOf(r, 'case23-saw-wood').throughput, 'saw-wood').toBeCloseTo(20, 6)
@@ -2925,11 +2925,12 @@ describe('solver synthetic cases', () => {
         expect(feeders(r), 'feeders').toEqual(['case23-make-plate', 'case23-make-saw'])
       })
 
-      it('m: l with the plate row pinned at 1 is d', () => {
+      it('m: l with the plate row pinned at 1 behaves as d', () => {
         const r = solveRows([...GOAL, ['case23-gadget', 4]], rows(mark('case23-make-plate', { pinnedRate: 1 })))
         expect(nodeOf(r, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(1, 6)
         expect(nodeOf(r, 'case23-saw-wood').throughput, 'saw-wood').toBeCloseTo(0, 6)
         expect(nodeOf(r, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(0, 6)
+        expect(nodeOf(r, 'case23-use-plate').throughput, 'use-plate').toBeCloseTo(4, 6)
         const over = r.warnings.find(w => w.type === 'overconstrained')
         expect(over?.type === 'overconstrained' ? over.surplusItems.map(i => [i.itemId, i.rate]) : undefined, 'tree is left over').toEqual([[TREE, 20]])
         expect(feeders(r), 'feeders').toEqual([])
