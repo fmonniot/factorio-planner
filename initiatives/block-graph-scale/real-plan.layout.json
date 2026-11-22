@@ -1,0 +1,808 @@
+{
+ "blocks": [
+  {
+   "id": "8f5ab53b-b90e-471e-a669-a34faf5f812c",
+   "name": "Sciences",
+   "color": "#86efac",
+   "connections": [
+    {
+     "id": "e8ba3040-42dc-44e3-b0ea-82d83e546b8a",
+     "itemId": "bob-basic-circuit-board",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "9b38c022-942f-4370-a907-821df7ebaa15",
+     "itemId": "electronic-circuit",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "2258e5b0-eef2-46d4-9b95-582650a24ce7",
+     "itemId": "advanced-circuit",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "6a9876c7-627a-4c30-8098-d1dab881c9cb",
+     "itemId": "processing-unit",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "c52064f3-d11a-43a1-bc1a-cf8c2312177e",
+     "itemId": "bob-integrated-electronics",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "7243f01d-25ee-439c-bf07-27f13b065d4a",
+     "itemId": "angels-roll-iron",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "f2495196-d79c-4349-9f8f-ac6a7cc14047",
+     "itemId": "angels-roll-copper",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "17d4ba8f-7351-4bd3-a126-26639fcc30fb",
+     "itemId": "angels-roll-tin",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "06905684-b018-4c5b-9ac5-9b84255611ff",
+     "itemId": "angels-roll-lead",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "aefd6da0-4892-4029-8d61-fc29cb474c21",
+     "itemId": "angels-wire-coil-tin",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "49f21649-0680-48fb-a83c-63e62a057fcd",
+     "itemId": "angels-roll-silver",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "3bd8bcdd-138f-4593-b080-1ba515a0390f",
+     "itemId": "angels-roll-aluminium",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "2595918b-1ee8-47be-981d-c22f954bf4b8",
+     "itemId": "angels-roll-steel",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "56acda12-f9b0-4b0a-9e3a-b9869d50f1f4",
+     "itemId": "bob-invar-alloy",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "1bd3895e-cf7d-4770-9bc2-5486c9b30934",
+     "itemId": "bob-brass-alloy",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "ea48052c-cb21-41a8-a007-c53aa323c5a7",
+     "itemId": "angels-wire-coil-copper",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "54477a46-3e58-4014-b8fd-9aff4aa36d55",
+     "itemId": "angels-roll-solder",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "cc393a45-23a9-450a-9794-f3ed6f172ded",
+     "itemId": "angels-roll-gold",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "064261d3-e67c-4915-b1cc-ea7febc6cf5b",
+     "itemId": "angels-roll-titanium",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "56d51054-f188-44ce-965b-d4700a18ecfc",
+     "itemId": "bob-cobalt-steel-alloy",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "22155b01-4944-41ba-ae81-942bae7b41dd",
+     "itemId": "angels-mono-silicon",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "dde83aac-1e14-438d-97fa-d7bfbf9c5ada",
+     "itemId": "bob-glass",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "d0b9055c-71c0-4db9-855d-be323e7b8758",
+     "itemId": "angels-solid-paper",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    },
+    {
+     "id": "28e83a66-c3f2-42e6-98f5-469d0407a8a7",
+     "itemId": "angels-wood-charcoal",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    },
+    {
+     "id": "affa6d36-2809-48ab-af81-37ecd1845f40",
+     "itemId": "angels-gas-oxygen",
+     "fromBlockId": "3b7529b4-549b-4c41-89f4-a0126b4024f7"
+    },
+    {
+     "id": "c4703332-c790-4e1d-8694-13350925949a",
+     "itemId": "angels-liquid-naphtha",
+     "fromBlockId": "f4fd90bb-fd13-4859-8eb6-a869b6530a19"
+    },
+    {
+     "id": "d822069c-76b0-4cdb-b366-234933e69784",
+     "itemId": "angels-liquid-fuel-oil",
+     "fromBlockId": "f4fd90bb-fd13-4859-8eb6-a869b6530a19"
+    },
+    {
+     "id": "f44b44df-09ee-4d41-979e-cb2618fe4b17",
+     "itemId": "angels-gas-methane",
+     "fromBlockId": "1a45e4ca-9800-4257-9541-42ed44378566"
+    },
+    {
+     "id": "34895ce7-ac5f-488c-baad-25380d00d794",
+     "itemId": "lubricant",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    },
+    {
+     "id": "175ba906-b47b-4e71-9fcf-0ecb87947581",
+     "itemId": "plastic-bar",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    }
+   ]
+  },
+  {
+   "id": "7fdc79be-2a4c-48ce-98f7-7cf560452d44",
+   "name": "Hub",
+   "color": "#60a5fa",
+   "connections": [
+    {
+     "id": "f188a9ee-e81b-47a0-95e8-1ce27cf528b8",
+     "itemId": "bob-bronze-alloy",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "2a4b5caf-7509-43f2-b463-c7f106b2bcdd",
+     "itemId": "electronic-circuit",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "a571dc47-7076-44da-8e0c-1291da5687c4",
+     "itemId": "bob-basic-circuit-board",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "44cc90f8-108d-4aa5-9ef5-48ba8c89a85a",
+     "itemId": "bob-brass-alloy",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "678d7e8f-05db-43aa-b15c-83a635018d6c",
+     "itemId": "angels-roll-steel",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "7239eac7-5e14-46b3-80e2-3d9f51b2d600",
+     "itemId": "angels-roll-iron",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "fcd5d945-a54f-4035-a2cc-81f9a067a6c3",
+     "itemId": "angels-roll-aluminium",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "12df37f3-3299-4b78-badf-9ae8940d1c15",
+     "itemId": "angels-wire-coil-tin",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "62fd0920-2e85-46b7-b643-1a6294b83f9f",
+     "itemId": "angels-wire-coil-copper",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "bfe8e64a-0d0f-40bd-bc7d-caccc1b00802",
+     "itemId": "angels-roll-tin",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "a007b200-3300-40e9-955b-0421960abd83",
+     "itemId": "bob-invar-alloy",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "8f78c1d6-5060-4e44-8db0-0e60e2ab9231",
+     "itemId": "angels-roll-copper",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "518073e7-69f5-472f-84b7-459033be77d4",
+     "itemId": "angels-roll-silver",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "837f9017-b289-4f54-900a-2e7b89f381ff",
+     "itemId": "angels-roll-titanium",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "9fbc6d6a-868b-4ed7-8896-319e70870f23",
+     "itemId": "bob-glass",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "85949efc-df2b-4c00-ad56-4ed42017b38a",
+     "itemId": "bob-cobalt-steel-alloy",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "90f1812b-4ed1-43e1-80f5-989b1f5ccb1b",
+     "itemId": "processing-unit",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "6fd70550-0369-4074-8cf0-9c5a2d4dd3dc",
+     "itemId": "advanced-circuit",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "a9f61fb4-6d04-4623-98d9-0a9df8bf5e80",
+     "itemId": "stone",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "8d4d285c-a0a2-45fd-a0de-a48777fd54f0",
+     "itemId": "stone-brick",
+     "fromBlockId": "e98a8000-d196-42cd-b2ac-226af1c92968"
+    },
+    {
+     "id": "d79a3459-085f-466c-8327-138947996c1a",
+     "itemId": "angels-concrete-brick",
+     "fromBlockId": "e98a8000-d196-42cd-b2ac-226af1c92968"
+    },
+    {
+     "id": "34827383-8a64-4ec3-b7a3-d28f2975cd8b",
+     "itemId": "angels-reinforced-concrete-brick",
+     "fromBlockId": "e98a8000-d196-42cd-b2ac-226af1c92968"
+    },
+    {
+     "id": "eda5b89c-3997-45c2-ab69-7957a7982cc4",
+     "itemId": "angels-clay-brick",
+     "fromBlockId": "e98a8000-d196-42cd-b2ac-226af1c92968"
+    },
+    {
+     "id": "75af12f4-497b-4fe6-87a2-d1800c4d2b3e",
+     "itemId": "bob-rubber",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    },
+    {
+     "id": "c72a4c87-b19f-4f24-bfb4-400029d581cd",
+     "itemId": "lubricant",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    },
+    {
+     "id": "461a2560-8268-4ead-a9fc-ca9cbc46ea90",
+     "itemId": "wood",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    }
+   ]
+  },
+  {
+   "id": "8d66498f-b5f7-4566-9d35-a30c08459cd3",
+   "name": "Agricultural Science",
+   "color": "#a3e635",
+   "connections": [
+    {
+     "id": "578194bc-24e0-44ec-8d3d-8eec9a57e8b8",
+     "itemId": "angels-water-mineralized",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "35f8e03c-96fc-4d1e-9bf3-227faac7a016",
+     "itemId": "angels-wood-charcoal",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    },
+    {
+     "id": "9cb16024-0fce-4496-af9d-7c194b128a9e",
+     "itemId": "wood",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    }
+   ]
+  },
+  {
+   "id": "54b9a4d4-25c9-428e-9a13-253f9865c600",
+   "name": "Circuits",
+   "color": "#818cf8",
+   "connections": [
+    {
+     "id": "fb008d9a-9749-4c62-aeae-fd017bff3a44",
+     "itemId": "angels-wire-coil-copper",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "3a7609d0-ca54-4e04-bde3-1b070708f06e",
+     "itemId": "angels-roll-copper",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "0af18a80-b8ff-4f1f-9e7a-b302afc4c7e3",
+     "itemId": "angels-roll-solder",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "a4ee55f8-8ff9-41f7-a257-ebaa122446d7",
+     "itemId": "angels-wire-coil-tin",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "37ab5fec-da31-4131-b119-d07e12a864f6",
+     "itemId": "angels-roll-silver",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "cedf3ce1-777b-44a1-941b-e35f55df4952",
+     "itemId": "angels-roll-titanium",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "c9fd0095-5498-414e-81d3-bd718045f647",
+     "itemId": "angels-mono-silicon",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "e3953b39-9c92-441f-bfca-6db697a01127",
+     "itemId": "angels-coil-glass-fiber",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "c2f31a35-b0c7-44cc-95f0-01d615664fb8",
+     "itemId": "angels-roll-aluminium",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "02eda3f3-d27c-4090-bc24-67d71613c6eb",
+     "itemId": "angels-roll-tin",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "2d57b5c6-b35e-46b8-9400-e539ddfa2ecd",
+     "itemId": "angels-roll-iron",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "fda5f444-314a-4b7a-adcd-527f79ef681f",
+     "itemId": "angels-wire-coil-gold",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "4b3a318a-cfa8-4187-8f9b-66cb44f41a12",
+     "itemId": "angels-wire-coil-silver",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "ca185fcd-4e0d-4d48-a267-831734a81a76",
+     "itemId": "angels-solid-paper",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    },
+    {
+     "id": "bdf7bdb9-85bc-4d84-a1f0-8dbae8635eea",
+     "itemId": "angels-wood-charcoal",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    },
+    {
+     "id": "296e1feb-eb5a-4c97-b662-e5d5947a393c",
+     "itemId": "angels-liquid-ferric-chloride-solution",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "f50668a3-f4d8-42d8-ae41-b39d967ce36a",
+     "itemId": "angels-liquid-resin",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    },
+    {
+     "id": "c310f51e-be04-47cd-91bd-1250a8d1e617",
+     "itemId": "plastic-bar",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    },
+    {
+     "id": "d3ed3f9a-30d3-473f-8787-2f94568f78c6",
+     "itemId": "wood",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    }
+   ]
+  },
+  {
+   "id": "9ac81646-d5ce-4986-b168-46cf9c5cf846",
+   "name": "Mod 1",
+   "color": "#fda4af",
+   "connections": [
+    {
+     "id": "a59179e4-e430-443d-911d-8a125c6316b4",
+     "itemId": "electronic-circuit",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "c67de5a5-8811-4225-ac3c-171aaddd77fc",
+     "itemId": "angels-token-bio",
+     "fromBlockId": "8d66498f-b5f7-4566-9d35-a30c08459cd3"
+    },
+    {
+     "id": "9b463239-ec01-470b-9ba1-ab5cd2de0136",
+     "itemId": "angels-wood-charcoal",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    },
+    {
+     "id": "0042acb0-bf5f-4951-802e-55c91345fcff",
+     "itemId": "angels-roll-steel",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "705da029-3ac3-4a77-955b-3f9ce4a0d43e",
+     "itemId": "bob-alumina",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "cd6be1d2-125e-4dda-b8bc-9e41ec306858",
+     "itemId": "bob-basic-electronic-components",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "a2c5da2a-c56e-46f6-b0e8-a74162f2648a",
+     "itemId": "angels-roll-solder",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "9fea964f-133a-4e47-a5d6-f9089ffcef1e",
+     "itemId": "angels-wire-coil-tin",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "97e4c174-d0e0-4cf9-9e24-94ca55fb5018",
+     "itemId": "angels-ingot-silicon",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "1702f9a3-d84b-4dd2-91da-f4ec5be01b4a",
+     "itemId": "angels-gas-oxygen",
+     "fromBlockId": "3b7529b4-549b-4c41-89f4-a0126b4024f7"
+    },
+    {
+     "id": "04b2929e-7947-4d34-9c86-936a970e34ab",
+     "itemId": "bob-wooden-board",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "4da8ad28-f5e8-4c34-a75c-950b9a3293ca",
+     "itemId": "angels-roll-copper",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "5e2e7a65-20fc-4419-a1e5-ffc6d6458cc6",
+     "itemId": "angels-roll-silver",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "1d7614c8-4915-4025-a203-9cfb317d1195",
+     "itemId": "angels-liquid-ferric-chloride-solution",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "b39653f3-b261-4ee1-a79d-b142cc76460c",
+     "itemId": "advanced-circuit",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "0a711b47-84d5-4efc-bf0f-0b97dedb6e85",
+     "itemId": "angels-liquid-mineral-oil",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    },
+    {
+     "id": "40dabf76-2e01-4fbf-b8cf-a80b657ed0d3",
+     "itemId": "angels-liquid-polluted-fish-atmosphere",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    },
+    {
+     "id": "fc8f1049-df39-434f-838a-ae0046b2a2a0",
+     "itemId": "plastic-bar",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    },
+    {
+     "id": "b0f70839-d9c3-4032-81ec-783db81cbd83",
+     "itemId": "bob-electronic-components",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "887024e0-cf2a-4510-9305-51214113427e",
+     "itemId": "bob-phenolic-board",
+     "fromBlockId": "54b9a4d4-25c9-428e-9a13-253f9865c600"
+    },
+    {
+     "id": "2c97075c-b1bc-4f20-8e1d-c92671fa8898",
+     "itemId": "angels-wire-coil-silver",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "a499d167-3785-4bf5-9f68-c6c9f1317b73",
+     "itemId": "bob-rubber",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    },
+    {
+     "id": "06bfab7c-2048-41bf-af5c-493eddf8e6a7",
+     "itemId": "lubricant",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    }
+   ]
+  },
+  {
+   "id": "02e451fc-d053-41a3-afd3-bb92af986764",
+   "name": "Metals",
+   "color": "#7dd3fc",
+   "connections": [
+    {
+     "id": "683feed2-7369-457d-a29f-0507132e3e1d",
+     "itemId": "bob-bauxite-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "797141ee-9384-4e90-857a-60cb871813ad",
+     "itemId": "copper-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "710a0bb3-00b7-458f-b44f-352aaacba814",
+     "itemId": "bob-cobalt-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "2f204252-7e64-4adc-a5bf-599207ee9653",
+     "itemId": "bob-lead-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "259aa7ae-c474-41f1-838d-3f41cb9584e6",
+     "itemId": "bob-silver-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "ea102ae5-abaa-482a-859b-dfb39ac0aac4",
+     "itemId": "bob-tin-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "dbd9377f-a2d3-4bb2-8b96-f7f8da6fc3f4",
+     "itemId": "bob-rutile-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "4dd4a6d8-e569-4f43-bc8f-5d79cdf528f7",
+     "itemId": "bob-gold-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "b0d6f618-44f4-4942-b1ef-920d941a2df1",
+     "itemId": "bob-nickel-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "3fcccd66-0f25-4b8d-8432-565ce8265f65",
+     "itemId": "bob-zinc-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "1ce02eb4-6227-4405-b8fe-073fba4719ee",
+     "itemId": "bob-quartz",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "553cde84-a3aa-4421-b90e-867900940113",
+     "itemId": "iron-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "2002ef1e-020d-4b7d-8e36-23365f183864",
+     "itemId": "angels-manganese-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "68e37490-0418-4eb6-85fb-5e17fadfd621",
+     "itemId": "angels-gas-oxygen",
+     "fromBlockId": "3b7529b4-549b-4c41-89f4-a0126b4024f7"
+    },
+    {
+     "id": "77c3a2ef-98eb-45a9-8524-38799074d7e5",
+     "itemId": "angels-wood-charcoal",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    },
+    {
+     "id": "f23e4f9a-f81b-4b8a-a6ef-26c40257dcf4",
+     "itemId": "angels-liquid-nitric-acid",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "81c96062-edbe-4867-878d-e733d967c41b",
+     "itemId": "angels-liquid-mineral-oil",
+     "fromBlockId": "f4fd90bb-fd13-4859-8eb6-a869b6530a19"
+    }
+   ]
+  },
+  {
+   "id": "b5a99fca-3ee9-45d8-9468-d0d7c9563711",
+   "name": "Ores",
+   "color": "#a5b4fc",
+   "connections": [
+    {
+     "id": "41756d81-8a82-4333-b867-11ce7df41608",
+     "itemId": "sct-waste-ironcopper",
+     "fromBlockId": "8f5ab53b-b90e-471e-a669-a34faf5f812c"
+    },
+    {
+     "id": "5680b7c9-411b-46e7-a1d9-1006647c8ba8",
+     "itemId": "sct-waste-copperonly",
+     "fromBlockId": "8f5ab53b-b90e-471e-a669-a34faf5f812c"
+    },
+    {
+     "id": "d95c0a25-5a2a-4f45-87a1-3f35ef0d219c",
+     "itemId": "angels-mineral-sludge",
+     "fromBlockId": "3b7529b4-549b-4c41-89f4-a0126b4024f7"
+    },
+    {
+     "id": "3c81ddeb-5709-4380-8c43-2ae1edcdf95f",
+     "itemId": "angels-gas-oxygen",
+     "fromBlockId": "3b7529b4-549b-4c41-89f4-a0126b4024f7"
+    },
+    {
+     "id": "4c58b6fa-91a2-46b3-b736-b237d12442b4",
+     "itemId": "lubricant",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    }
+   ]
+  },
+  {
+   "id": "3b7529b4-549b-4c41-89f4-a0126b4024f7",
+   "name": "Sludge",
+   "color": "#fca5a5",
+   "connections": [
+    {
+     "id": "55b06b9e-298a-49fb-9c83-b95cce706aa5",
+     "itemId": "sulfur",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "70fb0ab7-17a4-4006-84af-b742d73b0a85",
+     "itemId": "sulfur",
+     "fromBlockId": "ff968fd6-1f19-4f41-8ff5-c8f13d85f03c"
+    },
+    {
+     "id": "d53403d3-f0f9-4cb9-b7f9-b630c9c4796a",
+     "itemId": "sulfur",
+     "fromBlockId": "8f5ab53b-b90e-471e-a669-a34faf5f812c"
+    }
+   ]
+  },
+  {
+   "id": "20e58259-1080-4d84-961d-0bfa08321828",
+   "name": "Bean 1",
+   "color": "#a78bfa",
+   "connections": []
+  },
+  {
+   "id": "e98a8000-d196-42cd-b2ac-226af1c92968",
+   "name": "Clay Brick",
+   "color": "#f472b6",
+   "connections": [
+    {
+     "id": "2d3b8711-418c-4fe4-bea0-dde193477de6",
+     "itemId": "angels-wood-charcoal",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    },
+    {
+     "id": "abb727c9-9f7f-409e-9389-ff34b42f0883",
+     "itemId": "angels-ingot-silicon",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "3b04fa5e-4c6a-459a-b4b7-7a923ee3dbf1",
+     "itemId": "angels-roll-steel",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "6e835257-90f8-4f26-9677-645857daa148",
+     "itemId": "stone",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    }
+   ]
+  },
+  {
+   "id": "ff968fd6-1f19-4f41-8ff5-c8f13d85f03c",
+   "name": "Extra Sulfur",
+   "color": "#bfdbfe",
+   "connections": [
+    {
+     "id": "89f6590c-92ca-410e-a58c-192a26abaf9c",
+     "itemId": "bob-bauxite-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "a34bddd0-ad65-432e-9840-cd57bf8ac7f2",
+     "itemId": "bob-silver-ore",
+     "fromBlockId": "b5a99fca-3ee9-45d8-9468-d0d7c9563711"
+    },
+    {
+     "id": "ebd66835-f029-457b-acda-454e10a7bbbd",
+     "itemId": "angels-gas-oxygen",
+     "fromBlockId": "3b7529b4-549b-4c41-89f4-a0126b4024f7"
+    }
+   ]
+  },
+  {
+   "id": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64",
+   "name": "Bio Plastic/Resin",
+   "color": "#d9f99d",
+   "connections": [
+    {
+     "id": "c34a7d19-d149-4e84-8171-10e9435261eb",
+     "itemId": "angels-roll-iron",
+     "fromBlockId": "02e451fc-d053-41a3-afd3-bb92af986764"
+    },
+    {
+     "id": "67f0e984-b745-4fea-8cfc-309bf4818a18",
+     "itemId": "angels-gas-hydrogen",
+     "fromBlockId": "3b7529b4-549b-4c41-89f4-a0126b4024f7"
+    },
+    {
+     "id": "cd5b9556-023a-4278-8b2f-0fd5166ae1c8",
+     "itemId": "angels-wood-charcoal",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    }
+   ]
+  },
+  {
+   "id": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8",
+   "name": "Paper & Charcoal",
+   "color": "#d2cdba",
+   "connections": [
+    {
+     "id": "20a2c780-a67b-4a1f-8721-3f0fa997e1ef",
+     "itemId": "wood",
+     "fromBlockId": "3f33c94c-6c9d-4a2a-9f80-89d439c5ec64"
+    }
+   ]
+  },
+  {
+   "id": "f4fd90bb-fd13-4859-8eb6-a869b6530a19",
+   "name": "Naphta",
+   "color": "#fbcfe8",
+   "connections": [
+    {
+     "id": "6473dd95-04a8-4e87-bda2-396e792c1c24",
+     "itemId": "angels-wood-charcoal",
+     "fromBlockId": "4a6cec44-64af-45e1-bc18-53f4f9cbe3d8"
+    },
+    {
+     "id": "88daa97f-c915-4c3e-8d90-d13a64450bb2",
+     "itemId": "angels-water-yellow-waste",
+     "fromBlockId": "ff968fd6-1f19-4f41-8ff5-c8f13d85f03c"
+    }
+   ]
+  },
+  {
+   "id": "1a45e4ca-9800-4257-9541-42ed44378566",
+   "name": "Bio-Methane (until syngas)",
+   "color": "#6c6c6c",
+   "connections": [
+    {
+     "id": "51f7e35c-c745-45f2-a5eb-175972ffdac1",
+     "itemId": "angels-gas-hydrogen",
+     "fromBlockId": "3b7529b4-549b-4c41-89f4-a0126b4024f7"
+    }
+   ]
+  }
+ ]
+}

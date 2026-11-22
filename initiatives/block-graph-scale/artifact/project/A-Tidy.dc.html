@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option A tidy layout</title>
+<script src="./support.js"></script>
+<script src="./graph-data.js"></script>
+<script src="./graph-lib.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit}
+.ctl:hover{background:#374151 !important}
+.ctl:focus-visible,.nodebtn:focus-visible{outline:2px solid #5eead4;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 840px; box-sizing: border-box; display: flex; flex-direction: column; background: #111827; color: #f3f4f6; font-family: Inter, system-ui, sans-serif; overflow: hidden">
+  <div style="height: 148px; box-sizing: border-box; padding: 18px 28px 14px; display: flex; flex-direction: column; gap: 9px; border-bottom: 1px solid #374151">
+    <div style="display: flex; align-items: baseline; gap: 14px">
+      <div style="font-size: 20px; font-weight: 700">Option A — Tidy layout</div>
+      <div style="font-size: 13px; color: #9ca3af">Same left-to-right graph, laid out properly: fewer back edges, edges keep to their own track, weight is the line width, labels appear only where you point.</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+      <div style="font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #1f2937; border: 1px solid #4b5563; color: #e5e7eb">8 columns, 2394 px wide (today 9, 3112)</div>
+      <div style="font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #1f2937; border: 1px solid #4b5563; color: #e5e7eb">6 right-to-left edges (today 11)</div>
+      <div style="font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #1f2937; border: 1px solid #4b5563; color: #e5e7eb">still 55 crossings: the graph is dense</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+      <div style="font-size: 12px; color: #9ca3af">Try: point at a block or a line to light it up and read it in the strip below; click a block to keep it lit. The graph always fits the board.</div>
+    </div>
+  </div>
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; background: #0b1220">
+    <div style="flex: 1; min-height: 0; overflow: auto">
+      <div style="position: relative; margin: 12px auto; width: {{outW}}px; height: {{outH}}px">
+        <div style="position: absolute; left: 0; top: 0; width: {{cW}}px; height: {{cH}}px; transform: scale({{scale}}); transform-origin: 0 0">
+          <div style="position: absolute; left: 40px; top: 40px">
+            <sc-for list="{{edges}}" as="e" hint-placeholder-count="46">
+              <svg width="1" height="1" style="position: absolute; left: 0px; top: 0px; overflow: visible; pointer-events: none" aria-hidden="true">
+                <path d="{{e.d}}" fill="none" stroke="{{e.stroke}}" stroke-width="{{e.sw}}" stroke-opacity="{{e.op}}" stroke-dasharray="{{e.dash}}"></path>
+                <path d="{{e.d}}" fill="none" stroke="transparent" stroke-width="{{e.hit}}" style="pointer-events: stroke; cursor: pointer" onMouseEnter="{{e.enter}}" onMouseLeave="{{e.leave}}"></path>
+              </svg>
+            </sc-for>
+            <sc-for list="{{nodes}}" as="n" hint-placeholder-count="15">
+              <button type="button" class="nodebtn" onMouseEnter="{{n.enter}}" onMouseLeave="{{n.leave}}" onFocus="{{n.enter}}" onBlur="{{n.leave}}" onClick="{{n.click}}" style="{{n.style}}">
+                <span style="{{n.stripe}}"></span>
+                <span style="display: block; padding: 9px 10px 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.name}}</span>
+                <span style="display: block; padding: 2px 10px 0; font-size: 11px; color: #9ca3af">{{n.sub}}</span>
+              </button>
+            </sc-for>
+            <sc-for list="{{badges}}" as="b" hint-placeholder-count="0">
+              <div style="{{b.style}}">{{b.text}}</div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="flex: none; height: 150px; box-sizing: border-box; padding: 12px 28px; display: flex; gap: 28px; background: #111827; border-top: 1px solid #374151; overflow: hidden">
+      <div style="flex: none; width: 300px">
+        <div style="font-size: 14px; font-weight: 700">{{card.title}}</div>
+        <div style="font-size: 12px; color: #9ca3af; margin-top: 2px">{{card.sub}}</div>
+      </div>
+      <div style="flex: 1; min-width: 0; display: flex; gap: 28px">
+        <sc-for list="{{card.groups}}" as="g" hint-placeholder-count="0">
+          <div style="flex: 1; min-width: 0">
+            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; padding-bottom: 4px">{{g.head}}</div>
+            <div style="{{g.rowsStyle}}">
+              <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="0">
+                <div style="{{r.style}}"><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.left}}</span><span style="font-variant-numeric: tabular-nums; color: #d1d5db; white-space: nowrap">{{r.right}}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":840}}'>
+class Component extends DCLogic {
+  state = { zoom: 'fit', hn: null, pn: null, he: null, counts: false };
+  renderVals() {
+    const H = window.BGH, S = H.scene('A'), st = this.state;
+    const self = this;
+    const an = st.hn || st.pn, he = st.he;
+    const pad = 40;
+    const cW = S.w + pad * 2, cH = S.h + pad * 2;
+    const fit = Math.min(1240 / cW, 516 / cH);
+    const scale = st.zoom === 'fit' ? fit : 1;
+    const related = {};
+    if (an) { related[an] = 1; S.edges.forEach((e) => { if (e.f === an || e.t === an) { related[e.f] = 1; related[e.t] = 1; } }); }
+    if (he) { const p = H.pairs[he]; related[p.f] = 1; related[p.t] = 1; }
+    const any = !!(an || he);
+
+    const edges = S.edges.map((e) => {
+      const src = H.blocks[e.f];
+      const hl = (an && (e.f === an || e.t === an)) || he === e.key;
+      const dim = any && !hl;
+      const stroke = e.st === 'o' ? src.color : H.stColor(e.st);
+      return {
+        d: e.d, stroke: stroke,
+        sw: (1 + Math.min(e.n, 14) / 4) + (hl ? 1 : 0),
+        op: dim ? 0.07 : (hl ? 1 : 0.55),
+        dash: e.back ? '6 5' : 'none',
+        hit: Math.max(10, 12 / scale),
+        enter: () => self.setState({ he: e.key }),
+        leave: () => self.setState({ he: null })
+      };
+    });
+
+    const nodes = S.nodes.map((n) => {
+      const dim = any && !related[n.id];
+      const ring = an === n.id || (he && related[n.id]);
+      return {
+        name: n.name,
+        sub: 'in ' + H.inDeg[n.id] + ' · out ' + H.outDeg[n.id],
+        style: 'position:absolute;box-sizing:border-box;margin:0;padding:0;text-align:left;cursor:pointer;color:#f3f4f6;left:' + n.x + 'px;top:' + n.y + 'px;width:168px;height:56px;background:#1f2937;border:' + (ring ? '2px solid #14b8a6' : '1px solid #4b5563') + ';border-radius:6px;overflow:hidden;opacity:' + (dim ? 0.3 : 1),
+        stripe: 'position:absolute;left:0;top:0;right:0;height:3px;background:' + n.color,
+        enter: () => self.setState({ hn: n.id }),
+        leave: () => self.setState({ hn: null }),
+        click: () => self.setState({ pn: st.pn === n.id ? null : n.id })
+      };
+    });
+
+    const badges = [];
+    S.edges.forEach((e) => {
+      const hl = (an && (e.f === an || e.t === an)) || he === e.key;
+      if (!(hl || st.counts)) return;
+      if (any && !hl) return;
+      const src = H.blocks[e.f];
+      const col = e.st === 'o' ? src.color : H.stColor(e.st);
+      const bx = e.back ? e.bx : e.pts[e.pts.length - 1][0] - 26;
+      const by = e.back ? e.by : e.pts[e.pts.length - 1][1];
+      badges.push({ text: String(e.n), style: 'position:absolute;box-sizing:border-box;left:' + (bx - 13) + 'px;top:' + (by - 9) + 'px;width:26px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#f3f4f6;background:#111827;border:1.5px solid ' + col + ';border-radius:9px;pointer-events:none' });
+    });
+
+    const rowStyle = 'display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:3px 0;border-top:1px solid #1f2937;color:#e5e7eb;break-inside:avoid';
+    const headStyle = 'font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;padding:2px 0;break-inside:avoid;break-after:avoid';
+    const card = { title: 'Nothing selected', sub: 'Point at a block or a line.', rows: [] };
+    if (he) {
+      const p = H.pairs[he];
+      card.title = H.blocks[p.f].name + ' → ' + H.blocks[p.t].name;
+      card.sub = p.items.length + ' connection' + (p.items.length > 1 ? 's' : '') + ' on this edge';
+      p.items.slice(0, 7).forEach((i) => card.rows.push({ style: rowStyle, left: i.n + (i.k === 't' ? ' (existing)' : '') + (i.s === 'l' ? ' · limited' : '') + (i.s === 'u' ? ' · not used' : ''), right: H.fmt(i.r) + '/m' }));
+      if (p.items.length > 7) card.rows.push({ style: rowStyle, left: '+ ' + (p.items.length - 7) + ' more', right: '' });
+    } else if (an) {
+      card.title = H.blocks[an].name;
+      const ins = H.pairList.filter((p) => p.t === an).sort((a, b) => b.items.length - a.items.length);
+      const outs = H.pairList.filter((p) => p.f === an).sort((a, b) => b.items.length - a.items.length);
+      card.sub = 'receives from ' + ins.length + ' block' + (ins.length === 1 ? '' : 's') + ' · supplies ' + outs.length;
+      card.rows.push({ style: headStyle, left: 'Receives from', right: '' });
+      ins.slice(0, 5).forEach((p) => card.rows.push({ style: rowStyle, left: H.blocks[p.f].name, right: p.items.length + ' items' }));
+      if (ins.length > 5) card.rows.push({ style: rowStyle, left: '+ ' + (ins.length - 5) + ' more', right: '' });
+      if (!ins.length) card.rows.push({ style: rowStyle, left: 'nothing', right: '' });
+      card.rows.push({ style: headStyle, left: 'Supplies', right: '' });
+      outs.slice(0, 5).forEach((p) => card.rows.push({ style: rowStyle, left: H.blocks[p.t].name, right: p.items.length + ' items' }));
+      if (outs.length > 5) card.rows.push({ style: rowStyle, left: '+ ' + (outs.length - 5) + ' more', right: '' });
+      if (!outs.length) card.rows.push({ style: rowStyle, left: 'nothing', right: '' });
+    }
+
+    /* Header rows (Receives from, Supplies) start a group: each group is a column with its header on the top line. */
+    const groups = [];
+    card.rows.forEach((r) => {
+      if (r.style === headStyle) groups.push({ head: r.left, rows: [] });
+      else {
+        if (!groups.length) groups.push({ head: 'Items on this edge', rows: [] });
+        groups[groups.length - 1].rows.push(r);
+      }
+    });
+    card.groups = groups.map((g) => ({ head: g.head, rowsStyle: 'column-count:' + (groups.length > 1 ? 2 : 3) + ';column-gap:20px', rows: g.rows }));
+
+    const btn = 'font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;color:#f3f4f6;border:1px solid ';
+    return {
+      edges: edges, nodes: nodes, badges: badges, card: card,
+      cW: cW, cH: cH, scale: scale, outW: Math.round(cW * scale), outH: Math.round(cH * scale),
+      counts: st.counts,
+      fitStyle: btn + (st.zoom === 'fit' ? '#14b8a6;background:#134e4a' : '#4b5563;background:#1f2937'),
+      fullStyle: btn + (st.zoom === 'full' ? '#14b8a6;background:#134e4a' : '#4b5563;background:#1f2937'),
+      setFit: () => self.setState({ zoom: 'fit' }),
+      setFull: () => self.setState({ zoom: 'full' }),
+      toggleCounts: () => self.setState({ counts: !st.counts })
+    };
+  }
+}
+</script>
+</body>
+</html>

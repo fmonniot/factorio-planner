@@ -1,0 +1,21 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-22T12:00:00Z" },
+  "title": "Block graph past 6–7 blocks",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 840, "title": "Today (baseline)" },
+    "A-Tidy.dc.html": { "x": 1360, "y": 0, "w": 1280, "h": 840, "title": "Option A — Tidy layout", "is_interactive": true },
+    "C-Matrix.dc.html": { "x": 0, "y": 960, "w": 1280, "h": 840, "title": "Option C — Dependency matrix", "is_interactive": true }
+  },
+  "order": ["Main.dc.html", "A-Tidy.dc.html", "C-Matrix.dc.html"],
+  "notes": {
+    "title": { "x": 0, "y": -300, "text": "Block graph past 6–7 blocks: today and two options, on one real 15-block plan", "kind": "title1", "maxW": 2640 },
+    "facts": {
+      "x": 1360, "y": 960, "w": 440, "text": "What the real plan says\n\n15 blocks, 46 block-to-block edges, 140 connections.\n\nFive blocks (Paper & Charcoal, Sludge, Bio Plastic/Resin, Metals, Ores) are the source of 34 of the 46 edges.\n\nToday's layout puts 11 edges right-to-left, because Sciences lands in column 0. Reordering by fewest back edges leaves 6.\n\nIcons are not drawn here; blocks and items are named.",
+      "size": "s", "fill": "teal"
+    }
+  },
+  "designSystems": []
+}

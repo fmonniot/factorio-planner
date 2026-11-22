@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option C dependency matrix</title>
+<script src="./support.js"></script>
+<script src="./graph-data.js"></script>
+<script src="./graph-lib.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit}
+.ctl:hover{background:#374151 !important}
+.ctl:focus-visible,.cellbtn:focus-visible{outline:2px solid #5eead4;outline-offset:1px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 840px; box-sizing: border-box; display: flex; flex-direction: column; background: #111827; color: #f3f4f6; font-family: Inter, system-ui, sans-serif; overflow: hidden">
+  <div style="height: 148px; box-sizing: border-box; padding: 18px 28px 14px; display: flex; flex-direction: column; gap: 9px; border-bottom: 1px solid #374151">
+    <div style="display: flex; align-items: baseline; gap: 14px">
+      <div style="font-size: 20px; font-weight: 700">Option C — Dependency matrix</div>
+      <div style="font-size: 13px; color: #9ca3af">Rows supply, columns receive. No lines to route, so it stays the same size and shape at 15 blocks or 40.</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+      <div style="font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #1f2937; border: 1px solid #4b5563; color: #e5e7eb">{{summary}}</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+      <button type="button" class="ctl" onClick="{{setDep}}" style="{{depStyle}}">Dependency order</button>
+      <button type="button" class="ctl" onClick="{{setPlan}}" style="{{planStyle}}">Plan order</button>
+      <div style="font-size: 12px; color: #9ca3af">Try: point at a cell to cross-hair its row and column; click it to list the items; switch the order and watch the loops move above or below the diagonal.</div>
+    </div>
+  </div>
+  <div style="flex: 1; min-height: 0; position: relative; background: #0b1220">
+    <div style="position: absolute; left: 20px; top: 12px; width: 860px; height: 660px">
+      <div style="{{bandRow}}"></div>
+      <div style="{{bandCol}}"></div>
+      <div style="{{gridStyle}}"></div>
+      <sc-for list="{{colHeads}}" as="h" hint-placeholder-count="15">
+        <div onMouseEnter="{{h.enter}}" onMouseLeave="{{h.leave}}" style="{{h.style}}">{{h.text}}</div>
+      </sc-for>
+      <sc-for list="{{rowHeads}}" as="h" hint-placeholder-count="15">
+        <div onMouseEnter="{{h.enter}}" onMouseLeave="{{h.leave}}" style="{{h.style}}"><span style="{{h.dot}}"></span><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{h.text}}</span><span style="color: #9ca3af; font-variant-numeric: tabular-nums">{{h.n}}</span></div>
+      </sc-for>
+      <sc-for list="{{diag}}" as="d" hint-placeholder-count="15">
+        <div style="{{d.style}}"></div>
+      </sc-for>
+      <sc-for list="{{cells}}" as="c" hint-placeholder-count="46">
+        <button type="button" class="cellbtn" onMouseEnter="{{c.enter}}" onMouseLeave="{{c.leave}}" onFocus="{{c.enter}}" onBlur="{{c.leave}}" onClick="{{c.click}}" aria-label="{{c.label}}" style="{{c.style}}">{{c.text}}</button>
+      </sc-for>
+    </div>
+    <div style="position: absolute; right: 20px; top: 12px; bottom: 16px; width: 340px; box-sizing: border-box; padding: 14px 16px; background: #111827; border: 1px solid #374151; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; overflow: hidden">
+      <div style="font-size: 14px; font-weight: 700">{{panel.title}}</div>
+      <div style="font-size: 12px; color: #9ca3af; margin-bottom: 6px">{{panel.sub}}</div>
+      <div style="flex: 1; min-height: 0; overflow: auto">
+        <sc-for list="{{panel.rows}}" as="r" hint-placeholder-count="6">
+          <div style="{{r.style}}"><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.left}}</span><span style="font-variant-numeric: tabular-nums; color: #d1d5db; white-space: nowrap">{{r.right}}</span></div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":840}}'>
+class Component extends DCLogic {
+  state = { order: 'dep', hr: null, hc: null, sel: null };
+  renderVals() {
+    const H = window.BGH, st = this.state, self = this;
+    const ids = st.order === 'dep' ? H.depOrder() : H.order.slice();
+    const pos = {}; ids.forEach((id, i) => pos[id] = i);
+    const RH = 190, HH = 150, CW = 44, RW = 32;
+    const n = ids.length;
+    const hov = (r, c) => () => self.setState({ hr: r, hc: c });
+    const out = () => self.setState({ hr: null, hc: null });
+
+    const colHeads = ids.map((id, c) => {
+      const b = H.blocks[id], on = st.hc === c;
+      return { text: b.name + ' · ' + H.inDeg[id], enter: hov(null, c), leave: out,
+        style: 'position:absolute;left:' + (RH + c * CW) + 'px;top:0;width:' + CW + 'px;height:' + (HH - 6) + 'px;box-sizing:border-box;padding:0 0 0 ' + 13 + 'px;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:' + (on ? 700 : 500) + ';color:' + (on ? '#5eead4' : '#d1d5db') };
+    });
+    const rowHeads = ids.map((id, r) => {
+      const b = H.blocks[id], on = st.hr === r;
+      return { text: b.name, n: String(H.outDeg[id]), enter: hov(r, null), leave: out,
+        dot: 'flex:none;width:8px;height:8px;border-radius:50%;background:' + b.color,
+        style: 'position:absolute;left:0;top:' + (HH + r * RW) + 'px;width:' + (RH - 8) + 'px;height:' + RW + 'px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:' + (on ? 700 : 500) + ';color:' + (on ? '#5eead4' : '#e5e7eb') };
+    });
+    const diag = ids.map((id, i) => ({ style: 'position:absolute;box-sizing:border-box;left:' + (RH + i * CW) + 'px;top:' + (HH + i * RW) + 'px;width:' + CW + 'px;height:' + RW + 'px;background:repeating-linear-gradient(45deg,#1f2937 0 3px,transparent 3px 7px)' }));
+
+    let back = 0;
+    const cells = H.pairList.map((p) => {
+      const r = pos[p.f], c = pos[p.t], s = H.worst(p.items), src = H.blocks[p.f];
+      const isBack = c < r; if (isBack) back++;
+      const k = p.items.length;
+      const alpha = Math.round(255 * (0.15 + 0.3 * Math.min(k, 14) / 14)).toString(16).padStart(2, '0');
+      const sel = st.sel === p.key;
+      const border = sel ? '2px solid #f3f4f6' : (s === 'l' ? '2px solid #f59e0b' : (s === 'u' ? '1.5px dashed #9ca3af' : '1px solid ' + src.color));
+      const hatch = isBack ? ',repeating-linear-gradient(135deg,rgba(11,18,32,.55) 0 2px,transparent 2px 6px)' : '';
+      return {
+        text: (isBack ? '↻' : '') + k,
+        label: H.blocks[p.f].name + ' to ' + H.blocks[p.t].name + ', ' + k + ' items' + (isBack ? ', loop' : ''),
+        enter: hov(r, c), leave: out, click: () => self.setState({ sel: sel ? null : p.key }),
+        style: 'position:absolute;box-sizing:border-box;margin:0;padding:0;cursor:pointer;left:' + (RH + c * CW + 2) + 'px;top:' + (HH + r * RW + 2) + 'px;width:' + (CW - 4) + 'px;height:' + (RW - 4) + 'px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#f3f4f6;border-radius:4px;border:' + border + ';background:' + (isBack ? 'repeating-linear-gradient(135deg,rgba(11,18,32,.55) 0 2px,transparent 2px 6px),' : '') + src.color + alpha
+      };
+    });
+
+    const hr = st.hr, hc = st.hc;
+    const bandRow = hr === null ? 'display:none' : 'position:absolute;left:' + (RH - 6) + 'px;top:' + (HH + hr * RW) + 'px;width:' + (n * CW + 6) + 'px;height:' + RW + 'px;background:rgba(94,234,212,.09)';
+    const bandCol = hc === null ? 'display:none' : 'position:absolute;left:' + (RH + hc * CW) + 'px;top:' + (HH - 6) + 'px;width:' + CW + 'px;height:' + (n * RW + 6) + 'px;background:rgba(94,234,212,.09)';
+    const gridStyle = 'position:absolute;left:' + RH + 'px;top:' + HH + 'px;width:' + (n * CW) + 'px;height:' + (n * RW) + 'px;border:1px solid #374151;box-sizing:border-box;background-image:linear-gradient(#1f2937 1px,transparent 1px),linear-gradient(90deg,#1f2937 1px,transparent 1px);background-size:' + CW + 'px ' + RW + 'px';
+
+    const rowStyle = 'display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:5px 0;border-top:1px solid #1f2937;color:#e5e7eb';
+    const panel = { title: 'Nothing selected', sub: 'Click a cell.', rows: [] };
+    if (st.sel) {
+      const p = H.pairs[st.sel];
+      const lim = p.items.filter((i) => i.s === 'l').length;
+      panel.title = H.blocks[p.f].name + ' → ' + H.blocks[p.t].name;
+      panel.sub = p.items.length + ' connection' + (p.items.length > 1 ? 's' : '') + (lim ? ', ' + lim + ' limited' : '') + (pos[p.t] < pos[p.f] ? ' · a loop in this order' : '');
+      p.items.forEach((i) => panel.rows.push({ style: rowStyle, left: i.n + (i.k === 't' ? ' (existing)' : '') + (i.s === 'l' ? ' · limited' : '') + (i.s === 'u' ? ' · not used' : ''), right: H.fmt(i.r) + '/m' }));
+    } else {
+      panel.sub = 'The cell where a row meets a column lists the items that flow from the row’s block to the column’s block.';
+      [['Tint', 'the supplying block’s colour; stronger means more items'],
+       ['Number', 'how many items flow on that edge'],
+       ['Amber ring', 'at least one connection is limited'],
+       ['Dashed ring', 'every connection on the edge is unused'],
+       ['↻ and hatching', 'the edge runs against this order: a loop'],
+       ['Hatched diagonal', 'a block cannot supply itself'],
+       ['Name · n', 'row: blocks it supplies; column: blocks it receives from']].forEach((l) => panel.rows.push({ style: rowStyle, left: l[0], right: l[1] }));
+      panel.rows.forEach((r) => { r.style = 'display:flex;flex-direction:column;gap:1px;font-size:12px;padding:6px 0;border-top:1px solid #1f2937;color:#e5e7eb'; });
+    }
+
+    const btn = 'font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;color:#f3f4f6;border:1px solid ';
+    return {
+      colHeads: colHeads, rowHeads: rowHeads, diag: diag, cells: cells, bandRow: bandRow, bandCol: bandCol, gridStyle: gridStyle, panel: panel,
+      summary: '15 × 15 cells, 46 filled; ' + back + ' below the diagonal (loops) in ' + (st.order === 'dep' ? 'dependency' : 'plan') + ' order',
+      depStyle: btn + (st.order === 'dep' ? '#14b8a6;background:#134e4a' : '#4b5563;background:#1f2937'),
+      planStyle: btn + (st.order === 'plan' ? '#14b8a6;background:#134e4a' : '#4b5563;background:#1f2937'),
+      setDep: () => self.setState({ order: 'dep' }),
+      setPlan: () => self.setState({ order: 'plan' })
+    };
+  }
+}
+</script>
+</body>
+</html>
