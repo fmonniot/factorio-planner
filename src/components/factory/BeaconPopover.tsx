@@ -6,6 +6,7 @@ import { IconChip, MoreBadge } from './IconChip'
 import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
 import { mostUsedModule } from '../../data/mostUsedModule'
+import { isModuleAllowedInBeacon } from '../../data/moduleRules'
 import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig, DEFAULT_BEACON_COUNT } from './sidePanel/beaconDefaults'
 import { beaconModuleOptions } from './sidePanel/moduleOptions'
 
@@ -109,6 +110,14 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   const moduleData = shown ? gameData.modules[shown] : undefined
   // A module id the loaded data set does not know (after switching data sets): the solver still counts it.
   const unknownModule = beacon.modules.some(m => !gameData.modules[m.moduleId])
+  // A stored module its beacon type rejects (effects or category): the game would refuse it, the planner still counts it.
+  const incompatible = beacons.some(b => {
+    const entity = b.beaconId ? gameData.beacons[b.beaconId] : undefined
+    return entity !== undefined && b.modules.some(m => {
+      const mod = gameData.modules[m.moduleId]
+      return mod !== undefined && !isModuleAllowedInBeacon(mod, entity)
+    })
+  })
   // Any configuration with a beacon type or module outside the horizon rings the chip.
   const beyondHorizon = beacons.some(b =>
     (b.beaconId !== undefined && !withinHorizon(horizon.beaconIds, b.beaconId)) ||
@@ -133,7 +142,8 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
       aria-expanded={toggle ? open : undefined}
       size="entity"
       empty={beacon.modules.length === 0}
-      warn={unknownModule || used > slots}
+      warn={unknownModule || used > slots || incompatible}
+      data-incompatible={incompatible ? 'true' : undefined}
       iconPath={moduleData?.iconPath || undefined}
       quiet
       alt={moduleData?.name ?? shown ?? 'module'}

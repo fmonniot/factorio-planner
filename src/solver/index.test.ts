@@ -3052,3 +3052,47 @@ describe('solveAll — served lists', () => {
     })
   })
 })
+
+describe('solveAll — module-not-allowed warning', () => {
+  // A machine with a productivity module the recipe allows; with a category list the game would refuse the module.
+  const withMachine = (categories?: string[]) => makeGameData({
+    items: { plate: { id: 'plate', name: 'Plate', type: 'item', iconPath: '', hidden: false } as GameData['items'][string] },
+    recipes: { 'iron-plate': { ...recipe('iron-plate', 1, [], [product('plate', 1)]), allowProductivity: true } },
+    machines: {
+      asm: {
+        id: 'asm', name: 'Asm', type: 'assembling-machine', craftingSpeed: 1, energyUsageKw: 1, energyType: 'electric', drainKw: 0,
+        moduleSlots: 2, allowedEffects: ['speed', 'productivity'], craftingCategories: ['crafting'], iconPath: '', hidden: false,
+        ...(categories && { allowedModuleCategories: categories }),
+      },
+    },
+    modules: {
+      agri: { id: 'agri', name: 'Agriculture', category: 'angels-bio-yield', tier: 1, effects: { productivity: 0.1 }, limitation: [], limitationBlacklist: [], iconPath: '' },
+    },
+    defaultMachines: { crafting: 'asm' },
+  })
+  const withModule = (): Block => makeBlock(
+    makeSubPlan('Root', [{ ...planNode('n1', 'iron-plate'), machineId: 'asm', modules: [{ moduleId: 'agri', count: 2 }] }]),
+    [{ id: 'g', itemId: 'plate', extraRate: 60 }],
+  )
+
+  it('only adds a warning: the rows count the module exactly as without the category list', () => {
+    const plain = solveAll([withModule()], withMachine()).results['block-1']
+    const listed = solveAll([withModule()], withMachine(['speed'])).results['block-1']
+    expect(listed.nodes).toEqual(plain.nodes)
+    expect(listed.nodes[0].throughput).toBeGreaterThan(0)
+    expect(plain.warnings.some(w => w.type === 'module-not-allowed')).toBe(false)
+    expect(listed.warnings.filter(w => w.type === 'module-not-allowed')).toEqual([{
+      type: 'module-not-allowed',
+      misfits: [{ recipeId: 'iron-plate', moduleId: 'agri', kind: 'machine', entityId: 'asm', reason: 'category' }],
+    }])
+    expect(listed.warnings.slice(0, -1)).toEqual(plain.warnings)
+  })
+
+  it('keeps the result object when nothing is misfit', () => {
+    const block = withModule()
+    const cache = createSolveCache()
+    const gd = withMachine()
+    const first = solveAll([block], gd, cache).results['block-1']
+    expect(solveAll([block], gd, cache).results['block-1']).toBe(first)
+  })
+})

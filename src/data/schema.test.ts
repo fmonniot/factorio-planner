@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ItemSchema, RecipeSchema } from './schema'
+import { ItemSchema, RecipeSchema, MachineSchema, BeaconEntitySchema } from './schema'
 
 const base = { id: 'x', name: 'X', type: 'item', iconPath: '/i/x.png' }
 
@@ -12,6 +12,27 @@ describe('ItemSchema.iconColor', () => {
     for (const bad of ['#DA1212', '#fff', null, 42]) {
       expect(ItemSchema.parse({ ...base, iconColor: bad }).iconColor).toBeUndefined()
     }
+  })
+})
+
+describe('allowedModuleCategories', () => {
+  const machine = {
+    id: 'm', name: 'M', type: 'assembling-machine', energyUsageKw: 1, energyType: 'electric', drainKw: 0,
+    moduleSlots: 2, allowedEffects: ['speed'], craftingCategories: [], iconPath: '',
+  }
+  const beacon = { id: 'b', name: 'B', iconPath: '', moduleSlots: 2, distributionEfficiency: 1.5, allowedEffects: ['speed'] }
+
+  it('parses with and without the field (absent = every category)', () => {
+    expect(MachineSchema.parse(machine).allowedModuleCategories).toBeUndefined()
+    expect(MachineSchema.parse({ ...machine, allowedModuleCategories: ['speed'] }).allowedModuleCategories).toEqual(['speed'])
+    expect(MachineSchema.parse({ ...machine, allowedModuleCategories: [] }).allowedModuleCategories).toEqual([])
+    expect(BeaconEntitySchema.parse(beacon).allowedModuleCategories).toBeUndefined()
+    expect(BeaconEntitySchema.parse({ ...beacon, allowedModuleCategories: ['speed'] }).allowedModuleCategories).toEqual(['speed'])
+  })
+
+  it('rejects a list that is not strings', () => {
+    expect(MachineSchema.safeParse({ ...machine, allowedModuleCategories: [1] }).success).toBe(false)
+    expect(BeaconEntitySchema.safeParse({ ...beacon, allowedModuleCategories: 'speed' }).success).toBe(false)
   })
 })
 

@@ -241,6 +241,32 @@ describe('MachineSection — productivity modules', () => {
   })
 })
 
+describe('MachineSection — module categories', () => {
+  function gameDataWithAgriModule(listed: boolean): GameData {
+    const gd = makeGameData()
+    gd.modules.agri = {
+      id: 'agri', name: 'Agriculture module', category: 'angels-bio-yield', tier: 1,
+      effects: { speed: 0.1 }, limitation: [], limitationBlacklist: [], iconPath: '',
+    }
+    if (listed) gd.machines['assembler-2'].allowedModuleCategories = ['speed']
+    return gd
+  }
+
+  it('names a stored module the machine does not accept by category, and leaves it out of the slot picker', () => {
+    renderModal(gameDataWithAgriModule(true), { modules: [{ moduleId: 'agri', count: 1 }] })
+    expect(screen.getByTestId('machine-module-not-allowed')).toHaveTextContent('Agriculture module cannot be inserted in Assembler 2')
+    openSlot(1)
+    expect(moduleOptionIds()).toEqual(['speed'])
+  })
+
+  it('shows no message and offers the module when the machine lists no categories', () => {
+    renderModal(gameDataWithAgriModule(false), { modules: [{ moduleId: 'agri', count: 1 }] })
+    expect(screen.queryByTestId('machine-module-not-allowed')).toBeNull()
+    openSlot(1)
+    expect(moduleOptionIds()).toEqual(['agri', 'speed'])
+  })
+})
+
 describe('MachineSection — default machine per category', () => {
   const nodeWith = (id: string, machineId?: string) => ({
     kind: 'game-recipe' as const, id, recipeId: 'plate', machineId, modules: [], byproductPolicy: {},

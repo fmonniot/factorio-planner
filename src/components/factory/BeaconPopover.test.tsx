@@ -110,6 +110,36 @@ function horizonData(): GameData {
   }
 }
 
+describe('BeaconCell — module categories', () => {
+  function categoryData(): GameData {
+    const gd = horizonData()
+    gd.modules = {
+      'speed-3': speedModule,
+      agri: { ...speedModule, id: 'agri', name: 'Agriculture module', category: 'angels-bio-yield', effects: { speed: 0.1 } },
+    }
+    gd.beacons.beacon.allowedModuleCategories = ['speed']
+    return gd
+  }
+  const props = { nodeId: 'n1', recipeId: 'iron-plate', machineId: undefined, recipeCategory: 'crafting', onOpenEdit: () => {} }
+
+  it('flags the module chip holding a module the beacon rejects by category', () => {
+    const list = [{ ...beacon, beaconId: 'beacon', modules: [{ moduleId: 'agri', count: 1 }] }]
+    render(<BeaconCell {...props} gameData={categoryData()} beacons={list} />)
+    expect(screen.getByTestId('beacon-module-chip')).toHaveAttribute('data-incompatible', 'true')
+  })
+
+  it('does not flag an accepted module', () => {
+    render(<BeaconCell {...props} gameData={categoryData()} beacons={[{ ...beacon, beaconId: 'beacon' }]} />)
+    expect(screen.getByTestId('beacon-module-chip')).not.toHaveAttribute('data-incompatible')
+  })
+
+  it('leaves the module out of the fill picker', () => {
+    render(<BeaconCell {...props} gameData={categoryData()} beacons={[{ ...beacon, beaconId: 'beacon', modules: [] }]} />)
+    fireEvent.click(screen.getByTestId('beacon-module-chip'))
+    expect(screen.getAllByTestId('module-fill-option').map(o => o.getAttribute('data-module-id'))).toEqual(['speed-3'])
+  })
+})
+
 describe('BeaconCell — creating a beacon', () => {
   function restrictedData(): GameData {
     const gd = horizonData()

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { WarningsPopover } from './TableToolbar'
 import { useSolverStore } from '../../store/solverStore'
@@ -198,6 +198,67 @@ describe('WarningsPopover — temperature-mismatch', () => {
     const pill = screen.getByTitle('Show solver warnings')
     expect(pill).toHaveTextContent('1 warning')
     expect(pill.className).toContain('text-yellow-300')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// module-not-allowed
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — module-not-allowed', () => {
+  // The row link needs a block; leave the store as the other suites expect it.
+  afterEach(() => {
+    const empty = makeEmptyBlock('Empty')
+    useBlockStore.setState({ blocks: [empty], activeBlockId: empty.id, history: {} })
+  })
+
+  function setup(reason: 'category' | 'effect') {
+    setupAreaBlock()
+    useGameDataStore.setState({
+      status: {
+        type: 'loaded',
+        gameData: {
+          ...mockGameData,
+          machines: { 'assembling-machine-2': { id: 'assembling-machine-2', name: 'Assembling machine 2' } },
+          modules: { agri: { id: 'agri', name: 'Agriculture module', category: 'angels-bio-yield' } },
+        } as unknown as GameData,
+        sourceId: 'test',
+      },
+    })
+    useSolverStore.setState({
+      status: { type: 'idle' },
+      lastResult: {
+        nodes: [], unsatisfied: [],
+        warnings: [{
+          type: 'module-not-allowed',
+          misfits: [{ recipeId: 'boiler', moduleId: 'agri', kind: 'machine', entityId: 'assembling-machine-2', reason }],
+        }],
+      },
+      _setStatus: () => {},
+    })
+    render(<WarningsPopover />)
+    openPopover()
+  }
+
+  it('names the recipe, module and machine, and says the planner still counts the effects (category)', () => {
+    setup('category')
+    expect(screen.getByText(/Module not accepted/)).toBeInTheDocument()
+    expect(screen.getByText(
+      '"Boiler Recipe": Agriculture module cannot be inserted in Assembling machine 2 (the game does not accept its category, angels-bio-yield, there). The planner still counts its effects.',
+    )).toBeInTheDocument()
+    expect(screen.getByText(/Replace the module with one the machine accepts/)).toBeInTheDocument()
+  })
+
+  it('says the planner counts only the allowed effects (effect)', () => {
+    setup('effect')
+    expect(screen.getByText(/it carries an effect the machine does not allow\). The planner counts only the effects the machine allows\./)).toBeInTheDocument()
+  })
+
+  it('is not critical, links to the row and counts one warning', () => {
+    setup('category')
+    expect(screen.getByText(/Module not accepted/).className).toContain('text-yellow-400')
+    expect(screen.getByTitle('Show solver warnings')).toHaveTextContent('1 warning')
+    expect(screen.getByRole('button', { name: 'Go to Boiler Recipe' })).toBeInTheDocument()
   })
 })
 

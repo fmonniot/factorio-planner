@@ -88,6 +88,11 @@ export type SolverWarning =
       /** items/min of the fluid the block makes that nothing takes, with `imported` (absent: none) */
       unused?: number
     }
+  /** Modules the game would not accept in their machine or beacon (effects or category); the planner still counts them as before. */
+  | {
+      type: 'module-not-allowed'
+      misfits: { recipeId: string; moduleId: string; kind: 'machine' | 'beacon'; entityId: string; reason: 'effect' | 'category' }[]
+    }
 
 /** An item moving into or out of an area; `boundary` when the block also imports or exports it. */
 export interface AreaFlow {

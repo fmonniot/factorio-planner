@@ -1,0 +1,40 @@
+{
+  "blocks": [
+    {
+      "id": "ffff0002-0000-0000-0000-000000000001",
+      "name": "Tinned wire",
+      "color": "#60a5fa",
+      "goals": [
+        {
+          "id": "ffff0002-0000-0000-0000-0000000000g1",
+          "itemId": "bob-tinned-copper-cable",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "ffff0002-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "ffff0002-0000-0000-0000-0000000000n1",
+            "recipeId": "angels-wire-tin-2",
+            "machineId": "assembling-machine-2",
+            "modules": [
+              {
+                "moduleId": "angels-bio-yield-module",
+                "count": 2
+              }
+            ],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-11-01T00:00:00.000Z",
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "ffff0002-0000-0000-0000-000000000001"
+}

@@ -1,7 +1,7 @@
 import type { GameData } from '../../../data/types'
 import { withinHorizon } from '../../../data/horizon'
 import type { Horizon } from '../../../data/horizon'
-import { isModuleAllowedByProductivity, isModuleAllowedForBeaconRow, isModuleAllowedForRecipe, isModuleAllowedInMachine } from '../moduleRules'
+import { type ModuleEntity, isModuleAllowedByProductivity, isModuleAllowedForBeaconRow, isModuleAllowedForRecipe, isModuleAllowedInMachine } from '../../../data/moduleRules'
 
 type Module = GameData['modules'][string]
 
@@ -14,7 +14,7 @@ const byName = (a: Module, b: Module) => a.name.localeCompare(b.name) || a.id.lo
 export function machineModuleOptions(
   gameData: GameData,
   horizon: Horizon,
-  machine: { allowedEffects: string[] } | undefined,
+  machine: ModuleEntity | undefined,
   recipeId: string,
 ): Module[] {
   if (!machine) return []
@@ -32,7 +32,7 @@ export function machineModuleOptions(
 export function beaconModuleOptions(
   gameData: GameData,
   horizon: Horizon,
-  beacon: { allowedEffects: string[] } | undefined,
+  beacon: ModuleEntity | undefined,
   recipeId: string,
 ): Module[] {
   const allowProductivity = gameData.recipes[recipeId]?.allowProductivity ?? false

@@ -97,6 +97,14 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
+ * Module-categories patch mode: write `allowedModuleCategories` (the prototype's `allowed_module_categories`,
+ * sorted; absent = every category) on the bundle's machines and beacons that have module slots (same mod-set
+ * check). Nothing else is touched. Safe to re-run. Exits without writing when more than 1 % of those entities
+ * are missing from the dump:
+ *   node scripts/build-game-data.js --patch-module-categories \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
@@ -115,6 +123,7 @@ import { addIconColors } from './icon-color.js'
 import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachProductTemperatures } from './temperatures.js'
 import { additionalCategories, recipeMadeIn, attachAdditionalCategories } from './recipe-categories.js'
 import { itemFuel, fluidFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
+import { moduleCategoriesField, attachModuleCategories } from './module-categories.js'
 import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
@@ -160,6 +169,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--patch-temperatures') args.patchTemperatures = true
     else if (argv[i] === '--patch-fuel') args.patchFuel = true
     else if (argv[i] === '--patch-additional-categories') args.patchAdditionalCategories = true
+    else if (argv[i] === '--patch-module-categories') args.patchModuleCategories = true
     else if (argv[i] === '--patch-category-names') args.patchCategoryNames = true
   }
   return args
@@ -554,6 +564,7 @@ async function exportMachines(raw, locale, resolveIcon) {
         iconPath:          await resolveIcon(proto, proto.name),
         hidden:            proto.hidden ?? false,
         ...burnerFuel(proto),
+        ...moduleCategoriesField(proto, proto.module_slots ?? 0),
       }
     }
   }
@@ -689,6 +700,7 @@ async function exportBeacons(raw, locale, resolveIcon) {
       moduleSlots:            proto.module_slots ?? 0,
       distributionEfficiency: proto.distribution_effectivity ?? 0,
       allowedEffects,
+      ...moduleCategoriesField(proto, proto.module_slots ?? 0),
     }
   }
 
@@ -1102,6 +1114,23 @@ if (args.patchAdditionalCategories) {
   writeFileSync(outputPath, JSON.stringify({ ...existing, recipes: attached.recipes }, null, 2))
   process.stderr.write(
     `[build-game-data] Patched ${outputPath}: additionalCategories=${attached.count} madeInChanged=${changed} ` +
+    `missing=${attached.missing.length}\n`
+  )
+  process.exit(0)
+}
+
+if (args.patchModuleCategories) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  const attached = attachModuleCategories(existing.machines, existing.beacons, raw)
+  for (const id of attached.missing) process.stderr.write(`[warn] ${id} is missing from the dump\n`)
+  if (attached.missing.length > attached.slotted * 0.01) {
+    process.stderr.write(`[build-game-data] ${attached.missing.length}/${attached.slotted} bundle machines and beacons with module slots are missing from the dump; wrong dump? Nothing written.\n`)
+    process.exit(1)
+  }
+  writeFileSync(outputPath, JSON.stringify({ ...existing, machines: attached.machines, beacons: attached.beacons }, null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched ${outputPath}: machines=${attached.counts.machines} beacons=${attached.counts.beacons} ` +
     `missing=${attached.missing.length}\n`
   )
   process.exit(0)

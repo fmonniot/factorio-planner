@@ -178,6 +178,18 @@ describe('exportExtraction — drills', () => {
     expect(m.craftingCategories).toEqual(['mining-with-fluid:basic-solid', 'mining:basic-solid'])
   })
 
+  it('exports allowedModuleCategories of a drill with slots and a list, and none otherwise', async () => {
+    const raw = makeRaw()
+    raw['mining-drill']['electric-drill'].allowed_module_categories = ['speed', 'efficiency']
+    raw['mining-drill']['burner-drill'].allowed_module_categories = ['speed']
+    const { machines } = await exportExtraction(raw, makeOpts())
+    expect(machines['electric-drill'].allowedModuleCategories).toEqual(['efficiency', 'speed'])
+    // No slots: no field, whatever the prototype lists.
+    expect(machines['burner-drill']).not.toHaveProperty('allowedModuleCategories')
+    const plain = await exportExtraction(makeRaw(), makeOpts())
+    expect(plain.machines['electric-drill']).not.toHaveProperty('allowedModuleCategories')
+  })
+
   it('reads an empty allowed_effects as no effects', async () => {
     const { machines } = await exportExtraction(makeRaw(), makeOpts())
     expect(machines['burner-drill'].allowedEffects).toEqual([])

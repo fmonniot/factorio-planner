@@ -313,6 +313,20 @@ describe('temperature-mismatch warning (more)', () => {
   })
 })
 
+describe('module-not-allowed after temperature-mismatch', () => {
+  it('emits the module warning after the temperature one', () => {
+    const gd = gameData([boiler('b165', 165), generator('turbine', 465)], STEAM_ITEMS())
+    gd.machines.asm = {
+      id: 'asm', name: 'Asm', type: 'assembling-machine', craftingSpeed: 1, energyUsageKw: 1, energyType: 'electric', drainKw: 0,
+      moduleSlots: 2, allowedEffects: ['productivity'], allowedModuleCategories: ['speed'], craftingCategories: ['crafting'], iconPath: '', hidden: false,
+    }
+    gd.modules.agri = { id: 'agri', name: 'Agriculture', category: 'angels-bio-yield', tier: 1, effects: { productivity: 0.1 }, limitation: [], limitationBlacklist: [], iconPath: '' }
+    const turbine = { ...node('t', 'turbine'), machineId: 'asm', modules: [{ moduleId: 'agri', count: 1 }] }
+    const types = solveAll([block('A', [node('b', 'b165'), turbine])], gd).results.A.warnings.map(w => w.type)
+    expect(types.filter(t => t === 'temperature-mismatch' || t === 'module-not-allowed')).toEqual(['temperature-mismatch', 'module-not-allowed'])
+  })
+})
+
 describe('temperature rows of a fluid two areas touch', () => {
   // L runs the boiler, B the turbine; steam is traded by both areas, and the turbine takes steam of 465 or more. The tests of T1 to T3 are the
   // values the model gave before area rules (they pass on that model and must stay); T4 and the rule test are new with it.

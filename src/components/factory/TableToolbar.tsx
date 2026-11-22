@@ -150,6 +150,7 @@ function warningTitle(w: SolverWarning): string {
     case 'loop-not-converged': return 'Loop between blocks did not settle'
     case 'request-loop-not-converged': return 'Requests around a loop do not settle'
     case 'temperature-mismatch': return 'Fluid temperature does not fit'
+    case 'module-not-allowed': return 'Module not accepted'
   }
 }
 
@@ -217,6 +218,20 @@ function warningBody(
       return `The supply around the loop ${names.join(' → ')} still changed after ${w.rounds} rounds. Rates are from the last round and may not add up.`
     }
     case 'temperature-mismatch': return fmtTemperatureWarning(w, gameData, r => fmtItemRateText(w.itemId, r / 60, rateUnit))
+    case 'module-not-allowed': {
+      return w.misfits
+        .map(m => {
+          const recipe = gameData.recipes[m.recipeId]?.name ?? m.recipeId
+          const module = gameData.modules[m.moduleId]
+          const moduleName = module?.name ?? m.moduleId
+          const entity = (m.kind === 'machine' ? gameData.machines[m.entityId] : gameData.beacons[m.entityId])?.name ?? m.entityId
+          const base = `"${recipe}": ${moduleName} cannot be inserted in ${entity}`
+          return m.reason === 'category'
+            ? `${base} (the game does not accept its category, ${module?.category ?? 'unknown'}, there). The planner still counts its effects.`
+            : `${base} (it carries an effect the ${m.kind} does not allow). The planner counts only the effects the ${m.kind} allows.`
+        })
+        .join(' ')
+    }
     case 'request-loop-not-converged': {
       const names = [...w.blockIds, w.blockIds[0]].map(blockName)
       return `The requests around the loop ${names.join(' → ')} did not settle after ${w.rounds} rounds: the blocks need more of each other than the loop can give back. The requests that close the loop only take what is left over.`
@@ -239,6 +254,7 @@ function warningHint(w: SolverWarning): string {
     case 'loop-not-converged': return "Remove one of the loop's connections, or set a limit on one."
     case 'request-loop-not-converged': return "Set a limit on one of the loop's requests, or remove one."
     case 'temperature-mismatch': return 'Use a boiler or recipe whose output is in range, or connect a block that makes it at the right temperature.'
+    case 'module-not-allowed': return 'Replace the module with one the machine accepts, or pick another machine or beacon.'
   }
 }
 

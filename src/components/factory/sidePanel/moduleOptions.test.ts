@@ -17,4 +17,16 @@ describe('module options', () => {
     expect(machineModuleOptions(gd, horizon, effects, 'r').map(m => m.id)).toEqual(['a', 'm', 'z'])
     expect(beaconModuleOptions(gd, horizon, effects, 'r').map(m => m.id)).toEqual(['a', 'm', 'z'])
   })
+
+  it('omits a module whose category the entity does not list, and keeps it without a list', () => {
+    const agri = mod('agri', 'Agriculture')
+    agri.category = 'angels-bio-yield'
+    const data = { ...gd, modules: { ...gd.modules, agri } } as unknown as GameData
+    const unlisted = { allowedEffects: ['speed'] }
+    const listed = { allowedEffects: ['speed'], allowedModuleCategories: ['speed'] }
+    expect(machineModuleOptions(data, horizon, unlisted, 'r').map(m => m.id)).toContain('agri')
+    expect(machineModuleOptions(data, horizon, listed, 'r').map(m => m.id)).toEqual(['a', 'm', 'z'])
+    expect(beaconModuleOptions(data, horizon, unlisted, 'r').map(m => m.id)).toContain('agri')
+    expect(beaconModuleOptions(data, horizon, listed, 'r').map(m => m.id)).toEqual(['a', 'm', 'z'])
+  })
 })

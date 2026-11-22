@@ -1,18 +1,18 @@
 import { describe, it, expect } from 'vitest'
 import {
   isModuleAllowedInMachine, isModuleAllowedForRecipe, isModuleAllowedByProductivity,
-  isModuleAllowedInBeacon, isModuleAllowedForBeaconRow,
+  isModuleAllowedInBeacon, isModuleAllowedForBeaconRow, moduleMisfitInMachine, moduleMisfitInBeacon,
 } from './moduleRules'
 
 describe('isModuleAllowedInMachine', () => {
   it('allows module when all its effects are permitted', () => {
-    const module = { effects: { speed: 0.5, consumption: 0.15 } }
+    const module = { effects: { speed: 0.5, consumption: 0.15 }, category: 'speed-module' }
     const machine = { allowedEffects: ['speed', 'consumption', 'productivity'] }
     expect(isModuleAllowedInMachine(module, machine)).toBe(true)
   })
 
   it('blocks module when an effect is not permitted', () => {
-    const module = { effects: { productivity: 0.1 } }
+    const module = { effects: { productivity: 0.1 }, category: 'speed-module' }
     const machine = { allowedEffects: ['speed', 'consumption'] }
     expect(isModuleAllowedInMachine(module, machine)).toBe(false)
   })
@@ -55,19 +55,19 @@ describe('isModuleAllowedInBeacon', () => {
   const beacon = { allowedEffects: ['speed', 'consumption', 'pollution'] }
 
   it('allows a module whose effects are all allowed', () => {
-    expect(isModuleAllowedInBeacon({ effects: { speed: 0.5, consumption: 0.7 } }, beacon)).toBe(true)
+    expect(isModuleAllowedInBeacon({ effects: { speed: 0.5, consumption: 0.7 }, category: 'speed-module' }, beacon)).toBe(true)
   })
 
   it('rejects a module with a productivity effect the beacon does not allow', () => {
-    expect(isModuleAllowedInBeacon({ effects: { productivity: 0.1, speed: -0.15 } }, beacon)).toBe(false)
+    expect(isModuleAllowedInBeacon({ effects: { productivity: 0.1, speed: -0.15 }, category: 'speed-module' }, beacon)).toBe(false)
   })
 
   it('ignores zero and undefined effect values', () => {
-    expect(isModuleAllowedInBeacon({ effects: { speed: 0.5, productivity: 0, quality: undefined } }, beacon)).toBe(true)
+    expect(isModuleAllowedInBeacon({ effects: { speed: 0.5, productivity: 0, quality: undefined }, category: 'speed-module' }, beacon)).toBe(true)
   })
 
   it('allows productivity in a beacon that lists it', () => {
-    expect(isModuleAllowedInBeacon({ effects: { productivity: 0.1 } }, { allowedEffects: ['productivity'] })).toBe(true)
+    expect(isModuleAllowedInBeacon({ effects: { productivity: 0.1 }, category: 'speed-module' }, { allowedEffects: ['productivity'] })).toBe(true)
   })
 })
 
@@ -76,9 +76,9 @@ describe('isModuleAllowedForBeaconRow', () => {
   const speedBeacon = { allowedEffects: ['speed', 'consumption'] }
 
   it('checks the beacon, the recipe limitation and productivity together', () => {
-    const speed = { effects: { speed: 0.5 }, ...unrestricted }
-    const prod = { effects: { productivity: 0.1 }, ...unrestricted }
-    const limited = { effects: { speed: 0.5 }, limitation: ['other'], limitationBlacklist: [] }
+    const speed = { effects: { speed: 0.5 }, category: 'speed-module', ...unrestricted }
+    const prod = { effects: { productivity: 0.1 }, category: 'speed-module', ...unrestricted }
+    const limited = { effects: { speed: 0.5 }, category: 'speed-module', limitation: ['other'], limitationBlacklist: [] }
     expect(isModuleAllowedForBeaconRow(speed, speedBeacon, 'iron-plate', false)).toBe(true)
     expect(isModuleAllowedForBeaconRow(prod, speedBeacon, 'iron-plate', true)).toBe(false)
     expect(isModuleAllowedForBeaconRow(prod, { allowedEffects: ['productivity'] }, 'iron-plate', false)).toBe(false)
@@ -86,6 +86,47 @@ describe('isModuleAllowedForBeaconRow', () => {
   })
 
   it('skips the beacon check when there is no beacon entity', () => {
-    expect(isModuleAllowedForBeaconRow({ effects: { productivity: 0.1 }, ...unrestricted }, undefined, 'iron-plate', true)).toBe(true)
+    expect(isModuleAllowedForBeaconRow({ effects: { productivity: 0.1 }, category: 'speed-module', ...unrestricted }, undefined, 'iron-plate', true)).toBe(true)
+  })
+})
+
+describe('module categories', () => {
+  const agri = { effects: { productivity: 0.1 }, category: 'angels-bio-yield' }
+  const machine = { allowedEffects: ['speed', 'productivity'] }
+
+  it('rejects a category the machine does not list, even when its effects fit', () => {
+    const listed = { ...machine, allowedModuleCategories: ['speed'] }
+    expect(moduleMisfitInMachine(agri, listed)).toBe('category')
+    expect(isModuleAllowedInMachine(agri, listed)).toBe(false)
+  })
+
+  it('accepts every category when the list is absent', () => {
+    expect(moduleMisfitInMachine(agri, machine)).toBeUndefined()
+    expect(isModuleAllowedInMachine(agri, machine)).toBe(true)
+  })
+
+  it('accepts nothing when the list is empty', () => {
+    expect(moduleMisfitInMachine(agri, { ...machine, allowedModuleCategories: [] })).toBe('category')
+  })
+
+  it('reports the effect when both the effect and the category fail', () => {
+    expect(moduleMisfitInMachine(agri, { allowedEffects: ['speed'], allowedModuleCategories: ['speed'] })).toBe('effect')
+  })
+
+  it('keeps the machine strict on zero-valued effects and the beacon tolerant', () => {
+    const zero = { effects: { speed: 0.5, productivity: 0 }, category: 'speed' }
+    const entity = { allowedEffects: ['speed'] }
+    expect(moduleMisfitInMachine(zero, entity)).toBe('effect')
+    expect(moduleMisfitInBeacon(zero, entity)).toBeUndefined()
+  })
+
+  it('rejects a beacon category misfit', () => {
+    expect(moduleMisfitInBeacon(agri, { ...machine, allowedModuleCategories: ['speed'] })).toBe('category')
+  })
+
+  it('isModuleAllowedForBeaconRow rejects by category and skips the check without a beacon', () => {
+    const module = { ...agri, limitation: [], limitationBlacklist: [] }
+    expect(isModuleAllowedForBeaconRow(module, { ...machine, allowedModuleCategories: ['speed'] }, 'r', true)).toBe(false)
+    expect(isModuleAllowedForBeaconRow(module, undefined, 'r', true)).toBe(true)
   })
 })
