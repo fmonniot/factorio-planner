@@ -18,13 +18,14 @@ import type {
   SubPlan,
 } from '../data/types'
 import { blockAreas, explicitMainProduct, solveAreaBlock, withAreaRules } from './areas'
-import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount } from './build'
+import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount, type KeySupply } from './build'
 import { solveLP } from './solve'
 import { isFeeder } from './absorbers'
 import { connectionOrder, needsConnectionOrder } from './connectionOrder'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { flowKey, offerByItem, parseFlowKey, sumByItem } from '../data/flowKey'
-import { baseOf, conversionsOf, expandToKeys, goalKey, keyCaps, keyGoals, noFittingTemperature } from './flowKeys'
+import { baseOf, conversionsOf, expandToKeys, goalKeyOf, goalMapKey, keyCaps, keyGoals, noFittingTemperature, supplyCaps as suppliedKeyCaps } from './flowKeys'
+import { keySupplyPlanOf } from './keySupplyPlan'
 import { computeNodeEffects } from './effects'
 import { moduleNotAllowedWarning } from './moduleWarnings'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
@@ -212,8 +213,9 @@ export function solveBlock(
   plan: SolverPlan,
   gameData: GameData,
   supplyCaps: Map<string, number> = new Map(),
-): { result: SolverResult; received: Map<string, number> } {
-  if (plan.areas) return solveAreaBlock(plan, plan.areas, gameData, supplyCaps)
+  keySupply: KeySupply = new Map(),
+): { result: SolverResult; received: Map<string, number>; receivedParts?: Map<string, Map<string, number>>; receivedKeys: Map<string, number> } {
+  if (plan.areas) return solveAreaBlock(plan, plan.areas, gameData, supplyCaps, keySupply)
 
   // SubPlanNodes are UI grouping only; the solver only sees game-recipe nodes.
   // byproductConsumer is a flag that applies a small negative bonus to the
@@ -248,7 +250,7 @@ export function solveBlock(
 
   const recipeIds = representatives.map(n => n.recipeId)
 
-  const goalsMap = new Map(plan.goals.map(g => [g.itemId, g.rate]))
+  const goalsMap = new Map(plan.goals.map(g => [goalMapKey(g), g.rate]))
 
   const nodeEffectsMap = new Map(
     representatives.map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
@@ -269,14 +271,14 @@ export function solveBlock(
     representatives.filter(n => n.absorberFeeder && !n.byproductConsumer).map(n => n.recipeId),
   )
 
-  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, nodeEffectsMap, { supplyCaps })
+  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, nodeEffectsMap, { supplyCaps, keySupply })
 
-  // Warn for goal items with no producer recipe in the plan.
+  // Warn for goal items with no producer recipe in the plan (one warning per item for the goals on a range).
   const noRecipeWarnings: SolverResult['warnings'] = []
   for (const goal of plan.goals) {
-    const row = system.S.get(goalKey(system, goal.itemId))
+    const row = system.S.get(goalKeyOf(system, goal))
     const hasProducer = row !== undefined && [...row.values()].some(c => c > 0)
-    if (!hasProducer) {
+    if (!hasProducer && !(goal.temp && noRecipeWarnings.some(w => w.type === 'no-recipe' && w.itemId === goal.itemId))) {
       noRecipeWarnings.push({ type: 'no-recipe', itemId: goal.itemId })
     }
   }
@@ -315,15 +317,20 @@ export function solveBlock(
   const cannotImport = expandToKeys(system, sets.cannotImport)
   const byproductsFirst = expandToKeys(system, sets.byproductsFirst)
 
-  // A split fluid's offer is the cap of each of its range keys (the LP's group row bounds their sum).
-  const totalCaps = keyCaps(system, new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE)))
+  // A split fluid's offer is the cap of each of its range keys (the LP's group row bounds their sum); one a connection supplies
+  // by key (`keySupply`) has a supplied key per offered key instead, capped by what the connections offer of it.
+  const totalCaps = new Map([
+    ...keyCaps(system, new Map([...supplyCaps].filter(([id, cap]) => cap > FLOW_TOLERANCE && !keySupply.has(id)))),
+    ...suppliedKeyCaps(system),
+  ])
   const noFitWarnings = noFittingTemperature(system, expandToKeys(system, sets.importOffLocked), id => id)
 
   // Pass 1: what the block's own recipes cannot cover. Connected items lose their
-  // lock for this pass only, so a shortfall shows up as slack, not as infeasibility.
+  // lock for this pass only, so a shortfall shows up as slack, not as infeasibility. A split fluid loses it on every key.
+  const connectedBases = new Set([...totalCaps.keys()].map(k => baseOf(system, k)))
   const pass1NoImport = totalCaps.size === 0
     ? locked
-    : new Set([...locked].filter(itemId => !totalCaps.has(itemId)))
+    : new Set([...locked].filter(itemId => !connectedBases.has(baseOf(system, itemId))))
   // Connections-first intermediates have their supply in every pass, capped by the
   // offer only, so the LP uses it before the block's own recipes.
   const firstItems = new Set(
@@ -332,25 +339,30 @@ export function solveBlock(
     ),
   )
   const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
-  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst, markedFeeders)
+  const keySupplyPlan = keySupplyPlanOf(system)
+  const offerFluidCaps = new Map([...(keySupplyPlan?.fluids ?? [])].map(([fluid, f]) => [fluid, f.offers]))
+  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst, markedFeeders, { fluidCaps: offerFluidCaps })
 
   // Pass 2: supply fills only the residual of connected intermediates. Capping at
   // the residual keeps own production at its pass-1 level (replacing it would
   // bring slack back at BIG_M); raw items need no LP row and are handled below.
   const pass2 = pass2Plan({
     totalCaps, intermediates: system.classification.intermediates, firstItems, locked,
-    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow,
+    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow, keySupply: keySupplyPlan,
   })
   if (pass2.run) {
     lp = solveLP(
       system, pinnedRates, bcRecipeIds, pass2.noImport,
-      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, markedFeeders,
+      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, markedFeeders, { fluidCaps: pass2.fluidCaps },
     )
   }
 
   // A connection replaces an import: when the two passes still import an intermediate while a connection
   // has offer to spare, the order of connectionOrder.ts decides (least import, least received, fill).
-  const order = { system, pinnedRates, bcRecipeIds, markedFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp }
+  const order = {
+    system, pinnedRates, bcRecipeIds, markedFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp,
+    fluidCaps: offerFluidCaps, keySupply: keySupplyPlan,
+  }
   if (needsConnectionOrder(order)) lp = connectionOrder(order) ?? lp
 
   const { throughput: throughputMap, warnings } = lp
@@ -374,8 +386,8 @@ export function solveBlock(
     ))
   }
 
-  const { overconstrained, itemSurplus, itemGross, unsatisfied, received } = blockDiagnostics({
-    goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, supply: lp.supply, nodes, totalCaps,
+  const { overconstrained, itemSurplus, itemGross, unsatisfied, received, receivedKeys, receivedParts } = blockDiagnostics({
+    goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, supply: lp.supply, nodes, totalCaps, keySupplyUse: lp.keySupplyUse,
   })
   if (overconstrained) warnings.push(overconstrained)
   const mainItemOfRecipe = new Map<string, string>()
@@ -399,6 +411,8 @@ export function solveBlock(
       ...(conversions ? { conversions } : {}),
     },
     received,
+    ...(receivedParts.size > 0 ? { receivedParts } : {}),
+    receivedKeys,
   }
 }
 

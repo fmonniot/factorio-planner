@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { solve, solveBlock, solveAll, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
 import { coproductDrivenWarning, itemGrossFlow, pass2Plan } from './blockResult'
 import type { LoopShape } from './blockGraph'
+import type { FlowKeys } from './build'
 import { createSolveCache } from './solveCache'
 import type { GameData, ServedEntry, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
@@ -2526,6 +2527,51 @@ describe('pass2Plan', () => {
     expect(p.run).toBe(true)
     expect(p.caps.get('x')).toBeCloseTo(49.95, 9)
     expect(p.noImport.has('x')).toBe(false)
+  })
+})
+
+describe('pass2Plan, a fluid whose connections supply keys', () => {
+  // Steam: range keys r1 and r2 with the slacks of pass 1; the supplied key `s#in` carries the connections' offers.
+  const plan = (over: { slack1: number; slack2: number; offers: number; fit: number; first?: boolean }) => pass2Plan({
+    totalCaps: new Map([['s#in', over.offers]]),
+    intermediates: new Set(['r1', 'r2', 's#in']),
+    firstItems: new Set(over.first ? ['s#in'] : []),
+    locked: new Set(['r1', 'r2']),
+    slack: new Map([['r1', over.slack1], ['r2', over.slack2]]),
+    S: new Map(),
+    throughput: new Map(),
+    flow: { supply: new Map([['s#in', { fluid: 'steam', offeredKey: 's' }]]), info: new Map(), offers: new Map() } as unknown as FlowKeys,
+    keySupply: { fluids: new Map([['steam', { keys: ['s#in'], rangeKeys: ['r1', 'r2'], offers: over.offers, fit: () => over.fit }]]) },
+  })
+
+  it('caps the supplied keys together at the smaller of the offers and the residual summed over the range keys', () => {
+    const p = plan({ slack1: 30, slack2: 20, offers: 100, fit: 50 })
+    expect(p.run).toBe(true)
+    expect(p.fluidCaps.get('steam')).toBe(50)
+    expect(p.caps.get('s#in')).toBe(100)
+    expect(p.noImport.has('r1'), 'the supply can cover it all: the locks stay').toBe(true)
+  })
+
+  it('unlocks every range key when what the offered keys fit is below the residual', () => {
+    const p = plan({ slack1: 30, slack2: 20, offers: 100, fit: 30 })
+    expect(p.fluidCaps.get('steam')).toBe(50)
+    expect(p.noImport.has('r1')).toBe(false)
+    expect(p.noImport.has('r2')).toBe(false)
+  })
+
+  it('an offer below the residual is capped by the offer', () => {
+    expect(plan({ slack1: 30, slack2: 20, offers: 40, fit: 40 }).fluidCaps.get('steam')).toBe(40)
+  })
+
+  it('does nothing without a residual', () => {
+    const p = plan({ slack1: 0, slack2: 0, offers: 100, fit: 0 })
+    expect(p.run).toBe(false)
+    expect(p.caps.size).toBe(0)
+  })
+
+  it('Receive it first: the keys are unlocked only when something is left', () => {
+    expect(plan({ slack1: 5, slack2: 0, offers: 100, fit: 5, first: true }).noImport.has('r1')).toBe(false)
+    expect(plan({ slack1: 0, slack2: 0, offers: 100, fit: 5, first: true }).noImport.has('r1')).toBe(true)
   })
 })
 

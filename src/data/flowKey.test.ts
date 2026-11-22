@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fitsRange, flowKey, fmtFluidTag, offerByItem, parseFlowKey, productTag, rangeOf, splitFluids, sumByItem } from './flowKey'
+import { compareTags, fitsRange, flowKey, fmtFluidTag, keysOfItem, offerByItem, parseFlowKey, productTag, rangeDepth, rangeOf, splitFluids, sumByItem, sumOfItem, versatility } from './flowKey'
 import type { FluidTag, GameData } from './types'
 
 describe('flowKey and parseFlowKey', () => {
@@ -101,5 +101,39 @@ describe('sumByItem and offerByItem', () => {
 
   it('offerByItem adds the positive part of a flow key and keeps a plain item as it is', () => {
     expect([...offerByItem(map)]).toEqual([['steam', 3700], ['plate', -5]])
+  })
+})
+
+describe('compareTags, versatility, rangeDepth', () => {
+  it('lists temperatures ascending (unknown last), then ranges by minimum (open first), then maximum (open last)', () => {
+    const tags: FluidTag[] = [{ min: 465 }, { at: null }, {}, { at: 500 }, { max: 50 }, { at: 165 }, { min: 100, max: 200 }]
+    expect([...tags].sort(compareTags)).toEqual([{ at: 165 }, { at: 500 }, { at: null }, { max: 50 }, {}, { min: 100, max: 200 }, { min: 465 }])
+  })
+
+  const ranges = [{ min: 465 }, {}, { min: 100, max: 200 }]
+  it('versatility counts the ranges a tag fits', () => {
+    expect(versatility({ at: 500 }, ranges)).toBe(2)
+    expect(versatility({ at: 165 }, ranges)).toBe(2)
+    expect(versatility({ at: 50 }, ranges)).toBe(1)
+    expect(versatility({ at: null }, ranges)).toBe(3)
+  })
+
+  it('a narrower range is deeper', () => {
+    expect(rangeDepth({ min: 465 }, ranges)).toBe(2)
+    expect(rangeDepth({}, ranges)).toBe(1)
+    expect(rangeDepth({ min: 100, max: 200 }, ranges)).toBe(2)
+  })
+})
+
+describe('keysOfItem and sumOfItem', () => {
+  const map = new Map([['steam@165', 3], ['steam[465,]', 5], ['water', 7], ['steam2@1', 11]])
+  it('a split item: its keys', () => {
+    expect(keysOfItem(map, 'steam')).toEqual(['steam@165', 'steam[465,]'])
+    expect(sumOfItem(map, 'steam')).toBe(8)
+  })
+  it('a plain item: itself', () => {
+    expect(keysOfItem(map, 'water')).toEqual(['water'])
+    expect(sumOfItem(map, 'water')).toBe(7)
+    expect(sumOfItem(map, 'none')).toBe(0)
   })
 })

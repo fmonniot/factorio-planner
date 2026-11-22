@@ -14,10 +14,11 @@ import type {
   SourceRule,
   SubPlan,
 } from '../data/types'
-import { addFlowKeys, buildClassifiedSystem, discardProduct, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects, type SplitUse } from './build'
+import { addFlowKeys, buildClassifiedSystem, discardProduct, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type KeySupply, type RowEffects, type SplitUse } from './build'
 import { itemRoutes, type ItemRoute, type RouteReceiver, type RouteSender } from './areaRoutes'
-import { baseOf, conversionsOf, expandToKeys, goalKey, itemKeys, fluidSupply, keyCaps, keyGoals, noFittingTemperature, resultItem } from './flowKeys'
-import { splitFluids, productTag, rangeOf } from '../data/flowKey'
+import { baseOf, conversionsOf, expandToKeys, goalKeyOf, goalMapKey, itemKeys, fluidSupply, keyCaps, keyGoals, noFittingTemperature, resultItem, supplyCaps as suppliedKeyCaps } from './flowKeys'
+import { keySupplyPlanOf } from './keySupplyPlan'
+import { flowKey, parseFlowKey, splitFluids, productTag, rangeOf, type FluidRange } from '../data/flowKey'
 import {
   BIG_M, BYPRODUCTS_FIRST_SLACK_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP,
   type LPModel, type LPResult,
@@ -240,6 +241,7 @@ function buildColumnSystem(
   columns: Column[],
   goalsMap: Map<string, number>,
   supplyCaps: ReadonlyMap<string, number> = new Map(),
+  keySupply: KeySupply = new Map(),
 ): ClassifiedSystem {
   // Productivity cannot change the sign of a coefficient, so this equals a per-column classification.
   // A burner column's fuel counts as a consumption (only the sign matters), so an in-plan fuel is an
@@ -282,8 +284,12 @@ function buildColumnSystem(
   const system: ClassifiedSystem = { S, recipes: columns.map(c => c.id), classification }
   const offers = new Map<string, number>()
   const used = new Set(uses.flatMap(u => [...u.made, ...u.taken].map(x => x.itemId)))
-  for (const [id, cap] of supplyCaps) if (split.has(id) && cap > FLOW_TOLERANCE && used.has(id)) offers.set(id, cap)
-  const flow = addFlowKeys(system, uses, { goalItems: [...goalsMap.keys()].filter(id => split.has(id)), areas: true, offers })
+  for (const [id, cap] of supplyCaps) if (split.has(id) && cap > FLOW_TOLERANCE && used.has(id) && !keySupply.has(id)) offers.set(id, cap)
+  const goalKeys = [...goalsMap.keys()].flatMap(id => {
+    const { itemId, tag } = parseFlowKey(id)
+    return split.has(itemId) ? [{ itemId, key: tag === undefined ? flowKey(itemId, {}) : id, range: (tag ?? {}) as FluidRange }] : []
+  })
+  const flow = addFlowKeys(system, uses, { goalKeys, areas: true, offers, keySupply })
   if (flow) {
     system.flow = flow
     system.recipes = [...system.recipes, ...flow.conversions.keys()]
@@ -389,14 +395,15 @@ function solveAreaLP(
   byproductsFirst: Set<string>,
   areaItems: AreaItemSpec[],
   order?: AreaOrder,
+  fluidCaps?: ReadonlyMap<string, number>,
 ): AreaLPResult {
   const args = [system, columns, pinnedRates, bcColumns, feederColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, areaItems] as const
-  const first = solveAreaLPOnce(...args, { elastic: false }, order)
+  const first = solveAreaLPOnce(...args, { elastic: false }, order, fluidCaps)
   // The order runs only on a block whose passes were feasible; it never goes elastic.
   if (first.feasible || order) return first
   // As in `solveLP`: goal rows go elastic (kept only if feasible).
   if (!hasGoalRow(system)) return first
-  const elastic = solveAreaLPOnce(...args, { elastic: true })
+  const elastic = solveAreaLPOnce(...args, { elastic: true }, undefined, fluidCaps)
   return elastic.feasible ? elastic : first
 }
 
@@ -413,6 +420,7 @@ function solveAreaLPOnce(
   areaItems: AreaItemSpec[],
   mode: { elastic: boolean },
   order?: AreaOrder,
+  fluidCaps?: ReadonlyMap<string, number>,
 ): AreaLPResult {
   const elasticGoals = mode.elastic
   const { S, classification } = system
@@ -430,7 +438,7 @@ function solveAreaLPOnce(
     connectionsFirst, byproductsFirst, elasticGoals,
     // An area whose rule is Don't make more here has a cheap slack of its own for the item.
     new Set(areaItems.filter(s => s.areas.some(a => a.slackCost !== undefined && a.slackCost < BIG_M)).map(s => s.itemId)),
-    { markedFeeders: feederColumns, extraSupplied },
+    { markedFeeders: feederColumns, extraSupplied, fluidCaps },
   )
   const { constraints, variables } = base
   const lpCols = lpColumns(columns, system)
@@ -1061,7 +1069,7 @@ function areaFlows(
 }
 
 /** The pieces of an area solve that depend on the rows only: one column per row, the classified system over them, and the notes on the rows. */
-function buildAreaColumns(plan: SolverPlan, areas: SolverArea[], gameData: GameData, supplyCaps?: ReadonlyMap<string, number>): {
+function buildAreaColumns(plan: SolverPlan, areas: SolverArea[], gameData: GameData, supplyCaps?: ReadonlyMap<string, number>, keySupply?: KeySupply): {
   gameRecipeNodes: GameRecipeNode[]
   columns: Column[]
   duplicateIds: Set<string>
@@ -1100,15 +1108,15 @@ function buildAreaColumns(plan: SolverPlan, areas: SolverArea[], gameData: GameD
     }
   })
 
-  const goalsMap = new Map(plan.goals.map(g => [g.itemId, g.rate]))
-  const system = buildColumnSystem(gameData, columns, goalsMap, supplyCaps)
+  const goalsMap = new Map(plan.goals.map(g => [goalMapKey(g), g.rate]))
+  const system = buildColumnSystem(gameData, columns, goalsMap, supplyCaps, keySupply)
 
-  // Warn for goal items with no producer row in the plan.
+  // Warn for goal items with no producer row in the plan (one warning per item for the goals on a range).
   const noRecipeWarnings: SolverWarning[] = []
   for (const goal of plan.goals) {
-    const row = system.S.get(goalKey(system, goal.itemId))
+    const row = system.S.get(goalKeyOf(system, goal))
     const hasProducer = row !== undefined && [...row.values()].some(c => c > 0)
-    if (!hasProducer) {
+    if (!hasProducer && !(goal.temp && noRecipeWarnings.some(w => w.type === 'no-recipe' && w.itemId === goal.itemId))) {
       noRecipeWarnings.push({ type: 'no-recipe', itemId: goal.itemId })
     }
   }
@@ -1173,8 +1181,9 @@ export function solveAreaBlock(
   areas: SolverArea[],
   gameData: GameData,
   supplyCaps: Map<string, number>,
-): { result: SolverResult; received: Map<string, number> } {
-  const { gameRecipeNodes, columns, duplicateIds, duplicateWarnings, noRecipeWarnings, system } = buildAreaColumns(plan, areas, gameData, supplyCaps)
+  keySupply: KeySupply = new Map(),
+): { result: SolverResult; received: Map<string, number>; receivedParts?: Map<string, Map<string, number>>; receivedKeys: Map<string, number> } {
+  const { gameRecipeNodes, columns, duplicateIds, duplicateWarnings, noRecipeWarnings, system } = buildAreaColumns(plan, areas, gameData, supplyCaps, keySupply)
 
   const pinnedRates = new Map<string, number>()
   for (const col of columns) {
@@ -1212,13 +1221,20 @@ export function solveAreaBlock(
   }
   const noFitWarnings = noFittingTemperature(system, plainOf(expandToKeys(system, sets.importOffLocked, effective)), id => columns.find(c => c.id === id)?.node.recipeId ?? id)
 
-  const totalCaps = keyCaps(system, new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE)))
+  // As solveBlock: a split fluid supplied by key has a supplied key per offered key (per area that takes a range it fits).
+  const totalCaps = new Map([
+    ...keyCaps(system, new Map([...supplyCaps].filter(([id, cap]) => cap > FLOW_TOLERANCE && !keySupply.has(id)))),
+    ...suppliedKeyCaps(system),
+  ])
   const plainCaps = areaItems.size === 0 ? totalCaps : new Map([...totalCaps].filter(([id]) => !areaItems.has(id)))
+  const keySupplyPlan = keySupplyPlanOf(system)
+  const offerFluidCaps = new Map([...(keySupplyPlan?.fluids ?? [])].map(([fluid, f]) => [fluid, f.offers]))
 
   // The passes are those of solveBlock.
+  const connectedBases = new Set([...plainCaps.keys()].map(k => baseOf(system, k)))
   const pass1NoImport = plainCaps.size === 0
     ? locked
-    : new Set([...locked].filter(itemId => !plainCaps.has(itemId)))
+    : new Set([...locked].filter(itemId => !connectedBases.has(baseOf(system, itemId))))
   const firstItems = new Set(
     [...expandToKeys(system, itemsWithSourcing(effPlan, 'after-blocks'), effective)].filter(
       itemId => plainCaps.has(itemId) && system.classification.intermediates.has(itemId),
@@ -1286,7 +1302,7 @@ export function solveAreaBlock(
     }
   })
 
-  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs())
+  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs(), undefined, offerFluidCaps)
 
   /**
    * The order of connectionOrder.ts on the area LP: when the passes end with an import (a slack at BIG_M, per area for an
@@ -1323,7 +1339,12 @@ export function solveAreaBlock(
     const intermediate = (itemId: string) => system.classification.intermediates.has(itemId)
     const plainDefaults = new Set([...plainCaps.keys()].filter(itemId =>
       intermediate(itemId) && !firstItems.has(itemId) && !byproductsFirst.has(itemId)))
-    const spare = (itemId: string) => totalCaps.get(itemId)! - fluidSupply(system, today.supply, itemId) > FLOW_TOLERANCE
+    // A supplied key shares its fluid's offers: what is spare is the offers of all its keys less all that was supplied.
+    const spare = (itemId: string) => {
+      const fluid = system.flow?.supply.get(itemId)?.fluid
+      const offer = fluid === undefined ? totalCaps.get(itemId)! : (offerFluidCaps.get(fluid) ?? totalCaps.get(itemId)!)
+      return offer - fluidSupply(system, today.supply, itemId) > FLOW_TOLERANCE
+    }
     const areaDefault = (itemId: string) => areaItems.has(itemId) && totalCaps.has(itemId) && intermediate(itemId)
       && touching.get(itemId)!.some(a => !isFirst(a, itemId) && !bfArea(a, itemId))
     if (![...plainDefaults].some(spare) && ![...areaItems].some(itemId => areaDefault(itemId) && spare(itemId))) return undefined
@@ -1332,7 +1353,7 @@ export function solveAreaBlock(
     const specs = areaItemSpecs(undefined, { relock: new Set() })
     const step = (
       order: AreaOrder, noImport: Set<string>, stepCaps: Map<string, number>, connectionsFirst: Set<string>, stepSpecs: AreaItemSpec[],
-    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order)
+    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order, offerFluidCaps)
     const base = { defaults: plainDefaults, byproductsFirst }
     const defaultsFirst = new Set([...firstItems, ...plainDefaults])
     const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
@@ -1360,7 +1381,10 @@ export function solveAreaBlock(
     // its residual with no supply, and its supply now fills that residual (min(offer, residual), as `pass2Plan`).
     const refillPlain = new Map<string, number>()
     for (const [itemId, cap] of plainCaps) {
-      const r = fill1.slack.get(itemId) ?? 0
+      // A supplied key's residual is its fluid's: the sum of the slacks of the fluid's range keys.
+      const fluid = system.flow?.supply.get(itemId)?.fluid
+      const r = fluid === undefined ? fill1.slack.get(itemId) ?? 0
+        : itemKeys(system, fluid).reduce((t, k) => t + (system.flow!.info.get(k)!.supplied ? 0 : fill1.slack.get(k) ?? 0), 0)
       if (intermediate(itemId) && byproductsFirst.has(itemId) && r > FLOW_TOLERANCE) refillPlain.set(itemId, Math.min(cap, r))
     }
     const refillAreas = new Map<string, Map<number, number>>()
@@ -1378,7 +1402,7 @@ export function solveAreaBlock(
 
   const pass2 = pass2Plan({
     totalCaps: plainCaps, intermediates: system.classification.intermediates, firstItems, locked,
-    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow,
+    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow, keySupply: keySupplyPlan,
   })
   // An area item runs pass 2 when the residuals of its areas that are not connections-first add up to more than the item's noise
   // (as `pass2Plan`, on the item's total).
@@ -1395,7 +1419,7 @@ export function solveAreaBlock(
   if (pass2.run || areaPass2) {
     lp = solveAreaLP(
       system, columns, pinnedRates, bcColumns, feederColumns, pass2.noImport,
-      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual),
+      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual), undefined, pass2.fluidCaps,
     )
   }
 
@@ -1423,8 +1447,8 @@ export function solveAreaBlock(
     const main = c.recipe ? explicitMainProduct(c.node, c.recipe) : undefined
     if (main !== undefined) mainItemOfCol.set(c.id, main)
   }
-  const { overconstrained, itemSurplus, itemGross, unsatisfied, received } = blockDiagnostics({
-    goals: plan.goals, system, throughput, slack: lp.slack, supply: lp.supply, nodes, totalCaps,
+  const { overconstrained, itemSurplus, itemGross, unsatisfied, received, receivedKeys, receivedParts } = blockDiagnostics({
+    goals: plan.goals, system, throughput, slack: lp.slack, supply: lp.supply, nodes, totalCaps, keySupplyUse: lp.keySupplyUse,
   })
   if (overconstrained) warnings.push(overconstrained)
   // Pins that cannot be met make the flows meaningless for this check.
@@ -1464,7 +1488,7 @@ export function solveAreaBlock(
       [...neededItems].some(id => (system.S.get(id)?.get(col.id) ?? 0) > 0))
     const cut: { area: number; itemId: string }[] = []
     for (const itemId of pairItems) {
-      if (!system.classification.intermediates.has(itemId) || totalCaps.has(itemId) || system.flow?.offers.has(baseOf(system, itemId))) continue
+      if (!system.classification.intermediates.has(itemId) || totalCaps.has(itemId) || system.flow?.offers.has(baseOf(system, itemId)) || system.flow?.keySupply.has(baseOf(system, itemId))) continue
       const producers = new Set<number>()
       for (const col of lpCols) if ((system.S.get(itemId)?.get(col.id) ?? 0) > 0) producers.add(col.area)
       if (producers.size === 0) continue
@@ -1497,5 +1521,7 @@ export function solveAreaBlock(
       ...(conversions ? { conversions } : {}),
     },
     received,
+    ...(receivedParts.size > 0 ? { receivedParts } : {}),
+    receivedKeys,
   }
 }

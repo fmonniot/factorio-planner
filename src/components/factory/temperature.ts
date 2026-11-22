@@ -58,3 +58,25 @@ export function fmtNoFittingTemperature(
   const at = need === undefined ? '' : ` at ${need}`
   return `${who} ${verb} ${item}${at}, but nothing in this block makes it and it cannot be imported.`
 }
+
+/** A connection of a block: its id and the block it takes from (what `warningTargets` and the warning text read of it). */
+export interface ConnectionLink { id: string; fromBlockId: string }
+
+/**
+ * Sentence for a `connection-temperature` warning, e.g. "Steam from Boilers is 165°C, but this block needs steam at ≥465°C."
+ * `sourceName` names the block a connection takes from.
+ */
+export function fmtConnectionTemperature(
+  w: Extract<SolverWarning, { type: 'connection-temperature' }>,
+  gameData: GameData,
+  sourceName: (connectionId: string) => string,
+): string {
+  return w.connections
+    .map(c => {
+      const item = gameData.items[c.itemId]?.name ?? c.itemId
+      const offered = c.offered.map(o => `${fmtTemperatureValue(o.temperature)}°C`).join(', ')
+      const needed = c.needed.map(n => fmtTemperatureRange(n.min, n.max) ?? 'any temperature').join(', ')
+      return `${item} from ${sourceName(c.connectionId)} is ${offered}, but this block needs ${item.toLowerCase()} at ${needed}.`
+    })
+    .join(' ')
+}

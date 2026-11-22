@@ -42,7 +42,13 @@ export type {
 // ---------------------------------------------------------------------------
 
 /** A rate the LP must reach for an item (items/min). Built by the solver from a block's products; never stored. */
-export interface SolverGoal { id: string; itemId: string; rate: number }
+export interface SolverGoal {
+  id: string
+  itemId: string
+  rate: number
+  /** A split fluid only: the range the goal accepts (a request from another block, delivered as that range key); absent: any temperature. */
+  temp?: { min?: number; max?: number }
+}
 
 /**
  * What a split fluid's flow carries: `{ at }` a made temperature (`null`: unknown), or a range an
@@ -58,6 +64,8 @@ export interface FluidConversion {
   rate: number
   /** The area that converts it (blocks with areas only). */
   areaId?: string
+  /** Set (never `false`) on a conversion out of a key supplied by a connection: received, not made here. */
+  supplied?: true
 }
 
 export interface SolvedNode {
@@ -105,6 +113,19 @@ export type SolverWarning =
   | { type: 'area-cut-off'; cutOffs: { areaId: string; itemId: string; temp?: FluidTag }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
+  /**
+   * A connection of a split fluid offers it only at temperatures that fit none of the ranges the block still imports. One entry per
+   * counting connection; `offered` are its temperatures (known ones only), `needed` the ranges still imported.
+   */
+  | {
+      type: 'connection-temperature'
+      connections: {
+        connectionId: string
+        itemId: string
+        offered: { temperature: number; rate: number }[]
+        needed: { min?: number; max?: number; rate: number }[]
+      }[]
+    }
   /** Heat only: a reactor's heat buffer maximum against an exchanger's minimum. */
   | { type: 'temperature-mismatch'; recipeId: string; itemId: string; supplied: number[]; minimum?: number; maximum?: number }
   /**
@@ -173,6 +194,14 @@ export type ConnectionKind = 'request' | 'take'
  */
 export type RequestIgnoredReason = 'request-loop' | 'source-receives' | 'duplicate'
 
+/** One key of a split fluid's connection: what it carried (`rate`), what the source had on offer (`available`), and for a request what was asked. */
+export interface ConnectionPart {
+  temp: FluidTag
+  rate: number
+  available: number
+  requested?: number
+}
+
 export interface ConnectionFlow {
   connectionId: string
   fromBlockId: string
@@ -198,6 +227,8 @@ export interface ConnectionFlow {
   requested?: number
   /** Present iff the item is a product of the source but the request is not applied; the connection then takes existing output. */
   requestIgnored?: RequestIgnoredReason
+  /** A split fluid only: the totals above split per key (temperatures ascending, then ranges). A key with no rate and nothing on offer is left out. */
+  parts?: ConnectionPart[]
 }
 
 /** One consumer block in the order a source's item was served. */
@@ -218,6 +249,8 @@ export interface ServedConsumer {
   notCredited?: true
   /** A member of a group of takes the request pass could not share by need (a member's need, its source or the ranks above were not known when the group was reached, a member's group take is not its first take of the item, or the source's item also feeds a member of a cycle of requests): the group was credited and served in list order, not by its weights. */
   groupInListOrder?: true
+  /** A split fluid, block lines only: the line's part of `share` and `got` per key (the same order as `ConnectionFlow.parts`). */
+  parts?: { temp: FluidTag; share: number; got: number }[]
 }
 
 /** The source block's own extra output of the item, and where it was served. */

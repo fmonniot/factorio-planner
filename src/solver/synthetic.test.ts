@@ -178,6 +178,9 @@ function recipes(): GameRecipe[] {
     recipe('case25-turbine', 'smelting', 1, [warm('case25-steam', 60, undefined, 465)], [item('case25-work', 1)]),
     recipe('case25-engine', 'smelting', 1, [warm('case25-steam', 60)], [item('case25-work2', 1)]),
     recipe('case25-reheat', 'smelting', 1, [warm('case25-steam', 60, undefined, 465)], [warm('case25-steam', 60, 165), item('case25-work', 1)]),
+    // Case 26 and 27 (connections carry keys): W makes the widget with 500 steam, W2 makes widget2 with 165 steam.
+    recipe('case26-make-widget', 'smelting', 1, [item('case25-fuel', 1)], [item('case26-widget', 1), warm('case25-steam', 60, 500)]),
+    recipe('case26-make-widget2', 'smelting', 1, [item('case25-fuel', 1)], [item('case26-widget2', 1), warm('case25-steam', 60, 165)]),
   ]
 }
 
@@ -3173,6 +3176,175 @@ describe('solver synthetic cases', () => {
       expect(nodeOf(r, T).throughput, 'T').toBeCloseTo(0, 6)
       expect(r.unsatisfied.find(u => u.itemId === 'case25-work2'), 'goal met').toBeUndefined()
       expect(r.warnings.filter(w => w.type === 'no-fitting-temperature')).toEqual([])
+    })
+  })
+
+  describe('case 26: connections carry temperature keys', () => {
+    // A makes steam at 500 (W) and 165 (W2); B takes it for a turbine (>= 465) and an engine (any). Values are derived by hand
+    // in spec/test-synthetic.md; none is edited to match the solver.
+    const STEAM = 'case25-steam'
+    const W = 'case26-make-widget'
+    const W2 = 'case26-make-widget2'
+    const T = 'case25-turbine'
+    const E = 'case25-engine'
+    const r6 = (n: number) => Math.round(n * 1e6) / 1e6
+    const partsOf = (f: ReturnType<typeof flowIn>) => f.parts?.map(p => ({ temp: p.temp, rate: r6(p.rate), available: r6(p.available) }))
+    const sourceA = () => mk('A', [['case26-widget', 60]], [planNode(W), planNode(W2, [], { pinnedRate: 30 })])
+    const takerB = (maxRate?: number) =>
+      mk('B', [['case25-work', 30], ['case25-work2', 30]], [planNode(T), planNode(E)], [{ id: 'c-B', itemId: STEAM, fromBlockId: 'A', ...(maxRate === undefined ? {} : { maxRate }) }])
+    const steamImports = (r: SolverResult) => r.unsatisfied.filter(u => u.itemId === STEAM).map(u => ({ temp: u.temp, rate: r6(u.rate) }))
+
+    it('a: B takes 1800 at 500 for the turbine and 1800 at 165 for the engine', () => {
+      const all = solveAll([sourceA(), takerB()], makeGameData())
+      const f = flowIn(all, 'c-B')
+      expect(f.rate, 'rate').toBeCloseTo(3600, 6)
+      expect(f.status).toBe('ok')
+      expect(partsOf(f)).toEqual([
+        { temp: { at: 165 }, rate: 1800, available: 1800 },
+        { temp: { at: 500 }, rate: 1800, available: 3600 },
+      ])
+      expect(steamImports(all.results.B), 'no steam import').toEqual([])
+      expect(nodeOf(all.results.B, T).throughput, 'T').toBeCloseTo(30, 6)
+      expect(nodeOf(all.results.B, E).throughput, 'E').toBeCloseTo(30, 6)
+    })
+
+    it('b: maxRate 2700 leaves 900 to import; the turbine keeps the 500 steam', () => {
+      const all = solveAll([sourceA(), takerB(2700)], makeGameData())
+      const f = flowIn(all, 'c-B')
+      expect(f.rate, 'rate').toBeCloseTo(2700, 6)
+      expect(f.available, 'available').toBeCloseTo(2700, 6)
+      expect(f.status).toBe('limited')
+      expect(f.capped).toBe(true)
+      expect(partsOf(f)!.map(p => ({ temp: p.temp, rate: p.rate }))).toEqual([
+        { temp: { at: 165 }, rate: 900 },
+        { temp: { at: 500 }, rate: 1800 },
+      ])
+      expect(steamImports(all.results.B)).toEqual([{ temp: {}, rate: 900 }])
+    })
+
+    it('c: a request carries one range key per range', () => {
+      const a = mk('A', [[STEAM, 0]], [planNode('case25-boil-165'), planNode('case25-boil-500')])
+      const b = mk('B', [['case25-work', 30], ['case25-work2', 30]], [planNode(T), planNode(E)], [{ id: 'c-B', itemId: STEAM, fromBlockId: 'A' }])
+      const all = solveAll([a, b], makeGameData())
+      const f = flowIn(all, 'c-B')
+      expect(f.kind).toBe('request')
+      expect(f.requested, 'requested').toBeCloseTo(3600, 6)
+      expect(f.rate, 'rate').toBeCloseTo(3600, 6)
+      expect(f.parts!.map(p => ({ temp: p.temp, rate: r6(p.rate), requested: r6(p.requested ?? -1) }))).toEqual([
+        { temp: {}, rate: 1800, requested: 1800 },
+        { temp: { min: 465 }, rate: 1800, requested: 1800 },
+      ])
+      expect(nodeOf(all.results.A, 'case25-boil-500').throughput, 'B2').toBeCloseTo(60, 6)
+      expect(nodeOf(all.results.A, 'case25-boil-165').throughput, 'B1').toBeCloseTo(30, 6)
+      expect(steamImports(all.results.B), 'no steam import').toEqual([])
+    })
+
+    it('d: steam at 165 fits nothing the turbine takes: unused, a connection-temperature warning', () => {
+      const a = mk('A', [['case26-widget2', 30]], [planNode(W2)])
+      const b = mk('B', [['case25-work', 30]], [planNode(T)], [{ id: 'c-B', itemId: STEAM, fromBlockId: 'A' }])
+      const all = solveAll([a, b], makeGameData())
+      const f = flowIn(all, 'c-B')
+      expect(f.rate, 'rate').toBeCloseTo(0, 6)
+      expect(f.status).toBe('unused')
+      expect(steamImports(all.results.B)).toEqual([{ temp: { min: 465 }, rate: 1800 }])
+      expect(all.results.B.warnings).toEqual([
+        {
+          type: 'connection-temperature',
+          connections: [{
+            connectionId: 'c-B', itemId: STEAM,
+            offered: [{ temperature: 165, rate: expect.closeTo(1800, 6) }],
+            needed: [{ min: 465, rate: expect.closeTo(1800, 6) }],
+          }],
+        },
+      ])
+    })
+  })
+
+  describe('case 27: fit before rank', () => {
+    // A offers 1800 at 500 (W, 30) and 1800 at 165 (W2 pinned); C1 has an engine (any temperature), C2 a turbine (>= 465).
+    const STEAM = 'case25-steam'
+    const r6 = (n: number) => Math.round(n * 1e6) / 1e6
+    const flowParts = (f: ReturnType<typeof flowIn>) => f.parts?.map(p => ({ temp: p.temp, rate: r6(p.rate), available: r6(p.available) }))
+    const servedParts = (all: ReturnType<typeof solveAll>, id: string) =>
+      all.served.A[STEAM].consumers.find(c => c.blockId === id)!.parts!
+        .filter(p => p.share > 1e-6 || p.got > 1e-6).map(p => ({ temp: p.temp, share: r6(p.share), got: r6(p.got) }))
+    const shares = (all: ReturnType<typeof solveAll>) => all.served.A[STEAM].consumers.map(c => [c.blockId, r6(c.share)])
+    const blocks = (w2Pin: number, list?: ServedEntry[]): Record<string, Block> => ({
+      A: mk('A', [['case26-widget', 30]], [planNode('case26-make-widget'), planNode('case26-make-widget2', [], { pinnedRate: w2Pin })], [], list, STEAM),
+      C1: mk('C1', [['case25-work2', 30]], [planNode('case25-engine')], [{ id: 'c-C1', itemId: STEAM, fromBlockId: 'A' }]),
+      C2: mk('C2', [['case25-work', 30]], [planNode('case25-turbine')], [{ id: 'c-C2', itemId: STEAM, fromBlockId: 'A' }]),
+    })
+    const imports = (all: ReturnType<typeof solveAll>, id: string) =>
+      all.results[id].unsatisfied.filter(u => u.itemId === STEAM).map(u => ({ temp: u.temp, rate: r6(u.rate) }))
+    const C1_THEN_C2 = [{ kind: 'block', blockId: 'C1' }, { kind: 'block', blockId: 'C2' }] satisfies ServedEntry[]
+
+    it('a: a list C1, C2: C1 takes the 165 steam, C2 the 500 steam', () => {
+      const all = solveAll(['A', 'C1', 'C2'].map(t => blocks(30, C1_THEN_C2)[t]), makeGameData())
+      expect(flowIn(all, 'c-C1').rate).toBeCloseTo(1800, 6)
+      expect(flowIn(all, 'c-C2').rate).toBeCloseTo(1800, 6)
+      expect(flowParts(flowIn(all, 'c-C1'))!.filter(p => p.rate > 0)).toEqual([{ temp: { at: 165 }, rate: 1800, available: 1800 }])
+      expect(flowParts(flowIn(all, 'c-C2'))!.filter(p => p.rate > 0)).toEqual([{ temp: { at: 500 }, rate: 1800, available: 1800 }])
+      expect(imports(all, 'C1')).toEqual([])
+      expect(imports(all, 'C2')).toEqual([])
+      expect(shares(all)).toEqual([['C1', 1800], ['C2', 1800]])
+      expect(servedParts(all, 'C1')).toEqual([{ temp: { at: 165 }, share: 1800, got: 1800 }])
+      expect(servedParts(all, 'C2')).toEqual([{ temp: { at: 500 }, share: 1800, got: 1800 }])
+    })
+
+    it('b: 900 at 165: C1 is served first and takes 900 of each, C2 imports 900', () => {
+      const all = solveAll(['A', 'C1', 'C2'].map(t => blocks(15, C1_THEN_C2)[t]), makeGameData())
+      expect(flowIn(all, 'c-C1').rate).toBeCloseTo(1800, 6)
+      expect(flowIn(all, 'c-C1').status).toBe('ok')
+      expect(flowIn(all, 'c-C2').rate).toBeCloseTo(900, 6)
+      expect(flowIn(all, 'c-C2').status).toBe('limited')
+      expect(flowParts(flowIn(all, 'c-C1'))).toEqual([
+        { temp: { at: 165 }, rate: 900, available: 900 },
+        { temp: { at: 500 }, rate: 900, available: 900 },
+      ])
+      expect(flowParts(flowIn(all, 'c-C2'))).toEqual([{ temp: { at: 500 }, rate: 900, available: 900 }])
+      expect(imports(all, 'C1')).toEqual([])
+      expect(imports(all, 'C2')).toEqual([{ temp: { min: 465 }, rate: 900 }])
+      expect(shares(all)).toEqual([['C1', 1800], ['C2', 900]])
+      expect(servedParts(all, 'C1')).toEqual([{ temp: { at: 165 }, share: 900, got: 900 }, { temp: { at: 500 }, share: 900, got: 900 }])
+      expect(servedParts(all, 'C2')).toEqual([{ temp: { at: 500 }, share: 900, got: 900 }])
+    })
+
+    for (const tabs of [['A', 'C1', 'C2'], ['A', 'C2', 'C1']]) {
+      it(`c: no list, tabs ${tabs.join(' ')}: the least versatile key goes first`, () => {
+        const all = solveAll(tabs.map(t => blocks(30)[t]), makeGameData())
+        expect(flowIn(all, 'c-C1').rate).toBeCloseTo(1800, 6)
+        expect(flowIn(all, 'c-C2').rate).toBeCloseTo(1800, 6)
+        expect(flowParts(flowIn(all, 'c-C1'))!.filter(p => p.rate > 0)).toEqual([{ temp: { at: 165 }, rate: 1800, available: 1800 }])
+        expect(flowParts(flowIn(all, 'c-C2'))!.filter(p => p.rate > 0)).toEqual([{ temp: { at: 500 }, rate: 1800, available: 1800 }])
+        expect(imports(all, 'C1')).toEqual([])
+        expect(imports(all, 'C2')).toEqual([])
+        if (tabs[1] === 'C1') {
+          // C1 is solved first with no reservation: it sees both keys and leaves the 500 steam unused.
+          expect(flowParts(flowIn(all, 'c-C1'))).toEqual([
+            { temp: { at: 165 }, rate: 1800, available: 1800 },
+            { temp: { at: 500 }, rate: 0, available: 1800 },
+          ])
+        }
+      })
+    }
+
+    it('d: b with C1 and C2 tied 50/50: each gets 1350', () => {
+      const tied = [{ kind: 'block', blockId: 'C1', share: 50 }, { kind: 'block', blockId: 'C2', tied: true, share: 50 }] satisfies ServedEntry[]
+      const all = solveAll(['A', 'C1', 'C2'].map(t => blocks(15, tied)[t]), makeGameData())
+      expect(flowIn(all, 'c-C1').rate).toBeCloseTo(1350, 6)
+      expect(flowIn(all, 'c-C2').rate).toBeCloseTo(1350, 6)
+      expect(flowIn(all, 'c-C1').status).toBe('limited')
+      expect(flowIn(all, 'c-C2').status).toBe('limited')
+      expect(flowParts(flowIn(all, 'c-C1'))!.map(p => ({ temp: p.temp, rate: p.rate }))).toEqual([
+        { temp: { at: 165 }, rate: 900 },
+        { temp: { at: 500 }, rate: 450 },
+      ])
+      expect(flowParts(flowIn(all, 'c-C2'))!.filter(p => p.rate > 0)).toEqual([{ temp: { at: 500 }, rate: 1350, available: 1350 }])
+      expect(imports(all, 'C1')).toEqual([{ temp: {}, rate: 450 }])
+      expect(imports(all, 'C2')).toEqual([{ temp: { min: 465 }, rate: 450 }])
+      expect(shares(all)).toEqual([['C1', 1350], ['C2', 1350]])
+      expect(servedParts(all, 'C1')).toEqual([{ temp: { at: 165 }, share: 900, got: 900 }, { temp: { at: 500 }, share: 450, got: 450 }])
+      expect(servedParts(all, 'C2')).toEqual([{ temp: { at: 500 }, share: 1350, got: 1350 }])
     })
   })
 })

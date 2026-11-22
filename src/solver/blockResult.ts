@@ -13,7 +13,7 @@ import type {
 import { importOffItems as importOffOf } from '../data/sourceRules'
 import { flowKey, productTag, rangeOf, splitFluids } from '../data/flowKey'
 import { rowIngredients, rowProductAmount, type ClassifiedSystem, type FlowKeys } from './build'
-import { baseOf, goalKey, itemKeys, resultItem } from './flowKeys'
+import { baseOf, goalKeyOf, isSuppliedKey, itemKeys, resultItem } from './flowKeys'
 import { computeMachineMetrics, rowMachine, type NodeEffects } from './effects'
 import type { SolverArea } from './areas'
 
@@ -117,13 +117,17 @@ export function pass2Plan(args: {
   throughput: Map<string, number>
   /** the flow keys of the system, when it has split fluids */
   flow?: FlowKeys
-}): { run: boolean; caps: Map<string, number>; noImport: Set<string> } {
+  /** The fluids whose connections supply keys of their own (`FlowKeys.supply`), see below. */
+  keySupply?: KeySupplyPlan
+}): { run: boolean; caps: Map<string, number>; noImport: Set<string>; fluidCaps: Map<string, number> } {
   const caps = new Map<string, number>()
   const noImport = new Set(args.locked)
+  const fluidCaps = new Map<string, number>()
   const fluids = new Set<string>()
   let run = false
   for (const [itemId, cap] of args.totalCaps) {
     if (!args.intermediates.has(itemId)) continue
+    if (args.flow?.supply.has(itemId)) continue // a supplied key: its fluid is decided per fluid below
     const residual = args.slack.get(itemId) ?? 0
     if (residual <= FLOW_TOLERANCE) continue
     if (args.firstItems.has(itemId)) {
@@ -144,7 +148,38 @@ export function pass2Plan(args: {
     for (const k of keys) total += args.slack.get(k) ?? 0
     if (offer < total - FLOW_TOLERANCE) for (const k of keys) noImport.delete(k)
   }
-  return { run, caps, noImport }
+  // A fluid with supplied keys: the residual is the sum of its range keys' slacks. Receive it first has its supply in every
+  // pass, so its keys stay unlocked only when something is left; any other fluid caps its supplied keys together at the
+  // smaller of the offers and the residual (own production first) and unlocks its range keys when the offers cannot cover it.
+  for (const [fluid, plan] of args.keySupply?.fluids ?? []) {
+    let residual = 0
+    const perRange = new Map<string, number>()
+    for (const k of plan.rangeKeys) {
+      const r = args.slack.get(k) ?? 0
+      residual += r
+      if (r > FLOW_TOLERANCE) perRange.set(k, r)
+    }
+    if (residual <= FLOW_TOLERANCE) continue
+    if (plan.keys.every(k => args.firstItems.has(k))) {
+      for (const k of plan.rangeKeys) noImport.delete(k)
+      continue
+    }
+    for (const k of plan.keys) if (!args.firstItems.has(k)) caps.set(k, args.totalCaps.get(k)!)
+    fluidCaps.set(fluid, Math.min(plan.offers, residual))
+    if (plan.fit(perRange) < residual - FLOW_TOLERANCE) for (const k of plan.rangeKeys) noImport.delete(k)
+    let gross = 0
+    for (const k of plan.rangeKeys) gross += itemGrossFlow(args.S.get(k), args.throughput)
+    if (residual > surplusTolerance(gross)) run = true
+  }
+  return { run, caps, noImport, fluidCaps }
+}
+
+/**
+ * What `pass2Plan` needs of the fluids whose connections supply keys: per fluid its supplied keys, its non-goal range keys,
+ * what the connections offer in all, and `fit`, the most the offered keys can serve of a residual per range key (`maxFit`).
+ */
+export interface KeySupplyPlan {
+  fluids: Map<string, { keys: string[]; rangeKeys: string[]; offers: number; fit: (residual: Map<string, number>) => number }>
 }
 
 /**
@@ -365,6 +400,10 @@ export interface BlockDiagnostics {
   unsatisfied: UnsatisfiedItem[]
   /** base itemId → items/min taken from the offers (a split fluid: over all its keys) */
   received: Map<string, number>
+  /** unqualified flow key (the item id for a plain item) → items/min taken from the offers: a probe's range keys, a connection's supplied keys. */
+  receivedKeys: Map<string, number>
+  /** connection id → offered key → items/min it delivered, for the supplied keys; empty without them. */
+  receivedParts: Map<string, Map<string, number>>
 }
 
 /**
@@ -379,6 +418,8 @@ export function blockDiagnostics(args: {
   supply: Map<string, number>
   nodes: SolvedNode[]
   totalCaps: Map<string, number>
+  /** what each supplied key took from each connection (`LPResult.keySupplyUse`) */
+  keySupplyUse?: { key: string; connectionId: string; offeredKey: string; value: number }[]
 }): BlockDiagnostics {
   const { goals, system, throughput: throughputMap, slack: slackMap, supply, nodes, totalCaps } = args
 
@@ -410,6 +451,8 @@ export function blockDiagnostics(args: {
   // Detect overconstrained intermediates: positive net flow at LP optimum.
   const overconstrainedItems: { itemId: string; rate: number; temp?: FluidTag }[] = []
   for (const itemId of system.classification.intermediates) {
+    // Surplus supply of a supplied key is not production.
+    if (isSuppliedKey(system, itemId)) continue
     const surplus = itemSurplus.get(itemId) ?? 0
     if (surplus > surplusTolerance(itemGross.get(itemId) ?? 0)) {
       addMerged(overconstrainedItems, entry(itemId, surplus))
@@ -425,7 +468,7 @@ export function blockDiagnostics(args: {
   const goalShortfalls: UnsatisfiedItem[] = []
   const goalShortfallKeys = new Set<string>()
   for (const goal of goals) {
-    const key = goalKey(system, goal.itemId)
+    const key = goalKeyOf(system, goal)
     let netActual = 0
     if (key !== goal.itemId) {
       netActual = itemSurplus.get(key) ?? 0
@@ -447,10 +490,15 @@ export function blockDiagnostics(args: {
   for (const [itemId, rate] of slackMap) addMerged(slackIntermediates, entry(itemId, rate))
 
   const received = new Map<string, number>()
+  const receivedKeys = new Map<string, number>()
   const addReceived = (key: string, rate: number) => {
     const base = baseOf(system, key)
     received.set(base, base === key ? rate : (received.get(base) ?? 0) + rate)
+    const tag = system.flow?.info.get(key)?.tag
+    const unqualified = tag === undefined ? key : flowKey(base, tag)
+    receivedKeys.set(unqualified, (receivedKeys.get(unqualified) ?? 0) + rate)
   }
+  const receivedParts = new Map<string, Map<string, number>>()
   const rawConsumption: UnsatisfiedItem[] = []
   // A split fluid's raw keys share its offer, in key order.
   const offerLeft = new Map<string, number>()
@@ -487,10 +535,20 @@ export function blockDiagnostics(args: {
     // bookkeeping must match the supply the block actually drew.
     const fromSupply = Math.min(supply.get(itemId) ?? 0, deficit)
     if (fromSupply > FLOW_TOLERANCE) addReceived(itemId, fromSupply)
+    // A supplied key: each connection delivered its part of what the key took.
+    if (isSuppliedKey(system, itemId) && fromSupply > FLOW_TOLERANCE) {
+      const total = supply.get(itemId) ?? 0
+      for (const u of args.keySupplyUse ?? []) {
+        if (u.key !== itemId) continue
+        const parts = receivedParts.get(u.connectionId) ?? new Map<string, number>()
+        parts.set(u.offeredKey, (parts.get(u.offeredKey) ?? 0) + (u.value * fromSupply) / total)
+        receivedParts.set(u.connectionId, parts)
+      }
+    }
   }
 
   // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.
   const unsatisfied: UnsatisfiedItem[] = [...goalShortfalls, ...slackIntermediates, ...rawConsumption]
 
-  return { itemSurplus, itemGross, overconstrained, unsatisfied, received }
+  return { itemSurplus, itemGross, overconstrained, unsatisfied, received, receivedKeys, receivedParts }
 }
