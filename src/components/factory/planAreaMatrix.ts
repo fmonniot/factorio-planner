@@ -1,8 +1,8 @@
 import type { Block, ConnectionFlow, FluidTag, GameData, SolverResult } from '../../data/types'
-import { compareTags, parseFlowKey } from '../../data/flowKey'
+import { parseFlowKey } from '../../data/flowKey'
 import { flowAtKey, flowShares } from './flowParts'
 import { FLOW_TOLERANCE, grossFlow, netBalance, surplusTolerance } from '../../solver/index'
-import { blockMatrix, itemGroupOf, type MatrixArea } from './areaMatrix'
+import { blockMatrix, compareTempKeys, itemGroupOf, type MatrixArea } from './areaMatrix'
 
 // ---------------------------------------------------------------------------
 // The plan-level matrix: flow keys (a plain item is its own key; a split fluid has a key per temperature or range) as rows, blocks as columns. A block's net is its boundary balance
@@ -133,7 +133,7 @@ export function planMatrix(
       flows: itemFlows,
     })
   }
-  rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name) || (a.temp && b.temp ? compareTags(a.temp, b.temp) : 0))
+  rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name) || compareTempKeys(a, b))
 
   return {
     blocks: shown.map(b => ({ blockId: b.id, name: b.name, color: b.color, areas: matrices.get(b.id) ?? [] })),

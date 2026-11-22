@@ -2604,6 +2604,7 @@ describe('FactorySummary — opening an Ingredients slot on request', () => {
     open('slag')
     expect(ingredientIds()).toEqual(['iron-ore'])
     expect(strip('Ingredients')).not.toHaveAttribute('data-state', 'selected')
+    expect(within(pane('Ingredients')).queryAllByTestId('summary-slot').filter(x => x.getAttribute('aria-pressed') === 'true')).toEqual([])
     expect(within(pane('Ingredients')).queryByTestId('comes-from')).not.toBeInTheDocument()
   })
 

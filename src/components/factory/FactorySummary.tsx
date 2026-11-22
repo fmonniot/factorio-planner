@@ -326,6 +326,8 @@ export function FactorySummary() {
     })
   const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOfKey(r.key)))
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds, ruleItems))
+  // Slot ids of the Ingredients pane are flow keys: the request names the item's first slot, none when the block has no such slot.
+  const openedSlotId = opened ? ingredientSlots.find(s => s.itemId === opened.itemId)?.id : undefined
   // A product shortfall cannot receive supply (products have no import slack either).
   const connectable = (itemId: string) => (activeBlock ? !hasProduct(activeBlock, itemId) : false)
   // Number and unit of a rate of `itemId` (power units for electricity and heat).
@@ -543,8 +545,7 @@ export function FactorySummary() {
             return actions
           }}
           renderControls={slot => <ComesFrom itemId={slot.itemId} listInPopover />}
-          // Slot ids of the Ingredients pane are item ids.
-          openRequest={opened ? { seq: opened.seq, slotId: ingredientSlots.find(s => s.itemId === opened.itemId)?.id ?? opened.itemId } : undefined}
+          openRequest={openedSlotId !== undefined ? { seq: opened!.seq, slotId: openedSlotId } : undefined}
           onOpenBlock={setActiveBlock}
           onConnectionContextMenu={(connectionId, e) =>
             setConnectionChipMenu({ connectionId, x: e.clientX, y: e.clientY })}

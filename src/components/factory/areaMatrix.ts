@@ -143,8 +143,17 @@ export function itemGroupOf(itemId: string, gameData: GameData, machines: Set<st
   return { id: group.id, name: group.name, order: group.order }
 }
 
+/** The keys of one item in order: the untagged key first, then the tags in `compareTags` order (a total order). */
+export function compareTempKeys(a: { temp?: FluidTag }, b: { temp?: FluidTag }): number {
+  if (a.temp === undefined || b.temp === undefined) return a.temp === b.temp ? 0 : a.temp === undefined ? -1 : 1
+  return compareTags(a.temp, b.temp)
+}
+
+const byName = (a: { name: string; temp?: FluidTag }, b: { name: string; temp?: FluidTag }) =>
+  a.name.localeCompare(b.name) || compareTempKeys(a, b)
+
 const byTotalThenName = (a: { total: number; name: string; temp?: FluidTag }, b: { total: number; name: string; temp?: FluidTag }) =>
-  b.total - a.total || a.name.localeCompare(b.name) || (a.temp && b.temp ? compareTags(a.temp, b.temp) : 0)
+  b.total - a.total || byName(a, b)
 
 /** A row's name with its temperature or range: "Steam ≥465°C"; the plain name when it has none. */
 export function rowDisplayName(row: { name: string; temp?: FluidTag }): string {
@@ -267,7 +276,7 @@ export function groupRows<R extends { itemId: string; name: string; temp?: Fluid
   }
 
   if (mode === 'rate') return [split('all', 'All items', [...rows].sort(byTotalThenName))]
-  if (mode === 'name') return [split('all', 'All items', [...rows].sort((a, b) => a.name.localeCompare(b.name)))]
+  if (mode === 'name') return [split('all', 'All items', [...rows].sort(byName))]
 
   const byGroup = new Map<string, R[]>()
   for (const r of rows) {
@@ -376,7 +385,7 @@ export function focusArea(m: BlockMatrix, areaId: string): FocusView {
  * `scopeNames` (e.g. the block's name): a query matching one of them keeps every row and column.
  * Returns null when nothing matches.
  */
-export function matchQuery<R extends { itemId: string; name: string }>(
+export function matchQuery<R extends { itemId: string; name: string; temp?: FluidTag }>(
   query: string,
   rows: R[],
   columns: { id: string; names: string[] }[],
@@ -388,7 +397,7 @@ export function matchQuery<R extends { itemId: string; name: string }>(
   const has = (text: string) => text.toLowerCase().includes(q)
   // A query that names the whole scope (the block being shown) filters nothing.
   if (scopeNames.some(has)) return { rows, columnIds: null }
-  const itemHits = rows.filter(r => has(r.name))
+  const itemHits = rows.filter(r => has(r.name) || has(rowDisplayName(r)))
   const colHits = columns.filter(c => c.names.some(has)).map(c => c.id)
   if (itemHits.length === 0 && colHits.length === 0) return null
   if (colHits.length === 0) return { rows: itemHits, columnIds: null }

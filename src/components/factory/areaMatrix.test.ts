@@ -415,6 +415,24 @@ describe('areaContents', () => {
   })
 })
 
+describe('keys of one item', () => {
+  type R = { itemId: string; name: string; total: number; groupId: string; temp?: FluidTag }
+  const steam = (temp: FluidTag | undefined, total = 5): R => ({ itemId: 'steam', name: 'Steam', total, groupId: 'g', ...(temp ? { temp } : {}) })
+  const rows = [steam({ min: 465 }), steam({ at: 500 }), steam(undefined), steam({ at: 165 })]
+  const order = ['', '165', '500', '≥465']
+  const labels = (rs: R[]) => rs.map(r => (r.temp ? rowDisplayName(r).replace('Steam ', '').replace('°C', '') : ''))
+
+  it('orders untagged first, then temperatures, then ranges, in name mode', () => {
+    const g = groupRows(rows, 'name', new Map(), { collapseTail: false })[0]
+    expect(labels(g.rows)).toEqual(order)
+  })
+
+  it('orders them the same in rate mode at equal totals', () => {
+    const g = groupRows([...rows].reverse(), 'rate', new Map(), { collapseTail: false })[0]
+    expect(labels(g.rows)).toEqual(order)
+  })
+})
+
 describe('matchQuery', () => {
   const rows = [
     { itemId: 'h', name: 'Hydrogen' },
@@ -422,6 +440,15 @@ describe('matchQuery', () => {
   ]
   const cols = [{ id: 'c1', names: ['Compression', 'Oxide'] }, { id: 'c2', names: ['Chlorides'] }]
   const has = (r: { itemId: string }, c: string) => (c === 'c1' ? r.itemId === 'h' : r.itemId === 'o')
+
+  it('matches the display name with its temperature or range', () => {
+    const steam = [
+      { itemId: 'steam', name: 'Steam', temp: { min: 465 } as FluidTag },
+      { itemId: 'steam', name: 'Steam', temp: { at: 165 } as FluidTag },
+    ]
+    expect(matchQuery('≥465', steam, [], () => false)!.rows).toEqual([steam[0]])
+    expect(matchQuery('steam 165', steam, [], () => false)!.rows).toEqual([steam[1]])
+  })
 
   it('returns everything for an empty query', () => {
     expect(matchQuery('  ', rows, cols, has)).toEqual({ rows, columnIds: null })

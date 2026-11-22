@@ -1002,7 +1002,7 @@ interface SnapshotBlock {
   products: SnapshotItemRate[]        // items/min: extraRate plus what other blocks request (the first product of an item gets the request)
   groups?: SnapshotGroup[]            // the sub-factories that hold rows at any depth, pre-order (a parent before its children); present only when there is one
   rows: SnapshotRow[]                 // the plan's rows in table order, solved or not
-  imports: SnapshotItemRate[]         // items/min: SolverResult.unsatisfied, same order
+  imports: SnapshotItemRate[]         // items/min: SolverResult.unsatisfied, one entry per base item (summed over ranges), in order of first appearance
   error?: string                      // the solver's message when the block's solve failed
 }
 

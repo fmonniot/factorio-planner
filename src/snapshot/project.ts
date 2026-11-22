@@ -36,7 +36,6 @@ export function round3(x: number): number | undefined {
   return Number.isFinite(r) && r >= 0 ? r + 0 : undefined
 }
 
-/** A required rate: three decimals, 0 when the value is unusable. */
 /** `unsatisfied` summed per item, in order of first appearance, each as a rated item. */
 function mergeImports(
   unsatisfied: readonly { itemId: string; rate: number }[],
@@ -47,6 +46,7 @@ function mergeImports(
   return [...sums].map(([id, rate]) => withRate(id, rate))
 }
 
+/** A required rate: three decimals, 0 when the value is unusable. */
 const rate3 = (x: number): number => round3(x) ?? 0
 
 /** The optional keys of a row's solved values, each left out when its value is unusable. */
