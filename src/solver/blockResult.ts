@@ -44,6 +44,8 @@ export function importOffItems(plan: SolverPlan): string[] {
 export interface SourcingSets {
   /** Items with no import slack in the LP (a hard row). */
   locked: Set<string>
+  /** The part of `locked` that is there because of a rule (Import off), not because a byproduct consumer takes the item. Read by `noFittingTemperature`. */
+  importOffLocked: Set<string>
   /** Items the block may not import: `locked` plus the items whose rule has Import off but that keep a cheap slack (`makeHere: 'off'`). Read by `coproductDrivenWarning` only. */
   cannotImport: Set<string>
   /** Items whose import slack is cheap (`BYPRODUCTS_FIRST_SLACK_COST`). */
@@ -58,11 +60,12 @@ export interface SourcingSets {
  */
 export function sourcingSets(plan: SolverPlan, byproductConsumerIngredients: Set<string>): SourcingSets {
   const importOff = importOffItems(plan)
-  const locked = new Set(importOff.filter(id => plan.sourceRules?.[id]?.makeHere !== 'off'))
+  const importOffLocked = new Set(importOff.filter(id => plan.sourceRules?.[id]?.makeHere !== 'off'))
+  const locked = new Set(importOffLocked)
   for (const id of byproductConsumerIngredients) locked.add(id)
   const cannotImport = new Set([...importOff, ...byproductConsumerIngredients])
   const byproductsFirst = new Set(itemsWithSourcing(plan, 'off').filter(id => !locked.has(id)))
-  return { locked, cannotImport, byproductsFirst }
+  return { locked, importOffLocked, cannotImport, byproductsFirst }
 }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */

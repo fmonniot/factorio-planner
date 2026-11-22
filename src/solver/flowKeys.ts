@@ -109,7 +109,8 @@ export function conversionsOf(
 
 /**
  * `no-fitting-temperature`: a range a row takes that nothing in the block can make a fitting temperature of, that no
- * connection could supply and the block cannot import (it is in `locked`). Merged by (item, range); `recipeIds` are the
+ * connection could supply and the block cannot import (it is in `locked`: the keys locked by an Import-off rule, not those
+ * locked only because a byproduct consumer takes them, whose row just runs at 0). Merged by (item, range); `recipeIds` are the
  * rows that take it, in column order.
  */
 export function noFittingTemperature(

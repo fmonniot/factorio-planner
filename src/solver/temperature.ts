@@ -52,8 +52,8 @@ function suppliedBy(
 }
 
 /**
- * Heat temperature mismatches per block (the only fluid the LP does not split into flow keys by temperature:
- * its producers are made at an unknown temperature, so the check runs after the solve). A consumer row warns
+ * Heat temperature mismatches per block (the only temperature the LP cannot check: heat's made temperature is unknown,
+ * `{at: null}` in its flow keys, which fits every range, so the check runs after the solve). A consumer row warns
  * when the heat it takes has a temperature bound and every temperature the block (its other rows plus the
  * blocks connected into it) makes it at falls outside it. When the block imports heat, the candidates are
  * every row of the block that makes it, running or not. Anything unknown (a supplier without a temperature,

@@ -981,7 +981,12 @@ function areaFlows(
   const tagged = (key: string): { itemId: string; temp?: FluidTag } => resultItem(system, key)
   const outsideOf = new Map<string, AreaOutside[]>()
   for (const o of outside) outsideOf.set(o.itemId, [...(outsideOf.get(o.itemId) ?? []), o])
-  for (const [itemId, rowS] of [...system.S].sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))) {
+  for (const [itemId, rowS] of [...system.S].sort(([x], [y]) => {
+    const bx = baseOf(system, x)
+    const by = baseOf(system, y)
+    if (bx !== by) return bx < by ? -1 : 1
+    return x < y ? -1 : x > y ? 1 : 0
+  })) {
     const net = areas.map(() => 0)
     const other = areas.map(() => 0)
     const restricted = areas.map(() => false)
@@ -1205,7 +1210,7 @@ export function solveAreaBlock(
   for (const itemId of areaItems) {
     if (consumerIngredients.has(baseOf(system, itemId)) || touching.get(itemId)!.every(a => ruleOf(a, itemId).importOff === true)) cannotImport.add(itemId)
   }
-  const noFitWarnings = noFittingTemperature(system, locked, id => columns.find(c => c.id === id)?.node.recipeId ?? id)
+  const noFitWarnings = noFittingTemperature(system, plainOf(expandToKeys(system, sets.importOffLocked, effective)), id => columns.find(c => c.id === id)?.node.recipeId ?? id)
 
   const totalCaps = keyCaps(system, new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE)))
   const plainCaps = areaItems.size === 0 ? totalCaps : new Map([...totalCaps].filter(([id]) => !areaItems.has(id)))

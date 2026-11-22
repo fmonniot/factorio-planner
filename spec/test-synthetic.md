@@ -1272,6 +1272,7 @@ Plain made-up ids, 1 s smelting recipes. `case25-steam` is a split fluid with no
 | d | U, T; goal 60 work | U 60; no steam imported; one conversion of 3600 from unknown to `{ min: 465 }` |
 | e | B2, R; goal 60 work | R 60, B2 120; no steam imported; `netBalance` at `steam@165` is 3600 (R's net steam used to be 0) |
 | f | B1 (not pinned), T; goal 60 work; Import off on steam | every row 0; `unsatisfied` is the 60 work shortfall; `warnings` is exactly one `no-fitting-temperature` on steam (`min` 465, rows [T]) |
+| g | B1, T flagged as a byproduct consumer, E; goal 60 work2 | E 60 on the 165 steam; T 0 (its range has nothing that fits, and a byproduct consumer's ingredient is locked); the goal is met; no `no-fitting-temperature` |
 
 ```
 a: `@165` fits no range of T (`[465,]`), so no conversion exists and `@165` is a byproduct. `[465,]` is a forced intermediate with a slack at BIG_M: T = 60 takes 3600, all imported, with the 60 fuel of B1. The 3600 made at 165° is surplus.

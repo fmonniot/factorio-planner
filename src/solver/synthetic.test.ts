@@ -3165,5 +3165,14 @@ describe('solver synthetic cases', () => {
         { type: 'no-fitting-temperature', itemId: STEAM, min: 465, recipeIds: [T] },
       ])
     })
+
+    it('g: a byproduct consumer that takes a range nothing fits just runs at 0, with no warning', () => {
+      const nodes = [B1, T, E].map(id => (id === T ? planNode(id, [], { byproductConsumer: true }) : planNode(id)))
+      const r = solve({ goals: [{ id: 'g0', itemId: 'case25-work2', rate: 60 }], nodes }, makeGameData())
+      expect(nodeOf(r, E).throughput, 'E').toBeCloseTo(60, 6)
+      expect(nodeOf(r, T).throughput, 'T').toBeCloseTo(0, 6)
+      expect(r.unsatisfied.find(u => u.itemId === 'case25-work2'), 'goal met').toBeUndefined()
+      expect(r.warnings.filter(w => w.type === 'no-fitting-temperature')).toEqual([])
+    })
   })
 })

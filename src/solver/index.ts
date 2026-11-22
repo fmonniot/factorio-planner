@@ -317,7 +317,7 @@ export function solveBlock(
 
   // A split fluid's offer is the cap of each of its range keys (the LP's group row bounds their sum).
   const totalCaps = keyCaps(system, new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE)))
-  const noFitWarnings = noFittingTemperature(system, locked, id => id)
+  const noFitWarnings = noFittingTemperature(system, expandToKeys(system, sets.importOffLocked), id => id)
 
   // Pass 1: what the block's own recipes cannot cover. Connected items lose their
   // lock for this pass only, so a shortfall shows up as slack, not as infeasibility.
