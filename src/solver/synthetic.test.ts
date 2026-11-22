@@ -3045,5 +3045,54 @@ describe('solver synthetic cases', () => {
         expect(mismatches(r), 'one warning').toHaveLength(1)
       })
     })
+
+    // g, h: a block that also imports plate, which a connection (100) replaces (case 22 row A-b: P runs 10, 30 plates received).
+    // The connection order (`connectionOrder` and `areaConnectionOrder`) builds with the rows of the result it refines, so the chain
+    // still runs; without the rows the heater would feed the filter directly and no cooler would run.
+    describe('g, h: with a connection replacing an import', () => {
+      const PLATE = 'case22-plate'
+      const gear = () => planNode('case22-gear')
+      const plateP = () => ({ ...planNode('case22-plate-1-2'), id: 'P' })
+      const ingot = () => planNode('case22-ingot', [], { pinnedRate: 10 })
+      const offers = new Map([[PLATE, 100]])
+      const checkOrder = (result: SolverResult, received: Map<string, number>, chain: (id: string) => number) => {
+        expect(received.get(PLATE) ?? 0, 'plate received').toBeCloseTo(30, 6)
+        expect(nodeOf(result, 'P').throughput, 'P runs').toBeCloseTo(10, 6)
+        expect(nodeOf(result, 'case22-gear').throughput, 'G runs').toBeCloseTo(25, 6)
+        expect(chain(HEAT), 'heat').toBeCloseTo(60, 6)
+        expect(chain(FILTER), 'filter').toBeCloseTo(60, 6)
+        return chain
+      }
+
+      it('g: the order keeps the cooling rows (plain)', () => {
+        const nodes = [gear(), plateP(), ingot(), ...ALL.map(id => planNode(id))]
+        const plan = { goals: [{ id: 'g0', itemId: 'case22-gear', rate: 25 }, { id: 'g1', itemId: 'case24-clean', rate: 60 }], nodes, sourceRules: { [USED]: rule } }
+        const { result, received } = solveBlock(plan, makeGameData(), offers)
+        const chain = checkOrder(result, received, id => nodeOf(result, id).throughput)
+        for (const id of COOLERS) expect(chain(id), id).toBeCloseTo(60, 6)
+      })
+
+      it('g2: a cooler pinned too low gives up the rows before the order, and the order keeps that', () => {
+        const nodes = [gear(), plateP(), ingot(), ...ALL.map(id => planNode(id, [], id === 'case24-cool-100' ? { pinnedRate: 10 } : id === FILTER ? { pinnedRate: 60 } : {}))]
+        const plan = { goals: [{ id: 'g0', itemId: 'case22-gear', rate: 25 }, { id: 'g1', itemId: 'case24-clean', rate: 60 }], nodes, sourceRules: { [USED]: rule } }
+        const { result, received } = solveBlock(plan, makeGameData(), offers)
+        const chain = checkOrder(result, received, id => nodeOf(result, id).throughput)
+        expect(chain('case24-cool-100'), 'cool-100').toBeCloseTo(10, 6)
+        expect(chain('case24-cool-300'), 'cool-300').toBeCloseTo(0, 6)
+      })
+
+      it('h: the same in areas', () => {
+        const sp = (id: string, ns: RecipeNode[]) => subPlan(id, ns, [], true)
+        const b: Block = {
+          id: 'H', name: 'H', color: '#60a5fa',
+          products: [{ id: 'p-H-0', itemId: 'case22-gear', extraRate: 25 }, { id: 'p-H-1', itemId: 'case24-clean', extraRate: 60 }],
+          sourceRules: { [USED]: rule }, inputConnections: [],
+          rootPlan: subPlan('root', [], [sp('L', [gear()]), sp('M', [plateP(), ingot()]), sp('Cool', ALL.map(id => planNode(id)))]),
+        }
+        const { result, received } = solveBlock(flattenBlock(b), makeGameData(), offers)
+        const chain = checkOrder(result, received, id => nodeOf(result, id).throughput)
+        for (const id of COOLERS) expect(chain(id), id).toBeCloseTo(60, 6)
+      })
+    })
   })
 })

@@ -147,6 +147,30 @@ describe('analyseTemperatures', () => {
     expect(analyseTemperatures(f).everyClassFits, 'known temperatures only').toBe(false)
   })
 
+  it('does not fit when the only producer of the class is its own consumer', () => {
+    // R takes `used` at 50° or below and returns 100 of it at 25°; F takes it at 50° or below too. One class {25};
+    // R nets 100 - 100 = 0 and F makes nothing, so no supply is left for F and the rows could only force it to zero.
+    const r = recipe('r', [fluid('used', 100, { maximumTemperature: 50 })], [fluid('used', 100, { temperature: 25 })])
+    const f = recipe('f', [fluid('used', 100, { maximumTemperature: 50 })], [{ itemId: 'clean', type: 'item', amount: 1 }])
+    expect(analyseTemperatures(rows([r, f])).everyClassFits).toBe(false)
+    // R now returns 150: it nets 150 - 100 = 50 > 0.
+    const r150 = recipe('r', [fluid('used', 100, { maximumTemperature: 50 })], [fluid('used', 150, { temperature: 25 })])
+    expect(analyseTemperatures(rows([r150, f])).everyClassFits).toBe(true)
+    // A second recipe that makes 100 at 25 and takes nothing nets 100.
+    const cold = recipe('cold', [], [fluid('used', 100, { temperature: 25 })])
+    expect(analyseTemperatures(rows([r, f, cold])).everyClassFits).toBe(true)
+  })
+
+  it('checks every class beyond MAX_ROWS unions', () => {
+    // 13 single-temperature classes (8191 unions, over the limit): only the single classes get rows, and fitting is still checked.
+    const temps = Array.from({ length: 13 }, (_, i) => (i + 1) * 10)
+    const makers = temps.map(t => recipe(`make${t}`, [], [fluid('used', 1, { temperature: t })]))
+    const takers = temps.map(t => recipe(`take${t}`, [fluid('used', 1, { minimumTemperature: t, maximumTemperature: t })], []))
+    expect(analyseTemperatures(rows([...makers, ...takers])).everyClassFits).toBe(true)
+    const stray = recipe('stray', [fluid('used', 1, { minimumTemperature: 999, maximumTemperature: 999 })], [])
+    expect(analyseTemperatures(rows([...makers, ...takers, stray])).everyClassFits, 'nothing made at 999°').toBe(false)
+  })
+
   it('has no rows when every producer is unknown', () => {
     const f = rows([hot, filter])
     const unknown = { ...f, producers: f.producers.map(p => ({ ...p, temperature: undefined })) }

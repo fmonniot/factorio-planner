@@ -279,15 +279,16 @@ export function buildLPModel(
   // temperature-bounded consumers. Imports and supply fit any bound, so they sit in every row.
   for (const [itemId, f] of system.fluidTemperatures ?? []) {
     if (!classification.intermediates.has(itemId) && !classification.goals.has(itemId)) continue
-    const { rows, everyClassFits } = analyseTemperatures(f)
-    if (rows.length === 0) continue
     const slackName = itemToSlack.get(itemId)
     const supplyName = itemToSupply.get(itemId)
     // An import or supply is what lets a mismatched fluid fall back to something. Without one (a goal, a fluid
-    // that cannot be imported) the rows are built only when every consumer class has a producer at a temperature
-    // it accepts, so they can be met; otherwise they could only force consumers to zero and are left to the
-    // `temperature-mismatch` warning.
+    // that cannot be imported) the rows are built only when every consumer class has a producer that adds net
+    // supply at a temperature it accepts, so they can be met; otherwise they could only force consumers to zero
+    // and are left to the `temperature-mismatch` warning.
     const free = slackName !== undefined || supplyName !== undefined
+    if (!free && !lockedOn) continue // nothing to build: skip the analysis
+    const { rows, everyClassFits } = analyseTemperatures(f)
+    if (rows.length === 0) continue
     const lock = lockedOn && everyClassFits
     if (!free && !lock) continue
     if (lockedOn && everyClassFits) temperatureFitItems.add(itemId)

@@ -886,6 +886,19 @@ describe('slack-less temperature rows', () => {
     expect(r.warnings).toEqual([])
   })
 
+  it('decides per solve whether to keep the rows (pass 1 and pass 2 are independent)', () => {
+    // The same block solved twice, as the two passes of `solveBlock` do with different pins or locks: the first
+    // solve keeps the rows, the second (a pin that cuts the chain) gives them up, and neither reads the other.
+    const sys = system(chain(), [['clean', 60]])
+    const noImport = new Set(['used'])
+    const first = solveLP(sys, new Map(), new Set(), noImport)
+    const second = solveLP(sys, new Map([['filter', 60], ['cool200', 10]]), new Set(), noImport)
+    expect(first.lockedTemperatures).toBe(true)
+    expect(second.lockedTemperatures).toBe(false)
+    expect(run(first, 'cool200')).toBeCloseTo(60)
+    expect(run(second, 'cool200')).toBeCloseTo(10)
+  })
+
   it('reports a goal shortfall from the model without the rows', () => {
     const sys = system(chain(), [['used', 60]])
     const r = solveLP(sys, new Map([['hot', 0]]))

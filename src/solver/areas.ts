@@ -497,7 +497,7 @@ function solveAreaLPOnce(
     // without them: its temperature rows (the template slack is gone, so they have none) stay as slack-less rows when
     // every consumer class has a producer (`temperatureFitItems`), else they go.
     if (tmplName !== undefined && created === 0) {
-      if (base.temperatureFitItems.has(itemId)) base.lockedTemperatureItems.add(itemId)
+      if (base.temperatureFitItems.has(itemId) && base.itemToTemperatureRows.get(itemId)?.length) base.lockedTemperatureItems.add(itemId)
       else for (const r of base.itemToTemperatureRows.get(itemId) ?? []) delete constraints[r]
     }
 

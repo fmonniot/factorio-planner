@@ -75,8 +75,8 @@ function consumerClasses(f: FluidTemperatures, temps: number[]): { accepted: Set
 export interface TemperatureAnalysis {
   rows: TemperatureRow[]
   /**
-   * Whether every consumer class has a producer at a temperature it accepts (an unknown temperature fits
-   * any class). When it does, rows without an import or supply can be met; when not, they could only
+   * Whether every consumer class has a producer that adds net supply at a temperature it accepts (an
+   * unknown temperature fits any class). When it does, rows without an import or supply can be met; when not, they could only
    * force the consumers to zero.
    */
   everyClassFits: boolean
@@ -92,7 +92,15 @@ export interface TemperatureAnalysis {
 export function analyseTemperatures(f: FluidTemperatures): TemperatureAnalysis {
   const temps = [...new Set(f.producers.map(p => p.temperature).filter((t): t is number => t !== undefined))].sort((a, b) => a - b)
   const list = consumerClasses(f, temps)
-  const everyClassFits = f.producers.some(p => p.temperature === undefined) || list.every(c => c.accepted.size > 0)
+  // A class fits when some column makes more of an accepted temperature than the class's own consumers take
+  // of it (the netting the rows use), or when a producer's temperature is unknown.
+  const everyClassFits = f.producers.some(p => p.temperature === undefined) || list.every(cls => {
+    const net = new Map<string, number>()
+    for (const p of f.producers) {
+      if (p.temperature !== undefined && cls.accepted.has(p.temperature)) net.set(p.colId, (net.get(p.colId) ?? 0) + p.amount)
+    }
+    return [...net].some(([colId, made]) => made - (cls.cons.get(colId) ?? 0) > 1e-9)
+  })
 
   // Every distinct union of accepted sets, closed under adding one class at a time.
   const unions = new Map<string, Set<number>>()

@@ -38,6 +38,8 @@ Moved from the backlog on 2026-11-21.
 
 1. **Locked fluids run and warn rather than fail.** When a fluid has no import or supply to fall back on, its temperatures are constrained only when the block has a producer at an accepted temperature for every consumer class. Otherwise the LP may run a producer that does not fit, and `temperature-mismatch` reports it; the plan is not made infeasible. (Decided on 2026-11-21 with the *Goal and no-import fluids* fix, shipped as: slack-less rows when every class has a producer, and the model without them when those rows make the block infeasible.) Under a first-class model, a locked (fluid, temperature) that no row can make would become the ordinary "locked item the network cannot produce" infeasibility, which the elastic goals turn into a goal shortfall. Whichever the design, it must choose this behaviour explicitly, not inherit it by accident.
 
+   Limits of that fix: the choice is all or nothing per fluid (one consumer class without a fitting producer leaves every class of the fluid without rows), and a connection order whose step is infeasible only because of the slack-less rows stops, so today's result stands.
+
 ## Directions
 
 ### A. Flow variables inside the LP

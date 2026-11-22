@@ -1235,11 +1235,15 @@ Goal: 60 `case24-clean`. Import off on `case24-used`. Ore is raw.
 | d | a with C1 pinned at 10 and F pinned at 60 | the model with the rows is infeasible, so the rows give way: H 60, C1 10, C3 0, C2 0, F 60; no `infeasible-pins`; one `temperature-mismatch` on C1 (supplied [300]) |
 | e | a with H, C3, C2, C1 in an area "Cool" and F in the root | the same rates; one route of used from Cool to the root, 6000 |
 | f | d with the rows in areas as in e | as d |
+| g | a, and a block that also takes 100 plates from a connection as in [case 22](#case-22--a-connection-replaces-an-import) A-b (gear goal 25, P 1 makes 2, S pinned at 10) | the order keeps the rows: plate received 30, P 10, G 25, and H, C3, C2, C1, F all 60 |
+| g2 | g with C1 pinned at 10 and F pinned at 60 | the rows gave way before the order, which keeps that: plate 30, P 10, H 60, C1 10, C3 0, F 60 |
+| h | g with G in area L, P and S in area M and the chain in an area Cool | as g |
 
 ```
 a: F makes 60 clean, so it takes 6000 used at 50° or less. Only C1 makes used at 25°, so C1 = 60; it takes 6000 at 50–150°, which only C2 makes (at 100°): C2 = 60; it takes 6000 at 150–250°, only C3 makes (at 200°): C3 = 60; it takes 6000 at 250–350°, only H makes (at 300°): H = 60, 60 ore. Each class has a producer, so the rows hold and nothing is imported (there is no slack to import with).
 b: without C1 nothing is made at 50° or less: F's class has no producer, so no rows are built and the balance alone is met: H = 60 feeds F directly, C3 = C2 = 0 (running them costs runs for nothing). The only temperature made by a running row is 300°, above F's 50° maximum: one warning.
 c: with an import the rows are built with its slack (as before); importing 6000 costs BIG_M per unit against 5 runs of 60: the chain runs.
 d: C1 pinned at 10 makes only 1000 used at 25°, F needs 6000: infeasible with the rows. Without them the balance is met by H alone: H = 60 (6000 for F), C1 takes 1000 and gives 1000 back. Only 300° is made by the rows that run (C1 makes at 25° but is itself the row whose input mismatches): the warning names C1, supplied [300].
+g, h: case 22 A-b gives plate 30, P 10 and G 25 whatever the chain does (it is a separate chain on `used`). The order builds with the rows of the result it refines, so the chain is as in a: every row 60. With the rows left out the heater would feed the filter directly and C3, C2, C1 would not run (as in b). g2 is d's pins: the result the order refines has no rows, and the order builds without them too.
 e, f: the same LP with the rows in an area; `used` crosses from Cool to the root, 6000 for F. In f the area solve gives up the rows exactly as in d.
 ```
