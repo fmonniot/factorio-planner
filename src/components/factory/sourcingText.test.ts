@@ -35,6 +35,19 @@ describe('sourcingText — Make it here', () => {
     expect(sourcingText(input({ connections, rule: OFF }))).toBe('No row here makes Plastic bar; it is taken from Cheap and Dear, and the rest is imported. Import is off.')
   })
 
+  // A connection replaces an import (case 22): a block that makes the item can still receive most of it, so the sentence says what the connections deliver.
+  it('names the connections that deliver part of an item the block makes', () => {
+    const connections = [{ blockName: 'Cheap', offered: 30, taken: 15 }, { blockName: 'Dear', offered: 10, taken: 0 }]
+    expect(sourcingText(input({ makers: [maker()], connections }))).toBe('Made here by Plastic bar (1 × Chemical plant), and taken from Cheap (15.0/m).')
+    expect(sourcingText(input({ makers: [maker()], connections, rule: OFF }))).toBe('Made here by Plastic bar (1 × Chemical plant), and taken from Cheap (15.0/m). Import is off.')
+  })
+
+  it('keeps the plain sentence when no connection delivers, or without a solve', () => {
+    const idle = [{ blockName: 'Cheap', offered: 30, taken: 0 }]
+    expect(sourcingText(input({ makers: [maker()], connections: idle }))).toBe('Made here by Plastic bar (1 × Chemical plant).')
+    expect(sourcingText(input({ makers: [maker()], connections: [{ blockName: 'Cheap', offered: 30, taken: 15 }], solved: false }))).toBe('Made here by Plastic bar (1 × Chemical plant).')
+  })
+
   it('appends that Import is off', () => {
     expect(sourcingText(input({ rule: OFF }))).toBe('No row here makes Plastic bar; it is imported. Import is off.')
     expect(sourcingText(input({ rule: OFF, makers: [maker()] }))).toBe(

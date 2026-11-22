@@ -25,7 +25,7 @@ The first draft of this phase listed two combinations the stored modes could not
 
 In: one stored rule per item in place of `itemSourcing` and `noImportItems`; *Don't make more here* with Import off; **Sources…** on the **Comes from** control, opening the Sources list (the line names with their help texts, from `SOURCES_LINES` in `itemSourcing.ts`, a switch on *Make more here* and on *Import*, *Make more here* moved above or below the block lines); one line per connection of the item, in connection order, with its rate, limit, the read-only **requested** / **existing** tag, reorder and remove; corrected sentences.
 
-Out, and left to later phases: rules on an area, and *Other areas* as anything but a read-only line (phase 5); *Make more here* between two block lines (see D3); a switch that keeps a connection but turns it off (see D4); the source side (phases 3 and 4); the default's dependence on the recipe ratio (phase 6); the request probe defect "Connections first with partial supply" ([backlog](../backlog.md)).
+Out, and left to later phases: rules on an area, and *Other areas* as anything but a read-only line (phase 5); *Make more here* between two block lines (see D3); a switch that keeps a connection but turns it off (see D4); the source side (phases 3 and 4); the default's dependence on the recipe ratio (phase 6); the request probe defect "Connections first with partial supply" ([backlog](../../backlog.md)).
 
 ## Words used in this document
 
@@ -73,7 +73,7 @@ The order of the block lines is not in the rule: it stays the order of `inputCon
 
 ## What each rule does in the solver
 
-Nothing changes for five of the six states; the table names what the LP already does for them, in the terms of [spec/solver.md](../../spec/solver.md). "Fill" is the two-pass rule (supply capped at the pass-1 residual), "first" is supply in every pass capped by the offer only.
+Nothing changes for five of the six states; the table names what the LP already does for them, in the terms of [spec/solver.md](../../../spec/solver.md). "Fill" is the two-pass rule (supply capped at the pass-1 residual), "first" is supply in every pass capped by the offer only.
 
 | `makeHere` | `importOff` | Preset and switch | Import slack | Connected supply |
 | --- | --- | --- | --- | --- |

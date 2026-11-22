@@ -91,6 +91,7 @@ Known so far: the Seablock data has void rows for some items (`angels-water-void
 - **Areas.** The area LP has two stages with their own costs (shipping, `BIG_M` slack). Whatever changes in the plain LP has to be mirrored there.
 - **Opt-in or default?** Changing the objective changes existing plans. A per-block or per-plan setting would keep old results.
 - **Row intent.** Is "require this row" (option C) a per-row flag next to pinning, or part of a block-level mode?
+- **The order of connections before imports.** The [sourcing priority](../archive/sourcing-priority/phase-6.md) initiative made a connection replace an import by an order of LP solves (least import, least received, fill), not by a weight on a slack, because a weight breaks at real recipe ratios (its T1 report, point 5). Candidate costs of a recipe run or a left-over must be tried with that order in place: they replace the objective of the last step only, and the two changes must not ship in one release, since each moves numbers in existing plans.
 
 ## Phases
 

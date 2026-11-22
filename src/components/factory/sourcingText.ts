@@ -115,7 +115,13 @@ function blockText(input: SourcingTextInput): string {
       ? `No row here makes ${itemName}; it is taken from ${list(connections.map(c => c.blockName))}, and the rest is imported.${importOff}`
       : `No row here makes ${itemName}; it is imported.${importOff}`
   }
-  return `Made here by ${list(makers.map(makerLabel))}.${importOff}`
+  // A connection replaces an import, so a block that makes the item may still receive a good part of it. The figure is
+  // the block's: an area's sentence leaves it out, since a connection's flow cannot be told apart per area here.
+  const delivering = solved && areaName === undefined ? connections.filter(c => c.taken > EPS) : []
+  const received = delivering.length > 0
+    ? `, and taken from ${list(delivering.map(c => `${c.blockName} (${rate(c.taken)})`))}`
+    : ''
+  return `Made here by ${list(makers.map(makerLabel))}${received}.${importOff}`
 }
 
 // ---------------------------------------------------------------------------

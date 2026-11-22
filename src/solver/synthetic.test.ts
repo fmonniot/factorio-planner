@@ -2123,7 +2123,7 @@ describe('solver synthetic cases', () => {
   describe('case 21: area rules', () => {
     // Case 13's recipes (1 ore makes 1 plate, 1 plate makes 1 gear) and case 11's (A makes the goal with X on the side, U uses X, R makes 2 X).
     // An area's rule for an item replaces the block's rule in that area, whole (see spec/test-synthetic.md and spec/solver.md, "Area rules").
-    // Values are derived by hand in initiatives/sourcing-priority/phase-5.md; none is edited to match the solver.
+    // Values are derived by hand in initiatives/archive/sourcing-priority/phase-5.md; none is edited to match the solver.
     const PLATE = 'case13-plate'
     const X = 'case11-x'
     const Y = 'case21-y'
@@ -2436,7 +2436,7 @@ describe('solver synthetic cases', () => {
 
   describe('case 22: a connection replaces an import', () => {
     // With the default rule a block does not import an intermediate while a connection could replace that
-    // import, whichever of the two items the connection is on (initiatives/sourcing-priority/phase-6.md, D1 and D4).
+    // import, whichever of the two items the connection is on (initiatives/archive/sourcing-priority/phase-6.md, D1 and D4).
     // Values are derived by hand in phase-6.md; the rows marked measured are the solver of before the phase.
     // None is edited to match the solver.
     const PLATE = 'case22-plate'

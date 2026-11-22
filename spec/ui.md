@@ -1008,6 +1008,7 @@ Sections in order, each a `section` with a heading:
    | Preset | Condition | Sentence (Import on) |
    |---|---|---|
    | Make it here | a row makes the item | "Made here by {recipe} ({n} × {machine})." |
+   | Make it here | a row makes the item, a connection delivers some of it | "Made here by {recipe} ({n} × {machine}), and taken from {block} ({rate})." A connection replaces an import, so the rows may cover only part of the item; each connection that delivers is named with its rate. An area's sentence leaves the clause out (the flow is the block's). |
    | Make it here | no row makes it, no connection | "No row here makes {item}; it is imported." |
    | Make it here | no row makes it, a connection | "No row here makes {item}; it is taken from {blocks}, and the rest is imported." |
    | Don't make more here | rows make it, no connection, Import on | "Uses what this block already makes ({used}). The rest is imported." |

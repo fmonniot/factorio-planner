@@ -1,8 +1,8 @@
 # Sourcing priority: one Sources list per item
 
-Status: Active
+Status: Shipped
 
-Where a block gets an item from is decided today by six settings in four places and five orders the player cannot see. This initiative replaces them with one ordered list per item, named by outcome, and a matching list on the source side that says who is served first. How sourcing works now is in [spec/solver.md](../../spec/solver.md) and [spec/ui.md](../../spec/ui.md); this document is the target and the path to it.
+Where a block gets an item from is decided today by six settings in four places and five orders the player cannot see. This initiative replaces them with one ordered list per item, named by outcome, and a matching list on the source side that says who is served first. How sourcing works now is in [spec/solver.md](../../../spec/solver.md) and [spec/ui.md](../../../spec/ui.md); this document is the target and the path to it.
 
 ## Summary
 
@@ -37,7 +37,7 @@ The orders the solver applies without a control:
 4. **Inside a loop**, consumers are served in loop member order.
 5. **Between areas**, an area with its own dedicated row does not take another area's dedicated output (local first). Among senders, the area higher in the table supplies first.
 
-One default depends on a recipe ratio. When a block makes X only from an imported Y, a connection for X replaces the import with 1 Y per X, and does not when the recipe yields more X than Y. The [solver spec](../../spec/solver.md#connections-between-blocks) calls this an artefact of the objective.
+One default used to depend on a recipe ratio. When a block made X only from an imported Y, a connection for X replaced the import with 1 Y per X, and did not when the recipe yielded more X than Y: an artefact of the objective. [Phase 6](phase-6.md) removed it: a connection replaces the import whichever item it is on (see [the solver spec](../../../spec/solver.md#connections-between-blocks)).
 
 ## Where it confuses
 
@@ -155,12 +155,12 @@ The list covers every case the modes cover today, and it covers the seven items 
 | A central block feeds an area that also has its own row | Not possible (item: connections first vs local-first) | Set *Receive it first* on that area ([phase 5](phase-5.md), D4, D5): *Make more here* never goes below *Other areas* |
 | Prefer a cheap source, cap it, fall back to a second | Limits plus connection order, order not visible | Two block lines in order, a limit on the first |
 | Decide who is short, or how a shortage is shared, when a source cannot serve everyone | Block order, or loop member order (item: served first in a loop) | The source's **Served in this order** list |
-| Connected supply replaces an upstream import | Depends on the recipe ratio (item: connected supply replaces an upstream import, partly done) | Follows the order: *Make more here* above *Other blocks* always makes it here, the reverse always receives it |
+| Connected supply replaces an upstream import | Depends on the recipe ratio (item: connected supply replaces an upstream import, partly done) | A connection replaces the import, whichever of the two items it is on (phase 6). *Make it here* still makes what the block's rows can make from raw inputs; *Receive it first* uses the connection before the rows run |
 | Force a closed block with no outside input | Forbid imports per item | *Import* off, per item or as a block default |
 
 ### Choosing the supplying area
 
-*Other areas* expands, in an area's list, to one line per other area that has a row making the item, in table order, each with a switch and the rate the solver routed from that area ([phase 5](phase-5.md), D6). The lines are not dragged and there is no **Served in this order** list on a supplying row: an order among suppliers would only break ties, since the LP minimises machines, so the switch is the exact control. Off means nothing of the item comes from that area, which is what the old per-row toggle did for one receiver. "This row serves nobody else" stays several clicks, one switch per receiving area; it is in the [backlog](../backlog.md#sourcing-priority) as a follow-up.
+*Other areas* expands, in an area's list, to one line per other area that has a row making the item, in table order, each with a switch and the rate the solver routed from that area ([phase 5](phase-5.md), D6). The lines are not dragged and there is no **Served in this order** list on a supplying row: an order among suppliers would only break ties, since the LP minimises machines, so the switch is the exact control. Off means nothing of the item comes from that area, which is what the old per-row toggle did for one receiver. "This row serves nobody else" stays several clicks, one switch per receiving area; it is in the [backlog](../../backlog.md#sourcing-priority) as a follow-up.
 
 ### Showing the routes where the rule is set
 
@@ -182,7 +182,7 @@ A block default for all items ("never import anything") is a natural extension a
 
 ### What stays out
 
-One related item stays in the [backlog](../backlog.md) as a follow-up: connections first with partial supply, a solver defect in the request probe. The new model does not fix it, and *Receive it first* inherits it until the probe knows the real supply.
+One related item stays in the [backlog](../../backlog.md) as a follow-up: connections first with partial supply, a solver defect in the request probe. The new model does not fix it, and *Receive it first* inherits it until the probe knows the real supply.
 
 Choosing between two recipes for the same item inside one block is a related question the list does not answer. *Make more here* stays one line; the LP keeps picking the cheaper recipe.
 
@@ -197,7 +197,7 @@ The first phase removes most of the confusion and touches neither the solver nor
 | 3. Served order | The source's consumer list with blocks as consumers, one per rank, dragged to reorder; extra output as a line | Medium to large: a share for every listed consumer and grants by rank, in `solveAll`, the request pass and loop rounds; and first, a source that can be short by a definite amount, which does not exist today | New optional field on the source; absent means today's order |
 | 4. Shares and areas | Groups in the consumer list with equal or percentage shares; a consumer block expands into its areas | Medium: a group's split is arithmetic on each member's need, with no second solve; a group of takes is shared by need through a lookahead in the request pass (list order where the need is not known in time); an area as a consumer changes its block's grant and the list's figures, not the area LP | The phase 3 field gains groups, shares and area entries; a list without them loads as one consumer per rank |
 | 5. Area rules | Rules on an area, *Other blocks* above *Make more here* in an area | Large: one slack and one supply per area and item in the area LP, and flows per pair of areas for an item with a supplier switched off; no new LP call | New optional field on an area sub-factory (`SubPlan.sourceRules`) |
-| 6. Predictable default | *Make more here* no longer depends on the recipe ratio | Medium: an extra pass, or a changed objective, for items made from an import | None, but results change for affected plans |
+| 6. Predictable default | A connection no longer depends on the recipe ratio: it replaces an import | Medium: three more LP solves for a block that imports an intermediate while a connection has offer left (an order of solves, not a weight; [phase 6](phase-6.md)) | None, but results change for affected plans (none of the 37 plans measured) |
 
 ### Risks
 
@@ -208,14 +208,14 @@ The first phase removes most of the confusion and touches neither the solver nor
 
 ## Items taken from the backlog
 
-These items were in [backlog.md](../backlog.md) before the initiative and now live here; each is ticked when the phase that closes it ships.
+These items were in [backlog.md](../../backlog.md) before the initiative and now live here; each is ticked when the phase that closes it ships.
 
 - [x] **Sourcing badge on Ingredients slots.** The `B` / `C` badge shows on the item chips of the production table only; the Ingredients and Byproducts slots, the areas matrix and the block graph show nothing. Phase 1.
-- [~] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md). **Connections first** (per item, *Receive it first* in the Comes from control) now lets supply replace the import; the default still depends on the recipe ratio. Phases 2 and 6.
-- [x] **Choose who is served first in a loop.** Consumers that compete for one offer inside a loop are served in loop member order (the entry block first, then breadth-first, see spec/solver.md#loops). Let the user set a priority. Phases 3 and 4. What phase 4 left out of loops and groups of takes is in the [backlog](../backlog.md#sourcing-priority).
+- [x] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. It depended on the recipe ratio: with 1 Y per X supply replaced the import, with a recipe that yields more X than it consumes Y it did not. **Connections first** (per item, *Receive it first* in the Comes from control) lets supply replace the import in any case; the default no longer depends on the ratio. Phases 2 and 6.
+- [x] **Choose who is served first in a loop.** Consumers that compete for one offer inside a loop are served in loop member order (the entry block first, then breadth-first, see spec/solver.md#loops). Let the user set a priority. Phases 3 and 4. What phase 4 left out of loops and groups of takes is in the [backlog](../../backlog.md#sourcing-priority).
 - [x] **Byproducts first per consumer.** The mode is per item, so a second consumer of the item in the same block also gets imported supply. Let the mode apply to one consuming recipe. Phase 5 (a rule on an area; the byproduct goes where it saves machines, so the other consumer switches off the area that makes it, D8).
-- [x] **Connections first vs local-first.** Items marked connections first are other supply, so connected supply does not override the local-first rule of an area. It may need to. See "Connections first" in the [open questions](../archive/block-granularity/proposals/area-solve.md#open-questions) of the areas proposal. Phase 5.
-- [x] **Supplies other areas toggle.** An area without its own row of a recipe is supplied by the most productive row, then table order. A per-row toggle would let the player choose the supplier instead. See "Choice of supplier" in the [open questions](../archive/block-granularity/proposals/area-solve.md#open-questions) of the areas proposal. Phase 5, if *Other areas* expands to one line per area.
+- [x] **Connections first vs local-first.** Items marked connections first are other supply, so connected supply does not override the local-first rule of an area. It may need to. See "Connections first" in the [open questions](../block-granularity/proposals/area-solve.md#open-questions) of the areas proposal. Phase 5.
+- [x] **Supplies other areas toggle.** An area without its own row of a recipe is supplied by the most productive row, then table order. A per-row toggle would let the player choose the supplier instead. See "Choice of supplier" in the [open questions](../block-granularity/proposals/area-solve.md#open-questions) of the areas proposal. Phase 5, if *Other areas* expands to one line per area.
 - [x] **Per-partner area figures elsewhere.** The matrix and its focus view show who supplies whom, but the collapsed-area chips and the "Trades with" panel of an item still show no per-partner routes. Feed them from `SolverResult.areaRoutes`. Phase 5.
 
 ## Decisions
