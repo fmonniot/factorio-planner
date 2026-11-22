@@ -1,11 +1,11 @@
 # Solver Synthetic Test Cases
 
-Twenty-four recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Twenty-five recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 24 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 25 use plain made-up item ids.
 
-Cases 11 to 24 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
+Cases 11 to 25 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -1215,7 +1215,7 @@ feeders: the rows that run only to feed S are marked `feedsAbsorber`: P in a, K 
 
 ## Case 24 — A cooling chain on a fluid with Import off
 
-Plain made-up ids, 1 s smelting recipes. A fluid that cannot be imported has no slack, so its [temperature rows](solver.md#fluid-temperatures) are built without one, provided every consumer class has a producer at an accepted temperature. A filter takes the used fluid at 50° or less, which only the last cooler makes.
+Plain made-up ids, 1 s smelting recipes. The used fluid is a split fluid ([Fluid temperatures](solver.md#fluid-temperatures)): each temperature the rows make is a key of its own (`@300` H, `@200` C3, `@100` C2, `@25` C1) and each range a row takes is another (`[250,350]` C3, `[150,250]` C2, `[50,150]` C1, `[,50]` F). A conversion column moves a temperature to a range it fits: `@300` to `[250,350]`, `@200` to `[150,250]`, `@100` to `[50,150]` and `@25` to `[,50]`, and no other pair fits. With Import off a range key has no slack, so a range nothing fits makes its consumers unable to run.
 
 | Row | Recipe | Takes | Makes |
 |---|---|---|---|
@@ -1225,25 +1225,59 @@ Plain made-up ids, 1 s smelting recipes. A fluid that cannot be imported has no 
 | C1 | `case24-cool-100` | 100 used at 50–150° | 100 used at 25° |
 | F | `case24-filter` | 100 used at 50° or less | 1 clean |
 
-Goal: 60 `case24-clean`. Import off on `case24-used`. Ore is raw.
+Goal: 60 `case24-clean`. Import off on `case24-used` (except in b2 and c). Ore is raw.
 
 | Row | Setup | Expected |
 |---|---|---|
-| a | H, C3, C2, C1, F | every row 60; ore 60 imported; used not imported; no `temperature-mismatch` |
-| b | a without C1 | no rows (the filter's class has no producer): H 60, F 60, C3 0, C2 0; one `temperature-mismatch` on F (supplied [300], maximum 50, no `imported`) |
+| a | H, C3, C2, C1, F | every row 60; ore 60 imported; used not imported; four conversions of 6000; no `temperature-mismatch`, no `no-fitting-temperature` |
+| b | a without C1 | every row 0; `unsatisfied` is the goal shortfall, 60 clean; `warnings` is exactly one `no-fitting-temperature` on `case24-used` (`max` 50, rows [F]); no `temperature-mismatch` |
+| b2 | b with Import on | F 60; H, C3, C2 0; `unsatisfied` is one import of 6000 used with `temp: { max: 50 }`; no warning |
 | c | a with Import on | as a |
-| d | a with C1 pinned at 10 and F pinned at 60 | the model with the rows is infeasible, so the rows give way: H 60, C1 10, C3 0, C2 0, F 60; no `infeasible-pins`; one `temperature-mismatch` on C1 (supplied [300]) |
-| e | a with H, C3, C2, C1 in an area "Cool" and F in the root | the same rates; one route of used from Cool to the root, 6000 |
+| d | a with C1 pinned at 10 and F pinned at 60 | `infeasible-pins` with `conflict: true`, naming C1 and F; no `temperature-mismatch` |
+| e | a with H, C3, C2, C1 in an area "Cool" and F in the root | the same rates; one route of used at `temp: { at: 25 }` from Cool to the root, 6000 |
 | f | d with the rows in areas as in e | as d |
-| g | a, and a block that also takes 100 plates from a connection as in [case 22](#case-22--a-connection-replaces-an-import) A-b (gear goal 25, P 1 makes 2, S pinned at 10) | the order keeps the rows: plate received 30, P 10, G 25, and H, C3, C2, C1, F all 60 |
-| g2 | g with C1 pinned at 10 and F pinned at 60 | the rows gave way before the order, which keeps that: plate 30, P 10, H 60, C1 10, C3 0, F 60 |
+| g | a, and a block that also takes 100 plates from a connection as in [case 22](#case-22--a-connection-replaces-an-import) A-b (gear goal 25, P 1 makes 2, S pinned at 10) | the order keeps the chain: plate received 30, P 10, G 25, and H, C3, C2, C1, F all 60 |
 | h | g with G in area L, P and S in area M and the chain in an area Cool | as g |
 
 ```
-a: F makes 60 clean, so it takes 6000 used at 50° or less. Only C1 makes used at 25°, so C1 = 60; it takes 6000 at 50–150°, which only C2 makes (at 100°): C2 = 60; it takes 6000 at 150–250°, only C3 makes (at 200°): C3 = 60; it takes 6000 at 250–350°, only H makes (at 300°): H = 60, 60 ore. Each class has a producer, so the rows hold and nothing is imported (there is no slack to import with).
-b: without C1 nothing is made at 50° or less: F's class has no producer, so no rows are built and the balance alone is met: H = 60 feeds F directly, C3 = C2 = 0 (running them costs runs for nothing). The only temperature made by a running row is 300°, above F's 50° maximum: one warning.
-c: with an import the rows are built with its slack (as before); importing 6000 costs BIG_M per unit against 5 runs of 60: the chain runs.
-d: C1 pinned at 10 makes only 1000 used at 25°, F needs 6000: infeasible with the rows. Without them the balance is met by H alone: H = 60 (6000 for F), C1 takes 1000 and gives 1000 back. Only 300° is made by the rows that run (C1 makes at 25° but is itself the row whose input mismatches): the warning names C1, supplied [300].
-g, h: case 22 A-b gives plate 30, P 10 and G 25 whatever the chain does (it is a separate chain on `used`). The order builds with the rows of the result it refines, so the chain is as in a: every row 60. With the rows left out the heater would feed the filter directly and C3, C2, C1 would not run (as in b). g2 is d's pins: the result the order refines has no rows, and the order builds without them too.
-e, f: the same LP with the rows in an area; `used` crosses from Cool to the root, 6000 for F. In f the area solve gives up the rows exactly as in d.
+a: F makes 60 clean, so it takes 6000 used at 50° or less. Only `@25` feeds `[,50]`, and only C1 makes it, so C1 = 60; it takes 6000 at 50–150°, which only `@100` (C2) fits: C2 = 60; it takes 6000 at 150–250°, only `@200` (C3) fits: C3 = 60; it takes 6000 at 250–350°, only `@300` (H) fits: H = 60, 60 ore. Each conversion moves 6000. With Import off no range key has a slack, so nothing is imported.
+b: without C1 nothing is made at 50° or less: `[,50]` has no conversion into it, and it is locked, so its row is -100·F >= 0 and F = 0. The goal needs F, so the plain LP is infeasible and the elastic goals report the shortfall: 60 clean, with H, C3 and C2 needed by nothing (0). `@100` is made by nothing that runs, so it is a byproduct and ore is not listed. `no-fitting-temperature` names the range (`max` 50) and the row that takes it (F).
+b2: with Import on `[,50]` has a slack at BIG_M: F = 60 imports 6000 used at 50° or less, and the other rows have nothing to make.
+c: with an import the ranges have slacks; the chain costs 300 runs plus 0.0024 for the conversions, importing 6000 costs 6e9: the chain runs.
+d: C1 pinned at 10 makes only 1000 used at 25°, F pinned at 60 needs 6000 at 50° or less: infeasible. The pins hold in the elastic model too, so it is infeasible as well: `infeasible-pins` names both pins with `conflict: true` (the rates are arbitrary).
+e, f: the same LP with the rows in an area: `@25` is made in Cool and taken by the conversion in the root, so it is an area item, and the used fluid crosses from Cool to the root at 25°, 6000 for F. A range key belongs to the area that takes it, so no range key crosses. In f the pins conflict as in d; the area order of the rows puts F first in the warning.
+g, h: case 22 A-b gives plate 30, P 10 and G 25 whatever the chain does (it is a separate chain on `used`). The order builds the same keys and conversions, so the chain is as in a: every row 60.
+```
+
+---
+
+## Case 25 — Keys inside a block
+
+Plain made-up ids, 1 s smelting recipes. `case25-steam` is a split fluid with no `defaultTemperature`: B1 makes it at 165°, B2 at 500°, U at no temperature, T takes it at 465° or more, E at any temperature, R takes it at 465° or more and returns it at 165°. Fuel is raw.
+
+| Row | Recipe | Takes | Makes |
+|---|---|---|---|
+| B1 | `case25-boil-165` | 1 fuel | 60 steam at 165° |
+| B2 | `case25-boil-500` | 1 fuel | 30 steam at 500° |
+| U | `case25-boil-any` | 1 fuel | 60 steam (no temperature) |
+| T | `case25-turbine` | 60 steam at 465° or more | 1 work |
+| E | `case25-engine` | 60 steam (no bound) | 1 work2 |
+| R | `case25-reheat` | 60 steam at 465° or more | 60 steam at 165° and 1 work |
+
+| Row | Setup | Expected |
+|---|---|---|
+| a | B1 pinned at 60, T; goal 60 work | T 60; `unsatisfied` is 3600 steam with `temp: { min: 465 }` and 60 fuel; the 165° steam is a byproduct (`netBalance` at `steam@165` is 3600); no conversion; no warning |
+| b | B1, B2, T; goal 60 work | B2 120, B1 0; no steam imported; fuel 120; one conversion of 3600 from 500° to `{ min: 465 }` |
+| c | B2, T, E; goals 60 work and 60 work2 | B2 240; two conversions of 3600 from 500°: to `{ min: 465 }` and to `{}` |
+| d | U, T; goal 60 work | U 60; no steam imported; one conversion of 3600 from unknown to `{ min: 465 }` |
+| e | B2, R; goal 60 work | R 60, B2 120; no steam imported; `netBalance` at `steam@165` is 3600 (R's net steam used to be 0) |
+| f | B1 (not pinned), T; goal 60 work; Import off on steam | every row 0; `unsatisfied` is the 60 work shortfall; `warnings` is exactly one `no-fitting-temperature` on steam (`min` 465, rows [T]) |
+
+```
+a: `@165` fits no range of T (`[465,]`), so no conversion exists and `@165` is a byproduct. `[465,]` is a forced intermediate with a slack at BIG_M: T = 60 takes 3600, all imported, with the 60 fuel of B1. The 3600 made at 165° is surplus.
+b: `@500` fits `[465,]`: 30 · B2 = 3600, B2 = 120 and B1 stays 0 (it makes nothing a range takes). Fuel is 120.
+c: both ranges are fed from `@500`: 30 · B2 = 3600 + 3600, B2 = 240; one conversion each, to `[465,]` and to `[,]`.
+d: unknown fits every range: 60 · U = 3600, U = 60.
+e: R takes 3600 `[465,]`, which only `@500` fits: 30 · B2 = 3600, B2 = 120. R makes 3600 at `@165`, which fits nothing: a byproduct.
+f: with Import off `[465,]` is locked with no conversion into it, so T = 0; the elastic goals report the 60 work. B1 would only make a byproduct, so it stays 0. `no-fitting-temperature` names steam at 465° or more and T.
 ```
