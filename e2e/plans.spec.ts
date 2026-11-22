@@ -20,7 +20,7 @@ const expectPlan = (page: Page, name: string) => expect(planTrigger(page)).toHav
 
 test.describe('multiple plans per data set', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await page.evaluate(() => { localStorage.clear(); localStorage.setItem('factorio-planner:ui', JSON.stringify({ summaryCollapsed: false })) }) // a clean profile that has expanded the summary
     await page.reload()
     await selectDataset(page, 'Nullius')
@@ -104,13 +104,13 @@ test('a plan stored in the old single-plan shape is migrated', async ({ page }) 
 
 test.describe('two tabs', () => {
   test('plan list changes reach the other tab and active plans stay per tab', async ({ page, context }) => {
-    await page.goto('/')
+    await page.goto('./')
     await page.evaluate(() => localStorage.clear())
     await page.reload()
     await selectDataset(page, 'Nullius')
     await expectPlan(page, 'Plan 1')
     const other = await context.newPage()
-    await other.goto('/')
+    await other.goto('./')
     await expectPlan(other, 'Plan 1')
 
     await runPlanAction(page, 'New plan')

@@ -95,10 +95,6 @@ Follow-ups of the [surplus rule initiative](archive/surplus-rule/plan.md), which
 - [ ] **Icon layers with 0 < `tint` alpha < 1 are composited as opaque.** `compositeIconLayers` ignores a fractional tint alpha, so such layers are drawn too strongly (565 items, 588 recipes, 119 fluids and 24 technologies in the Seablock dump). Fixing it changes the `nullius-ethylene` golden (layer 0 has alpha 0.7) and needs a re-export of the affected icons.
 - [ ] **More bundled data sets.** Nullius and Seablock are bundled. Candidates: vanilla Factorio 2.0.
 
-## Tests and tooling
-
-- [ ] **Run e2e against the production build.** Playwright starts `npm run dev`, so every test pays for Vite's on-demand module transforms and the dev server's PNG→WebP conversion. Serving the built `dist/` with `vite preview` should be faster and closer to what ships. It needs the `/factorio-planner/` base path in `baseURL` and the specs' URLs, and a build before the e2e step (the CI `e2e` and `build` jobs could share one build through an artifact). Measure a local run of both before committing to it.
-
 ## Phone support
 
 - [ ] **Touch alternatives for right-click menus.** The row, product, block tab and connection menus open on right-click only; add a long-press or a visible "..." button.

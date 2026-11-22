@@ -59,6 +59,13 @@ jobs:
       - name: Install Playwright browsers
         if: steps.browsers.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      # The suite runs against the production build, which test:e2e makes first.
+      # scripts/build-icons.mjs keeps optimised icons here by source hash.
+      - uses: actions/cache@v6
+        with:
+          path: .cache/icons
+          key: icons-${{ hashFiles('scripts/build-icons.mjs') }}-${{ hashFiles('public/data/**/*.png') }}
+          restore-keys: icons-${{ hashFiles('scripts/build-icons.mjs') }}-
       - run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
   build:

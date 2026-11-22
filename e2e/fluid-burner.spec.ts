@@ -50,7 +50,7 @@ const storedPlans = (page: Page) =>
 
 test.describe('Fluid-burning machines', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
   })
 
   test('a fluid-burning row burns a fluid that is one of its ingredients', async ({ page }) => {

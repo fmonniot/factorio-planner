@@ -157,7 +157,7 @@ async function storedPinnedRates(page: Page): Promise<number[]> {
 
 test.describe('Power generation', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await upload(page, powerFixture())
   })
 
@@ -289,7 +289,7 @@ test.describe('Power generation', () => {
 
 test.describe('Heat', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await upload(page, heatFixture())
   })
 

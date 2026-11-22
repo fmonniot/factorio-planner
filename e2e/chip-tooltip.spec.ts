@@ -77,6 +77,8 @@ test('closes when the pointer leaves, on press, on Escape and when the table scr
   await page.keyboard.press('Escape')
   await expect(page.getByRole('heading', { name: 'Add recipe' })).toHaveCount(0)
 
+  // The pointer is still on the chip and a tooltip only opens on a pointer move, so leave first.
+  await page.mouse.move(2, 2)
   await chip.hover()
   await expect(tooltip(page)).toBeVisible()
   await page.keyboard.press('Escape')

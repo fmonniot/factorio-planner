@@ -129,7 +129,8 @@ npm run dev        # start the dev server
 npm test           # unit tests + Playwright e2e
 npm run test:unit  # unit tests only (Vitest)
 npm run test:watch # unit tests in watch mode
-npm run test:e2e   # Playwright e2e only (starts the dev server)
+npm run test:e2e   # Playwright e2e only: builds, then serves dist/ with vite preview
+npm run test:e2e:dev # same specs against the dev server (no build; E2E_SERVER=dev)
 npm run lint
 npm run lint:docs  # check Markdown links and repo paths
 npm run build      # type-check, production bundle, then icon optimisation (postbuild)

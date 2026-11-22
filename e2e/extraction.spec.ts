@@ -62,7 +62,7 @@ async function addRecipe(page: Page, recipeId: string) {
 
 test.describe('Extraction recipes', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await upload(page, extractionFixture())
   })
 

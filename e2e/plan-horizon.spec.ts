@@ -41,7 +41,7 @@ async function pickerGoalItemIds(page: Page): Promise<string[]> {
 
 test.describe('Plan horizon', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
   })
 
   test('is hidden when the data set has no technology data', async ({ page }) => {
@@ -143,14 +143,14 @@ async function uploadManyTechnologies(page: Page): Promise<string[]> {
   const data = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8'))
   const ids = Array.from({ length: 45 }, (_, i) => `bulk-tech-${i}`)
   for (const id of ids) data.technologies[id] = { id, name: `Bulk tech ${id.slice(10)}`, prerequisites: [], unlockedRecipes: [], iconPath: '' }
-  await page.goto('/')
+  await page.goto('./')
   await upload(page, Buffer.from(JSON.stringify(data)))
   return ids
 }
 
 test.describe('Horizon popover', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await upload(page)
   })
 
@@ -287,7 +287,7 @@ async function addRecipe(page: Page, recipeId: string) {
 
 test.describe('Plan horizon: machines and modules', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await upload(page, Buffer.from(JSON.stringify(machineFixture())))
   })
 
@@ -382,7 +382,7 @@ test.describe('Plan horizon: machines and modules', () => {
 
 test.describe('Default machines', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await upload(page, Buffer.from(JSON.stringify(machineFixture())))
     await addGoal(page, 'iron-gear-wheel')
     await addRecipe(page, 'iron-gear-wheel')
@@ -468,7 +468,7 @@ function fuelFixture() {
 
 test.describe('Plan horizon: default fuel', () => {
   test('a burner row burns the cheapest fuel inside the horizon', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await upload(page, Buffer.from(JSON.stringify(fuelFixture())))
     await setHorizon(page, 'electronics', 'smelting')
     await addGoal(page, 'iron-plate')

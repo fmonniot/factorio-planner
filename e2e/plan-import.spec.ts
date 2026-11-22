@@ -38,7 +38,7 @@ async function expectPlanOne(page: Page) {
 // every navigation, which would add plans and hide what is persisted.
 test.describe('Plan import', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await page.evaluate(() => { localStorage.clear(); localStorage.setItem('factorio-planner:ui', JSON.stringify({ summaryCollapsed: false })) }) // a clean profile that has expanded the summary
     await page.reload()
     await selectDataset(page, 'Nullius')

@@ -74,7 +74,7 @@ const mainHint = (page: Page, text: string) =>
 test.describe('game data source selector', () => {
   // Each test starts with a clean slate.
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await clearStorage(page)
     await page.reload()
   })

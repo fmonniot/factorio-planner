@@ -14,7 +14,8 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:dev": "E2E_SERVER=dev playwright test"
   },
   "dependencies": {
     "javascript-lp-solver": "^1.0.3",

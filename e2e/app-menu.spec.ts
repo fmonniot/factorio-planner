@@ -127,7 +127,7 @@ test.describe('workspace menu', () => {
   })
 
   test('first visit: hint points to the menu, nothing checked, Import plan disabled', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await page.evaluate(() => localStorage.clear())
     await page.reload()
     await expect(page.getByText('Open the workspace menu at the top right to pick a game data set')).toBeVisible()
