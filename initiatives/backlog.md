@@ -31,7 +31,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **A marked feeder can lose its connected supply.** When letting connected supply reach an absorber chain's feeders would take a reward away ([Absorber chains](../spec/solver.md#absorber-chains), *Supply*), the whole chain is left out of `supuse` / `auuse`, so a row marked *Feed absorbing rows* takes no *Receive it first* supply even for what ordinary rows use of its product; the block's rows make it or the block imports it. Splitting the row into an ordinary part and a chain part would fix it.
 - [ ] **Default machines flyout lists `electronics`.** The flyout lists every crafting category with two or more machines, including `electronics`, which in Seablock is only ever an additional category of a recipe; a default set there changes no row. Hide categories that no recipe uses as its primary category.
 - [ ] **Row default when the horizon only unlocks additional-category machines.** A row's default machine comes from the primary category only, so a horizon with `bob-electronics-machine-1` but no `advanced-crafting` machine shows "no machine in horizon" while the picker offers the electronics machine. Consider falling back to the fastest machine of the additional categories.
-- [ ] **Machine picker does not say why some machines have no "Make default".** Machines that craft only an additional category are per-row choices; the picker shows no hint. Add a muted label or group them separately.
 
 ## Sharing
 

@@ -87,6 +87,7 @@ describe('MachineCell', () => {
       expect(screen.getByTestId('default-machine-badge')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Make Assembler 2/ })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /Make Electronics machine/ })).toBeNull()
+      expect(screen.getAllByTestId('row-only-label')).toHaveLength(1)
     })
 
     it('sets the machine of the row to one that only crafts the additional category', () => {
