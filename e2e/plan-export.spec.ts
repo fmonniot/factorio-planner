@@ -13,7 +13,7 @@ async function loadGameData(page: import('@playwright/test').Page) {
 
 test.describe('Plan export', () => {
   test('Export plan downloads valid JSON containing blocks and activeBlockId', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await loadGameData(page)
 
     const overlay = page.locator('.fixed.inset-0')

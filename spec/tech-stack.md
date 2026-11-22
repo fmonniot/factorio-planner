@@ -52,7 +52,7 @@ Component library: none. The production table, popovers, modals and the item pic
 
 ## Build Tooling: Vite
 
-Fast dev server with HMR, native ESM, and simple configuration. `vite.config.ts` pins the dev server to port 4000 (the bridge's default allowed origin relies on it; the e2e suite starts its own server on a random port instead, see `playwright.config.ts`), sets `base: '/factorio-planner/'` for production builds (the GitHub Pages path) and adds a dev-server middleware that converts icon PNGs to WebP on request (re-converting when a PNG changes on disk), mirroring the production build.
+Fast dev server with HMR, native ESM, and simple configuration. `vite.config.ts` pins the dev server to port 4000 (the bridge's default allowed origin relies on it; the e2e suite starts its own `vite preview` of the built `dist/` on a random port instead, see `playwright.config.ts`), sets `base: '/factorio-planner/'` for production builds (the GitHub Pages path) and adds a dev-server middleware that converts icon PNGs to WebP on request (re-converting when a PNG changes on disk), mirroring the production build.
 
 `npm run build` type-checks (`tsc -b`), bundles with Vite, then runs `postbuild` → `scripts/build-icons.mjs`, which writes WebP siblings and optimised PNGs for the icons under `dist/data` (using `sharp`). Encoded icons are cached in `.cache/icons` (override with `ICON_CACHE_DIR`) by a hash of the source PNG and the encoder settings, so an unchanged icon is copied instead of re-encoded; entries no icon maps to are pruned after each run.
 
@@ -69,7 +69,7 @@ Vitest runs three projects (see `vitest.config.ts`): `dom` (component tests unde
 | Integration | Vitest (`node`) | Loading the committed Nullius `game-data.json` against the schema; solver invariants on that real data (`src/solver/index.integration.test.ts`) |
 | Component tests | React Testing Library + Vitest (`dom`) | Item picker, recipe row interactions, modal flows, goal CRUD |
 | Build scripts | Vitest (`scripts`) | Icon layer compositing (synthetic pixel checks and golden images) |
-| E2E | Playwright | Full plan creation flows against the dev server (Nullius data) |
+| E2E | Playwright | Full plan creation flows against the production build served by `vite preview` under the `/factorio-planner/` base path (Nullius data); `npm run test:e2e:dev` runs them against the dev server |
 
 The synthetic cases in [test-synthetic.md](test-synthetic.md) are the reference values for the solver; they are automated in `src/solver/synthetic.test.ts`. They stay on synthetic fixtures so a re-export cannot break it, while `src/solver/index.integration.test.ts` asserts invariants (finite non-negative flows, positive machine counts, mass balance, a machine for every recipe category) on the real export and may need updating when the data is re-exported.
 
@@ -119,9 +119,9 @@ Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-pla
 
 GitHub Actions, Node 22 (`.github/workflows/`):
 
-- **`test.yml`** runs on every pull request, on pushes to `main` and as a reusable workflow. Three jobs run in parallel: `check` (`npm ci` → lint → doc links → unit tests), `e2e` (four Playwright shards, `--shard=N/4`) and `build` (`npm run build`). `deploy.yml` calls it with `skip_build: true`, as it builds the site itself.
+- **`test.yml`** runs on every pull request, on pushes to `main` and as a reusable workflow. Three jobs run in parallel: `check` (`npm ci` → lint → doc links → unit tests), `e2e` (four Playwright shards, `--shard=N/4`, each building the site first through `npm run test:e2e`) and `build` (`npm run build`). `deploy.yml` calls it with `skip_build: true`, as it builds the site itself.
 - **`mod.yml`** runs the in-game viewer mod's pure Lua modules on every pull request and push to `main`, as one job: it builds the pinned Lua 5.2 toolchain with `mod/setup-lua.sh` (cached by that script's hash), then runs `luacheck` and `busted` from `mod/`. It is separate from `test.yml`. See [mod/README.md](../mod/README.md).
-- **Caches.** The `e2e` jobs cache `~/.cache/ms-playwright`, keyed on the Playwright version and the runner image version; apt system libraries are installed (`--with-deps`) only on a cache miss, because apt is slow and occasionally takes minutes. The `build` jobs cache `.cache/icons` (see above). Pull requests can only read caches created on `main`, which is why `test.yml` also runs on pushes to `main`.
+- **Caches.** The `e2e` jobs cache `~/.cache/ms-playwright`, keyed on the Playwright version and the runner image version; apt system libraries are installed (`--with-deps`) only on a cache miss, because apt is slow and occasionally takes minutes. The `build` and `e2e` jobs cache `.cache/icons` (see above). Pull requests can only read caches created on `main`, which is why `test.yml` also runs on pushes to `main`.
 - **`deploy.yml`** runs when a GitHub release is published (or by manual dispatch): `test.yml` and a `build` job (which uploads `dist/` as the Pages artifact) run in parallel, then `deploy` publishes to GitHub Pages once both pass.
 - **`bridge.yml`** runs on every pull request and on pushes to `main`, as two jobs of its own. `rust` runs `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` and `cargo test` in `bridge/`; `msrv` runs `cargo test` with the minimum Rust version. Both toolchains are pinned in the workflow (`TOOLCHAIN` and `MSRV`, installed with `dtolnay/rust-toolchain`), so that a new stable release with a new lint cannot fail unrelated pull requests; `TOOLCHAIN` is bumped on purpose, and `MSRV` must equal `rust-version` in `bridge/Cargo.toml`. `Swatinem/rust-cache` caches the build.
 - **Dependabot** (`.github/dependabot.yml`) opens weekly npm update PRs, grouping React and Vitest packages, and weekly Cargo update PRs for `bridge/`.

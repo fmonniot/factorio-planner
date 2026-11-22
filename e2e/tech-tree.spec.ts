@@ -30,7 +30,7 @@ async function openTree(page: Page) {
 
 test.describe('Technology tree', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
   })
 
   test('is hidden when the data set has no technology data', async ({ page }) => {
@@ -144,7 +144,7 @@ test.describe('Technology tree search', () => {
   const search = (page: Page) => page.getByRole('textbox', { name: 'Search technologies' })
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await upload(page, withLeveled())
     await treeButton(page).click()
     await expect(heading(page)).toBeVisible()
@@ -207,7 +207,7 @@ test.describe('Technology tree hover popup', () => {
   }
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await upload(page, withMachine())
     await treeButton(page).click()
     await expect(heading(page)).toBeVisible()

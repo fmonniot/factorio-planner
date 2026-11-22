@@ -12,7 +12,7 @@ async function loadGameData(page: import('@playwright/test').Page) {
 
 test.describe('Primary product override', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await loadGameData(page)
   })
 

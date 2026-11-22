@@ -43,7 +43,7 @@ export async function loadPlanFixture(
       gameDataValue: gameDataSource,
     },
   )
-  await page.goto('/')
+  await page.goto('./')
 }
 
 /** The active plan of a data set as saved in localStorage (parsed JSON). */

@@ -22,7 +22,7 @@ async function hoverRecipe(page: Page, id: string) {
 
 test.describe('Recipe picker — unlocking technology', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
   })
 
   test('shows the technology, its packs and count without the time', async ({ page }) => {

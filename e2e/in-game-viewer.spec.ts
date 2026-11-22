@@ -403,7 +403,7 @@ test.describe('In-game viewer errors', () => {
     // Block names go into the snapshot, so two long names make a snapshot above 8,000,000 bytes.
     const plan = JSON.parse(readFileSync(FIXTURE, 'utf8')) as { blocks: { name: string }[] }
     for (const block of plan.blocks) block.name = 'x'.repeat(4_200_000)
-    await page.goto('/')
+    await page.goto('./')
     await selectDataset(page, 'Nullius')
 
     await switchOn(page, bridge)
