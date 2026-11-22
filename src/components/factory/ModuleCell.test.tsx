@@ -8,6 +8,7 @@ import type { GameData, GameRecipeNode } from '../../data/types'
 const makeSpeedModule = () => ({
   id: 'speed-3',
   name: 'Speed 3',
+  category: 'speed',
   effects: { speed: 0.5, consumption: 0.7 },
   limitation: [],
   limitationBlacklist: [],
@@ -55,6 +56,19 @@ describe('ModuleCell', () => {
     expect(cell()).toHaveAttribute('title', 'Edit modules (more modules than slots)')
     expect(cell()).toHaveClass('ring-amber-500')
     expect(cell()).not.toHaveAttribute('data-beyond-horizon')
+  })
+
+  it('flags a stored module whose category the machine does not list, and not without a list', () => {
+    const gd = makeData()
+    gd.modules['agri'] = { ...makeSpeedModule(), id: 'agri', name: 'Agriculture module', category: 'angels-bio-yield', iconPath: '', effects: { speed: 0.1 } }
+    const props = { nodeId: 'n1', recipeId: 'r', modules: [{ moduleId: 'agri', count: 1 }], machineSlots: 2, gameData: gd, onOpenEdit: noop }
+    const { rerender } = render(<ModuleCell {...props} machine={{ allowedEffects: ['speed'], allowedModuleCategories: ['speed'] }} />)
+    expect(cell()).toHaveAttribute('data-incompatible', 'true')
+    expect(cell()).toHaveAttribute('title', 'Edit modules (a module does not fit this machine)')
+    expect(cell()).toHaveClass('ring-amber-500')
+    rerender(<ModuleCell {...props} machine={{ allowedEffects: ['speed'] }} />)
+    expect(cell()).not.toHaveAttribute('data-incompatible')
+    expect(cell()).toHaveAttribute('title', 'Edit modules')
   })
 
   it('is not flagged when the modules fit', () => {
@@ -119,6 +133,15 @@ describe('ModuleCell shortcuts', () => {
     const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(node.kind === 'game-recipe' && node.modules).toEqual([{ moduleId: 'speed-3', count: 4 }])
     expect(screen.queryByTestId('picker')).toBeNull()
+  })
+
+  it('leaves a module out of the fill-all picker when the machine does not list its category', () => {
+    const gd = data()
+    gd.modules['agri'] = { ...makeSpeedModule(), id: 'agri', name: 'Agriculture module', category: 'angels-bio-yield', iconPath: '' }
+    const listed = { ...machine, allowedModuleCategories: ['speed'] }
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={listed} modules={[]} machineSlots={2} gameData={gd} onOpenEdit={() => {}} />)
+    fireEvent.click(screen.getByTestId('module-chip'))
+    expect(screen.getAllByTestId('module-fill-option').map(o => o.getAttribute('data-module-id'))).toEqual(['speed-3'])
   })
 
   it('offers productivity modules when the recipe allows productivity', () => {

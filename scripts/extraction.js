@@ -9,6 +9,7 @@
  */
 
 import { luaList } from './technologies.js'
+import { moduleCategoriesField } from './module-categories.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { burnerFuel } from './fuel.js'
 
@@ -199,6 +200,7 @@ export async function exportExtraction(raw, opts) {
         ? ALL_EFFECTS.slice()
         : luaList(proto.allowed_effects).slice().sort(),
       craftingCategories: [...new Set(craftingCategories)].sort(),
+      ...moduleCategoriesField(proto, proto.module_slots ?? 0),
       iconPath:          await resolveIcon(proto, proto.name),
       hidden:            proto.hidden ?? false,
     }

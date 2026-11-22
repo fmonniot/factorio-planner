@@ -156,6 +156,8 @@ export const MachineSchema = z.object({
   fuelFluid: z.string().optional(),
   moduleSlots: z.number().int().nonnegative(),
   allowedEffects: z.array(EffectNameSchema),
+  // Module categories the entity accepts (`allowed_module_categories`); absent = every category, [] = none.
+  allowedModuleCategories: z.array(z.string()).optional(),
   craftingCategories: z.array(z.string()),
   iconPath: z.string(),
   hidden: z.boolean().default(false),
@@ -180,6 +182,8 @@ export const BeaconEntitySchema = z.object({
   moduleSlots: z.number().int().nonnegative(),
   distributionEfficiency: z.number().min(0),
   allowedEffects: z.array(EffectNameSchema),
+  // Module categories the entity accepts (`allowed_module_categories`); absent = every category, [] = none.
+  allowedModuleCategories: z.array(z.string()).optional(),
 })
 
 export const TechnologyIngredientSchema = z.object({

@@ -271,6 +271,15 @@ describe('BeaconsSection — module picker and productivity', () => {
     expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Prod 3 cannot be inserted in Beacon')
   })
 
+  it('rejects a module by category: options omit it and a stored one is noted', () => {
+    const gd = makeGameData()
+    gd.beacons.beacon.allowedModuleCategories = ['speed']
+    renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ modules: [{ moduleId: 'eff-1', count: 1 }] })] }))
+    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Z Eff 1 cannot be inserted in Beacon')
+    fireEvent.click(screen.getAllByTestId('beacon-module-slot')[1])
+    expect(screen.getAllByTestId('beacon-module-option').map(e => e.getAttribute('data-module-id'))).toEqual(['speed-3'])
+  })
+
   it('names only the modules the beacon cannot take', () => {
     const gd = makeGameData()
     gd.recipes['iron-plate'].allowProductivity = true

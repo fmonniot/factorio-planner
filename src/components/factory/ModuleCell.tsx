@@ -6,13 +6,15 @@ import { IconChip } from './IconChip'
 import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
 import { mostUsedModule } from '../../data/mostUsedModule'
+import { isModuleAllowedInMachine } from '../../data/moduleRules'
+import type { ModuleEntity } from '../../data/moduleRules'
 import { machineModuleOptions } from './sidePanel/moduleOptions'
 
 interface ModuleCellProps {
   nodeId: string
   recipeId: string
   /** The row's resolved machine; the empty chip's picker lists the modules it takes. */
-  machine: { allowedEffects: string[] } | undefined
+  machine: ModuleEntity | undefined
   modules: ModuleConfig[]
   machineSlots: number
   gameData: GameData
@@ -30,6 +32,11 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
   const usedSlots = modules.reduce((sum, m) => sum + m.count, 0)
   const beyondHorizon = noMachine || modules.some(m => !withinHorizon(horizon.moduleIds, m.moduleId))
   const overSlots = !noMachine && usedSlots > machineSlots
+  // A stored module the machine rejects (effects or category): the game would refuse it, the planner still counts it.
+  const incompatible = !noMachine && machine !== undefined && modules.some(m => {
+    const mod = gameData.modules[m.moduleId]
+    return mod !== undefined && !isModuleAllowedInMachine(mod, machine)
+  })
 
   const title = noMachine
     ? 'Modules without a machine'
@@ -39,7 +46,9 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
         ? machineSlots === 0
           ? 'Edit modules (this machine has no module slots)'
           : 'Edit modules (more modules than slots)'
-        : 'Edit modules'
+        : incompatible
+          ? 'Edit modules (a module does not fit this machine)'
+          : 'Edit modules'
   const shown = mostUsedModule(modules)
   const shownModule = shown ? gameData.modules[shown] : undefined
 
@@ -58,10 +67,11 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
       alt={shownModule?.name ?? 'module'}
       fallback="+"
       quantity={`${usedSlots}/${machineSlots}`}
-      warn={beyondHorizon || overSlots}
+      warn={beyondHorizon || overSlots || incompatible}
       title={fillAll ? `Fill all ${machineSlots} slots with a module` : title}
       data-beyond-horizon={beyondHorizon ? 'true' : undefined}
       data-over-slots={overSlots ? 'true' : undefined}
+      data-incompatible={incompatible ? 'true' : undefined}
     />
   )
   if (!fillAll) return chip()

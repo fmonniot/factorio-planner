@@ -145837,7 +145837,15 @@
         "electronics-with-fluid"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/assembling-machine-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "assembling-machine-3": {
       "id": "assembling-machine-3",
@@ -145864,7 +145872,15 @@
         "electronics-with-fluid"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/assembling-machine-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "oil-refinery": {
       "id": "oil-refinery",
@@ -145885,7 +145901,15 @@
         "oil-processing"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/oil-refinery.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "chemical-plant": {
       "id": "chemical-plant",
@@ -145907,7 +145931,15 @@
         "chemistry"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/chemical-plant.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "centrifuge": {
       "id": "centrifuge",
@@ -145929,7 +145961,15 @@
         "centrifuging"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/centrifuge.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-electrolyser": {
       "id": "bob-electrolyser",
@@ -145950,7 +145990,15 @@
         "bob-electrolysis"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electrolyser.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-stone-chemical-furnace": {
       "id": "bob-stone-chemical-furnace",
@@ -146011,7 +146059,15 @@
         "bob-chemical-furnace"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electric-chemical-furnace.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-stone-mixing-furnace": {
       "id": "bob-stone-mixing-furnace",
@@ -146075,7 +146131,15 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electric-mixing-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-air-pump": {
       "id": "bob-air-pump",
@@ -146095,7 +146159,15 @@
         "bob-air-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-air-pump.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-air-pump-2": {
       "id": "bob-air-pump-2",
@@ -146115,7 +146187,15 @@
         "bob-air-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-air-pump-2.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-air-pump-3": {
       "id": "bob-air-pump-3",
@@ -146135,7 +146215,15 @@
         "bob-air-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-air-pump-3.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-air-pump-4": {
       "id": "bob-air-pump-4",
@@ -146155,7 +146243,15 @@
         "bob-air-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-air-pump-4.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-water-pump": {
       "id": "bob-water-pump",
@@ -146176,7 +146272,15 @@
         "bob-water-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-water-pump.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-water-pump-2": {
       "id": "bob-water-pump-2",
@@ -146197,7 +146301,15 @@
         "bob-water-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-water-pump-2.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-water-pump-3": {
       "id": "bob-water-pump-3",
@@ -146218,7 +146330,15 @@
         "bob-water-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-water-pump-3.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-water-pump-4": {
       "id": "bob-water-pump-4",
@@ -146239,7 +146359,15 @@
         "bob-water-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-water-pump-4.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-assembling-machine-4": {
       "id": "bob-assembling-machine-4",
@@ -146265,7 +146393,15 @@
         "electronics-with-fluid"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-assembling-machine-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-assembling-machine-5": {
       "id": "bob-assembling-machine-5",
@@ -146291,7 +146427,15 @@
         "electronics-with-fluid"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-assembling-machine-5.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-assembling-machine-6": {
       "id": "bob-assembling-machine-6",
@@ -146317,7 +146461,15 @@
         "electronics-with-fluid"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-assembling-machine-6.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-electronics-machine-1": {
       "id": "bob-electronics-machine-1",
@@ -146339,7 +146491,15 @@
         "electronics-with-fluid"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electronics-machine-1.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-electronics-machine-2": {
       "id": "bob-electronics-machine-2",
@@ -146361,7 +146521,15 @@
         "electronics-with-fluid"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electronics-machine-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-electronics-machine-3": {
       "id": "bob-electronics-machine-3",
@@ -146383,7 +146551,15 @@
         "electronics-with-fluid"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electronics-machine-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-electric-chemical-mixing-furnace": {
       "id": "bob-electric-chemical-mixing-furnace",
@@ -146406,7 +146582,15 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electric-chemical-mixing-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-electric-chemical-mixing-furnace-2": {
       "id": "bob-electric-chemical-mixing-furnace-2",
@@ -146429,7 +146613,15 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electric-chemical-mixing-furnace-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-fluid-mixing-furnace": {
       "id": "bob-fluid-mixing-furnace",
@@ -146487,7 +146679,15 @@
         "centrifuging"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-centrifuge-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-centrifuge-3": {
       "id": "bob-centrifuge-3",
@@ -146511,7 +146711,15 @@
         "centrifuging"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-centrifuge-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-burner-ore-crusher": {
       "id": "angels-burner-ore-crusher",
@@ -146552,7 +146760,15 @@
         "angels-ore-refining-t1"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-crusher.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-crusher-2": {
       "id": "angels-ore-crusher-2",
@@ -146573,7 +146789,15 @@
         "angels-ore-refining-t1"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-crusher-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-crusher-3": {
       "id": "angels-ore-crusher-3",
@@ -146594,7 +146818,15 @@
         "angels-ore-refining-t1"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-crusher-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-sorting-facility": {
       "id": "angels-ore-sorting-facility",
@@ -146615,7 +146847,15 @@
         "angels-ore-sorting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-sorting-facility.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-sorting-facility-2": {
       "id": "angels-ore-sorting-facility-2",
@@ -146637,7 +146877,15 @@
         "angels-ore-sorting-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-sorting-facility-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-sorting-facility-3": {
       "id": "angels-ore-sorting-facility-3",
@@ -146660,7 +146908,15 @@
         "angels-ore-sorting-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-sorting-facility-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-sorting-facility-4": {
       "id": "angels-ore-sorting-facility-4",
@@ -146684,7 +146940,15 @@
         "angels-ore-sorting-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-sorting-facility-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-sorting-facility-5": {
       "id": "angels-ore-sorting-facility-5",
@@ -146709,7 +146973,15 @@
         "angels-ore-sorting-5"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-sorting-facility-5.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-floatation-cell": {
       "id": "angels-ore-floatation-cell",
@@ -146730,7 +147002,15 @@
         "angels-ore-refining-t2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-floatation-cell.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-floatation-cell-2": {
       "id": "angels-ore-floatation-cell-2",
@@ -146751,7 +147031,15 @@
         "angels-ore-refining-t2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-floatation-cell-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-floatation-cell-3": {
       "id": "angels-ore-floatation-cell-3",
@@ -146772,7 +147060,15 @@
         "angels-ore-refining-t2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-floatation-cell-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-leaching-plant": {
       "id": "angels-ore-leaching-plant",
@@ -146793,7 +147089,15 @@
         "angels-ore-refining-t3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-leaching-plant.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-leaching-plant-2": {
       "id": "angels-ore-leaching-plant-2",
@@ -146815,7 +147119,15 @@
         "angels-ore-refining-t3b"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-leaching-plant-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-leaching-plant-3": {
       "id": "angels-ore-leaching-plant-3",
@@ -146837,7 +147149,15 @@
         "angels-ore-refining-t3b"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-leaching-plant-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-refinery": {
       "id": "angels-ore-refinery",
@@ -146858,7 +147178,15 @@
         "angels-ore-refining-t4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-refinery.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-refinery-2": {
       "id": "angels-ore-refinery-2",
@@ -146879,7 +147207,15 @@
         "angels-ore-refining-t4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-refinery-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-powderizer": {
       "id": "angels-powderizer",
@@ -146900,7 +147236,15 @@
         "angels-powderizing-1"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-powderizer.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-powderizer-2": {
       "id": "angels-powderizer-2",
@@ -146922,7 +147266,15 @@
         "angels-powderizing-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-powderizer-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-powderizer-3": {
       "id": "angels-powderizer-3",
@@ -146945,7 +147297,15 @@
         "angels-powderizing-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-powderizer-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-electro-whinning-cell": {
       "id": "angels-electro-whinning-cell",
@@ -146966,7 +147326,15 @@
         "angels-ore-refining-t3-5"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-electro-whinning-cell.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-electro-whinning-cell-2": {
       "id": "angels-electro-whinning-cell-2",
@@ -146987,7 +147355,15 @@
         "angels-ore-refining-t3-5"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-electro-whinning-cell-2.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-crystallizer": {
       "id": "angels-crystallizer",
@@ -147030,7 +147406,15 @@
         "angels-crystallizing-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-crystallizer-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-crystallizer-3": {
       "id": "angels-crystallizer-3",
@@ -147053,7 +147437,15 @@
         "angels-crystallizing-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-crystallizer-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-filtration-unit": {
       "id": "angels-filtration-unit",
@@ -147096,7 +147488,15 @@
         "angels-filtering-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-filtration-unit-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-filtration-unit-3": {
       "id": "angels-filtration-unit-3",
@@ -147119,7 +147519,15 @@
         "angels-filtering-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-filtration-unit-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-liquifier": {
       "id": "angels-liquifier",
@@ -147140,7 +147548,15 @@
         "angels-liquifying"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquifier.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-liquifier-2": {
       "id": "angels-liquifier-2",
@@ -147161,7 +147577,15 @@
         "angels-liquifying"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquifier-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-liquifier-3": {
       "id": "angels-liquifier-3",
@@ -147182,7 +147606,15 @@
         "angels-liquifying"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquifier-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-liquifier-4": {
       "id": "angels-liquifier-4",
@@ -147203,7 +147635,15 @@
         "angels-liquifying"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquifier-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-hydro-plant": {
       "id": "angels-hydro-plant",
@@ -147224,7 +147664,15 @@
         "angels-water-treatment"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-hydro-plant.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-hydro-plant-2": {
       "id": "angels-hydro-plant-2",
@@ -147245,7 +147693,15 @@
         "angels-water-treatment"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-hydro-plant-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-hydro-plant-3": {
       "id": "angels-hydro-plant-3",
@@ -147266,7 +147722,15 @@
         "angels-water-treatment"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-hydro-plant-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-salination-plant": {
       "id": "angels-salination-plant",
@@ -147287,7 +147751,15 @@
         "angels-salination-plant"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-salination-plant.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-salination-plant-2": {
       "id": "angels-salination-plant-2",
@@ -147308,7 +147780,15 @@
         "angels-salination-plant"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-salination-plant-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-washing-plant": {
       "id": "angels-washing-plant",
@@ -147329,7 +147809,15 @@
         "angels-washing-plant"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-washing-plant.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-washing-plant-2": {
       "id": "angels-washing-plant-2",
@@ -147350,7 +147838,15 @@
         "angels-washing-plant"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-washing-plant-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-barreling-pump": {
       "id": "angels-barreling-pump",
@@ -147370,7 +147866,15 @@
         "angels-barreling-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-barreling-pump.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-electrolyser": {
       "id": "angels-electrolyser",
@@ -147391,7 +147895,15 @@
         "angels-petrochem-electrolyser"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-electrolyser.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-electrolyser-2": {
       "id": "angels-electrolyser-2",
@@ -147412,7 +147924,15 @@
         "angels-petrochem-electrolyser"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-electrolyser-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-electrolyser-3": {
       "id": "angels-electrolyser-3",
@@ -147433,7 +147953,15 @@
         "angels-petrochem-electrolyser"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-electrolyser-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-electrolyser-4": {
       "id": "angels-electrolyser-4",
@@ -147455,7 +147983,15 @@
         "sb-petrochem-electrolyser-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-electrolyser-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-air-filter": {
       "id": "angels-air-filter",
@@ -147497,7 +148033,15 @@
         "angels-petrochem-air-filtering"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-air-filter-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-air-filter-3": {
       "id": "angels-air-filter-3",
@@ -147518,7 +148062,15 @@
         "angels-petrochem-air-filtering"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-air-filter-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-chemical-plant-2": {
       "id": "angels-chemical-plant-2",
@@ -147540,7 +148092,15 @@
         "chemistry"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-chemical-plant-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-chemical-plant-3": {
       "id": "angels-chemical-plant-3",
@@ -147562,7 +148122,15 @@
         "chemistry"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-chemical-plant-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-chemical-plant-4": {
       "id": "angels-chemical-plant-4",
@@ -147584,7 +148152,15 @@
         "chemistry"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-chemical-plant-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-advanced-chemical-plant": {
       "id": "angels-advanced-chemical-plant",
@@ -147605,7 +148181,15 @@
         "angels-advanced-chemistry"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-advanced-chemical-plant.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-advanced-chemical-plant-2": {
       "id": "angels-advanced-chemical-plant-2",
@@ -147626,7 +148210,15 @@
         "angels-advanced-chemistry"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-advanced-chemical-plant-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-gas-refinery-small": {
       "id": "angels-gas-refinery-small",
@@ -147647,7 +148239,15 @@
         "angels-gas-refining"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-refinery-small.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-gas-refinery-small-2": {
       "id": "angels-gas-refinery-small-2",
@@ -147668,7 +148268,15 @@
         "angels-gas-refining"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-refinery-small-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-gas-refinery-small-3": {
       "id": "angels-gas-refinery-small-3",
@@ -147689,7 +148297,15 @@
         "angels-gas-refining"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-refinery-small-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-gas-refinery-small-4": {
       "id": "angels-gas-refinery-small-4",
@@ -147710,7 +148326,15 @@
         "angels-gas-refining"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-refinery-small-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-gas-refinery": {
       "id": "angels-gas-refinery",
@@ -147731,7 +148355,15 @@
         "angels-advanced-gas-refining"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-refinery.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-gas-refinery-2": {
       "id": "angels-gas-refinery-2",
@@ -147752,7 +148384,15 @@
         "angels-advanced-gas-refining"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-refinery-2.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-gas-refinery-3": {
       "id": "angels-gas-refinery-3",
@@ -147773,7 +148413,15 @@
         "angels-advanced-gas-refining"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-refinery-3.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-gas-refinery-4": {
       "id": "angels-gas-refinery-4",
@@ -147794,7 +148442,15 @@
         "angels-advanced-gas-refining"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-refinery-4.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-separator": {
       "id": "angels-separator",
@@ -147815,7 +148471,15 @@
         "angels-petrochem-separation"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-separator.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-separator-2": {
       "id": "angels-separator-2",
@@ -147836,7 +148500,15 @@
         "angels-petrochem-separation"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-separator-2.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-separator-3": {
       "id": "angels-separator-3",
@@ -147857,7 +148529,15 @@
         "angels-petrochem-separation"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-separator-3.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-separator-4": {
       "id": "angels-separator-4",
@@ -147878,7 +148558,15 @@
         "angels-petrochem-separation"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-separator-4.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-oil-refinery-2": {
       "id": "angels-oil-refinery-2",
@@ -147899,7 +148587,15 @@
         "oil-processing"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-oil-refinery-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-oil-refinery-3": {
       "id": "angels-oil-refinery-3",
@@ -147920,7 +148616,15 @@
         "oil-processing"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-oil-refinery-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-oil-refinery-4": {
       "id": "angels-oil-refinery-4",
@@ -147941,7 +148645,15 @@
         "oil-processing"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-oil-refinery-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-steam-cracker": {
       "id": "angels-steam-cracker",
@@ -147962,7 +148674,15 @@
         "angels-steam-cracking"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-steam-cracker.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-steam-cracker-2": {
       "id": "angels-steam-cracker-2",
@@ -147983,7 +148703,15 @@
         "angels-steam-cracking"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-steam-cracker-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-steam-cracker-3": {
       "id": "angels-steam-cracker-3",
@@ -148004,7 +148732,15 @@
         "angels-steam-cracking"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-steam-cracker-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-steam-cracker-4": {
       "id": "angels-steam-cracker-4",
@@ -148025,7 +148761,15 @@
         "angels-steam-cracking"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-steam-cracker-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-electric-boiler": {
       "id": "angels-electric-boiler",
@@ -148065,7 +148809,15 @@
         "angels-petrochem-boiler"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-electric-boiler-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-electric-boiler-3": {
       "id": "angels-electric-boiler-3",
@@ -148085,7 +148837,15 @@
         "angels-petrochem-boiler"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-electric-boiler-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-induction-furnace": {
       "id": "angels-induction-furnace",
@@ -148128,7 +148888,15 @@
         "angels-induction-smelting-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-induction-furnace-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-induction-furnace-3": {
       "id": "angels-induction-furnace-3",
@@ -148151,7 +148919,15 @@
         "angels-induction-smelting-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-induction-furnace-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-induction-furnace-4": {
       "id": "angels-induction-furnace-4",
@@ -148175,7 +148951,15 @@
         "angels-induction-smelting-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-induction-furnace-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-blast-furnace": {
       "id": "angels-blast-furnace",
@@ -148226,7 +149010,15 @@
       "fuelCategories": [
         "chemical"
       ],
-      "effectivity": 1
+      "effectivity": 1,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-blast-furnace-3": {
       "id": "angels-blast-furnace-3",
@@ -148253,7 +149045,15 @@
       "fuelCategories": [
         "chemical"
       ],
-      "effectivity": 1
+      "effectivity": 1,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-blast-furnace-4": {
       "id": "angels-blast-furnace-4",
@@ -148281,7 +149081,15 @@
       "fuelCategories": [
         "chemical"
       ],
-      "effectivity": 1
+      "effectivity": 1,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-chemical-furnace": {
       "id": "angels-chemical-furnace",
@@ -148324,7 +149132,15 @@
         "angels-chemical-smelting-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-chemical-furnace-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-chemical-furnace-3": {
       "id": "angels-chemical-furnace-3",
@@ -148347,7 +149163,15 @@
         "angels-chemical-smelting-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-chemical-furnace-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-chemical-furnace-4": {
       "id": "angels-chemical-furnace-4",
@@ -148371,7 +149195,15 @@
         "angels-chemical-smelting-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-chemical-furnace-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-casting-machine": {
       "id": "angels-casting-machine",
@@ -148414,7 +149246,15 @@
         "angels-casting-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-casting-machine-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-casting-machine-3": {
       "id": "angels-casting-machine-3",
@@ -148437,7 +149277,15 @@
         "angels-casting-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-casting-machine-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-casting-machine-4": {
       "id": "angels-casting-machine-4",
@@ -148461,7 +149309,15 @@
         "angels-casting-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-casting-machine-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-powder-mixer": {
       "id": "angels-powder-mixer",
@@ -148504,7 +149360,15 @@
         "angels-powder-mixing-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-powder-mixer-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-powder-mixer-3": {
       "id": "angels-powder-mixer-3",
@@ -148527,7 +149391,15 @@
         "angels-powder-mixing-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-powder-mixer-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-powder-mixer-4": {
       "id": "angels-powder-mixer-4",
@@ -148551,7 +149423,15 @@
         "angels-powder-mixing-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-powder-mixer-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-processing-machine": {
       "id": "angels-ore-processing-machine",
@@ -148594,7 +149474,15 @@
         "angels-ore-processing-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-processing-machine-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-processing-machine-3": {
       "id": "angels-ore-processing-machine-3",
@@ -148617,7 +149505,15 @@
         "angels-ore-processing-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-processing-machine-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-ore-processing-machine-4": {
       "id": "angels-ore-processing-machine-4",
@@ -148641,7 +149537,15 @@
         "angels-ore-processing-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore-processing-machine-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-pellet-press": {
       "id": "angels-pellet-press",
@@ -148684,7 +149588,15 @@
         "angels-pellet-pressing-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-pellet-press-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-pellet-press-3": {
       "id": "angels-pellet-press-3",
@@ -148707,7 +149619,15 @@
         "angels-pellet-pressing-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-pellet-press-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-pellet-press-4": {
       "id": "angels-pellet-press-4",
@@ -148731,7 +149651,15 @@
         "angels-pellet-pressing-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-pellet-press-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-sintering-oven": {
       "id": "angels-sintering-oven",
@@ -148797,7 +149725,15 @@
         "angels-sintering-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-sintering-oven-3.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-sintering-oven-4": {
       "id": "angels-sintering-oven-4",
@@ -148821,7 +149757,15 @@
         "angels-sintering-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-sintering-oven-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-sintering-oven-5": {
       "id": "angels-sintering-oven-5",
@@ -148846,7 +149790,15 @@
         "angels-sintering-5"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-sintering-oven-5.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-strand-casting-machine": {
       "id": "angels-strand-casting-machine",
@@ -148889,7 +149841,15 @@
         "angels-strand-casting-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-strand-casting-machine-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-strand-casting-machine-3": {
       "id": "angels-strand-casting-machine-3",
@@ -148912,7 +149872,15 @@
         "angels-strand-casting-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-strand-casting-machine-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-strand-casting-machine-4": {
       "id": "angels-strand-casting-machine-4",
@@ -148936,7 +149904,15 @@
         "angels-strand-casting-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-strand-casting-machine-4.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-cooling-tower": {
       "id": "angels-cooling-tower",
@@ -148956,7 +149932,15 @@
         "angels-cooling"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-cooling-tower.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-algae-farm": {
       "id": "angels-algae-farm",
@@ -149157,7 +150141,15 @@
         "angels-seed-extractor"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-seed-extractor.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-bio-press": {
       "id": "angels-bio-press",
@@ -149178,7 +150170,15 @@
         "angels-bio-pressing"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-bio-press.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-bio-processor": {
       "id": "angels-bio-processor",
@@ -149199,7 +150199,15 @@
         "angels-bio-processor"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-bio-processor.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-nutrient-extractor": {
       "id": "angels-nutrient-extractor",
@@ -149220,7 +150228,15 @@
         "angels-nutrient-extractor"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-nutrient-extractor.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-bio-generator-temperate-1": {
       "id": "angels-bio-generator-temperate-1",
@@ -149242,7 +150258,15 @@
         "angels-tree-temperate"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-bio-generator-temperate-1.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-bio-generator-swamp-1": {
       "id": "angels-bio-generator-swamp-1",
@@ -149264,7 +150288,15 @@
         "angels-tree-swamp"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-bio-generator-swamp-1.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-bio-generator-desert-1": {
       "id": "angels-bio-generator-desert-1",
@@ -149286,7 +150318,15 @@
         "angels-tree-desert"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-bio-generator-desert-1.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-bio-arboretum-1": {
       "id": "angels-bio-arboretum-1",
@@ -149391,7 +150431,15 @@
         "sb-thermal-extractor"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-thermal-extractor.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-thermal-bore": {
       "id": "angels-thermal-bore",
@@ -149412,7 +150460,15 @@
         "sb-thermal-bore"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-thermal-bore.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "stone-furnace": {
       "id": "stone-furnace",
@@ -149458,7 +150514,15 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/electric-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "steel-furnace": {
       "id": "steel-furnace",
@@ -149502,7 +150566,15 @@
         "bob-distillery"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-distillery.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-void-pump": {
       "id": "bob-void-pump",
@@ -149543,7 +150615,15 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electric-furnace-2.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-electric-furnace-3": {
       "id": "bob-electric-furnace-3",
@@ -149564,7 +150644,15 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-electric-furnace-3.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "bob-fluid-furnace": {
       "id": "bob-fluid-furnace",
@@ -149605,7 +150693,15 @@
         "angels-water-void"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-clarifier.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-flare-stack": {
       "id": "angels-flare-stack",
@@ -149625,7 +150721,15 @@
         "angels-chemical-void"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-flare-stack.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-composter": {
       "id": "angels-composter",
@@ -149645,7 +150749,15 @@
         "angels-bio-void"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-composter.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-bio-hatchery": {
       "id": "angels-bio-hatchery",
@@ -149665,7 +150777,15 @@
         "angels-bio-hatchery"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-bio-hatchery.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-bio-butchery": {
       "id": "angels-bio-butchery",
@@ -149685,7 +150805,15 @@
         "angels-bio-butchery"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-bio-butchery.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "rocket-silo": {
       "id": "rocket-silo",
@@ -149706,7 +150834,15 @@
         "rocket-building"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/rocket-silo.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "pumpjack": {
       "id": "pumpjack",
@@ -149729,7 +150865,15 @@
         "mining:water"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/pumpjack.png",
-      "hidden": true
+      "hidden": true,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "angels-sea-pump": {
       "id": "angels-sea-pump",
@@ -149749,7 +150893,15 @@
         "mining:angels-sea-pump"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-sea-pump.png",
-      "hidden": false
+      "hidden": false,
+      "allowedModuleCategories": [
+        "efficiency",
+        "god",
+        "pollution-clean",
+        "pollution-create",
+        "productivity",
+        "speed"
+      ]
     },
     "offshore-pump": {
       "id": "offshore-pump",

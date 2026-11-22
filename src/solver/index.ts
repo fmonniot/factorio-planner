@@ -21,6 +21,7 @@ import { solveLP } from './solve'
 import { connectionOrder, needsConnectionOrder } from './connectionOrder'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
+import { moduleNotAllowedWarning } from './moduleWarnings'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
   FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, sourcingSets, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
@@ -1661,6 +1662,11 @@ export function solveAll(
     for (const [id, list] of temperatureWarnings(blocks, results, flows, gameData, recipeIdOfNode, discarded)) {
       results[id] = withExtraWarnings(results[id], list)
     }
+  }
+
+  for (const b of blocks) {
+    const w = moduleNotAllowedWarning(b, gameData)
+    if (w && results[b.id]) results[b.id] = withExtraWarnings(results[b.id], [w])
   }
 
   // The report reads the request pass, else the final solve (a consumer of a pair the pass never probed).

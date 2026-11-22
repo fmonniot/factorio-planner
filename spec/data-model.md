@@ -196,6 +196,7 @@ interface Machine {
   drainKw: number                // idle drain in kW; 0 when absent
   moduleSlots: number            // int >= 0; dump absence means 0
   allowedEffects: EffectName[]   // sorted
+  allowedModuleCategories?: string[]  // sorted; module categories the machine accepts; absent = every category, [] = none (see below)
   craftingCategories: string[]   // sorted
   iconPath: string
   hidden: boolean                // default false
@@ -214,6 +215,8 @@ from `energy_source.type`; anything other than electric, burner or heat becomes
 parser accepts W, kW, MW, GW and TW suffixes, and a bare number is read as watts.
 
 Generation machines (`boiler`, `generator`, `burner-generator`, `reactor`, `solar-panel`, from the power export) draw no power: `energyUsageKw` 0, `drainKw` 0, `energyType: 'void'`, no module slots and no allowed effects. Their energy is the recipe.
+
+`allowedModuleCategories` (the prototype's `allowed_module_categories`, sorted) is matched against a module's `category`: a module goes into a machine or beacon only if its effects are allowed (`allowedEffects`) and its category is listed. Absent means every category, and `[]` none. Only entities with module slots carry it, drills included; offshore pumps and the generation machines do not. A bundle exported before the field existed lacks it, so every category is accepted there; `node scripts/build-game-data.js --patch-module-categories` (see the README) adds it to an existing bundle (the Nullius bundle is not patched). The rule is shared by the pickers and the solver's `module-not-allowed` warning (`src/data/moduleRules.ts`).
 
 ### Module
 
@@ -245,6 +248,7 @@ interface BeaconEntity {
   moduleSlots: number             // int >= 0
   distributionEfficiency: number  // >= 0 (dump: distribution_effectivity, default 0)
   allowedEffects: EffectName[]    // dump absence means "all five effects"
+  allowedModuleCategories?: string[]  // sorted; absent = every category, [] = none
 }
 ```
 

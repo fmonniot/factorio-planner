@@ -3,6 +3,7 @@ import { useBlockStore, selectActiveBlock } from '../../../store/blockStore'
 import { useHorizon } from '../../../store/horizon'
 import { resolveRowMachine } from '../../../data/horizon'
 import { burnsFuel } from '../../../data/fuel'
+import { isModuleAllowedInMachine } from '../../../data/moduleRules'
 import { Icon } from '../../Icon'
 import { NeighbourSection } from '../NeighbourSection'
 import { countRecipeRows } from '../recipeAreas'
@@ -49,6 +50,13 @@ export function MachineSection({ node, solved, gameData }: {
   // The modules a slot of this machine takes: the machine's allowed effects, the recipe's limits and productivity flag, the research horizon.
   const moduleOptions = machineModuleOptions(gameData, horizon, machine, node.recipeId)
   const slots = slotsOf(node.modules, slotCount)
+  // Stored modules the machine rejects (effects or category): the game refuses them, the planner still counts them.
+  const rejected = machine
+    ? [...new Set(node.modules.flatMap(m => {
+        const mod = gameData.modules[m.moduleId]
+        return mod && !isModuleAllowedInMachine(mod, machine) ? [mod.name] : []
+      }))]
+    : []
   const util = utilisation(solved)
 
   return (
@@ -131,6 +139,11 @@ export function MachineSection({ node, solved, gameData }: {
             onSelect={(i, id) => updateNodeModules(node.id, setSlot(node.modules, slotCount, i, id))}
             label="Machine module slot"
           />
+          {rejected.length > 0 && (
+            <div data-testid="machine-module-not-allowed" className="text-xs text-amber-400 mt-1.5">
+              {rejected.join(', ')} cannot be inserted in {machine?.name}; pick another module.
+            </div>
+          )}
         </div>
       )}
 
