@@ -17,10 +17,11 @@ import type {
 import { addFlowKeys, buildClassifiedSystem, discardProduct, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type KeySupply, type RowEffects, type SplitUse } from './build'
 import { itemRoutes, type ItemRoute, type RouteReceiver, type RouteSender } from './areaRoutes'
 import { baseOf, conversionsOf, expandToKeys, goalKeyOf, goalMapKey, itemKeys, fluidSupply, keyCaps, keyGoals, noFittingTemperature, resultItem, supplyCaps as suppliedKeyCaps } from './flowKeys'
+import { leftoverOffItems } from '../data/sourceRules'
 import { keySupplyPlanOf } from './keySupplyPlan'
 import { flowKey, parseFlowKey, splitFluids, productTag, rangeOf, type FluidRange } from '../data/flowKey'
 import {
-  BIG_M, BYPRODUCTS_FIRST_SLACK_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP,
+  BIG_M, BYPRODUCTS_FIRST_SLACK_COST, LEFTOVER_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP,
   type LPModel, type LPResult,
 } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
@@ -75,7 +76,11 @@ export function withAreaRules(root: SubPlan, areas: SolverArea[]): SolverArea[] 
 /** The rule an area applies to an item: its own (a keyless `{}` is a rule), else the block's, else `{}`. */
 export function areaRuleOf(area: SolverArea, blockRules: Record<string, SourceRule> | undefined, itemId: string): AreaSourceRule {
   if (area.rules && Object.hasOwn(area.rules, itemId)) return area.rules[itemId]
-  if (blockRules && Object.hasOwn(blockRules, itemId)) return blockRules[itemId]
+  if (blockRules && Object.hasOwn(blockRules, itemId)) {
+    // Cut to the keys an area's rule holds: the block's `leftoverOff` is not an area's to carry.
+    const { makeHere, importOff } = blockRules[itemId]
+    return { ...(makeHere !== undefined ? { makeHere } : {}), ...(importOff !== undefined ? { importOff } : {}) }
+  }
   return {}
 }
 
@@ -396,14 +401,15 @@ function solveAreaLP(
   areaItems: AreaItemSpec[],
   order?: AreaOrder,
   fluidCaps?: ReadonlyMap<string, number>,
+  leftoverOff?: ReadonlySet<string>,
 ): AreaLPResult {
   const args = [system, columns, pinnedRates, bcColumns, feederColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, areaItems] as const
-  const first = solveAreaLPOnce(...args, { elastic: false }, order, fluidCaps)
+  const first = solveAreaLPOnce(...args, { elastic: false }, order, fluidCaps, leftoverOff)
   // The order runs only on a block whose passes were feasible; it never goes elastic.
   if (first.feasible || order) return first
   // As in `solveLP`: goal rows go elastic (kept only if feasible).
   if (!hasGoalRow(system)) return first
-  const elastic = solveAreaLPOnce(...args, { elastic: true }, undefined, fluidCaps)
+  const elastic = solveAreaLPOnce(...args, { elastic: true }, undefined, fluidCaps, leftoverOff)
   return elastic.feasible ? elastic : first
 }
 
@@ -421,6 +427,7 @@ function solveAreaLPOnce(
   mode: { elastic: boolean },
   order?: AreaOrder,
   fluidCaps?: ReadonlyMap<string, number>,
+  leftoverOff?: ReadonlySet<string>,
 ): AreaLPResult {
   const elasticGoals = mode.elastic
   const { S, classification } = system
@@ -438,7 +445,7 @@ function solveAreaLPOnce(
     connectionsFirst, byproductsFirst, elasticGoals,
     // An area whose rule is Don't make more here has a cheap slack of its own for the item.
     new Set(areaItems.filter(s => s.areas.some(a => a.slackCost !== undefined && a.slackCost < BIG_M)).map(s => s.itemId)),
-    { markedFeeders: feederColumns, extraSupplied, fluidCaps },
+    { markedFeeders: feederColumns, extraSupplied, fluidCaps, leftoverOff },
   )
   const { constraints, variables } = base
   const lpCols = lpColumns(columns, system)
@@ -661,6 +668,8 @@ function solveAreaLPOnce(
     for (const [names, attr] of [[orderNames.imp, '__imp'], [orderNames.rec, '__rec']] as const) {
       for (const name of names) variables[name][attr] = 1
     }
+    // A left-over costs what it costs in the stage-two objective; it stays out of `orderNames` (no `__reccap`, not measured).
+    for (const name of base.itemToLeftover.values()) variables[name].__rec = LEFTOVER_COST
     if (order.importCap !== undefined) {
       constraints.__impcap = { max: order.importCap }
       for (const name of orderNames.imp) variables[name].__impcap = 1
@@ -1208,6 +1217,9 @@ export function solveAreaBlock(
   // The LP's locked set, its byproducts-first set and the set `coproductDrivenWarning` reads (see `sourcingSets`).
   // An area item's lock, cost and caps are set per area (`areaItemSpecs`), so the block-wide sets leave it out.
   const sets = sourcingSets(effPlan, consumerIngredients)
+  // Leftover off is read from the block's own rules, never from `sets` or `effective`: an area's effective rule keeps only
+  // `makeHere` and `importOff`, so `sets.leftoverOff` would lose the key. It applies to the block row of the item.
+  const leftoverOff = new Set(leftoverOffItems(plan.sourceRules))
   const plainOf = (s: Set<string>) => (areaItems.size === 0 ? s : new Set([...s].filter(id => !areaItems.has(id))))
   // A split fluid's rules apply to each of its keys, except the keys an area's own rule says otherwise for (`effective`).
   // A byproduct consumer's ingredient is locked whatever the rule, on every key.
@@ -1302,7 +1314,7 @@ export function solveAreaBlock(
     }
   })
 
-  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs(), undefined, offerFluidCaps)
+  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs(), undefined, offerFluidCaps, leftoverOff)
 
   /**
    * The order of connectionOrder.ts on the area LP: when the passes end with an import (a slack at BIG_M, per area for an
@@ -1354,7 +1366,7 @@ export function solveAreaBlock(
     const step = (
       order: AreaOrder, noImport: Set<string>, stepCaps: Map<string, number>, connectionsFirst: Set<string>, stepSpecs: AreaItemSpec[],
       fluidCaps: ReadonlyMap<string, number> = offerFluidCaps,
-    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order, fluidCaps)
+    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order, fluidCaps, leftoverOff)
     const base = { defaults: plainDefaults, byproductsFirst }
     const defaultsFirst = new Set([...firstItems, ...plainDefaults])
     const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
@@ -1439,7 +1451,7 @@ export function solveAreaBlock(
   if (pass2.run || areaPass2) {
     lp = solveAreaLP(
       system, columns, pinnedRates, bcColumns, feederColumns, pass2.noImport,
-      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual), undefined, pass2.fluidCaps,
+      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual), undefined, pass2.fluidCaps, leftoverOff,
     )
   }
 

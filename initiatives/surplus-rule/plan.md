@@ -143,6 +143,7 @@ Strictly in order; each is one pull request.
 - The Byproducts pane: a strip and right-click action **Use it all here** on a leftover slot that switches Leftover off for the item (the slot goes away once the solve closes the loop; the rule is then in Comes from and in the Source rules list).
 - The rule in the [Source rules](../../spec/ui.md#source-rules) list and in the markers of items with a rule (`itemsWithEffect`).
 - [spec/ui.md](../../spec/ui.md); README "Using the planner" (one bullet next to Absorb byproducts).
+- Carry-overs from T1: the store's `withSourceRule` and `cleanAreaRule` rebuild a rule from two keys and would drop `leftoverOff` on a store edit, so `toggleLeftoverOff` must keep it through them (today only a hand-edited plan carries the key). `effectiveAreaRule` (`subPlanTree.ts`) still returns the block's rule with `leftoverOff` for an area with no rule of its own: the read-only control at area scope must read the block's rule directly. The archive step must update the `FIXTURE` path constant in `src/solver/index.integration.test.ts`.
 - An e2e test (`e2e/`): a plan with the synthetic loop of case 28 (or the coolant fixture), switch Leftover off from the Byproducts action, see the cooling rows run and the leftover slot go; Remove from a `not-made` line.
 
 When T2 ships, set `Status: Shipped` and archive the folder (CLAUDE.md, rule 4), and update [initiatives/README.md](../README.md).

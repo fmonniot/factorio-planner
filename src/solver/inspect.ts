@@ -35,6 +35,8 @@ export interface WhatIf {
   sourcing?: Record<string, 'byproducts-first' | 'connections-first'>
   /** Items whose Import is turned off on the block. */
   importOff?: string[]
+  /** Items whose left-over is priced (Leftover off) on the block. */
+  leftoverOff?: string[]
   /** Clear the `area` flag of every sub-factory of the block. */
   noArea?: boolean
   /** An area's own rule for an item (`SubPlan.sourceRules`), edited from the block's rule: Receive it first, Don't make more here, or Make it here. */
@@ -212,6 +214,7 @@ function whatIfRules(rules: Record<string, SourceRule>, whatIf: WhatIf): Record<
     out[id] = { ...out[id], makeHere: makeHereOf(mode) }
   }
   for (const id of whatIf.importOff ?? []) out[id] = { ...out[id], importOff: true }
+  for (const id of whatIf.leftoverOff ?? []) out[id] = { ...out[id], leftoverOff: true }
   return out
 }
 

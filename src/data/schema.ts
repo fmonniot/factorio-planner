@@ -508,11 +508,12 @@ function migrateBlock(input: unknown): unknown {
 }
 
 /** A rule from a saved `sourceRules` with what it cannot hold dropped: an unknown `makeHere`, an `importOff` that is not true. */
-function sanitizeRule(raw: unknown): { makeHere?: 'after-blocks' | 'off'; importOff?: true } | undefined {
+function sanitizeRule(raw: unknown): { makeHere?: 'after-blocks' | 'off'; importOff?: true; leftoverOff?: true } | undefined {
   if (!isRecord(raw)) return undefined
-  const rule: { makeHere?: 'after-blocks' | 'off'; importOff?: true } = {}
+  const rule: { makeHere?: 'after-blocks' | 'off'; importOff?: true; leftoverOff?: true } = {}
   if (raw.makeHere === 'after-blocks' || raw.makeHere === 'off') rule.makeHere = raw.makeHere
   if (raw.importOff === true) rule.importOff = true
+  if (raw.leftoverOff === true) rule.leftoverOff = true
   return rule
 }
 
@@ -627,11 +628,14 @@ export const SourceRuleSchema = z
     makeHere: z.enum(['after-blocks', 'off']).optional(),
     /** Present: the Import line is off. */
     importOff: z.literal(true).optional(),
+    /** Present: the item's left-over is priced, so the solver spends runs to avoid it. Block rules only; an area's rule never carries it. */
+    leftoverOff: z.literal(true).optional(),
   })
   .transform(r => {
-    const out: { makeHere?: 'after-blocks' | 'off'; importOff?: true } = {}
+    const out: { makeHere?: 'after-blocks' | 'off'; importOff?: true; leftoverOff?: true } = {}
     if (r.makeHere !== undefined) out.makeHere = r.makeHere
     if (r.importOff !== undefined) out.importOff = r.importOff
+    if (r.leftoverOff !== undefined) out.leftoverOff = r.leftoverOff
     return out
   })
 
@@ -687,7 +691,7 @@ export const BlockSchema = z.preprocess(
     /** itemId → the item's source rule; an item with no entry has the default rule. A rule with no key is dropped on load. */
     sourceRules: z
       .record(z.string(), SourceRuleSchema)
-      .transform(rules => Object.fromEntries(Object.entries(rules).filter(([, r]) => r.makeHere !== undefined || r.importOff !== undefined)))
+      .transform(rules => Object.fromEntries(Object.entries(rules).filter(([, r]) => r.makeHere !== undefined || r.importOff !== undefined || r.leftoverOff !== undefined)))
       .default({}),
     /** Inbound connections: items this block receives from other blocks' output. */
     inputConnections: z.array(BlockConnectionSchema).default([]),

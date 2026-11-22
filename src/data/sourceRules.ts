@@ -20,3 +20,8 @@ export function presetOf(rule: SourceRule | undefined): SourcingPreset | undefin
 export function importOffItems(rules: Record<string, SourceRule> | undefined): string[] {
   return Object.entries(rules ?? {}).filter(([, r]) => r.importOff).map(([id]) => id)
 }
+
+/** Items whose rule has Leftover off, in map order. */
+export function leftoverOffItems(rules: Record<string, SourceRule> | undefined): string[] {
+  return Object.entries(rules ?? {}).filter(([, r]) => r.leftoverOff).map(([id]) => id)
+}

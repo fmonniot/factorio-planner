@@ -1,7 +1,7 @@
 import type { ClassifiedSystem } from './build'
 import { FLOW_TOLERANCE, itemGrossFlow, surplusTolerance, type KeySupplyPlan } from './blockResult'
 import { fluidSupply, itemKeys } from './flowKeys'
-import { BIG_M, buildLPModel, readLPResult, runLP, type LPModel, type LPResult } from './solve'
+import { BIG_M, LEFTOVER_COST, buildLPModel, readLPResult, runLP, type LPModel, type LPResult } from './solve'
 
 // ---------------------------------------------------------------------------
 // A connection replaces an import (sourcing priority phase 6)
@@ -44,6 +44,8 @@ export interface ConnectionOrderInput {
   fluidCaps?: ReadonlyMap<string, number>
   /** the fluids with supplied keys (see `KeySupplyPlan`) */
   keySupply?: KeySupplyPlan
+  /** Items (base ids) whose rule has Leftover off (see `LPBuildOptions.leftoverOff`). */
+  leftoverOff?: ReadonlySet<string>
 }
 
 /** The items whose order the steps change: connected intermediates with the default rule (locked ones included). */
@@ -148,8 +150,10 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
   // `connectionsFirst` here only adds the `supuse` row; it changes no cost.
   const lp = buildLPModel(
     system, pinnedRates, bcRecipeIds, pass1NoImport, caps, new Set([...supplied, ...bfConnected]), byproductsFirst, false, new Set(),
-    { markedFeeders, fluidCaps: input.fluidCaps },
+    { markedFeeders, fluidCaps: input.fluidCaps, leftoverOff: input.leftoverOff },
   )
+  // A left-over is priced in step 3 too (it is in neither `__imp` nor `__impcap`): the step that spends the least received keeps it low.
+  for (const name of lp.itemToLeftover.values()) lp.variables[name].__rec = LEFTOVER_COST
 
   const importSlacks = [...lp.itemToSlack].filter(([itemId]) => !byproductsFirst.has(itemId)).map(([, name]) => name)
   const defaultSupplies = defaults.map(itemId => lp.itemToSupply.get(itemId)).filter((n): n is string => n !== undefined)

@@ -1,9 +1,9 @@
 # Solver Synthetic Test Cases
 
-Twenty-seven recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Twenty-eight recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 27 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 28 use plain made-up item ids.
 
 Cases 11 to 25 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
@@ -1320,3 +1320,29 @@ b: @165 is 900. C1: maximum 1800, L1 = 1800 (900 at @165, 900 at @500). C2: what
 c: with no list C1 is solved first and takes the key that costs it least: @165 at 3 units, @500 at 4. C2 then takes @500 1800.
 d: progressive fill with g1 = g2 = t; C2 can use @500 only and 2t ≤ 2700, so t = 1350. C2 = @500 1350, C1 = @165 900 + @500 450. Grants per key: @165 waterFill(900, [900, 0]) gives C1 900; @500 waterFill(1800, [450, 1350]) gives 450 and 1350.
 ```
+
+## Case 28 — Leftover off
+
+Plain made-up ids, every recipe 1 s. `use` turns 100 coolant into 1 P and 100 hot; `cool-a` turns 200 hot into 200 warm; `cool-b` 200 warm into 200 cold; `filter` 200 cold into 160 coolant; `filter-cart` is `filter` taking 1 cart too; `brew` makes 100 coolant from a raw item; `make-cart` 1 raw item into 1 cart; `twin` makes 1 P and 2 Q; `make-q` 1 Q. Goal 10 P (rows g and h: 10 P and 40 Q). *Leftover off* is `leftoverOff` in the block's rule of an item (`LEFTOVER_COST = 10`).
+
+| Row | Setup | Expected (runs/min) |
+|---|---|---|
+| a | no rule | use 10, brew 10, the rest 0 (20 runs); 1000 hot left over, `overconstrained` names hot |
+| b | Leftover off on hot, warm and cold | use 10, cool-a 5, cool-b 5, filter 5, brew 2 (27 runs); hot, warm and cold net 0; no `overconstrained` |
+| c | Leftover off on hot only | use 10, cool-a 5, cool-b 0, brew 10; hot net 0, 1000 warm left over (the chain limit) |
+| d | as b, `use` in an area of its own, the loop at the root | as b |
+| e | as b with `filter-cart` for `filter`, `make-cart` pinned at 0, 100 carts offered by a connection (default rule on cart) | as a; no cart received; 1000 hot left over (the connected-input limit) |
+| f | as e, cart on Receive it first | as b with `filter-cart` 5; 5 carts received |
+| g | goals 10 P and 40 Q, `twin` and `make-q`, no rule | twin 20, make-q 0 (20 runs); P net 20 (10 over its goal) |
+| h | as g, Leftover off on P | twin 10, make-q 20 (30 runs); P net 10 |
+
+```
+a: the 10 use need 1000 coolant, which 10 brew make: 20 runs. The loop would recover 800 of it for 15 runs (27 in all with 2 brew), and a left-over is free, so the 1000 hot stays.
+b: 10 use make 1000 hot; the loop takes it all: 5 cool-a, 5 cool-b, 5 filter give 800 coolant, brew 2 gives the other 200. 10 + 5 + 5 + 5 + 2 = 27 runs. Priced at 10 per unit, 1000 hot left over costs 10,000 against 7 more runs.
+c: hot is priced, warm is not: cool-a turns the 1000 hot into warm (5 runs, 10,000 saved) and nothing is gained by going on.
+e: the loop needs 5 carts; the default rule prices one as an import at BIG_M (5e6 for the five) against 10,000 for the left-over, and the residual after pass 1 has no cart for the loop: it stays open.
+f: Receive it first supplies the 5 carts at no cost, so the loop costs 27 runs against 20 + 10,000.
+g, h (derived by hand, not measured): with t twin runs, the cost of h is t + max(0, 40 − 2t) + 10 (t − 10) = 9t − 60 for t ≤ 20, minimal at t = 10 (30 runs); at t = 20 it is 120.
+```
+
+Two observations, not derived: a pair item (case b with a second `cool-b` in an area that takes no warm from the area of `cool-a`) gives b's result with the second `cool-b` at 0; and an area's own rule for hot (Import off) does not drop the block's rule: b's result with all rows in that area.

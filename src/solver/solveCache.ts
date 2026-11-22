@@ -83,10 +83,10 @@ export function exactKey(value: unknown): string {
   return JSON.stringify(value, exactNumberReplacer)
 }
 
-/** A source-rule map as sorted entries with both keys spelled out, so equal maps give equal keys. */
-export function sourcingKey(s?: Record<string, SourceRule>): [string, string | null, boolean][] {
+/** A source-rule map as sorted entries with every key spelled out, so equal maps give equal keys. */
+export function sourcingKey(s?: Record<string, SourceRule>): [string, string | null, boolean, boolean][] {
   return Object.entries(s ?? {})
-    .map(([id, r]): [string, string | null, boolean] => [id, r.makeHere ?? null, r.importOff === true])
+    .map(([id, r]): [string, string | null, boolean, boolean] => [id, r.makeHere ?? null, r.importOff === true, r.leftoverOff === true])
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
 }
 
