@@ -1143,7 +1143,7 @@ Fixture A with G in area L and P and S in area M; plate is touched by both areas
 Same derivations as A, rows b and g.
 
 ```
-c: M cannot take N's ingots (ingot is a pair item), so S would only waste runs. The least import is 0: importing 50 plates costs fewer runs than 50 ingots into M, so the order lets the ingot connection feed M instead (u_M = 50), S runs 0, P runs 50, G 25, and no plate is received.
+c: P needs 50 ingots for the 50 plates G asks for. S in N could make them, but M's rule switches N's ingots off (ingot is a pair item), so S's ingots cannot reach M, and the ingot connection stays idle in the two passes: the result imports the plates (or runs S for nothing). The least import of the order is 0 with u_M = 50 (the connection feeds M directly), the least received at that import is 50, and the fill gives P 50, S 0, G 25, with no plate received.
 ```
 
 ### D — a loop of blocks and a served list

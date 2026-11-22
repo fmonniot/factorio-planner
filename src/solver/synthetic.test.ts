@@ -2554,30 +2554,30 @@ describe('solver synthetic cases', () => {
         })
       }
 
-    // Row c: G in L, P (1 makes 1) in M and S unpinned in a third area N; M's own rule keeps N's ingots out (areasOff), so
-    // S would only waste runs. The ingot connection (100) replaces the import of 50 plates: ingot is a pair item.
-    it('c: M takes no ingot from N, ingot (100): the connection feeds M, S does not run', () => {
-      const a = fixtureA('1-1', { sFree: true })
-      const sp = (id: string, nodes: RecipeNode[], rules?: SubPlan['sourceRules']) => ({ ...subPlan(id, nodes, [], true), ...(rules ? { sourceRules: rules } : {}) })
-      const b: Block = {
-        id: 'H', name: 'H', color: '#60a5fa',
-        products: [{ id: 'p-H-0', itemId: 'case22-gear', extraRate: 25 }],
-        sourceRules: {}, inputConnections: [],
-        rootPlan: subPlan('root', [], [sp('L', [a.nodes[0]]), sp('M', [a.nodes[1]], { [INGOT]: { areasOff: ['N'] } }), sp('N', [a.nodes[2]])]),
-      }
-      const { result, received } = solveBlock(flattenBlock(b), makeGameData(), new Map([[INGOT, 100]]))
-      expect(received.get(INGOT) ?? 0, 'ingot received').toBeCloseTo(50, 6)
-      expect(received.get(PLATE) ?? 0, 'plate received').toBeCloseTo(0, 6)
-      expect(nodeOf(result, 'P').throughput, 'P runs').toBeCloseTo(50, 6)
-      expect(nodeOf(result, 'case22-ingot').throughput, 'S runs').toBeCloseTo(0, 6)
-      expect(nodeOf(result, 'case22-gear').throughput, 'G runs').toBeCloseTo(25, 6)
-      expect(unsat(result, PLATE), 'plate imported').toBeCloseTo(0, 6)
-      expect(unsat(result, INGOT), 'ingot imported').toBeCloseTo(0, 6)
-      const into = (itemId: string) => (result.areaRoutes ?? []).find(r => r.itemId === itemId && r.from === undefined && r.to === 'M')
-      expect(into(INGOT)?.rate, 'outside leg of ingot into M').toBeCloseTo(50, 6)
-      expect(into(INGOT)?.supplied, 'supplied').toBeCloseTo(50, 6)
-      expect(into(PLATE), 'no outside leg of plate').toBeUndefined()
-    })
+      // Row c: G in L, P (1 makes 1) in M and S unpinned in a third area N; M's own rule keeps N's ingots out (areasOff), so
+      // S would only waste runs. The ingot connection (100) replaces the import of 50 plates: ingot is a pair item.
+      it('c: M takes no ingot from N, ingot (100): the connection feeds M, S does not run', () => {
+        const a = fixtureA('1-1', { sFree: true })
+        const sp = (id: string, nodes: RecipeNode[], rules?: SubPlan['sourceRules']) => ({ ...subPlan(id, nodes, [], true), ...(rules ? { sourceRules: rules } : {}) })
+        const b: Block = {
+          id: 'H', name: 'H', color: '#60a5fa',
+          products: [{ id: 'p-H-0', itemId: 'case22-gear', extraRate: 25 }],
+          sourceRules: {}, inputConnections: [],
+          rootPlan: subPlan('root', [], [sp('L', [a.nodes[0]]), sp('M', [a.nodes[1]], { [INGOT]: { areasOff: ['N'] } }), sp('N', [a.nodes[2]])]),
+        }
+        const { result, received } = solveBlock(flattenBlock(b), makeGameData(), new Map([[INGOT, 100]]))
+        expect(received.get(INGOT) ?? 0, 'ingot received').toBeCloseTo(50, 6)
+        expect(received.get(PLATE) ?? 0, 'plate received').toBeCloseTo(0, 6)
+        expect(nodeOf(result, 'P').throughput, 'P runs').toBeCloseTo(50, 6)
+        expect(nodeOf(result, 'case22-ingot').throughput, 'S runs').toBeCloseTo(0, 6)
+        expect(nodeOf(result, 'case22-gear').throughput, 'G runs').toBeCloseTo(25, 6)
+        expect(unsat(result, PLATE), 'plate imported').toBeCloseTo(0, 6)
+        expect(unsat(result, INGOT), 'ingot imported').toBeCloseTo(0, 6)
+        const into = (itemId: string) => (result.areaRoutes ?? []).find(r => r.itemId === itemId && r.from === undefined && r.to === 'M')
+        expect(into(INGOT)?.rate, 'outside leg of ingot into M').toBeCloseTo(50, 6)
+        expect(into(INGOT)?.supplied, 'supplied').toBeCloseTo(50, 6)
+        expect(into(PLATE), 'no outside leg of plate').toBeUndefined()
+      })
     })
 
     describe('B: a loop that loses', () => {
