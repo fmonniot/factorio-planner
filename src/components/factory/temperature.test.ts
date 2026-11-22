@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { GameData, Recipe } from '../../data/types'
-import { fmtTemperatureValue, fmtTemperatureRange, ingredientTemperatureLabels, productTemperatureLabels, fmtTemperatureWarning } from './temperature'
+import { fmtTemperatureValue, fmtTemperatureRange, ingredientTemperatureLabels, productTemperatureLabels, fmtTemperatureWarning, fmtNoFittingTemperature } from './temperature'
 
 function makeRecipe(ingredients: Recipe['ingredients']): Recipe {
   return {
@@ -115,16 +115,27 @@ describe('fmtTemperatureWarning', () => {
       .toBe('Steam Turbine needs Steam at ≥465°C, but it is only supplied at 165°C.')
   })
 
-  it('says what is imported and left unused when the block imports the fluid', () => {
-    const w = { type: 'temperature-mismatch' as const, recipeId: 'turbine', itemId: 'steam', supplied: [165], minimum: 465, imported: 60, unused: 10 }
-    expect(fmtTemperatureWarning(w, gd))
-      .toBe('Steam Turbine needs Steam at ≥465°C, but it is only made at 165°C, so 60/min is imported and the 10/min made is left unused.')
-    expect(fmtTemperatureWarning({ ...w, unused: undefined }, gd, r => `${r * 2} units`))
-      .toBe('Steam Turbine needs Steam at ≥465°C, but it is only made at 165°C, so 120 units is imported.')
-  })
-
   it('joins several supplied temperatures', () => {
     expect(fmtTemperatureWarning({ type: 'temperature-mismatch', recipeId: 'turbine', itemId: 'steam', supplied: [165, 315], minimum: 465 }, gd))
       .toContain('at 165°C, 315°C.')
+  })
+})
+
+describe('fmtNoFittingTemperature', () => {
+  const gd = {
+    items: { steam: { id: 'steam', name: 'Steam' } },
+    recipes: { turbine: { id: 'turbine', name: 'Steam Turbine' }, engine: { id: 'engine', name: 'Steam Engine' }, mill: { id: 'mill', name: 'Mill' } },
+  } as unknown as GameData
+
+  it('names the row, the range and that nothing makes it and it cannot be imported', () => {
+    expect(fmtNoFittingTemperature({ type: 'no-fitting-temperature', itemId: 'steam', min: 465, recipeIds: ['turbine'] }, gd))
+      .toBe('Steam Turbine needs Steam at ≥465°C, but nothing in this block makes it and it cannot be imported.')
+  })
+
+  it('joins several rows and uses the plural verb', () => {
+    expect(fmtNoFittingTemperature({ type: 'no-fitting-temperature', itemId: 'steam', max: 50, recipeIds: ['turbine', 'engine', 'mill'] }, gd))
+      .toBe('Steam Turbine, Steam Engine and Mill need Steam at ≤50°C, but nothing in this block makes it and it cannot be imported.')
+    expect(fmtNoFittingTemperature({ type: 'no-fitting-temperature', itemId: 'steam', min: 100, max: 200, recipeIds: ['turbine', 'engine'] }, gd))
+      .toContain('Steam Turbine and Steam Engine need Steam at 100–200°C')
   })
 })

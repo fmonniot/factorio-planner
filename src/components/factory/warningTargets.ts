@@ -70,6 +70,7 @@ export function warningTargets(
     case 'duplicate-recipe': return recipeTarget(w.recipeId, w.areaId)
     case 'infeasible-pins': return uniqueRows(w.recipeIds.flatMap(id => recipeTarget(id)))
     case 'temperature-mismatch': return recipeTarget(w.recipeId)
+    case 'no-fitting-temperature': return uniqueRows(w.recipeIds.flatMap(id => recipeTarget(id)))
     case 'module-not-allowed': return uniqueRows(w.misfits.flatMap(m => recipeTarget(m.recipeId)))
     case 'coproduct-driven': return uniqueRows(w.drivers.flatMap(d => recipeTarget(d.recipeId)))
     case 'area-shortfall': return areaTargets(rootPlan, w.shortfalls)

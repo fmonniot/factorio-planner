@@ -1,6 +1,6 @@
 # Fluid temperatures as first-class items
 
-Status: Future
+Status: Active
 
 To the solver a fluid is one item, whatever temperature it is made at. Temperature enters only as extra LP rows inside a block, and as a warning after the solve. Everywhere else (the block boundary, offers, connections, area routes, surplus, the summary) it is lost. This initiative makes the temperature part of what flows. The design is chosen (decisions below) and split into tickets (*Phases*); this doc is meant to be executed as written.
 
@@ -16,7 +16,7 @@ To the solver a fluid is one item, whatever temperature it is made at. Temperatu
 
 Described in [spec/solver.md](../../spec/solver.md#fluid-temperatures); the facts that matter here:
 
-- One balance row per fluid. `FluidTemperatureCollector` ([src/solver/temperatureRows.ts](../../src/solver/temperatureRows.ts)) records, while the stoichiometry is built, each producer's temperature (the product's `temperature`, else the fluid's `defaultTemperature`, else unknown; heat is always unknown) and each bounded consumer. `temperatureRows` turns that into Hall's condition rows, one per distinct union of consumer classes (at most 4096).
+- One balance row per fluid. `FluidTemperatureCollector` (`src/solver/temperatureRows.ts`, removed by T1) records, while the stoichiometry is built, each producer's temperature (the product's `temperature`, else the fluid's `defaultTemperature`, else unknown; heat is always unknown) and each bounded consumer. `temperatureRows` turns that into Hall's condition rows, one per distinct union of consumer classes (at most 4096).
 - `buildLPModel` ([src/solver/solve.ts](../../src/solver/solve.ts)) puts the import slack and the supply variable in every temperature row with coefficient 1. **Anything from outside the block is assumed to fit any bound.** The rows rest on that assumption, and it is the assumption that breaks at the boundary.
 - A fluid with neither slack nor supply (a goal, Import off, a byproduct consumer's ingredient, an area item locked in every area) gets its rows without slack when every consumer class has a producer at an accepted temperature (`analyseTemperatures`), else none; if the model with them is infeasible `solveLP` solves the one without them ([src/solver/areas.ts](../../src/solver/areas.ts) does the same). So a locked fluid runs and warns rather than fails: the LP may run a producer that does not fit, and `temperature-mismatch` reports it. This is the policy PR #361 shipped, as a local fix that could not make a feasible block infeasible. Its limits: the choice is all or nothing per fluid (one consumer class without a fitting producer leaves every class of the fluid without rows), and a connection order whose step is infeasible only because of the slack-less rows stops, so today's result stands.
 - Classification, surplus, offers, `overconstrained`, connections, served lists, area routes and the snapshot all use the plain item. The UI's summary nets the solved rows per item (`netBalance` in [src/solver/index.ts](../../src/solver/index.ts), used by `FactorySummary.tsx`).
@@ -147,6 +147,8 @@ Rules of the run, the same as for the sourcing-priority phases:
 Each phase is one ticket, ends in one pull request, and keeps `main` green and usable. Every ticket updates [spec/solver.md](../../spec/solver.md), [spec/test-synthetic.md](../../spec/test-synthetic.md) and `src/solver/synthetic.test.ts` together, plus [spec/data-model.md](../../spec/data-model.md) or [spec/ui.md](../../spec/ui.md) where it touches them, as the CLAUDE.md maintenance table says. The synthetic cases below give the setups and the expected values that matter; the ticket writes the derivations in the case-24 style.
 
 ### T1. Keys inside a block and its areas (decisions 1, 2, 4, 5, 7, 8; 6 in its interim form)
+
+Done, unmerged: the keys, the conversion columns and the diagnostics are in. Two interim choices differ from the text below, both replaced by T2: connected supply of a split fluid is given to each consumed range key directly (one supply variable per range key, a group row bounding their sum by the offer) instead of entering as `@?`, and a split fluid that is a goal of the block and also feeds its rows gets that supply for the rows' ranges, never for the goal key. T1 adds no snapshot merge: a block's `imports` can list one split fluid once per range until T3 sums them per base item (no contract fixture has a split fluid).
 
 - `src/data/flowKey.ts`, the split set, `FluidTag`, and the `GameDataSchema` refine.
 - `buildClassifiedSystem` and the area column system build keys, conversion columns, tags and `conversions`; range-key imports; temperature keys without slack.

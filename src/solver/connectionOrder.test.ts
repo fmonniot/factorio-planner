@@ -132,9 +132,9 @@ describe('connectionOrder: the rules it keeps', () => {
     expect(unsat(result, 'ingot') + unsat(result, 'plate'), 'nothing imported').toBeCloseTo(0, 6)
   })
 
-  it('keeps the temperature rows: cold steam does not replace the connection', () => {
+  it('a cold boiler does not replace the connection (keys)', () => {
     // 25 power need 50 steam at 400 or more. hot (1 ingot makes 2 steam at 500) makes 20 from the 10 ingots; cold
-    // (1 water makes 10 steam at 200) is too cold, so the connection gives 30. Without the rows cold would make all of it.
+    // (1 water makes 10 steam at 200) fits no range of the turbine, so the connection gives 30 (the supply of the `steam[400,]` key).
     const p = plan({ goals: [{ id: 'g', itemId: 'power', rate: 25 }] })
     const nodes = [row('T', 'turbine'), row('H', 'hot'), row('C', 'cold'), row('S', 'ingot', { pinnedRate: 10 })]
     const { result, received } = solveBlock({ ...p, nodes }, gameData(), new Map([['steam', 100]]))

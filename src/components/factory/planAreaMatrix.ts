@@ -1,4 +1,5 @@
 import type { Block, ConnectionFlow, GameData, SolverResult } from '../../data/types'
+import { sumByItem } from '../../data/flowKey'
 import { FLOW_TOLERANCE, grossFlow, netBalance, surplusTolerance } from '../../solver/index'
 import { blockMatrix, itemGroupOf, type MatrixArea } from './areaMatrix'
 
@@ -52,9 +53,10 @@ export function planMatrix(
   const matrices = new Map<string, MatrixArea[]>()
   for (const b of withNodes) {
     const result = results[b.id]
-    const gross = grossFlow(result.nodes)
+    // The matrix is per item: a split fluid's keys add up to its net.
+    const gross = sumByItem(grossFlow(result.nodes, result.conversions))
     const net = new Map<string, number>()
-    for (const [itemId, v] of netBalance(result.nodes)) {
+    for (const [itemId, v] of sumByItem(netBalance(result.nodes, result.conversions))) {
       if (Math.abs(v) > surplusTolerance(gross.get(itemId) ?? 0)) net.set(itemId, v)
     }
     nets.set(b.id, net)

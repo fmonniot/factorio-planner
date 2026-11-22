@@ -1,5 +1,6 @@
 import type { ClassifiedSystem } from './build'
 import { FLOW_TOLERANCE, itemGrossFlow, surplusTolerance } from './blockResult'
+import { fluidSupply } from './flowKeys'
 import { BIG_M, buildLPModel, readLPResult, runLP, type LPModel, type LPResult } from './solve'
 
 // ---------------------------------------------------------------------------
@@ -67,7 +68,7 @@ export function needsConnectionOrder(input: ConnectionOrderInput): boolean {
     !byproductsFirst.has(itemId) && rate > surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput)))
   if (!imports) return false
   return defaultItems(input).some(itemId =>
-    input.totalCaps.get(itemId)! - (today.supply.get(itemId) ?? 0) > FLOW_TOLERANCE)
+    input.totalCaps.get(itemId)! - fluidSupply(system, today.supply, itemId) > FLOW_TOLERANCE)
 }
 
 /** Adds `attr` with coefficient 1 to each named variable. */
@@ -139,8 +140,7 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
   // `connectionsFirst` here only adds the `supuse` row; it changes no cost.
   const lp = buildLPModel(
     system, pinnedRates, bcRecipeIds, pass1NoImport, caps, new Set([...supplied, ...bfConnected]), byproductsFirst, false, new Set(),
-    // The model of today's result: with the slack-less temperature rows only if today's result has them.
-    { markedFeeders, lockedTemperatures: today.lockedTemperatures },
+    { markedFeeders },
   )
 
   const importSlacks = [...lp.itemToSlack].filter(([itemId]) => !byproductsFirst.has(itemId)).map(([, name]) => name)

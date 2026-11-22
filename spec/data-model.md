@@ -82,7 +82,7 @@ research horizon uses it to gate machines and beacons (see
 
 Item fuels carry `fuelValueKj` and `fuelCategory` together; fluid fuels carry `fuelValueKj` only (no category, no burnt result). A burner row burns an item whose `fuelCategory` is in the machine's `fuelCategories`; a fluid-burner row burns a non-hidden fluid with a `fuelValueKj`, or the machine's `fuelFluid` (even if hidden) when set; see [Burner fuel](#burner-fuel) in the solver spec.
 
-Fluids carry `defaultTemperature` and `maxTemperature` together (bundles exported before they existed have neither). `power:electricity` and `power:heat` have none (heat's temperatures live on the recipes that make and take it). The LP's temperature rows read them (see [spec/solver.md](solver.md#fluid-temperatures)), and so does the `temperature-mismatch` warning (see [spec/solver.md](solver.md#warnings-and-unsatisfied-items)).
+Fluids carry `defaultTemperature` and `maxTemperature` together (bundles exported before they existed have neither). `power:electricity` and `power:heat` have none (heat's temperatures live on the recipes that make and take it). The LP's flow keys read them (see [spec/solver.md](solver.md#fluid-temperatures)), and so does the heat `temperature-mismatch` warning (see [spec/solver.md](solver.md#warnings-and-unsatisfied-items)). An item id must not contain `@`, `[` or `]`, which the flow keys reserve: `GameDataSchema` rejects a data set that does.
 
 A bundle with power generation recipes also holds the pseudo-item `power:electricity` (`type: 'fluid'`, name "Electricity", subgroup `power:electricity`). One unit is 1 MJ, so 1 unit/s is 1 MW and 10 MW is 600 units/min. It is a fluid only because it is a continuous fractional quantity with no stack size; `src/` never branches on `type`. The pseudo-item `power:heat` (`type: 'fluid'`, name "Heat", subgroup `power:electricity`, order `b`; electricity is `a`) is added the same way, only when some recipe uses it, with the game's heat sprite as icon. Same unit: 1 unit = 1 MJ, so units/s = MW. See [Power generation recipes](#power-generation-recipes).
 
@@ -114,7 +114,7 @@ interface Ingredient {
   itemId: string
   type: 'item' | 'fluid'
   amount: number                // > 0
-  minimumTemperature?: number   // shown on the recipe row's ingredient tile and in the recipe picker's detail panel; read by the solver (temperature rows in the LP, see [solver.md](solver.md#fluid-temperatures)) and the `temperature-mismatch` warning
+  minimumTemperature?: number   // shown on the recipe row's ingredient tile and in the recipe picker's detail panel; read by the solver (the flow keys of the LP, see [solver.md](solver.md#fluid-temperatures)) and the `temperature-mismatch` warning
   maximumTemperature?: number
 }
 
@@ -133,7 +133,7 @@ interface RecipeProduct {
 Recipe ingredients carry optional temperature bounds. Fluid items carry
 `defaultTemperature` / `maxTemperature`. A fluid product carries `temperature` only when
 the recipe sets one; otherwise the fluid is at its `defaultTemperature`. All of these are
-shown in the UI, read by the LP (a fluid's balance cannot be met with a temperature no consumer accepts, see [solver.md](solver.md#fluid-temperatures)) and by the `temperature-mismatch` warning after the solve. The *effective temperature* of a product is `temperature` if set, else its fluid's `defaultTemperature`, and is unknown when neither exists. The generated extraction recipes set no product
+shown in the UI, read by the LP (a fluid with a bounded consumer is split into one key per temperature made and per range taken, so a balance cannot be met with a temperature no consumer accepts, see [solver.md](solver.md#fluid-temperatures)) and by the heat `temperature-mismatch` warning after the solve. The *effective temperature* of a product is `temperature` if set, else its fluid's `defaultTemperature`, and is unknown when neither exists. The generated extraction recipes set no product
 `temperature`; the power recipes set it only on boiler and heat-exchanger steam (the machine's
 `target_temperature`) and on reactor heat (the reactor's `heat_buffer.max_temperature`, left absent when the
 prototype has none).
@@ -397,7 +397,7 @@ The build script (`scripts/power.js`) turns boilers, heat exchangers, generators
 - **Boilers.** Per fuel: steam per second = `energy_consumption` / (output fluid `heat_capacity` x (`target_temperature` - input fluid `default_temperature`)); fuel per second = power / (fuel value x burner `effectivity`). Ingredients are the input fluid and the fuel; products are the output fluid (at the boiler's `target_temperature`) and the fuel's `burnt_result`, if any, at the fuel rate. Fuels are the non-hidden items whose `fuel_category` is in the boiler's `fuel_categories` (default `chemical`) with a positive `fuel_value`, or the non-hidden fluids with a `fuel_value` for a fluid-burning boiler.
 - **Heat exchangers.** A `boiler` whose `energy_source` is `heat` gets one recipe, `power:<machine>:power:heat`, with the same formulas as a boiler: the heat "fuel" has 1000 kJ per unit and effectivity 1, so heat per second = `energy_consumption` / 1000 (MW). Ingredients are water then heat (heat last); the product is steam at the exchanger's `target_temperature`, and the heat ingredient carries `minimumTemperature` = the exchanger's `energy_source.min_working_temperature` (absent when it has none). The machine type is `boiler`.
 - **Reactors.** One recipe per fuel with the boiler's fuel selection (burner categories, or burning fluids): fuel per second = `consumption` / (fuel value x burner `effectivity`); products are heat at `consumption` / 1000 (with `temperature` = the reactor's `heat_buffer.max_temperature`, absent when it has none) and the fuel's `burnt_result` at the fuel rate (reactors accept a burnt-result fuel only with a burnt inventory). The recipes assume a reactor **without neighbours**: a reactor with N working neighbours makes (1 + `neighbourBonus` x N) times the heat on the same fuel. `Machine.neighbourBonus` (`neighbour_bonus`, engine default 1, emitted only when > 0) is applied per row through `GameRecipeNode.neighbourCount`.
-- **Fluid generators.** Per input fluid: usage = `fluid_usage_per_tick` x 60; energy per unit = `heat_capacity` x (T - fluid `default_temperature`) with T = `maximum_temperature` (else the fluid's `max_temperature`), or the fuel value for a burning generator; full output = usage x energy per unit x `effectivity`. Output is min(full, `max_power_output`); consumption drops to cap / (energy per unit x effectivity) only when `scale_fluid_usage` is set, otherwise the full usage. The steam ingredient carries `minimumTemperature` T (the LP's temperature rows keep steam below T away from it, and the `temperature-mismatch` warning compares it with the boiler steam). A missing `heat_capacity` counts as 1 kJ.
+- **Fluid generators.** Per input fluid: usage = `fluid_usage_per_tick` x 60; energy per unit = `heat_capacity` x (T - fluid `default_temperature`) with T = `maximum_temperature` (else the fluid's `max_temperature`), or the fuel value for a burning generator; full output = usage x energy per unit x `effectivity`. Output is min(full, `max_power_output`); consumption drops to cap / (energy per unit x effectivity) only when `scale_fluid_usage` is set, otherwise the full usage. The steam ingredient carries `minimumTemperature` T (the LP's flow keys keep steam below T away from the generator, and a generator whose range nothing in the block can make and that cannot be imported raises `no-fitting-temperature`). A missing `heat_capacity` counts as 1 kJ.
 - **Burner generators.** Per fuel: fuel per second = `max_power_output` / (fuel value x burner `effectivity`), product electricity at `max_power_output`, plus any burnt result.
 - **Solar panels.** No ingredients; electricity = `production` x 0.7 (the Nauvis day/night average, no storage).
 - **Electricity units.** `max_power_output` given in joules is energy per tick (x 60). Electricity amounts are in MJ per recipe second, so a recipe's electricity product equals the building's MW.
@@ -820,10 +820,23 @@ interface SolverResult {
   warnings: SolverWarning[]
   areas?: SolvedArea[]   // only when a sub-factory is a separate area; table order, root first
   areaRoutes?: AreaRoute[]   // present exactly when `areas` is; sorted by item id, sender rank, receiver rank (outside last)
+  conversions?: FluidConversion[]   // present only when non-empty: what a split fluid's made temperatures moved to the ranges its rows take, rate above FLOW_TOLERANCE
+}
+
+// What a split fluid's flow carries (see solver.md, "Fluid temperatures"): a made temperature (`at`, null = unknown) or a range a row accepts ({} = any).
+type FluidTag = { at: number | null } | { min?: number; max?: number }
+
+interface FluidConversion {
+  itemId: string
+  from: FluidTag         // `{ at }`
+  to: FluidTag           // a range
+  rate: number           // items/min
+  areaId?: string        // blocks with areas: the area that converts it
 }
 
 interface AreaRoute {
   itemId: string
+  temp?: FluidTag        // a split fluid only
   from?: string          // area id; absent = from outside the block
   to?: string            // area id; absent = to outside the block
   rate: number           // items/min
@@ -840,6 +853,7 @@ interface AreaFlow {
   itemId: string
   rate: number           // items/min, net over the area's rows
   boundary: boolean      // the block also imports (receives) or exports (sends) the item
+  temp?: FluidTag        // a split fluid only
 }
 
 interface SolvedNode {
@@ -852,28 +866,35 @@ interface SolvedNode {
   powerKw: number
   fuelItemId?: string                  // burner rows: the fuel burnt (already in inputRates)
   feedsAbsorber?: true                 // a row that only runs to feed an absorbing row, while it runs; never `false`
+  outputTags?: Record<string, FluidTag>  // split fluids only, present when the row makes one: the temperature it is made at (one per fluid)
+  inputTags?: Record<string, FluidTag>   // split fluids only, present when the row takes one: the range it accepts
 }
 
 interface UnsatisfiedItem {
   itemId: string
   rate: number   // items/min that must come from outside the block
+  temp?: FluidTag  // a split fluid only: the range the import or the shortfall is for ({} = any); a plain item has none
 }
 
 type SolverWarning =
   | { type: 'no-recipe'; itemId: string }
   | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }  // areaId only with areas
   | { type: 'infeasible-pins'; recipeIds: string[]; conflict?: true }  // conflict: the elastic solve failed too (the pins conflict, or a locked item cannot be made whatever the pins), values arbitrary; absent: the pins hold and products fall short, recipeIds are the pins that bind where the solver can tell, else all
-  | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
+  | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number; temp?: FluidTag }[] }
   | { type: 'coproduct-driven'; drivers: { recipeId: string; itemIds: string[]; throughput: number; needed: number }[] }  // executions/min summed over the recipe's rows: its rate, and what its other outputs need
-  | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }
-  | { type: 'area-cut-off'; cutOffs: { areaId: string; itemId: string }[] }
+  | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number; temp?: FluidTag }[] }
+  | { type: 'area-cut-off'; cutOffs: { areaId: string; itemId: string; temp?: FluidTag }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
+  | { type: 'temperature-mismatch'; recipeId: string; itemId: string; supplied: number[]; minimum?: number; maximum?: number }  // heat only
+  | { type: 'no-fitting-temperature'; itemId: string; min?: number; max?: number; recipeIds: string[] }  // a range of a locked split fluid that nothing in the block makes (critical)
 ```
 
 `unsatisfied` lists, in this order: goal shortfalls, intermediate slack (items the
 LP had to import to balance), and raw-resource consumption. The UI shows it as the
-Ingredients pane.
+Ingredients pane. A split fluid can appear once per range (`temp`); rates stay keyed by base
+item everywhere (`inputRates`, `outputRates`, the snapshot), so every action that writes plan
+state keeps acting on the item.
 
 ```ts
 interface MultiBlockSolve {

@@ -1,4 +1,6 @@
 import type {
+  FluidConversion,
+  FluidTag,
   Block,
   BlockConnection,
   BlockLoop,
@@ -21,6 +23,8 @@ import { solveLP } from './solve'
 import { isFeeder } from './absorbers'
 import { connectionOrder, needsConnectionOrder } from './connectionOrder'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
+import { flowKey, offerByItem, parseFlowKey, sumByItem } from '../data/flowKey'
+import { baseOf, conversionsOf, expandToKeys, goalKey, keyCaps, keyGoals, noFittingTemperature } from './flowKeys'
 import { computeNodeEffects } from './effects'
 import { moduleNotAllowedWarning } from './moduleWarnings'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
@@ -106,39 +110,72 @@ export function connectionOffer(left: number, pending: number, share: number): n
   return Math.max(0, Math.min(share, left), left - (pending - share))
 }
 
+/** The flows of solved nodes, for `netBalance` and `grossFlow`: rates by base item, with the tags of the split fluids. */
+interface FlowNode {
+  inputRates: Record<string, number>
+  outputRates: Record<string, number>
+  inputTags?: Record<string, FluidTag>
+  outputTags?: Record<string, FluidTag>
+}
+
 /**
- * Net items/min a set of solved nodes leaves over per item (produced minus
- * consumed). Positive entries are what a block can offer to other blocks.
+ * Net items/min a set of solved nodes leaves over per flow key (the item id for a plain item; `steam@500`, `steam[465,]`
+ * for a split fluid, see src/data/flowKey.ts): produced minus consumed. Positive entries are what a block can offer to other
+ * blocks. A conversion moves flow from the key it takes to the key it gives, so a boiler at 500°C feeding a turbine that
+ * takes 465°C or more nets to zero on both.
  */
-export function netBalance(
-  nodes: { inputRates: Record<string, number>; outputRates: Record<string, number> }[],
-): Map<string, number> {
+export function netBalance(nodes: FlowNode[], conversions?: FluidConversion[]): Map<string, number> {
   const net = new Map<string, number>()
+  const add = (key: string, rate: number) => net.set(key, (net.get(key) ?? 0) + rate)
   for (const node of nodes) {
-    for (const [id, rate] of Object.entries(node.outputRates))
-      net.set(id, (net.get(id) ?? 0) + rate)
-    for (const [id, rate] of Object.entries(node.inputRates))
-      net.set(id, (net.get(id) ?? 0) - rate)
+    for (const [id, rate] of Object.entries(node.outputRates)) add(flowKey(id, node.outputTags?.[id]), rate)
+    for (const [id, rate] of Object.entries(node.inputRates)) add(flowKey(id, node.inputTags?.[id]), -rate)
+  }
+  for (const c of conversions ?? []) {
+    add(flowKey(c.itemId, c.from), -c.rate)
+    add(flowKey(c.itemId, c.to), c.rate)
   }
   return net
 }
 
-/** Gross flow per item: the larger of what the nodes produce and what they consume. */
-export function grossFlow(
-  nodes: { inputRates: Record<string, number>; outputRates: Record<string, number> }[],
-): Map<string, number> {
+/** Gross flow per flow key: the larger of what the nodes produce and what they consume (conversions count on both sides). */
+export function grossFlow(nodes: FlowNode[], conversions?: FluidConversion[]): Map<string, number> {
   const produced = new Map<string, number>()
   const consumed = new Map<string, number>()
+  const add = (map: Map<string, number>, key: string, rate: number) => map.set(key, (map.get(key) ?? 0) + rate)
   for (const node of nodes) {
-    for (const [id, rate] of Object.entries(node.outputRates))
-      produced.set(id, (produced.get(id) ?? 0) + rate)
-    for (const [id, rate] of Object.entries(node.inputRates))
-      consumed.set(id, (consumed.get(id) ?? 0) + rate)
+    for (const [id, rate] of Object.entries(node.outputRates)) add(produced, flowKey(id, node.outputTags?.[id]), rate)
+    for (const [id, rate] of Object.entries(node.inputRates)) add(consumed, flowKey(id, node.inputTags?.[id]), rate)
+  }
+  for (const c of conversions ?? []) {
+    add(consumed, flowKey(c.itemId, c.from), c.rate)
+    add(produced, flowKey(c.itemId, c.to), c.rate)
   }
   const gross = new Map<string, number>()
-  for (const id of new Set([...produced.keys(), ...consumed.keys()]))
-    gross.set(id, Math.max(produced.get(id) ?? 0, consumed.get(id) ?? 0))
+  for (const key of new Set([...produced.keys(), ...consumed.keys()]))
+    gross.set(key, Math.max(produced.get(key) ?? 0, consumed.get(key) ?? 0))
   return gross
+}
+
+/**
+ * What a block with these `nodes` can offer per base item: the sum over its flow keys of each net above its own noise
+ * floor (a plain item is its one key), and the unthresholded positive nets with their noise floors for the loops'
+ * convergence test.
+ */
+function offersOf(nodes: FlowNode[], conversions?: FluidConversion[]): { offers: Offers; netOffers: BlockStep['netOffers'] } {
+  const offers: Offers = new Map()
+  const netOffers: BlockStep['netOffers'] = new Map()
+  const gross = grossFlow(nodes, conversions)
+  for (const [key, net] of netBalance(nodes, conversions)) {
+    const tol = surplusTolerance(gross.get(key) ?? 0)
+    const itemId = parseFlowKey(key).itemId
+    if (net > 0) {
+      const o = netOffers.get(itemId)
+      netOffers.set(itemId, { net: (o?.net ?? 0) + net, tol: (o?.tol ?? 0) + tol })
+    }
+    if (net > tol) offers.set(itemId, (offers.get(itemId) ?? 0) + net)
+  }
+  return { offers, netOffers }
 }
 
 export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
@@ -232,12 +269,12 @@ export function solveBlock(
     representatives.filter(n => n.absorberFeeder && !n.byproductConsumer).map(n => n.recipeId),
   )
 
-  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, nodeEffectsMap)
+  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, nodeEffectsMap, { supplyCaps })
 
   // Warn for goal items with no producer recipe in the plan.
   const noRecipeWarnings: SolverResult['warnings'] = []
   for (const goal of plan.goals) {
-    const row = system.S.get(goal.itemId)
+    const row = system.S.get(goalKey(system, goal.itemId))
     const hasProducer = row !== undefined && [...row.values()].some(c => c > 0)
     if (!hasProducer) {
       noRecipeWarnings.push({ type: 'no-recipe', itemId: goal.itemId })
@@ -273,9 +310,14 @@ export function solveBlock(
   }
 
   // The LP's locked set, its byproducts-first set and the set `coproductDrivenWarning` reads (see `sourcingSets`).
-  const { locked, cannotImport, byproductsFirst } = sourcingSets(plan, consumerIngredients)
+  const sets = sourcingSets(plan, consumerIngredients)
+  const locked = expandToKeys(system, sets.locked)
+  const cannotImport = expandToKeys(system, sets.cannotImport)
+  const byproductsFirst = expandToKeys(system, sets.byproductsFirst)
 
-  const totalCaps = new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE))
+  // A split fluid's offer is the cap of each of its range keys (the LP's group row bounds their sum).
+  const totalCaps = keyCaps(system, new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE)))
+  const noFitWarnings = noFittingTemperature(system, expandToKeys(system, sets.importOffLocked), id => id)
 
   // Pass 1: what the block's own recipes cannot cover. Connected items lose their
   // lock for this pass only, so a shortfall shows up as slack, not as infeasibility.
@@ -285,7 +327,7 @@ export function solveBlock(
   // Connections-first intermediates have their supply in every pass, capped by the
   // offer only, so the LP uses it before the block's own recipes.
   const firstItems = new Set(
-    itemsWithSourcing(plan, 'after-blocks').filter(
+    [...expandToKeys(system, itemsWithSourcing(plan, 'after-blocks'))].filter(
       itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
     ),
   )
@@ -297,7 +339,7 @@ export function solveBlock(
   // bring slack back at BIG_M); raw items need no LP row and are handled below.
   const pass2 = pass2Plan({
     totalCaps, intermediates: system.classification.intermediates, firstItems, locked,
-    slack: lp.slack, S: system.S, throughput: lp.throughput,
+    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow,
   })
   if (pass2.run) {
     lp = solveLP(
@@ -344,14 +386,18 @@ export function solveBlock(
   }
   // Pins that cannot be met make the flows meaningless for this check.
   const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
-    goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, itemSurplus, itemGross,
+    goals: keyGoals(system, plan.goals), system, throughput: throughputMap, slack: lp.slack, itemSurplus, itemGross,
     fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.absorberOnly]), noImportItems: cannotImport, recipeOf: id => id,
-    mainItemOf: id => mainItemOfRecipe.get(id),
+    mainItemOf: id => mainItemOfRecipe.get(id), itemOf: key => baseOf(system, key),
   })
   if (coproductDriven) warnings.push(coproductDriven)
 
+  const conversions = conversionsOf(system, throughputMap)
   return {
-    result: { nodes, unsatisfied, warnings: [...duplicateWarnings, ...noRecipeWarnings, ...warnings] },
+    result: {
+      nodes, unsatisfied, warnings: [...duplicateWarnings, ...noRecipeWarnings, ...noFitWarnings, ...warnings],
+      ...(conversions ? { conversions } : {}),
+    },
     received,
   }
 }
@@ -564,14 +610,7 @@ function solveStep(
     })
   }
 
-  const offers: Offers = new Map()
-  const netOffers: BlockStep['netOffers'] = new Map()
-  const gross = grossFlow(result.nodes)
-  for (const [itemId, net] of netBalance(result.nodes)) {
-    const tol = surplusTolerance(gross.get(itemId) ?? 0)
-    if (net > 0) netOffers.set(itemId, { net, tol })
-    if (net > tol) offers.set(itemId, net)
-  }
+  const { offers, netOffers } = offersOf(result.nodes, result.conversions)
   return { result, error, flows, offers, netOffers }
 }
 
@@ -687,11 +726,11 @@ function probeBlock(
     return probe
   }
   const hit = cache?.get(block.id, gameData, key, caps)
-  if (hit) return { received: hit.received, nodes: hit.result.nodes, failed: false, areaNeeds: areaNeedsOf(hit.result.areaRoutes) }
+  if (hit) return { received: hit.received, nodes: hit.result.nodes, conversions: hit.result.conversions, failed: false, areaNeeds: areaNeedsOf(hit.result.areaRoutes) }
   try {
     const solved = solveBlock(plan, gameData, caps)
     cache?.set(block.id, gameData, key, caps, solved)
-    return { received: solved.received, nodes: solved.result.nodes, failed: false, areaNeeds: areaNeedsOf(solved.result.areaRoutes) }
+    return { received: solved.received, nodes: solved.result.nodes, conversions: solved.result.conversions, failed: false, areaNeeds: areaNeedsOf(solved.result.areaRoutes) }
   } catch {
     cache?.delete(block.id)
     return { received: new Map(), nodes: [], failed: true }
@@ -701,6 +740,7 @@ function probeBlock(
 interface Probe {
   received: Map<string, number>
   nodes: SolvedNode[]
+  conversions?: FluidConversion[]
   failed: boolean
   /** The block's areas that need each item from outside; defined iff the block has areas (see `areaNeedsOf`). */
   areaNeeds?: AreaNeeds
@@ -739,10 +779,10 @@ function applyTakeCredits(
 }
 
 /** What a source with solved `nodes` has left per item after the amounts requested of it. */
-function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, number> | undefined): Offers {
+function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, number> | undefined, conversions?: FluidConversion[]): Offers {
   const left: Offers = new Map()
-  const gross = grossFlow(nodes)
-  for (const [itemId, net] of netBalance(nodes)) {
+  const gross = sumByItem(grossFlow(nodes, conversions))
+  for (const [itemId, net] of offerByItem(netBalance(nodes, conversions))) {
     const rest = net - (requestedOfSource?.get(itemId) ?? 0)
     if (rest > surplusTolerance(gross.get(itemId) ?? 0)) left.set(itemId, rest)
   }
@@ -1135,13 +1175,13 @@ function computeRequests(
   const uncredited = new Set<string>()
   const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) ? (credits.get(id) ?? 0) : undefined)
   const rankedRest = (t: BlockConnection, itemId: string) => restOf(t, itemId, estimates, outerCreditOf, uncredited)
-  const estimateTakeSource = (block: Block, probe?: { nodes: SolvedNode[] }): void => {
+  const estimateTakeSource = (block: Block, probe?: { nodes: SolvedNode[]; conversions?: FluidConversion[] }): void => {
     if (!takeSources.has(block.id)) return
-    const nodes = probe?.nodes ?? probeBlock(
+    const solved = probe ?? probeBlock(
       block, productGoals(block.products, requested.get(block.id)), gameData,
       connectedCaps(block, byId, selfConnectionIds), cache,
-    ).nodes
-    estimates.set(block.id, leftoverEstimate(nodes, requested.get(block.id)))
+    )
+    estimates.set(block.id, leftoverEstimate(solved.nodes, requested.get(block.id), solved.conversions))
   }
 
   const areaNeeds = new Map<string, AreaNeeds>()
@@ -1607,7 +1647,7 @@ export function solveAll(
         // this round offers, the rest is clamped to nothing (flows already committed stay as they are;
         // this only happens in a round that has not settled).
         const left: Offers = new Map()
-        const gross = grossFlow(step.result.nodes)
+        const gross = sumByItem(grossFlow(step.result.nodes, step.result.conversions))
         for (const [itemId, offer] of step.offers) {
           const drawn = (prevOffers?.get(itemId) ?? 0) - (before.get(itemId) ?? 0)
           const rest = offer - drawn

@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { sourceRulesOf } from '../test/sourceRulesOf'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { solve, solveAll, flattenBlock, netBalance } from './index'
-import { loadGameDataFromJson } from '../data/loader'
+import { loadGameDataFromJson, parseAppState } from '../data/loader'
+import { flowKey, sumByItem } from '../data/flowKey'
 import { availableMachinesFor } from '../data/defaultMachines'
 import type { Horizon } from '../data/horizon'
 import { rowMachine } from './effects'
@@ -61,7 +62,8 @@ function expectSane(result: SolverResult, plan: ReturnType<typeof makePlan>, lab
 
   for (const goal of plan.goals) {
     // Delivered net of internal consumption, plus whatever the solver reports as a shortfall.
-    const delivered = (netBalance(result.nodes).get(goal.itemId) ?? 0) + (unsatisfiedRate(result, goal.itemId) ?? 0)
+    const delivered = (sumByItem(netBalance(result.nodes, result.conversions)).get(goal.itemId) ?? 0)
+      + result.unsatisfied.filter(u => u.itemId === goal.itemId).reduce((t, u) => t + u.rate, 0)
     expect(delivered, `goal ${goal.itemId} reaches ${goal.rate}/min${at}`).toBeGreaterThanOrEqual(goal.rate - GOAL_EPS)
     expect(
       result.warnings.some(w => w.type === 'no-recipe' && w.itemId === goal.itemId),
@@ -87,10 +89,13 @@ function expectSane(result: SolverResult, plan: ReturnType<typeof makePlan>, lab
   for (const u of result.unsatisfied) expectNonNegativeFinite(u.rate, `unsatisfied ${u.itemId}${at}`)
 
   // Mass balance: whatever the nodes consume beyond what they produce is listed as an import.
-  const net = netBalance(result.nodes)
-  // An item can appear twice in `unsatisfied` (goal shortfall and slack), so sum the entries.
+  const net = netBalance(result.nodes, result.conversions)
+  // An item can appear twice in `unsatisfied` (goal shortfall and slack), so sum the entries; a split fluid's are per flow key.
   const imported = new Map<string, number>()
-  for (const u of result.unsatisfied) imported.set(u.itemId, (imported.get(u.itemId) ?? 0) + u.rate)
+  for (const u of result.unsatisfied) {
+    const key = flowKey(u.itemId, u.temp)
+    imported.set(key, (imported.get(key) ?? 0) + u.rate)
+  }
   for (const [item, balance] of net) {
     const covered = balance + (imported.get(item) ?? 0)
     expect(covered, `mass balance of ${item}${at}`).toBeGreaterThanOrEqual(-FLOW_EPS)
@@ -360,7 +365,7 @@ describe('multi-block loops on the real Seablock data', () => {
     for (const f of all.flows) taken.set(`${f.fromBlockId}\0${f.itemId}`, (taken.get(`${f.fromBlockId}\0${f.itemId}`) ?? 0) + f.rate)
     for (const [key, total] of taken) {
       const [source, itemId] = key.split('\0')
-      const net = netBalance(all.results[source].nodes).get(itemId) ?? 0
+      const net = sumByItem(netBalance(all.results[source].nodes, all.results[source].conversions)).get(itemId) ?? 0
       expect(total, `${source} ${itemId} taken`).toBeLessThanOrEqual(net + FLOW_EPS)
     }
   })
@@ -621,5 +626,48 @@ describe('additional crafting categories on the real Seablock data', () => {
   it('runs an explicit electronics machine at its speed and keeps the primary default otherwise', () => {
     expect(rowMachine(row('bob-electronics-machine-3'), seablock)?.craftingSpeed).toBe(4)
     expect(rowMachine(row(), seablock)?.id).toBe('bob-assembling-machine-6')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Split fluids (flow keys)
+// ---------------------------------------------------------------------------
+
+describe('split fluids on the bundled plans', () => {
+  const fixtures = resolve(import.meta.dirname, '../../e2e/fixtures')
+  const planFile = (name: string) => parseAppState(JSON.parse(readFileSync(resolve(fixtures, name), 'utf-8')))
+  const planFiles = () => readdirSync(fixtures).filter(f => f.endsWith('.json') && 'blocks' in JSON.parse(readFileSync(resolve(fixtures, f), 'utf-8')))
+
+  it('Nullius has no split fluid: no result carries a conversion, a node tag or a temperature', () => {
+    for (const file of planFiles().filter(f => !f.includes('seablock'))) {
+      const all = solveAll(planFile(file).blocks, gameData)
+      for (const r of Object.values(all.results)) {
+        expect(r.conversions, file).toBeUndefined()
+        for (const n of r.nodes) {
+          expect(n.inputTags, file).toBeUndefined()
+          expect(n.outputTags, file).toBeUndefined()
+        }
+        for (const u of r.unsatisfied) expect(u.temp, file).toBeUndefined()
+      }
+    }
+  })
+
+  it('steam below the turbine minimum is imported at 465 or more, with no warning, and the match block converts', () => {
+    const all = solveAll(planFile('power-temperature-seablock.json').blocks, seablock)
+    const byName = (name: string) => all.results[planFile('power-temperature-seablock.json').blocks.find(b => b.name === name)!.id]
+    const mismatch = byName('Mismatch')
+    expect(mismatch.warnings, 'no warning').toEqual([])
+    expect(nodeOf(mismatch, mismatch.nodes[1].recipeNodeId).throughput, 'turbine').toBeCloseTo(11.1111, 3)
+    expect(mismatch.unsatisfied.find(u => u.itemId === 'steam')).toEqual({ itemId: 'steam', rate: expect.closeTo(666.67, 1), temp: { min: 465 } })
+    expect(byName('Match').conversions).toEqual([{ itemId: 'steam', from: { at: 165 }, to: { min: 165 }, rate: expect.closeTo(2000, 6) }])
+  })
+
+  it('heat keeps its warning, without an import field', () => {
+    const state = planFile('heat-temperature-seablock.json')
+    const all = solveAll(state.blocks, seablock)
+    const warnings = Object.values(all.results).flatMap(r => r.warnings).filter(w => w.type === 'temperature-mismatch')
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatchObject({ itemId: 'power:heat' })
+    expect(warnings[0]).not.toHaveProperty('imported')
   })
 })

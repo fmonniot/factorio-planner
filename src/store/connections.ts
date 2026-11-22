@@ -1,5 +1,6 @@
 import { closesLoop, hasProduct } from '../solver/blockGraph'
 import { grossFlow, receivesItem, surplusTolerance, FLOW_TOLERANCE } from '../solver/index'
+import { sumByItem } from '../data/flowKey'
 import type { Block, ConnectionFlow, SolverResult } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -148,8 +149,11 @@ export function connectableItems(
   const result = results[targetId]
   if (!target || !result) return []
   const items: ItemCandidate[] = []
-  const gross = grossFlow(result.nodes)
-  for (const u of result.unsatisfied) {
+  const gross = sumByItem(grossFlow(result.nodes, result.conversions))
+  // A split fluid is imported over several ranges: the target needs their sum, once.
+  const needed = new Map<string, number>()
+  for (const u of result.unsatisfied) needed.set(u.itemId, (needed.get(u.itemId) ?? 0) + u.rate)
+  for (const u of [...needed].map(([itemId, rate]) => ({ itemId, rate }))) {
     if (u.rate <= surplusTolerance(gross.get(u.itemId) ?? 0)) continue
     if (!canConnect(blocks, target, u.itemId, sourceId)) continue
     const offered = offeredRate(sourceId, u.itemId, results, flows)

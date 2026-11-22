@@ -36,3 +36,19 @@ export function acceptsTemperature(
   if (isBound(ing.maximumTemperature) && t > ing.maximumTemperature + TEMPERATURE_EPSILON) return false
   return true
 }
+
+/** "95", "26.5", "-10": at most 1 decimal, trailing ".0" stripped, -0 shown as "0". */
+export function fmtTemperatureValue(value: number): string {
+  const r = Math.round(value * 10) / 10
+  return String(Object.is(r, -0) ? 0 : r)
+}
+
+/** Label for an ingredient's temperature bounds, or undefined when neither bound is set. */
+export function fmtTemperatureRange(min?: number, max?: number): string | undefined {
+  const lo = isBound(min) ? fmtTemperatureValue(min) : undefined
+  const hi = isBound(max) ? fmtTemperatureValue(max) : undefined
+  if (lo !== undefined && hi !== undefined) return lo === hi ? `${lo}°C` : `${lo}–${hi}°C`
+  if (lo !== undefined) return `≥${lo}°C`
+  if (hi !== undefined) return `≤${hi}°C`
+  return undefined
+}

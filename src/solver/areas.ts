@@ -3,8 +3,10 @@ import type {
   GameData,
   GameRecipeNode,
   Recipe,
+  AreaFlow,
   AreaRoute,
   AreaSourceRule,
+  FluidTag,
   SolvedArea,
   SolvedNode,
   SolverResult,
@@ -12,9 +14,10 @@ import type {
   SourceRule,
   SubPlan,
 } from '../data/types'
-import { buildClassifiedSystem, discardProduct, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects } from './build'
+import { addFlowKeys, buildClassifiedSystem, discardProduct, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects, type SplitUse } from './build'
 import { itemRoutes, type ItemRoute, type RouteReceiver, type RouteSender } from './areaRoutes'
-import { FluidTemperatureCollector } from './temperatureRows'
+import { baseOf, conversionsOf, expandToKeys, goalKey, itemKeys, fluidSupply, keyCaps, keyGoals, noFittingTemperature, resultItem } from './flowKeys'
+import { splitFluids, productTag, rangeOf } from '../data/flowKey'
 import {
   BIG_M, BYPRODUCTS_FIRST_SLACK_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP,
   type LPModel, type LPResult,
@@ -218,11 +221,25 @@ interface Column {
   dedicated?: string
 }
 
-/** The classified system over the block's columns: the same arithmetic as `buildClassifiedSystem`, one column per row. */
+/** What the LP reads of a column: the rows, and the conversion columns of the flow keys (which belong to the area that takes the range). */
+type AreaColumn = Pick<Column, 'id' | 'area' | 'dedicated'>
+
+/** The columns of the LP: the rows' columns, then the conversion columns of `system`'s flow keys. */
+function lpColumns(columns: Column[], system: Pick<ClassifiedSystem, 'flow'>): AreaColumn[] {
+  const out: AreaColumn[] = [...columns]
+  for (const [id, c] of system.flow?.conversions ?? []) out.push({ id, area: c.area ?? 0 })
+  return out
+}
+
+/**
+ * The classified system over the block's columns: the same arithmetic as `buildClassifiedSystem`, one column per row.
+ * The flow keys of the split fluids are built here per area: a range key belongs to the area that takes it (`#<area>`).
+ */
 function buildColumnSystem(
   gameData: GameData,
   columns: Column[],
   goalsMap: Map<string, number>,
+  supplyCaps: ReadonlyMap<string, number> = new Map(),
 ): ClassifiedSystem {
   // Productivity cannot change the sign of a coefficient, so this equals a per-column classification.
   // A burner column's fuel counts as a consumption (only the sign matters), so an in-plan fuel is an
@@ -234,32 +251,44 @@ function buildColumnSystem(
     effectsMap.set(col.node.recipeId, { ...col.effects, fuel: fuels })
   }
   const { classification } = buildClassifiedSystem(
-    gameData, [...new Set(columns.map(c => c.node.recipeId))], goalsMap, effectsMap,
+    gameData, [...new Set(columns.map(c => c.node.recipeId))], goalsMap, effectsMap, { splitKeys: false },
   )
+  const split = splitFluids(gameData)
   const S = new Map<string, Map<string, number>>()
   function addCoeff(itemId: string, columnId: string, delta: number) {
     if (!S.has(itemId)) S.set(itemId, new Map())
     S.get(itemId)!.set(columnId, (S.get(itemId)!.get(columnId) ?? 0) + delta)
   }
-  const temperatures = new FluidTemperatureCollector()
+  const uses: SplitUse[] = []
   for (const col of columns) {
     const recipe = col.recipe
     if (!recipe) continue
+    const use: SplitUse = { colId: col.id, area: col.area, made: [], taken: [] }
     for (const prod of recipe.products) {
       const amount = rowProductAmount(prod, col.effects.productivityBonus, col.effects.heatBonus)
       if (amount > 0) {
-        addCoeff(prod.itemId, col.id, amount)
-        temperatures.addProduct(col.id, prod, amount, gameData.items[prod.itemId])
+        if (split.has(prod.itemId)) use.made.push({ itemId: prod.itemId, tag: productTag(prod, gameData.items[prod.itemId]), amount })
+        else addCoeff(prod.itemId, col.id, amount)
       }
     }
     for (const ing of rowIngredients(recipe, col.effects)) {
       if (ing.amount > 0) {
-        addCoeff(ing.itemId, col.id, -ing.amount)
-        temperatures.addIngredient(col.id, ing)
+        if (split.has(ing.itemId)) use.taken.push({ itemId: ing.itemId, range: rangeOf(ing), amount: ing.amount })
+        else addCoeff(ing.itemId, col.id, -ing.amount)
       }
     }
+    if (use.made.length > 0 || use.taken.length > 0) uses.push(use)
   }
-  return { S, recipes: columns.map(c => c.id), classification, fluidTemperatures: temperatures.finish() }
+  const system: ClassifiedSystem = { S, recipes: columns.map(c => c.id), classification }
+  const offers = new Map<string, number>()
+  const used = new Set(uses.flatMap(u => [...u.made, ...u.taken].map(x => x.itemId)))
+  for (const [id, cap] of supplyCaps) if (split.has(id) && cap > FLOW_TOLERANCE && used.has(id)) offers.set(id, cap)
+  const flow = addFlowKeys(system, uses, { goalItems: [...goalsMap.keys()].filter(id => split.has(id)), areas: true, offers })
+  if (flow) {
+    system.flow = flow
+    system.recipes = [...system.recipes, ...flow.conversions.keys()]
+  }
+  return system
 }
 
 /**
@@ -316,8 +345,6 @@ export interface AreaOrder {
   defaults: Set<string>
   byproductsFirst: Set<string>
   measure?: '__imp' | '__rec'
-  /** build the temperature rows without slack as `today` did (see `LPBuildOptions.lockedTemperatures`; default true) */
-  lockedTemperatures?: boolean
   importCap?: number
   receivedCap?: number
 }
@@ -364,14 +391,13 @@ function solveAreaLP(
   order?: AreaOrder,
 ): AreaLPResult {
   const args = [system, columns, pinnedRates, bcColumns, feederColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, areaItems] as const
-  const first = solveAreaLPOnce(...args, { elastic: false, lockedTemperatures: order?.lockedTemperatures ?? true }, order)
-  // The order runs only on a block whose passes were feasible; it never goes elastic nor drops the locked rows.
+  const first = solveAreaLPOnce(...args, { elastic: false }, order)
+  // The order runs only on a block whose passes were feasible; it never goes elastic.
   if (first.feasible || order) return first
-  // As in `solveLP`: the temperature rows without slack give way first, then goal rows go elastic (kept only if feasible).
-  const plain = first.lockedTemperatures ? solveAreaLPOnce(...args, { elastic: false, lockedTemperatures: false }) : first
-  if (plain.feasible || !hasGoalRow(system)) return plain
-  const elastic = solveAreaLPOnce(...args, { elastic: true, lockedTemperatures: false })
-  return elastic.feasible ? elastic : plain
+  // As in `solveLP`: goal rows go elastic (kept only if feasible).
+  if (!hasGoalRow(system)) return first
+  const elastic = solveAreaLPOnce(...args, { elastic: true })
+  return elastic.feasible ? elastic : first
 }
 
 function solveAreaLPOnce(
@@ -385,7 +411,7 @@ function solveAreaLPOnce(
   connectionsFirst: Set<string>,
   byproductsFirst: Set<string>,
   areaItems: AreaItemSpec[],
-  mode: { elastic: boolean; lockedTemperatures: boolean },
+  mode: { elastic: boolean },
   order?: AreaOrder,
 ): AreaLPResult {
   const elasticGoals = mode.elastic
@@ -404,10 +430,11 @@ function solveAreaLPOnce(
     connectionsFirst, byproductsFirst, elasticGoals,
     // An area whose rule is Don't make more here has a cheap slack of its own for the item.
     new Set(areaItems.filter(s => s.areas.some(a => a.slackCost !== undefined && a.slackCost < BIG_M)).map(s => s.itemId)),
-    { markedFeeders: feederColumns, extraSupplied, lockedTemperatures: mode.lockedTemperatures },
+    { markedFeeders: feederColumns, extraSupplied },
   )
   const { constraints, variables } = base
-  const colVar = new Map(columns.map(c => [c.id, base.recipeToVar.get(c.id)!]))
+  const lpCols = lpColumns(columns, system)
+  const colVar = new Map(lpCols.map(c => [c.id, base.recipeToVar.get(c.id)!]))
 
   // Every variable carries both stage objectives; the library ignores attributes that are neither
   // a constraint nor the optimised one.
@@ -433,10 +460,10 @@ function solveAreaLPOnce(
   // The variables the order's two sums run over (see `AreaOrder`).
   const orderNames: { imp: string[]; rec: string[] } = { imp: [], rec: [] }
   const pairNames: { itemId: string; from: number; to?: number; names: string[] }[] = []
-  function addAreaItem(spec: AreaItemSpec, byArea: Map<number, { col: Column; coeff: number }[]>): void {
+  function addAreaItem(spec: AreaItemSpec, byArea: Map<number, { col: AreaColumn; coeff: number }[]>): void {
     const { itemId } = spec
     const tmplName = base.itemToSlack.get(itemId)
-    // The rows the item's slack sits in (its block row and its fluid temperature rows): every s_a and u_a joins them.
+    // The row the item's slack sits in (its block row): every s_a and u_a joins it.
     const rows: Record<string, number> = {}
     if (tmplName) {
       for (const [key, v] of Object.entries(variables[tmplName])) if (!key.startsWith('__')) rows[key] = v
@@ -449,7 +476,6 @@ function solveAreaLPOnce(
 
     const info: { area: number; row: string; i: number; hasDedicated: boolean; hasOther: boolean }[] = []
     const n = tieScale([...byArea.keys()])
-    let created = 0
     for (const area of [...byArea.keys()].sort((a, b) => a - b)) {
       const cols = byArea.get(area)!
       const i = k++
@@ -464,13 +490,11 @@ function solveAreaLPOnce(
       const names: { itemId: string; area: number; slack?: string; supply?: string } = { itemId, area }
       if (sa?.slackCost !== undefined && tmplName) {
         names.slack = `as${i}`
-        created++
         variables[names.slack] = { ...rows, __obj__: sa.slackCost, __s2: sa.slackCost, __s1: BIG_M, [row]: 1 }
         if (order && sa.slackCost === BIG_M) orderNames.imp.push(names.slack)
       }
       if (sa?.supplyCap !== undefined && tmplName && spec.offer > 0) {
         names.supply = `au${i}`
-        created++
         // Below half a shipped unit whatever the number of areas, so it never outweighs taking another area's surplus:
         // a short offer goes to the area higher in the table.
         const tie = SHIP_COST * area / (2 * n)
@@ -493,14 +517,6 @@ function solveAreaLPOnce(
       }
       areaNames.push(names)
     }
-    // An area item that gets neither an import nor a supply in any area (locked) is like an item `buildLPModel` builds
-    // without them: its temperature rows (the template slack is gone, so they have none) stay as slack-less rows when
-    // every consumer class has a producer (`temperatureFitItems`), else they go.
-    if (tmplName !== undefined && created === 0) {
-      if (base.temperatureFitItems.has(itemId) && base.itemToTemperatureRows.get(itemId)?.length) base.lockedTemperatureItems.add(itemId)
-      else for (const r of base.itemToTemperatureRows.get(itemId) ?? []) delete constraints[r]
-    }
-
     const capRows = (x: (typeof info)[number]) => {
       const cols = byArea.get(x.area)!
       if (x.hasDedicated) {
@@ -574,12 +590,12 @@ function solveAreaLPOnce(
     }
   }
 
-  const colOf = new Map(columns.map(c => [c.id, c]))
-  const colIndex = new Map(columns.map((c, i) => [c.id, i]))
+  const colOf = new Map(lpCols.map(c => [c.id, c]))
+  const colIndex = new Map(lpCols.map((c, i) => [c.id, i]))
   for (const itemId of [...classification.goals.keys(), ...classification.intermediates]) {
     const rowS = S.get(itemId)
     if (!rowS) continue
-    const byArea = new Map<number, { col: Column; coeff: number }[]>()
+    const byArea = new Map<number, { col: AreaColumn; coeff: number }[]>()
     // The row's columns in column order, so the order of the LP's terms does not depend on how `S` was filled.
     const inRow = [...rowS].flatMap(([id, coeff]) => (coeff !== 0 && colOf.has(id) ? [{ col: colOf.get(id)!, coeff }] : []))
     inRow.sort((x, y) => colIndex.get(x.col.id)! - colIndex.get(y.col.id)!)
@@ -762,8 +778,9 @@ function resolveAreaRules(plan: SolverPlan, areas: SolverArea[], columns: Column
   offOf: (area: number, itemId: string) => Set<number>
   touching: Map<string, number[]>
 } {
-  const touching = touchingAreas(system, columns)
-  const ruleOf = (a: number, itemId: string): AreaSourceRule => areaRuleOf(areas[a], plan.sourceRules, itemId)
+  const touching = touchingAreas(system, lpColumns(columns, system))
+  // A flow key follows the rule of its base item.
+  const ruleOf = (a: number, itemId: string): AreaSourceRule => areaRuleOf(areas[a], plan.sourceRules, baseOf(system, itemId))
   const indexOf = new Map(areas.map((a, i) => [a.id, i]))
   const offOf = (a: number, itemId: string): Set<number> => {
     const off = new Set<number>()
@@ -786,7 +803,7 @@ function resolveAreaRules(plan: SolverPlan, areas: SolverArea[], columns: Column
     if (as.length === 0) continue
     // An item one area touches keeps only its block row: it follows that area's rule through the block-wide sets.
     const own = ruleOf(as[0], itemId)
-    const block = plan.sourceRules?.[itemId] ?? {}
+    const block = plan.sourceRules?.[baseOf(system, itemId)] ?? {}
     if (own.makeHere === block.makeHere && (own.importOff === true) === (block.importOff === true)) continue
     const core: SourceRule = {}
     if (own.makeHere !== undefined) core.makeHere = own.makeHere
@@ -954,14 +971,22 @@ function areaFlows(
   areaItems: ReadonlySet<string>,
   pairItems: ReadonlySet<string>,
   pairs: AreaPair[],
+  supply: Map<string, number>,
 ): { areas: SolvedArea[]; routes: AreaRoute[] } {
-  const colById = new Map(columns.map(c => [c.id, c]))
+  const colById = new Map(lpColumns(columns, system).map(c => [c.id, c]))
   const dedicatedInOf = new Map(dedicatedIn.map(d => [`${d.area}\u0000${d.itemId}`, d.rate]))
   const solved: SolvedArea[] = areas.map(a => ({ areaId: a.id, receives: [], sends: [] }))
   const routes: AreaRoute[] = []
+  // What leaves the solver names the base item and, for a split fluid, the tag.
+  const tagged = (key: string): { itemId: string; temp?: FluidTag } => resultItem(system, key)
   const outsideOf = new Map<string, AreaOutside[]>()
   for (const o of outside) outsideOf.set(o.itemId, [...(outsideOf.get(o.itemId) ?? []), o])
-  for (const [itemId, rowS] of [...system.S].sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))) {
+  for (const [itemId, rowS] of [...system.S].sort(([x], [y]) => {
+    const bx = baseOf(system, x)
+    const by = baseOf(system, y)
+    if (bx !== by) return bx < by ? -1 : 1
+    return x < y ? -1 : x > y ? 1 : 0
+  })) {
     const net = areas.map(() => 0)
     const other = areas.map(() => 0)
     const restricted = areas.map(() => false)
@@ -992,10 +1017,10 @@ function areaFlows(
     for (let a = 0; a < areas.length; a++) {
       const tol = surplusTolerance(Math.max(produced[a], consumed[a]))
       if (net[a] > tol) {
-        solved[a].sends.push({ itemId, rate: net[a], boundary: blockNet > blockTol })
+        solved[a].sends.push({ ...tagged(itemId), rate: net[a], boundary: blockNet > blockTol })
         senders.push({ area: a, rate: net[a], other: other[a], tol })
       } else if (net[a] < -tol) {
-        solved[a].receives.push({ itemId, rate: -net[a], boundary: blockNet < -blockTol })
+        solved[a].receives.push({ ...tagged(itemId), rate: -net[a], boundary: blockNet < -blockTol })
         receivers.push({
           area: a,
           rate: -net[a],
@@ -1009,19 +1034,24 @@ function areaFlows(
       routes.push(...areaItemRoutes(
         itemId, areas, outsideOf.get(itemId) ?? [], senders, receivers,
         pairItems.has(itemId) ? pairs.filter(p => p.itemId === itemId) : undefined,
-      ))
+      ).map(r => ({ ...r, ...tagged(itemId) })))
       continue
     }
+    // A range key of an area is connected supply or imported: what the supply covers of an outside leg is `supplied`.
+    const keyArea = system.flow?.info.get(itemId)?.area
+    const supplied = keyArea !== undefined ? supply.get(itemId) ?? 0 : 0
     for (const r of itemRoutes(senders, receivers)) {
+      const part = r.from === undefined && r.to !== undefined ? Math.min(supplied, r.rate) : 0
       routes.push({
-        itemId,
+        ...tagged(itemId),
         ...(r.from !== undefined ? { from: areas[r.from].id } : {}),
         ...(r.to !== undefined ? { to: areas[r.to].id } : {}),
         rate: r.rate,
+        ...(part > FLOW_TOLERANCE ? { supplied: part } : {}),
       })
     }
   }
-  const byRate = (x: { rate: number; itemId: string }, y: { rate: number; itemId: string }) =>
+  const byRate = (x: AreaFlow, y: AreaFlow) =>
     y.rate - x.rate || (x.itemId < y.itemId ? -1 : x.itemId > y.itemId ? 1 : 0)
   for (const a of solved) {
     a.receives.sort(byRate)
@@ -1031,7 +1061,7 @@ function areaFlows(
 }
 
 /** The pieces of an area solve that depend on the rows only: one column per row, the classified system over them, and the notes on the rows. */
-function buildAreaColumns(plan: SolverPlan, areas: SolverArea[], gameData: GameData): {
+function buildAreaColumns(plan: SolverPlan, areas: SolverArea[], gameData: GameData, supplyCaps?: ReadonlyMap<string, number>): {
   gameRecipeNodes: GameRecipeNode[]
   columns: Column[]
   duplicateIds: Set<string>
@@ -1071,12 +1101,12 @@ function buildAreaColumns(plan: SolverPlan, areas: SolverArea[], gameData: GameD
   })
 
   const goalsMap = new Map(plan.goals.map(g => [g.itemId, g.rate]))
-  const system = buildColumnSystem(gameData, columns, goalsMap)
+  const system = buildColumnSystem(gameData, columns, goalsMap, supplyCaps)
 
   // Warn for goal items with no producer row in the plan.
   const noRecipeWarnings: SolverWarning[] = []
   for (const goal of plan.goals) {
-    const row = system.S.get(goal.itemId)
+    const row = system.S.get(goalKey(system, goal.itemId))
     const hasProducer = row !== undefined && [...row.values()].some(c => c > 0)
     if (!hasProducer) {
       noRecipeWarnings.push({ type: 'no-recipe', itemId: goal.itemId })
@@ -1093,13 +1123,16 @@ function buildAreaColumns(plan: SolverPlan, areas: SolverArea[], gameData: GameD
   for (const col of columns) {
     if (!col.recipe) continue
     const itemId = dedicatedProduct(col.node, col.recipe)
-    if (itemId !== undefined && (system.S.get(itemId)?.get(col.id) ?? 0) > 0) col.dedicated = itemId
+    if (itemId === undefined) continue
+    // A split fluid's dedicated row is dedicated to the first of its keys it makes.
+    const key = itemKeys(system, itemId).find(k => (system.S.get(k)?.get(col.id) ?? 0) > 0)
+    if (key !== undefined) col.dedicated = key
   }
   return { gameRecipeNodes, columns, duplicateIds, duplicateWarnings, noRecipeWarnings, system }
 }
 
 /** For each goal and intermediate, the indices of the areas (sorted) that have a column with a non-zero coefficient in its row. */
-function touchingAreas(system: ClassifiedSystem, columns: Column[]): Map<string, number[]> {
+function touchingAreas(system: ClassifiedSystem, columns: AreaColumn[]): Map<string, number[]> {
   const touching = new Map<string, number[]>()
   const { goals, intermediates } = system.classification
   const areaOf = new Map(columns.map(c => [c.id, c.area]))
@@ -1118,8 +1151,16 @@ function touchingAreas(system: ClassifiedSystem, columns: Column[]): Map<string,
 export function areaLPItems(plan: SolverPlan, gameData: GameData): Set<string> {
   if (!plan.areas) return new Set()
   const { columns, system } = buildAreaColumns(plan, plan.areas, gameData)
-  const touching = touchingAreas(system, columns)
-  return new Set([...touching].filter(([itemId, as]) => as.length >= 2 && system.classification.intermediates.has(itemId)).map(([itemId]) => itemId))
+  const touching = touchingAreas(system, lpColumns(columns, system))
+  // A split fluid counts once, when its keys together are touched by two areas or more (each range key is one area's).
+  const byItem = new Map<string, Set<number>>()
+  for (const [key, as] of touching) {
+    if (!system.classification.intermediates.has(key)) continue
+    const set = byItem.get(baseOf(system, key)) ?? new Set<number>()
+    for (const a of as) set.add(a)
+    byItem.set(baseOf(system, key), set)
+  }
+  return new Set([...byItem].filter(([, as]) => as.size >= 2).map(([itemId]) => itemId))
 }
 
 /**
@@ -1133,7 +1174,7 @@ export function solveAreaBlock(
   gameData: GameData,
   supplyCaps: Map<string, number>,
 ): { result: SolverResult; received: Map<string, number> } {
-  const { gameRecipeNodes, columns, duplicateIds, duplicateWarnings, noRecipeWarnings, system } = buildAreaColumns(plan, areas, gameData)
+  const { gameRecipeNodes, columns, duplicateIds, duplicateWarnings, noRecipeWarnings, system } = buildAreaColumns(plan, areas, gameData, supplyCaps)
 
   const pinnedRates = new Map<string, number>()
   for (const col of columns) {
@@ -1159,15 +1200,19 @@ export function solveAreaBlock(
   // An area item's lock, cost and caps are set per area (`areaItemSpecs`), so the block-wide sets leave it out.
   const sets = sourcingSets(effPlan, consumerIngredients)
   const plainOf = (s: Set<string>) => (areaItems.size === 0 ? s : new Set([...s].filter(id => !areaItems.has(id))))
-  const locked = plainOf(sets.locked)
-  const byproductsFirst = plainOf(sets.byproductsFirst)
+  // A split fluid's rules apply to each of its keys, except the keys an area's own rule says otherwise for (`effective`).
+  // A byproduct consumer's ingredient is locked whatever the rule, on every key.
+  const consumerKeys = expandToKeys(system, consumerIngredients)
+  const locked = plainOf(new Set([...expandToKeys(system, sets.locked, effective), ...consumerKeys]))
+  const byproductsFirst = plainOf(new Set([...expandToKeys(system, sets.byproductsFirst, effective)].filter(k => !consumerKeys.has(k))))
   // An area item cannot be imported when it is a byproduct consumer's ingredient or every area that touches it says Import off.
-  const cannotImport = plainOf(sets.cannotImport)
+  const cannotImport = plainOf(new Set([...expandToKeys(system, sets.cannotImport, effective), ...consumerKeys]))
   for (const itemId of areaItems) {
-    if (consumerIngredients.has(itemId) || touching.get(itemId)!.every(a => ruleOf(a, itemId).importOff === true)) cannotImport.add(itemId)
+    if (consumerIngredients.has(baseOf(system, itemId)) || touching.get(itemId)!.every(a => ruleOf(a, itemId).importOff === true)) cannotImport.add(itemId)
   }
+  const noFitWarnings = noFittingTemperature(system, plainOf(expandToKeys(system, sets.importOffLocked, effective)), id => columns.find(c => c.id === id)?.node.recipeId ?? id)
 
-  const totalCaps = new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE))
+  const totalCaps = keyCaps(system, new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE)))
   const plainCaps = areaItems.size === 0 ? totalCaps : new Map([...totalCaps].filter(([id]) => !areaItems.has(id)))
 
   // The passes are those of solveBlock.
@@ -1175,7 +1220,7 @@ export function solveAreaBlock(
     ? locked
     : new Set([...locked].filter(itemId => !plainCaps.has(itemId)))
   const firstItems = new Set(
-    itemsWithSourcing(effPlan, 'after-blocks').filter(
+    [...expandToKeys(system, itemsWithSourcing(effPlan, 'after-blocks'), effective)].filter(
       itemId => plainCaps.has(itemId) && system.classification.intermediates.has(itemId),
     ),
   )
@@ -1190,12 +1235,12 @@ export function solveAreaBlock(
     totalCaps.has(itemId) && ruleOf(a, itemId).makeHere === 'after-blocks' && system.classification.intermediates.has(itemId)
   const isLocked = (a: number, itemId: string) => {
     const rule = ruleOf(a, itemId)
-    return consumerIngredients.has(itemId) || (rule.importOff === true && rule.makeHere !== 'off')
+    return consumerIngredients.has(baseOf(system, itemId)) || (rule.importOff === true && rule.makeHere !== 'off')
   }
   // A goal that is a pair item gets a spec too (no slack, no supply: only the flows between areas).
   const specItems = [...areaItems, ...[...pairItems].filter(id => !areaItems.has(id))]
   // An area on Don't make more here has the cheap slack, except for a byproduct consumer's ingredient (as the plain path's byproducts-first).
-  const bfArea = (a: number, itemId: string) => ruleOf(a, itemId).makeHere === 'off' && !consumerIngredients.has(itemId)
+  const bfArea = (a: number, itemId: string) => ruleOf(a, itemId).makeHere === 'off' && !consumerIngredients.has(baseOf(system, itemId))
   const lockKey = (itemId: string, a: number) => `${itemId}\u0000${a}`
   // `order`: the specs of the order's steps (connectionOrder.ts): as pass 1, plus a supply capped by the offer only in
   // every area that is not Receive it first nor Don't make more here, bounded by its own use and counted as received.
@@ -1278,7 +1323,7 @@ export function solveAreaBlock(
     const intermediate = (itemId: string) => system.classification.intermediates.has(itemId)
     const plainDefaults = new Set([...plainCaps.keys()].filter(itemId =>
       intermediate(itemId) && !firstItems.has(itemId) && !byproductsFirst.has(itemId)))
-    const spare = (itemId: string) => totalCaps.get(itemId)! - (today.supply.get(itemId) ?? 0) > FLOW_TOLERANCE
+    const spare = (itemId: string) => totalCaps.get(itemId)! - fluidSupply(system, today.supply, itemId) > FLOW_TOLERANCE
     const areaDefault = (itemId: string) => areaItems.has(itemId) && totalCaps.has(itemId) && intermediate(itemId)
       && touching.get(itemId)!.some(a => !isFirst(a, itemId) && !bfArea(a, itemId))
     if (![...plainDefaults].some(spare) && ![...areaItems].some(itemId => areaDefault(itemId) && spare(itemId))) return undefined
@@ -1288,7 +1333,7 @@ export function solveAreaBlock(
     const step = (
       order: AreaOrder, noImport: Set<string>, stepCaps: Map<string, number>, connectionsFirst: Set<string>, stepSpecs: AreaItemSpec[],
     ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order)
-    const base = { defaults: plainDefaults, byproductsFirst, lockedTemperatures: today.lockedTemperatures }
+    const base = { defaults: plainDefaults, byproductsFirst }
     const defaultsFirst = new Set([...firstItems, ...plainDefaults])
     const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
     if (!step2.feasible || step2.measured === undefined) return undefined
@@ -1333,7 +1378,7 @@ export function solveAreaBlock(
 
   const pass2 = pass2Plan({
     totalCaps: plainCaps, intermediates: system.classification.intermediates, firstItems, locked,
-    slack: lp.slack, S: system.S, throughput: lp.throughput,
+    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow,
   })
   // An area item runs pass 2 when the residuals of its areas that are not connections-first add up to more than the item's noise
   // (as `pass2Plan`, on the item's total).
@@ -1384,26 +1429,27 @@ export function solveAreaBlock(
   if (overconstrained) warnings.push(overconstrained)
   // Pins that cannot be met make the flows meaningless for this check.
   const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
-    goals: plan.goals, system, throughput, slack: lp.slack, itemSurplus, itemGross,
+    goals: keyGoals(system, plan.goals), system, throughput, slack: lp.slack, itemSurplus, itemGross,
     fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.absorberOnly]), noImportItems: cannotImport, recipeOf: id => recipeOfCol.get(id) ?? id,
-    mainItemOf: id => mainItemOfCol.get(id),
+    mainItemOf: id => mainItemOfCol.get(id), itemOf: key => baseOf(system, key),
   })
   if (coproductDriven) warnings.push(coproductDriven)
 
   const shortfalls = lp.dedicatedIn
     .filter(d => d.rate > AREA_SHORTFALL_TOLERANCE)
-    .map(d => ({ areaId: areas[d.area].id, itemId: d.itemId, rate: d.rate }))
+    .map(d => ({ areaId: areas[d.area].id, ...resultItem(system, d.itemId), rate: d.rate }))
   if (shortfalls.length > 0) warnings.push({ type: 'area-shortfall', shortfalls })
 
   // An area with no supplier left for an item that cannot be imported and has no row that makes it: its rows that use the
   // item cannot run. Only said when the plan is feasible and a goal falls short; infeasible pins name their own conflict.
-  const cutOffAreas = (): { areaId: string; itemId: string }[] => {
+  const lpCols = lpColumns(columns, system)
+  const cutOffAreas = (): { areaId: string; itemId: string; temp?: FluidTag }[] => {
     // Items the short goals need: the goals, then the ingredients of every row that makes a needed item. An area is cut off
     // only when one of its rows using the item makes something needed, so a short goal elsewhere does not blame it.
     const neededItems = new Set(lp.shortfall.keys())
     for (let grew = true; grew;) {
       grew = false
-      for (const col of columns) {
+      for (const col of lpCols) {
         if (![...neededItems].some(id => (system.S.get(id)?.get(col.id) ?? 0) > 0)) continue
         for (const [id, m] of system.S) {
           if ((m.get(col.id) ?? 0) < 0 && !neededItems.has(id)) {
@@ -1413,14 +1459,14 @@ export function solveAreaBlock(
         }
       }
     }
-    const needed = (area: number, itemId: string) => columns.some(col =>
+    const needed = (area: number, itemId: string) => lpCols.some(col =>
       col.area === area && !lp.absorbers.absorberOnly.has(col.id) && (system.S.get(itemId)?.get(col.id) ?? 0) < 0 &&
       [...neededItems].some(id => (system.S.get(id)?.get(col.id) ?? 0) > 0))
     const cut: { area: number; itemId: string }[] = []
     for (const itemId of pairItems) {
-      if (!system.classification.intermediates.has(itemId) || totalCaps.has(itemId)) continue
+      if (!system.classification.intermediates.has(itemId) || totalCaps.has(itemId) || system.flow?.offers.has(baseOf(system, itemId))) continue
       const producers = new Set<number>()
-      for (const col of columns) if ((system.S.get(itemId)?.get(col.id) ?? 0) > 0) producers.add(col.area)
+      for (const col of lpCols) if ((system.S.get(itemId)?.get(col.id) ?? 0) > 0) producers.add(col.area)
       if (producers.size === 0) continue
       for (const a of touching.get(itemId)!) {
         // Cut off by the area's own rule only: a byproduct consumer's ingredient is locked too, and a switch there is the way
@@ -1434,19 +1480,21 @@ export function solveAreaBlock(
     }
     return cut
       .sort((x, y) => x.area - y.area || (x.itemId < y.itemId ? -1 : x.itemId > y.itemId ? 1 : 0))
-      .map(c => ({ areaId: areas[c.area].id, itemId: c.itemId }))
+      .map(c => ({ areaId: areas[c.area].id, ...resultItem(system, c.itemId) }))
   }
   const cut = lp.feasible && lp.shortfall.size > 0 ? cutOffAreas() : []
   if (cut.length > 0) warnings.push({ type: 'area-cut-off', cutOffs: cut })
 
-  const flows = areaFlows(system, columns, throughput, areas, lp.dedicatedIn, lp.outside, areaItems, lp.feasible ? pairItems : new Set(), lp.pairs)
+  const flows = areaFlows(system, columns, throughput, areas, lp.dedicatedIn, lp.outside, areaItems, lp.feasible ? pairItems : new Set(), lp.pairs, lp.supply)
+  const conversions = conversionsOf(system, throughput, a => areas[a].id)
   return {
     result: {
       nodes,
       unsatisfied,
-      warnings: [...duplicateWarnings, ...noRecipeWarnings, ...warnings],
+      warnings: [...duplicateWarnings, ...noRecipeWarnings, ...noFitWarnings, ...warnings],
       areas: flows.areas,
       areaRoutes: flows.routes,
+      ...(conversions ? { conversions } : {}),
     },
     received,
   }

@@ -1,4 +1,4 @@
-import type { ConnectionFlow, Product } from '../../data/types'
+import type { ConnectionFlow, FluidTag, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { FLOW_TOLERANCE, surplusTolerance } from '../../solver/index'
 import { fmtPower } from './ItemTile'
@@ -96,9 +96,11 @@ export interface ProductInfo {
 }
 
 export interface SlotModel {
-  /** Unique within a pane: the product id for products (two products may share an item), the item id otherwise. */
+  /** Unique within a pane: the product id for products (two products may share an item), the item id otherwise (a split fluid's byproduct: its flow key). */
   id: string
   itemId: string
+  /** A split fluid's byproduct or import: the temperature or range the slot is for. */
+  temp?: FluidTag
   /** items/min shown on the slot */
   rate: number
   /** items/min the bar spans (0 allowed) */
@@ -277,8 +279,9 @@ export function byproductSlot(row: ByproductRow, exports: ConnectionFlow[]): Slo
   const segments = exportSegments(exports)
   if (row.leftPerMin !== undefined) segments.push({ key: 'left', kind: 'left', amount: row.leftPerMin })
   return {
-    id: row.itemId,
+    id: row.key,
     itemId: row.itemId,
+    ...(row.temp !== undefined ? { temp: row.temp } : {}),
     rate: row.leftPerMin ?? 0,
     scale: sum(segments),
     segments,
@@ -342,6 +345,7 @@ export function ingredientSlot(
   return {
     id: row.itemId,
     itemId: row.itemId,
+    ...(row.temp !== undefined ? { temp: row.temp } : {}),
     rate: need,
     scale: need,
     segments,

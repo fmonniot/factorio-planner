@@ -685,6 +685,70 @@ describe('FactorySummary — v2 surplus renders as byproduct', () => {
   })
 })
 
+describe('FactorySummary — split fluids', () => {
+  const steamData = () => ({ ...mockGameData, items: { ...mockGameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false } } }) as unknown as GameData
+  const node = (id: string, extra: Partial<SolverResult['nodes'][number]>): SolverResult['nodes'][number] =>
+    ({ recipeNodeId: id, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, ...extra })
+
+  it('shows one byproduct slot per temperature, each with its label', () => {
+    setupStore([ironGoal])
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: steamData(), sourceId: 'test' } })
+    useSolverStore.setState({
+      status: { type: 'idle' },
+      lastResult: {
+        nodes: [
+          node('n1', { outputRates: { 'iron-plate': 60, steam: 3600 }, outputTags: { steam: { at: 165 } } }),
+          node('n2', { outputRates: { steam: 1800 }, outputTags: { steam: { at: 500 } } }),
+        ],
+        unsatisfied: [], warnings: [],
+      },
+      _setStatus: () => {},
+    })
+    render(<FactorySummary />)
+    const byproducts = within(pane('Byproducts'))
+    expect(byproducts.getByRole('button', { name: /^Steam 165°C, / })).toBeInTheDocument()
+    expect(byproducts.getByRole('button', { name: /^Steam 500°C, / })).toBeInTheDocument()
+    expect(byproducts.getAllByTestId('summary-slot-temperature').map(e => e.textContent)).toEqual(['165°C', '500°C'])
+  })
+
+  it('a boiler feeding a turbine nets to nothing once the conversion is counted', () => {
+    setupStore([ironGoal])
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: steamData(), sourceId: 'test' } })
+    useSolverStore.setState({
+      status: { type: 'idle' },
+      lastResult: {
+        nodes: [
+          node('n1', { outputRates: { 'iron-plate': 60 } }),
+          node('n2', { outputRates: { steam: 3600 }, outputTags: { steam: { at: 500 } } }),
+          node('n3', { inputRates: { steam: 3600 }, inputTags: { steam: { min: 465 } } }),
+        ],
+        conversions: [{ itemId: 'steam', from: { at: 500 }, to: { min: 465 }, rate: 3600 }],
+        unsatisfied: [], warnings: [],
+      },
+      _setStatus: () => {},
+    })
+    render(<FactorySummary />)
+    expect(within(pane('Byproducts')).queryByRole('button', { name: /^Steam/ })).toBeNull()
+  })
+
+  it('labels an import with its range', () => {
+    setupStore([ironGoal])
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: steamData(), sourceId: 'test' } })
+    useSolverStore.setState({
+      status: { type: 'idle' },
+      lastResult: {
+        nodes: [node('n1', { outputRates: { 'iron-plate': 60 }, inputRates: { steam: 3600 }, inputTags: { steam: { min: 465 } } })],
+        unsatisfied: [{ itemId: 'steam', rate: 3600, temp: { min: 465 } }], warnings: [],
+      },
+      _setStatus: () => {},
+    })
+    render(<FactorySummary />)
+    const ingredients = within(pane('Ingredients'))
+    expect(ingredients.getByRole('button', { name: /^Steam ≥465°C, / })).toBeInTheDocument()
+    expect(ingredients.getByTestId('summary-slot-temperature')).toHaveTextContent('≥465°C')
+  })
+})
+
 describe('FactorySummary — byproduct noise', () => {
   it('hides a leftover that is only LP rounding noise at a large flow', () => {
     const noisyResult: SolverResult = {

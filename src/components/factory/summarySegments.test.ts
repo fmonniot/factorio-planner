@@ -116,20 +116,25 @@ describe('productSlot', () => {
 })
 
 describe('byproductSlot', () => {
+  it('is keyed by the flow key of a split fluid and carries its temperature', () => {
+    const slot = byproductSlot({ key: 'steam@165', itemId: 'steam', temp: { at: 165 }, leftPerMin: 3600, exported: false }, [])
+    expect(slot).toMatchObject({ id: 'steam@165', itemId: 'steam', temp: { at: 165 }, rate: 3600 })
+  })
+
   it('has a left segment only when nothing is exported', () => {
-    const slot = byproductSlot({ itemId: 'slag', leftPerMin: 10, exported: false }, [])
+    const slot = byproductSlot({ key: 'slag', itemId: 'slag', leftPerMin: 10, exported: false }, [])
     expect(shape(slot.segments)).toEqual([['left', 10]])
     expect(slot).toMatchObject({ rate: 10, scale: 10 })
   })
 
   it('has rate 0 and the export total as scale when only exported', () => {
-    const slot = byproductSlot({ itemId: 'slag', leftPerMin: undefined, exported: true }, [flow({ rate: 12 })])
+    const slot = byproductSlot({ key: 'slag', itemId: 'slag', leftPerMin: undefined, exported: true }, [flow({ rate: 12 })])
     expect(slot).toMatchObject({ rate: 0, scale: 12 })
     expect(shape(slot.segments)).toEqual([['to:B', 12]])
   })
 
   it('lists the exports in order, then what is left', () => {
-    const slot = byproductSlot({ itemId: 'slag', leftPerMin: 5, exported: true }, [
+    const slot = byproductSlot({ key: 'slag', itemId: 'slag', leftPerMin: 5, exported: true }, [
       flow({ toBlockId: 'X', rate: 4 }),
       flow({ connectionId: 'c2', toBlockId: 'Y', rate: 6 }),
     ])

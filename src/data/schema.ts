@@ -242,6 +242,13 @@ export const GameDataSchema = z.object({
   technologies: z.record(z.string(), TechnologySchema).default({}),
   /** Recipes available without research (dump: recipe.enabled !== false). */
   startingRecipes: luaArray(z.string()).default([]),
+}).superRefine((data, ctx) => {
+  // Flow keys (src/data/flowKey.ts) reserve these characters: an item id with one would parse wrongly.
+  for (const id of Object.keys(data.items)) {
+    if (/[@[\]]/.test(id)) {
+      ctx.addIssue({ code: 'custom', path: ['items', id], message: `item id "${id}" contains '@', '[' or ']', which flow keys reserve` })
+    }
+  }
 })
 
 // ---------------------------------------------------------------------------

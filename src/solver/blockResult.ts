@@ -1,4 +1,5 @@
 import type {
+  FluidTag,
   GameData,
   GameRecipeNode,
   RecipeNode,
@@ -10,7 +11,9 @@ import type {
   UnsatisfiedItem,
 } from '../data/types'
 import { importOffItems as importOffOf } from '../data/sourceRules'
-import { rowIngredients, rowProductAmount, type ClassifiedSystem } from './build'
+import { flowKey, productTag, rangeOf, splitFluids } from '../data/flowKey'
+import { rowIngredients, rowProductAmount, type ClassifiedSystem, type FlowKeys } from './build'
+import { baseOf, goalKey, itemKeys, resultItem } from './flowKeys'
 import { computeMachineMetrics, rowMachine, type NodeEffects } from './effects'
 import type { SolverArea } from './areas'
 
@@ -41,6 +44,8 @@ export function importOffItems(plan: SolverPlan): string[] {
 export interface SourcingSets {
   /** Items with no import slack in the LP (a hard row). */
   locked: Set<string>
+  /** The part of `locked` that is there because of a rule (Import off), not because a byproduct consumer takes the item. Read by `noFittingTemperature`. */
+  importOffLocked: Set<string>
   /** Items the block may not import: `locked` plus the items whose rule has Import off but that keep a cheap slack (`makeHere: 'off'`). Read by `coproductDrivenWarning` only. */
   cannotImport: Set<string>
   /** Items whose import slack is cheap (`BYPRODUCTS_FIRST_SLACK_COST`). */
@@ -55,11 +60,12 @@ export interface SourcingSets {
  */
 export function sourcingSets(plan: SolverPlan, byproductConsumerIngredients: Set<string>): SourcingSets {
   const importOff = importOffItems(plan)
-  const locked = new Set(importOff.filter(id => plan.sourceRules?.[id]?.makeHere !== 'off'))
+  const importOffLocked = new Set(importOff.filter(id => plan.sourceRules?.[id]?.makeHere !== 'off'))
+  const locked = new Set(importOffLocked)
   for (const id of byproductConsumerIngredients) locked.add(id)
   const cannotImport = new Set([...importOff, ...byproductConsumerIngredients])
   const byproductsFirst = new Set(itemsWithSourcing(plan, 'off').filter(id => !locked.has(id)))
-  return { locked, cannotImport, byproductsFirst }
+  return { locked, importOffLocked, cannotImport, byproductsFirst }
 }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */
@@ -98,6 +104,8 @@ export function itemGrossFlow(row: Map<string, number> | undefined, throughput: 
  * residuals within `surplusTolerance` of the item's gross flow (LP noise), but once it runs every
  * residual above the absolute `FLOW_TOLERANCE` is capped or unlocked, so a locked item is never
  * left short by a residual the run did not cover. `run` is false when there is nothing to fill.
+ * A split fluid's keys share one offer: it is unlocked, all its keys together, when the offer is below the sum of
+ * their residuals (`flow.offers`; the group row of the LP bounds what the keys take together).
  */
 export function pass2Plan(args: {
   totalCaps: Map<string, number>
@@ -107,9 +115,12 @@ export function pass2Plan(args: {
   slack: Map<string, number>
   S: Map<string, Map<string, number>>
   throughput: Map<string, number>
+  /** the flow keys of the system, when it has split fluids */
+  flow?: FlowKeys
 }): { run: boolean; caps: Map<string, number>; noImport: Set<string> } {
   const caps = new Map<string, number>()
   const noImport = new Set(args.locked)
+  const fluids = new Set<string>()
   let run = false
   for (const [itemId, cap] of args.totalCaps) {
     if (!args.intermediates.has(itemId)) continue
@@ -121,8 +132,17 @@ export function pass2Plan(args: {
       continue
     }
     caps.set(itemId, Math.min(cap, residual))
-    if (cap < residual - FLOW_TOLERANCE) noImport.delete(itemId)
+    const fluid = args.flow?.info.get(itemId)?.itemId
+    if (fluid !== undefined) fluids.add(fluid)
+    else if (cap < residual - FLOW_TOLERANCE) noImport.delete(itemId)
     if (residual > surplusTolerance(itemGrossFlow(args.S.get(itemId), args.throughput))) run = true
+  }
+  for (const fluid of fluids) {
+    const keys = itemKeys({ flow: args.flow }, fluid)
+    const offer = args.flow!.offers.get(fluid) ?? Infinity
+    let total = 0
+    for (const k of keys) total += args.slack.get(k) ?? 0
+    if (offer < total - FLOW_TOLERANCE) for (const k of keys) noImport.delete(k)
   }
   return { run, caps, noImport }
 }
@@ -193,6 +213,17 @@ export function solvedNodeOf(
     outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
   }
 
+  // The temperatures of the split fluids the row makes and takes (one per fluid: the first listed wins).
+  const split = splitFluids(gameData)
+  const inputTags: Record<string, FluidTag> = {}
+  for (const ing of rowIngredients(recipe, effects)) {
+    if (split.has(ing.itemId) && !(ing.itemId in inputTags)) inputTags[ing.itemId] = rangeOf(ing)
+  }
+  const outputTags: Record<string, FluidTag> = {}
+  for (const prod of recipe.products) {
+    if (split.has(prod.itemId) && !(prod.itemId in outputTags)) outputTags[prod.itemId] = productTag(prod, gameData.items[prod.itemId])
+  }
+
   return {
     recipeNodeId: planNode.id,
     inputRates,
@@ -203,6 +234,8 @@ export function solvedNodeOf(
     powerKw,
     ...(effects.fuel ? { fuelItemId: effects.fuel.itemId } : {}),
     ...(feeder && throughput > FLOW_TOLERANCE ? { feedsAbsorber: true as const } : {}),
+    ...(Object.keys(outputTags).length > 0 ? { outputTags } : {}),
+    ...(Object.keys(inputTags).length > 0 ? { inputTags } : {}),
   }
 }
 
@@ -232,8 +265,11 @@ export function coproductDrivenWarning(args: {
   noImportItems: Set<string>
   recipeOf: (columnId: string) => string
   mainItemOf: (columnId: string) => string | undefined
+  /** The base item of a key (default: the key itself); `goals` and the flows are keyed by flow key. */
+  itemOf?: (key: string) => string
 }): SolverWarning | undefined {
   const { goals, system, throughput, slack, itemSurplus, itemGross, fixed, noImportItems, recipeOf, mainItemOf } = args
+  const itemOf = args.itemOf ?? (key => key)
   const goalRate = new Map<string, number>()
   for (const g of goals) goalRate.set(g.itemId, (goalRate.get(g.itemId) ?? 0) + g.rate)
 
@@ -292,14 +328,15 @@ export function coproductDrivenWarning(args: {
     if (goalDriven || binding.length === 0 || minRoom === Infinity) continue
     // A row that runs for the item it is built for, leaving a by-product in surplus, is not driven by a co-product.
     // Without an explicit main product there is no co-product to speak of.
+    const bindingItems = [...new Set(binding.map(itemOf))]
     const main = mainItemOf(columnId)
-    if (main === undefined || binding.includes(main)) continue
+    if (main === undefined || bindingItems.includes(main)) continue
     const needed = Math.max(0, t - minRoom)
     if (needed > COPRODUCT_DRIVEN_RATIO * t) continue
     const recipeId = recipeOf(columnId)
     let entry = byRecipe.get(recipeId)
     if (!entry) byRecipe.set(recipeId, entry = { itemIds: new Set(), saved: 0 })
-    for (const id of binding) entry.itemIds.add(id)
+    for (const id of bindingItems) entry.itemIds.add(id)
     entry.saved += t - needed
   }
   if (byRecipe.size === 0) return undefined
@@ -326,7 +363,7 @@ export interface BlockDiagnostics {
   itemGross: Map<string, number>
   overconstrained?: SolverWarning
   unsatisfied: UnsatisfiedItem[]
-  /** itemId → items/min taken from the offers */
+  /** base itemId → items/min taken from the offers (a split fluid: over all its keys) */
   received: Map<string, number>
 }
 
@@ -356,12 +393,26 @@ export function blockDiagnostics(args: {
     itemGross.set(itemId, itemGrossFlow(rowS, throughputMap))
   }
 
+  // What leaves the solver names the base item and, for a split fluid, the tag; entries of one (item, tag) are merged
+  // into the first one's place (area-qualified keys of one range, or of one temperature).
+  const entry = (key: string, rate: number): UnsatisfiedItem => {
+    const { itemId, temp } = resultItem(system, key)
+    return { itemId, rate, ...(temp ? { temp } : {}) }
+  }
+  const sameTag = (a: UnsatisfiedItem, b: UnsatisfiedItem) =>
+    a.itemId === b.itemId && (a.temp === undefined ? b.temp === undefined : b.temp !== undefined && flowKey(a.itemId, a.temp) === flowKey(b.itemId, b.temp))
+  const addMerged = <T extends UnsatisfiedItem>(list: T[], e: T): void => {
+    const same = e.temp === undefined ? undefined : list.find(x => sameTag(x, e))
+    if (same) same.rate += e.rate
+    else list.push(e)
+  }
+
   // Detect overconstrained intermediates: positive net flow at LP optimum.
-  const overconstrainedItems: { itemId: string; rate: number }[] = []
+  const overconstrainedItems: { itemId: string; rate: number; temp?: FluidTag }[] = []
   for (const itemId of system.classification.intermediates) {
     const surplus = itemSurplus.get(itemId) ?? 0
     if (surplus > surplusTolerance(itemGross.get(itemId) ?? 0)) {
-      overconstrainedItems.push({ itemId, rate: surplus })
+      addMerged(overconstrainedItems, entry(itemId, surplus))
     }
   }
   const overconstrained: SolverWarning | undefined = overconstrainedItems.length > 0
@@ -370,31 +421,41 @@ export function blockDiagnostics(args: {
 
   // Goal shortfall pass: if LP was infeasible (no LP-active producer, or conflicting pins),
   // the actual net output of a goal may be below its target. Surface the deficit so the
-  // Ingredients pane shows what must come from outside.
+  // Ingredients pane shows what must come from outside. A split fluid's goal is on its `[,]` key.
   const goalShortfalls: UnsatisfiedItem[] = []
+  const goalShortfallKeys = new Set<string>()
   for (const goal of goals) {
+    const key = goalKey(system, goal.itemId)
     let netActual = 0
-    for (const node of nodes) {
-      netActual += node.outputRates[goal.itemId] ?? 0
-      netActual -= node.inputRates[goal.itemId] ?? 0
+    if (key !== goal.itemId) {
+      netActual = itemSurplus.get(key) ?? 0
+    } else {
+      for (const node of nodes) {
+        netActual += node.outputRates[goal.itemId] ?? 0
+        netActual -= node.inputRates[goal.itemId] ?? 0
+      }
     }
     const shortfall = goal.rate - netActual
     if (shortfall > GOAL_SHORTFALL_TOLERANCE) {
-      goalShortfalls.push({ itemId: goal.itemId, rate: shortfall })
+      goalShortfalls.push(entry(key, shortfall))
+      goalShortfallKeys.add(key)
     }
   }
 
   // Intermediate slack → external imports needed for network balance.
   const slackIntermediates: UnsatisfiedItem[] = []
-  for (const [itemId, rate] of slackMap) {
-    slackIntermediates.push({ itemId, rate })
-  }
+  for (const [itemId, rate] of slackMap) addMerged(slackIntermediates, entry(itemId, rate))
 
   const received = new Map<string, number>()
+  const addReceived = (key: string, rate: number) => {
+    const base = baseOf(system, key)
+    received.set(base, base === key ? rate : (received.get(base) ?? 0) + rate)
+  }
   const rawConsumption: UnsatisfiedItem[] = []
-  const goalShortfallIds = new Set(goalShortfalls.map(u => u.itemId))
+  // A split fluid's raw keys share its offer, in key order.
+  const offerLeft = new Map<string, number>()
   for (const itemId of system.classification.raw) {
-    if (goalShortfallIds.has(itemId)) continue
+    if (goalShortfallKeys.has(itemId)) continue
     const row = system.S.get(itemId)
     if (!row) continue
     let totalConsumption = 0
@@ -405,11 +466,15 @@ export function blockDiagnostics(args: {
     }
     if (totalConsumption <= 0) continue
     // Supply is always preferred over import for items the block cannot make.
-    const fromSupply = Math.min(totalConsumption, totalCaps.get(itemId) ?? 0)
-    if (fromSupply > FLOW_TOLERANCE) received.set(itemId, fromSupply)
+    const base = baseOf(system, itemId)
+    const cap = totalCaps.get(itemId) ?? 0
+    const available = base === itemId ? cap : Math.min(cap, offerLeft.get(base) ?? cap)
+    const fromSupply = Math.min(totalConsumption, available)
+    if (base !== itemId) offerLeft.set(base, available - fromSupply)
+    if (fromSupply > FLOW_TOLERANCE) addReceived(itemId, fromSupply)
     const imported = totalConsumption - fromSupply
     if (fromSupply === 0 || imported > surplusTolerance(totalConsumption)) {
-      rawConsumption.push({ itemId, rate: imported })
+      addMerged(rawConsumption, entry(itemId, imported))
     }
   }
 
@@ -421,7 +486,7 @@ export function blockDiagnostics(args: {
     // Charged whatever the LP used, even a deficit within the noise of the flow: the source's
     // bookkeeping must match the supply the block actually drew.
     const fromSupply = Math.min(supply.get(itemId) ?? 0, deficit)
-    if (fromSupply > FLOW_TOLERANCE) received.set(itemId, fromSupply)
+    if (fromSupply > FLOW_TOLERANCE) addReceived(itemId, fromSupply)
   }
 
   // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.

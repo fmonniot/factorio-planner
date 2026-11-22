@@ -44,6 +44,22 @@ export type {
 /** A rate the LP must reach for an item (items/min). Built by the solver from a block's products; never stored. */
 export interface SolverGoal { id: string; itemId: string; rate: number }
 
+/**
+ * What a split fluid's flow carries: `{ at }` a made temperature (`null`: unknown), or a range an
+ * ingredient accepts (`{}`: any temperature). See src/data/flowKey.ts.
+ */
+export type FluidTag = { at: number | null } | { min?: number; max?: number }
+
+/** A fluid made at `from` that a block uses where `to` is taken: items/min that moved between two keys (see `SolverResult.conversions`). */
+export interface FluidConversion {
+  itemId: string
+  from: FluidTag
+  to: FluidTag
+  rate: number
+  /** The area that converts it (blocks with areas only). */
+  areaId?: string
+}
+
 export interface SolvedNode {
   recipeNodeId: string
   inputRates: Record<string, number> // itemId -> items/min consumed
@@ -56,11 +72,17 @@ export interface SolvedNode {
   fuelItemId?: string
   /** Set (never `false`) on a row that only runs to feed a row absorbing a byproduct, while it runs. Not part of the snapshot. */
   feedsAbsorber?: true
+  /** The temperature the row makes each split fluid at (present only when it makes one). Rates stay keyed by base item. */
+  outputTags?: Record<string, FluidTag>
+  /** The temperature range the row accepts of each split fluid (present only when it takes one). */
+  inputTags?: Record<string, FluidTag>
 }
 
 export interface UnsatisfiedItem {
   itemId: string
   rate: number // items/min that must come from outside (raw resource / import)
+  /** A split fluid only: the range the import or the shortfall is for (`{}` any). */
+  temp?: FluidTag
 }
 
 export type SolverWarning =
@@ -72,24 +94,24 @@ export type SolverWarning =
       /** true when the elastic solve failed too (the pins conflict, or a locked item cannot be made whatever the pins): values are arbitrary. Absent: the pins hold and products fall short; recipeIds are the pins that bind where the solver could tell, else all */
       conflict?: true
     }
-  | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
+  | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number; temp?: FluidTag }[] }
   /**
    * Recipes the solver runs mostly to make a co-product the block consumes. `throughput` and
    * `needed` are executions/min summed over the recipe's rows: what it runs at, and what its other
    * outputs would need. `itemIds` are the co-products that bind it.
    */
   | { type: 'coproduct-driven'; drivers: { recipeId: string; itemIds: string[]; throughput: number; needed: number }[] }
-  | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }
-  | { type: 'area-cut-off'; cutOffs: { areaId: string; itemId: string }[] }
+  | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number; temp?: FluidTag }[] }
+  | { type: 'area-cut-off'; cutOffs: { areaId: string; itemId: string; temp?: FluidTag }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
-  | {
-      type: 'temperature-mismatch'; recipeId: string; itemId: string; supplied: number[]; minimum?: number; maximum?: number
-      /** items/min of the fluid the block imports because none of `supplied` fits (absent: not imported) */
-      imported?: number
-      /** items/min of the fluid the block makes that nothing takes, with `imported` (absent: none) */
-      unused?: number
-    }
+  /** Heat only: a reactor's heat buffer maximum against an exchanger's minimum. */
+  | { type: 'temperature-mismatch'; recipeId: string; itemId: string; supplied: number[]; minimum?: number; maximum?: number }
+  /**
+   * A temperature range of a fluid the block's rows take that nothing in the block makes, no connection could
+   * supply and the block cannot import (a locked fluid). `recipeIds` are the rows that take it.
+   */
+  | { type: 'no-fitting-temperature'; itemId: string; min?: number; max?: number; recipeIds: string[] }
   /** Modules the game would not accept in their machine or beacon (effects or category); the planner still counts them as before. */
   | {
       type: 'module-not-allowed'
@@ -101,6 +123,8 @@ export interface AreaFlow {
   itemId: string
   rate: number // items/min
   boundary: boolean
+  /** A split fluid only: the temperature the flow carries (a made temperature, or the range it is for). */
+  temp?: FluidTag
 }
 
 /** What one area receives from and sends to the rest of the block (id: root plan or sub-plan id). */
@@ -113,6 +137,8 @@ export interface SolvedArea {
 /** Items/min of one item from one party to another in a block with areas; an absent end is outside the block. */
 export interface AreaRoute {
   itemId: string
+  /** A split fluid only: the temperature the route carries. */
+  temp?: FluidTag
   from?: string
   to?: string
   rate: number
@@ -128,6 +154,8 @@ export interface SolverResult {
   areas?: SolvedArea[]
   /** Present exactly when `areas` is; sorted by item id, sender rank, receiver rank (outside last). */
   areaRoutes?: AreaRoute[]
+  /** Present only when non-empty: the flows between a split fluid's temperatures and the ranges the rows take (rate above FLOW_TOLERANCE). */
+  conversions?: FluidConversion[]
 }
 
 // ---------------------------------------------------------------------------

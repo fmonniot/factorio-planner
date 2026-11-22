@@ -10,6 +10,7 @@ import { RateInput } from './RateInput'
 import { ItemPicker } from '../ItemPicker'
 import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
+import { offerByItem, parseFlowKey } from '../../data/flowKey'
 import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
@@ -217,8 +218,10 @@ export function FactorySummary() {
   const products: Product[] = activeBlock?.products ?? []
   const productItemIds = new Set(products.map(p => p.itemId))
 
-  const netBalance = solverResult ? computeNetBalance(solverResult.nodes) : new Map<string, number>()
-  const gross = solverResult ? grossFlow(solverResult.nodes) : new Map<string, number>()
+  // Per flow key: a split fluid's temperatures and ranges are separate entries, a plain item's key is its id.
+  const netBalance = solverResult ? computeNetBalance(solverResult.nodes, solverResult.conversions) : new Map<string, number>()
+  const gross = solverResult ? grossFlow(solverResult.nodes, solverResult.conversions) : new Map<string, number>()
+  const netOfItem = offerByItem(netBalance)
 
   const inputFlows = useMemo(
     () => new Map(allFlows.filter(f => f.toBlockId === activeBlockId).map(f => [f.connectionId, f])),
@@ -246,10 +249,17 @@ export function FactorySummary() {
 
   // Byproducts: net positive balance of items that are not products, minus what other blocks take;
   // a leftover that is only LP rounding noise (see isLeftover) gets no tile.
+  // What other blocks take of an item is subtracted from its keys in turn.
+  const exportLeft = new Map(exportedPerMin)
   const byproductItems = [...netBalance]
-    .filter(([id]) => !productItemIds.has(id))
-    .map(([id, net]) => ({ itemId: id, ratePerMin: net - (exportedPerMin.get(id) ?? 0) }))
-    .filter(({ itemId, ratePerMin }) => isLeftover(ratePerMin, gross.get(itemId) ?? 0))
+    .map(([key, net]) => ({ key, net, ...parseFlowKey(key) }))
+    .filter(({ itemId }) => !productItemIds.has(itemId))
+    .map(({ key, net, itemId, tag }) => {
+      const taken = Math.min(Math.max(0, net), exportLeft.get(itemId) ?? 0)
+      if (taken > 0) exportLeft.set(itemId, (exportLeft.get(itemId) ?? 0) - taken)
+      return { itemId, key, ...(tag ? { temp: tag } : {}), ratePerMin: net - taken }
+    })
+    .filter(({ key, ratePerMin }) => isLeftover(ratePerMin, gross.get(key) ?? 0))
   const exportedByproducts = [...exportedPerMin.keys()].filter(id => !productItemIds.has(id))
   const byproductRowList = byproductRows(byproductItems, exportedByproducts)
 
@@ -297,13 +307,19 @@ export function FactorySummary() {
     return productSlot(
       p,
       // No node makes the item: the product is fully short, not unknown.
-      solverResult ? (netBalance.get(p.itemId) ?? 0) : undefined,
+      solverResult ? (netOfItem.get(p.itemId) ?? 0) : undefined,
       exportsOf(p.itemId),
       rateUnit,
       requests,
     )
   })
-  const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOf(r.itemId)))
+  // The deliveries of an item sit on the first slot of it.
+  const exportShown = new Set<string>()
+  const byproductSlots = byproductRowList.map(r => {
+    const first = !exportShown.has(r.itemId)
+    exportShown.add(r.itemId)
+    return byproductSlot(r, first ? exportsOf(r.itemId) : [])
+  })
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds, ruleItems))
   // A product shortfall cannot receive supply (products have no import slack either).
   const connectable = (itemId: string) => (activeBlock ? !hasProduct(activeBlock, itemId) : false)
