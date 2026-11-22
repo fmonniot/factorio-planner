@@ -6,6 +6,7 @@ import type {
   BlockLoop,
   ConnectionFlow,
   ConnectionFlowStatus,
+  ConnectionPart,
   GameData,
   MultiBlockSolve,
   Product,
@@ -18,13 +19,15 @@ import type {
   SubPlan,
 } from '../data/types'
 import { blockAreas, explicitMainProduct, solveAreaBlock, withAreaRules } from './areas'
-import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount } from './build'
+import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount, type FluidKeySupply, type KeySupply } from './build'
 import { solveLP } from './solve'
 import { isFeeder } from './absorbers'
 import { connectionOrder, needsConnectionOrder } from './connectionOrder'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
-import { flowKey, offerByItem, parseFlowKey, sumByItem } from '../data/flowKey'
-import { baseOf, conversionsOf, expandToKeys, goalKey, keyCaps, keyGoals, noFittingTemperature } from './flowKeys'
+import { compareTags, fitsRange, flowKey, isTemperatureTag, keysOfItem, parseFlowKey, rangeDepth, splitFluids, sumOfItem, versatility, type FluidRange } from '../data/flowKey'
+import { allocateKeys, type AllocKey, type AllocMember } from './keyAllocation'
+import { baseOf, conversionsOf, expandToKeys, fluidRanges, goalKeyOf, goalMapKey, keyCaps, keyGoals, noFittingTemperature, supplyCaps as suppliedKeyCaps } from './flowKeys'
+import { keySupplyPlanOf } from './keySupplyPlan'
 import { computeNodeEffects } from './effects'
 import { moduleNotAllowedWarning } from './moduleWarnings'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
@@ -32,10 +35,10 @@ import {
   FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, sourcingSets, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { buildServed } from './served'
-import { areaNeedsOf, splitByArea, type AreaNeed, type AreaNeeds, type AreaReport } from './servedAreas'
+import { areaKeyNeedsOf, areaNeedsOf, splitByArea, type AreaNeed, type AreaNeeds, type AreaReport } from './servedAreas'
 import { servedGroupSpans } from '../data/servedEntries'
 import { grantByRank, rankedPairs, servedRankOf, waterFill, type RankedEntry, type RankedPair, type RankedPairs, type ServedRank } from './servedRank'
-import { canonicalAreas, exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
+import { canonicalAreas, exactKey, keySupplyKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
 /**
  * Flatten a Block into a SolverPlan: walk the rootPlan tree, collect every
@@ -78,18 +81,29 @@ export function blockMakesItem(block: Block, gameData: GameData, itemId: string,
 /**
  * The solver goals of a block's products: `extraRate` (0 when absent), and for the first product
  * of each item also what other blocks `requested` of it. Rates at or below zero are dropped.
+ * `requested` is keyed by flow key (the item id for a plain item): a split fluid is requested per range, the request of any
+ * temperature (`item[,]`) joins the first product's goal and each other requested range is one more goal on that product,
+ * `temp` set (see `SolverGoal.temp`).
  */
-function productGoals(products: Product[], requested?: Map<string, number>): SolverGoal[] {
+export function productGoals(products: Product[], requested?: Map<string, number>): SolverGoal[] {
   const goals: SolverGoal[] = []
   const first = new Set<string>()
   for (const p of products) {
     let rate = p.extraRate ?? 0
+    const ranged: SolverGoal[] = []
     if (!first.has(p.itemId)) {
       first.add(p.itemId)
-      const r = requested?.get(p.itemId) ?? 0
-      if (r > FLOW_TOLERANCE) rate += r
+      for (const key of requested ? keysOfItem(requested, p.itemId) : []) {
+        const r = requested!.get(key) ?? 0
+        if (!(r > FLOW_TOLERANCE)) continue
+        const tag = parseFlowKey(key).tag
+        // A plain item, or a split fluid requested at any temperature, adds to the product's own goal.
+        if (key === p.itemId || (tag && !isTemperatureTag(tag) && tag.min === undefined && tag.max === undefined)) rate += r
+        else if (tag && !isTemperatureTag(tag)) ranged.push({ id: `${p.id}\0${key}`, itemId: p.itemId, rate: r, temp: tag })
+      }
     }
     if (rate > 0) goals.push({ id: p.id, itemId: p.itemId, rate })
+    goals.push(...ranged)
   }
   return goals
 }
@@ -158,9 +172,8 @@ export function grossFlow(nodes: FlowNode[], conversions?: FluidConversion[]): M
 }
 
 /**
- * What a block with these `nodes` can offer per base item: the sum over its flow keys of each net above its own noise
- * floor (a plain item is its one key), and the unthresholded positive nets with their noise floors for the loops'
- * convergence test.
+ * What a block with these `nodes` can offer per flow key (the item id for a plain item): each key's net above its own noise
+ * floor, and the unthresholded positive nets with their noise floors for the loops' convergence test.
  */
 function offersOf(nodes: FlowNode[], conversions?: FluidConversion[]): { offers: Offers; netOffers: BlockStep['netOffers'] } {
   const offers: Offers = new Map()
@@ -168,12 +181,8 @@ function offersOf(nodes: FlowNode[], conversions?: FluidConversion[]): { offers:
   const gross = grossFlow(nodes, conversions)
   for (const [key, net] of netBalance(nodes, conversions)) {
     const tol = surplusTolerance(gross.get(key) ?? 0)
-    const itemId = parseFlowKey(key).itemId
-    if (net > 0) {
-      const o = netOffers.get(itemId)
-      netOffers.set(itemId, { net: (o?.net ?? 0) + net, tol: (o?.tol ?? 0) + tol })
-    }
-    if (net > tol) offers.set(itemId, (offers.get(itemId) ?? 0) + net)
+    if (net > 0) netOffers.set(key, { net, tol })
+    if (net > tol) offers.set(key, net)
   }
   return { offers, netOffers }
 }
@@ -205,15 +214,20 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
  * (least received, fill, refill) may retry once with looser bounds, so at most seven in all; see connectionOrder.ts).
  *
  * The solve cache key (see solveCache.ts) must grow if this ever reads
- * anything beyond `plan`, `gameData` and `supplyCaps`; `connectionOrder` reads only those
- * (the plan, the game data and the offers), so the key is unchanged.
+ * anything beyond `plan`, `gameData`, `supplyCaps` and `keySupply` (a split fluid's offers per connection and key, its ranges
+ * across the plan and the connections' limits, see `keySupplyKey`); `connectionOrder` reads only those
+ * (the plan, the game data and the offers), so the key is `planKey`, the caps and `keySupplyKey`.
+ *
+ * `keySupply` hands a split fluid over by key: each offered key is a supplied key with its own variables, and the result says
+ * what each connection delivered of each key (`receivedParts`), and what a probe received per range key (`receivedKeys`).
  */
 export function solveBlock(
   plan: SolverPlan,
   gameData: GameData,
   supplyCaps: Map<string, number> = new Map(),
-): { result: SolverResult; received: Map<string, number> } {
-  if (plan.areas) return solveAreaBlock(plan, plan.areas, gameData, supplyCaps)
+  keySupply: KeySupply = new Map(),
+): { result: SolverResult; received: Map<string, number>; receivedParts?: Map<string, Map<string, number>>; receivedKeys: Map<string, number> } {
+  if (plan.areas) return solveAreaBlock(plan, plan.areas, gameData, supplyCaps, keySupply)
 
   // SubPlanNodes are UI grouping only; the solver only sees game-recipe nodes.
   // byproductConsumer is a flag that applies a small negative bonus to the
@@ -248,7 +262,7 @@ export function solveBlock(
 
   const recipeIds = representatives.map(n => n.recipeId)
 
-  const goalsMap = new Map(plan.goals.map(g => [g.itemId, g.rate]))
+  const goalsMap = new Map(plan.goals.map(g => [goalMapKey(g), g.rate]))
 
   const nodeEffectsMap = new Map(
     representatives.map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
@@ -269,14 +283,14 @@ export function solveBlock(
     representatives.filter(n => n.absorberFeeder && !n.byproductConsumer).map(n => n.recipeId),
   )
 
-  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, nodeEffectsMap, { supplyCaps })
+  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, nodeEffectsMap, { supplyCaps, keySupply })
 
-  // Warn for goal items with no producer recipe in the plan.
+  // Warn for goal items with no producer recipe in the plan (one warning per item for the goals on a range).
   const noRecipeWarnings: SolverResult['warnings'] = []
   for (const goal of plan.goals) {
-    const row = system.S.get(goalKey(system, goal.itemId))
+    const row = system.S.get(goalKeyOf(system, goal))
     const hasProducer = row !== undefined && [...row.values()].some(c => c > 0)
-    if (!hasProducer) {
+    if (!hasProducer && !(goal.temp && noRecipeWarnings.some(w => w.type === 'no-recipe' && w.itemId === goal.itemId))) {
       noRecipeWarnings.push({ type: 'no-recipe', itemId: goal.itemId })
     }
   }
@@ -315,15 +329,20 @@ export function solveBlock(
   const cannotImport = expandToKeys(system, sets.cannotImport)
   const byproductsFirst = expandToKeys(system, sets.byproductsFirst)
 
-  // A split fluid's offer is the cap of each of its range keys (the LP's group row bounds their sum).
-  const totalCaps = keyCaps(system, new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE)))
+  // A split fluid's offer is the cap of each of its range keys (the LP's group row bounds their sum); one a connection supplies
+  // by key (`keySupply`) has a supplied key per offered key instead, capped by what the connections offer of it.
+  const totalCaps = new Map([
+    ...keyCaps(system, new Map([...supplyCaps].filter(([id, cap]) => cap > FLOW_TOLERANCE && !keySupply.has(id)))),
+    ...suppliedKeyCaps(system),
+  ])
   const noFitWarnings = noFittingTemperature(system, expandToKeys(system, sets.importOffLocked), id => id)
 
   // Pass 1: what the block's own recipes cannot cover. Connected items lose their
-  // lock for this pass only, so a shortfall shows up as slack, not as infeasibility.
+  // lock for this pass only, so a shortfall shows up as slack, not as infeasibility. A split fluid loses it on every key.
+  const connectedBases = new Set([...totalCaps.keys()].map(k => baseOf(system, k)))
   const pass1NoImport = totalCaps.size === 0
     ? locked
-    : new Set([...locked].filter(itemId => !totalCaps.has(itemId)))
+    : new Set([...locked].filter(itemId => !connectedBases.has(baseOf(system, itemId))))
   // Connections-first intermediates have their supply in every pass, capped by the
   // offer only, so the LP uses it before the block's own recipes.
   const firstItems = new Set(
@@ -332,25 +351,30 @@ export function solveBlock(
     ),
   )
   const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
-  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst, markedFeeders)
+  const keySupplyPlan = keySupplyPlanOf(system)
+  const offerFluidCaps = new Map([...(keySupplyPlan?.fluids ?? [])].map(([fluid, f]) => [fluid, f.offers]))
+  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst, markedFeeders, { fluidCaps: offerFluidCaps })
 
   // Pass 2: supply fills only the residual of connected intermediates. Capping at
   // the residual keeps own production at its pass-1 level (replacing it would
   // bring slack back at BIG_M); raw items need no LP row and are handled below.
   const pass2 = pass2Plan({
     totalCaps, intermediates: system.classification.intermediates, firstItems, locked,
-    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow,
+    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow, keySupply: keySupplyPlan,
   })
   if (pass2.run) {
     lp = solveLP(
       system, pinnedRates, bcRecipeIds, pass2.noImport,
-      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, markedFeeders,
+      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, markedFeeders, { fluidCaps: pass2.fluidCaps },
     )
   }
 
   // A connection replaces an import: when the two passes still import an intermediate while a connection
   // has offer to spare, the order of connectionOrder.ts decides (least import, least received, fill).
-  const order = { system, pinnedRates, bcRecipeIds, markedFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp }
+  const order = {
+    system, pinnedRates, bcRecipeIds, markedFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp,
+    fluidCaps: offerFluidCaps, keySupply: keySupplyPlan,
+  }
   if (needsConnectionOrder(order)) lp = connectionOrder(order) ?? lp
 
   const { throughput: throughputMap, warnings } = lp
@@ -374,8 +398,8 @@ export function solveBlock(
     ))
   }
 
-  const { overconstrained, itemSurplus, itemGross, unsatisfied, received } = blockDiagnostics({
-    goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, supply: lp.supply, nodes, totalCaps,
+  const { overconstrained, itemSurplus, itemGross, unsatisfied, received, receivedKeys, receivedParts } = blockDiagnostics({
+    goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, supply: lp.supply, nodes, totalCaps, keySupplyUse: lp.keySupplyUse,
   })
   if (overconstrained) warnings.push(overconstrained)
   const mainItemOfRecipe = new Map<string, string>()
@@ -399,6 +423,8 @@ export function solveBlock(
       ...(conversions ? { conversions } : {}),
     },
     received,
+    ...(receivedParts.size > 0 ? { receivedParts } : {}),
+    receivedKeys,
   }
 }
 
@@ -426,7 +452,7 @@ export interface SolveAllOptions {
   requestRoundLimit?: number
 }
 
-/** itemId → items/min; one block's offer, or what is still unclaimed of it. */
+/** flow key (the item id for a plain item) → items/min; one block's offer, or what is still unclaimed of it. */
 type Offers = Map<string, number>
 
 interface StepContext {
@@ -442,6 +468,12 @@ interface StepContext {
   credits: Map<string, number>
   /** connection id → what the source's served list grants it of the source's offer; absent for a pair that is not ranked. */
   grants: ReadonlyMap<string, number>
+  /** split fluid: connection id → flow key → what the connection's request asked or its take was credited (parts of `requests` and `credits`). */
+  keyShares: ReadonlyMap<string, ReadonlyMap<string, number>>
+  /** split fluid: connection id → flow key → what the source's served list grants it; absent for a pair that is not ranked. */
+  keyGrants: ReadonlyMap<string, ReadonlyMap<string, number>>
+  /** split fluid → the ranges the plan's rows take of it (see `fluidRanges`) */
+  ranges: ReadonlyMap<string, FluidRange[]>
   /** blockId → goals with requested amounts added; absent = the block's own. */
   goals: Map<string, SolverGoal[]>
 }
@@ -452,7 +484,7 @@ interface BlockStep {
   flows: ConnectionFlow[]
   /** The block's net output, before any consumer took from it. */
   offers: Offers
-  /** Every item with a positive net output, unthresholded, with the noise floor of its gross flow: the loop's convergence test reads these, so a value hovering at the offer threshold does not flip it. */
+  /** Every key with a positive net output, unthresholded, with the noise floor of its gross flow: the loop's convergence test reads these, so a value hovering at the offer threshold does not flip it. */
   netOffers: Map<string, { net: number; tol: number }>
 }
 
@@ -486,6 +518,7 @@ function solveStep(
   pending: Map<string, Offers>,
 ): BlockStep {
   const { gameData, cache } = ctx
+  const split = splitFluids(gameData)
   const flows: ConnectionFlow[] = []
   const active: BlockConnection[] = []
   const available = new Map<string, number>() // connection id → items/min on offer
@@ -494,6 +527,9 @@ function solveStep(
   const seen = new Set<string>()
   const duplicates = new Set<string>() // connection ids repeating an earlier (source, item) pair
   const capped = new Set<string>() // connection ids whose maxRate is below the source's offer
+  // A split fluid is offered per key: connection id → key → { share, offer } (the offer capped by `maxRate`), and what the solve is told.
+  const keyed = new Map<string, Map<string, { share: number; offer: number }>>()
+  const keySupply = new Map<string, FluidKeySupply>()
   for (const c of block.inputConnections) {
     if (!ctx.blockIds.has(c.fromBlockId)) {
       flows.push(ignoredFlow(block, c, 'missing-source'))
@@ -505,11 +541,43 @@ function solveStep(
       const duplicate = seen.has(key)
       if (duplicate) duplicates.add(c.id)
       const info = ctx.requests.get(c.id)
-      const reserved = pending.get(c.fromBlockId)?.get(c.itemId) ?? 0
-      const left = remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
-      // `??`: a grant of 0 stays 0.
-      const share = ctx.grants.get(c.id) ?? connectionShare(info, ctx.credits.get(c.id))
-      const sourceOffer = duplicate ? 0 : connectionOffer(left, reserved, share)
+      let sourceOffer: number
+      let share: number
+      if (split.has(c.itemId)) {
+        const left = remaining.get(c.fromBlockId)
+        const reserved = pending.get(c.fromBlockId)
+        const granted = ctx.keyGrants.get(c.id)
+        const shareMap = granted ?? ctx.keyShares.get(c.id)
+        const keys = new Set([...keysOfItem(left ?? new Map(), c.itemId), ...keysOfItem(reserved ?? new Map(), c.itemId), ...(shareMap?.keys() ?? [])])
+        const perKey = new Map<string, { share: number; offer: number }>()
+        sourceOffer = 0
+        share = 0
+        for (const k of [...keys].sort((x, y) => compareTags(parseFlowKey(x).tag ?? {}, parseFlowKey(y).tag ?? {}))) {
+          const kShare = shareMap?.get(k) ?? 0
+          // `??`: a grant of 0 stays 0.
+          const offer = duplicate ? 0 : connectionOffer(left?.get(k) ?? 0, reserved?.get(k) ?? 0, kShare)
+          perKey.set(k, { share: kShare, offer })
+          sourceOffer += offer
+          share += kShare
+          const tag = parseFlowKey(k).tag
+          const cap = c.maxRate === undefined ? offer : Math.min(offer, c.maxRate)
+          if (tag && cap > FLOW_TOLERANCE) {
+            const ks = keySupply.get(c.itemId) ?? { ranges: ctx.ranges.get(c.itemId) ?? [], offers: [], maxRates: [] }
+            ks.offers.push({ connectionId: c.id, tag, offer: cap })
+            keySupply.set(c.itemId, ks)
+          }
+        }
+        if (c.maxRate !== undefined && keySupply.get(c.itemId)?.offers.some(o => o.connectionId === c.id)) {
+          keySupply.get(c.itemId)!.maxRates.push([c.id, c.maxRate])
+        }
+        keyed.set(c.id, perKey)
+      } else {
+        const reserved = pending.get(c.fromBlockId)?.get(c.itemId) ?? 0
+        const left = remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
+        // `??`: a grant of 0 stays 0.
+        share = ctx.grants.get(c.id) ?? connectionShare(info, ctx.credits.get(c.id))
+        sourceOffer = duplicate ? 0 : connectionOffer(left, reserved, share)
+      }
       const offer = c.maxRate === undefined ? sourceOffer : Math.min(sourceOffer, c.maxRate)
       const limitBinds =
         info && 'requested' in info
@@ -523,30 +591,33 @@ function solveStep(
       active.push(c)
       available.set(c.id, offer)
       shares.set(c.id, duplicate ? 0 : share)
-      caps.set(c.itemId, (caps.get(c.itemId) ?? 0) + offer)
+      if (!split.has(c.itemId)) caps.set(c.itemId, (caps.get(c.itemId) ?? 0) + offer)
     }
   }
 
   let error: string | undefined
   let result = emptyResult()
   let received = new Map<string, number>()
+  let receivedParts: Map<string, Map<string, number>> | undefined
   const base = flattenBlock(block)
   const plan = { ...base, goals: ctx.goals.get(block.id) ?? base.goals }
   if (plan.goals.length > 0 && plan.nodes.length > 0) {
     const key = cache ? planKey(plan) : ''
-    const hit = cache?.get(block.id, gameData, key, caps)
+    const supplyKey = cache ? keySupplyKey(keySupply) : ''
+    const hit = cache?.get(block.id, gameData, key, caps, supplyKey)
     if (hit) {
-      ;({ result, received } = hit)
+      ;({ result, received, receivedParts } = hit)
     } else {
       try {
-        const solved = solveBlock(plan, gameData, caps)
-        ;({ result, received } = solved)
-        cache?.set(block.id, gameData, key, caps, solved)
+        const solved = solveBlock(plan, gameData, caps, keySupply)
+        ;({ result, received, receivedParts } = solved)
+        cache?.set(block.id, gameData, key, caps, solved, supplyKey)
       } catch (err) {
         cache?.delete(block.id)
         error = err instanceof Error ? err.message : String(err)
         result = emptyResult()
         received = new Map()
+        receivedParts = undefined
       }
     }
   } else {
@@ -560,25 +631,41 @@ function solveStep(
 
   // Delivery in two passes, each in connection order: first every connection's reserved share
   // (what its source made or kept for it), then what the block still needs from the rest of the offers.
+  // A split fluid's delivery is read per connection and key from the solve.
   const undelivered = new Map(received)
   const delivered = new Map<string, number>() // connection id → items/min
+  const deliveredKeys = new Map<string, Map<string, number>>() // split connection id → key → items/min
   const deliver = (c: BlockConnection, offer: number): void => {
     const rate = Math.min(undelivered.get(c.itemId) ?? 0, offer)
     if (rate <= 0) return
     undelivered.set(c.itemId, (undelivered.get(c.itemId) ?? 0) - rate)
     delivered.set(c.id, (delivered.get(c.id) ?? 0) + rate)
   }
-  for (const c of active) deliver(c, Math.min(shares.get(c.id) ?? 0, available.get(c.id) ?? 0))
-  for (const c of active) deliver(c, (available.get(c.id) ?? 0) - (delivered.get(c.id) ?? 0))
+  for (const c of active) if (!keyed.has(c.id)) deliver(c, Math.min(shares.get(c.id) ?? 0, available.get(c.id) ?? 0))
+  for (const c of active) if (!keyed.has(c.id)) deliver(c, (available.get(c.id) ?? 0) - (delivered.get(c.id) ?? 0))
   for (const c of active) {
+    const perKey = keyed.get(c.id)
+    if (perKey) {
+      const parts = new Map<string, number>()
+      for (const [k, rate] of receivedParts?.get(c.id) ?? []) if (rate > 0) parts.set(k, rate)
+      deliveredKeys.set(c.id, parts)
+      delivered.set(c.id, [...parts.values()].reduce((a, r) => a + r, 0))
+    }
     const rate = delivered.get(c.id) ?? 0
     const sourceLeft = remaining.get(c.fromBlockId)
     if (sourceLeft && rate > 0) {
-      sourceLeft.set(c.itemId, (sourceLeft.get(c.itemId) ?? 0) - rate)
+      if (perKey) for (const [k, r] of deliveredKeys.get(c.id)!) sourceLeft.set(k, (sourceLeft.get(k) ?? 0) - r)
+      else sourceLeft.set(c.itemId, (sourceLeft.get(c.itemId) ?? 0) - rate)
     }
     // Served: whatever this consumer left unused of its share goes back to the ones solved later.
-    const share = shares.get(c.id) ?? 0
     const sourcePending = pending.get(c.fromBlockId)
+    if (perKey) {
+      if (sourcePending) {
+        for (const [k, kv] of perKey) if (kv.share > 0) sourcePending.set(k, Math.max(0, (sourcePending.get(k) ?? 0) - kv.share))
+      }
+      continue
+    }
+    const share = shares.get(c.id) ?? 0
     if (share > 0 && sourcePending) {
       sourcePending.set(c.itemId, Math.max(0, (sourcePending.get(c.itemId) ?? 0) - share))
     }
@@ -588,10 +675,41 @@ function solveStep(
     const offer = available.get(c.id) ?? 0
     const rate = delivered.get(c.id) ?? 0
     const info = ctx.requests.get(c.id)
+    const perKey = keyed.get(c.id)
     const importsItem = (stillImported.get(c.itemId) ?? 0) > FLOW_TOLERANCE
+    let limited: boolean
+    let parts: ConnectionPart[] | undefined
+    if (perKey) {
+      // Limited: the block still imports a range one of the connection's offered keys fits and that key is used up, or the
+      // connection's own limit is used up while it still imports the fluid.
+      const wanted = result.unsatisfied.filter(u => u.itemId === c.itemId && u.temp !== undefined && !isTemperatureTag(u.temp) && u.rate > FLOW_TOLERANCE)
+      const got = deliveredKeys.get(c.id)!
+      limited = duplicates.has(c.id) ? false
+        : wanted.some(u => [...perKey].some(([k, kv]) => {
+            const cap = c.maxRate === undefined ? kv.offer : Math.min(kv.offer, c.maxRate)
+            const tag = parseFlowKey(k).tag
+            return tag !== undefined && cap > FLOW_TOLERANCE && fitsRange(tag, u.temp as FluidRange) && (got.get(k) ?? 0) >= cap - surplusTolerance(cap)
+          }))
+          || (importsItem && c.maxRate !== undefined && rate >= c.maxRate - surplusTolerance(c.maxRate))
+      parts = []
+      const asked = info && 'requested' in info ? info.parts : undefined
+      for (const k of new Set([...perKey.keys(), ...got.keys(), ...(asked?.keys() ?? [])])) {
+        const tag = parseFlowKey(k).tag
+        if (!tag) continue
+        const kv = perKey.get(k)
+        const cap = kv === undefined ? 0 : c.maxRate === undefined ? kv.offer : Math.min(kv.offer, c.maxRate)
+        const r = got.get(k) ?? 0
+        const requested = asked?.get(k)
+        if (r <= FLOW_TOLERANCE && cap <= FLOW_TOLERANCE && !(requested !== undefined && requested > FLOW_TOLERANCE)) continue
+        parts.push({ temp: tag, rate: r, available: cap, ...(info && 'requested' in info ? { requested: requested ?? 0 } : {}) })
+      }
+      parts.sort((x, y) => compareTags(x.temp, y.temp))
+    } else {
+      limited = importsItem && rate >= offer - surplusTolerance(offer)
+    }
     const status: ConnectionFlowStatus =
       duplicates.has(c.id) ? 'unused'
-      : importsItem && rate >= offer - surplusTolerance(offer) ? 'limited'
+      : limited ? 'limited'
       : rate <= FLOW_TOLERANCE ? 'unused'
       : 'ok'
     flows.push({
@@ -607,6 +725,7 @@ function solveStep(
       ...(ctx.loopConnectionIds.has(c.id) ? { loop: true as const } : {}),
       ...(info && 'requested' in info ? { requested: info.requested } : {}),
       ...(info && 'ignored' in info ? { requestIgnored: info.ignored } : {}),
+      ...(parts ? { parts } : {}),
     })
   }
 
@@ -630,10 +749,15 @@ export function backOffersSettled(
   for (const b of members) {
     for (const c of b.inputConnections) {
       if (!back.has(c.id)) continue
-      const before = prev.get(c.fromBlockId)?.get(c.itemId)?.net ?? 0
-      const after = next.get(c.fromBlockId)?.get(c.itemId)
-      // Equal as rates, or both within the noise of the flow (an offer that rounds to nothing).
-      if (!sameRate(before, after?.net ?? 0) && Math.abs(before - (after?.net ?? 0)) > (after?.tol ?? 0)) return false
+      // Every key of the item (a split fluid's offer is per temperature and range): the loops converge per key.
+      const prevOffers = prev.get(c.fromBlockId)
+      const nextOffers = next.get(c.fromBlockId)
+      for (const k of new Set([...keysOfItem(prevOffers ?? new Map(), c.itemId), ...keysOfItem(nextOffers ?? new Map(), c.itemId)])) {
+        const before = prevOffers?.get(k)?.net ?? 0
+        const after = nextOffers?.get(k)
+        // Equal as rates, or both within the noise of the flow (an offer that rounds to nothing).
+        if (!sameRate(before, after?.net ?? 0) && Math.abs(before - (after?.net ?? 0)) > (after?.tol ?? 0)) return false
+      }
     }
   }
   return true
@@ -664,12 +788,20 @@ function cloneRemaining(remaining: Map<string, Offers>): Map<string, Offers> {
 // Requests: request pass
 // ---------------------------------------------------------------------------
 
-/** What the request pass decided for one connection to a product of its source. */
-type RequestInfo = { requested: number } | { ignored: RequestIgnoredReason }
+/**
+ * What the request pass decided for one connection to a product of its source. A split fluid is requested per range:
+ * `parts` is the amount per range key (they add up to `requested`).
+ */
+type RequestInfo = { requested: number; parts?: Map<string, number> } | { ignored: RequestIgnoredReason }
 
 /** The amount reserved for a connection while others are served: a request's amount, else the take's credit (0 when none). */
 function connectionShare(info: RequestInfo | undefined, credit: number | undefined): number {
   return info && 'requested' in info ? info.requested : (credit ?? 0)
+}
+
+/** A split fluid's share of a connection per key: what the request asked per range, else what the take was credited. */
+function connectionKeyShares(info: RequestInfo | undefined, creditParts: ReadonlyMap<string, number> | undefined): ReadonlyMap<string, number> | undefined {
+  return info && 'requested' in info ? info.parts : creditParts
 }
 
 interface RequestPlan {
@@ -689,6 +821,10 @@ interface RequestPlan {
   inListOrder: Set<string>
   /** block id → item id → the block's areas that need the item from outside (its request probe, table order); only for probed blocks with areas. */
   areaNeeds: Map<string, AreaNeeds>
+  /** split fluid: take connection id → flow key → what the take was credited (the parts of `credits`). */
+  creditParts: Map<string, Map<string, number>>
+  /** split fluid: a ranked pair's allocation: entry index (of `splitByArea(listed)`) → key → amount, and the extra's amount per key. */
+  splitAlloc: Map<RankedPair, { entryKeys: Map<number, Map<string, number>>; extra: Map<string, number> }>
 }
 
 /** Items the block connects to existing, non-self sources, each with unlimited supply (a request probe). */
@@ -726,11 +862,11 @@ function probeBlock(
     return probe
   }
   const hit = cache?.get(block.id, gameData, key, caps)
-  if (hit) return { received: hit.received, nodes: hit.result.nodes, conversions: hit.result.conversions, failed: false, areaNeeds: areaNeedsOf(hit.result.areaRoutes) }
+  if (hit) return { received: hit.receivedKeys ?? hit.received, nodes: hit.result.nodes, conversions: hit.result.conversions, failed: false, areaNeeds: areaNeedsOf(hit.result.areaRoutes), areaKeyNeeds: areaKeyNeedsOf(hit.result.areaRoutes) }
   try {
     const solved = solveBlock(plan, gameData, caps)
     cache?.set(block.id, gameData, key, caps, solved)
-    return { received: solved.received, nodes: solved.result.nodes, conversions: solved.result.conversions, failed: false, areaNeeds: areaNeedsOf(solved.result.areaRoutes) }
+    return { received: solved.receivedKeys, nodes: solved.result.nodes, conversions: solved.result.conversions, failed: false, areaNeeds: areaNeedsOf(solved.result.areaRoutes), areaKeyNeeds: areaKeyNeedsOf(solved.result.areaRoutes) }
   } catch {
     cache?.delete(block.id)
     return { received: new Map(), nodes: [], failed: true }
@@ -738,20 +874,63 @@ function probeBlock(
 }
 
 interface Probe {
+  /** items/min the block would import, per flow key (the item id for a plain item; a split fluid: per range it takes) */
   received: Map<string, number>
   nodes: SolvedNode[]
   conversions?: FluidConversion[]
   failed: boolean
   /** The block's areas that need each item from outside; defined iff the block has areas (see `areaNeedsOf`). */
   areaNeeds?: AreaNeeds
+  /** A split fluid: item id → area id → range key → what the area takes of it from outside; defined iff the block has areas. */
+  areaKeyNeeds?: ReadonlyMap<string, ReadonlyMap<string, ReadonlyMap<string, number>>>
+}
+
+/** What `applyTakeCredits` needs to credit the takes of a split fluid. */
+interface SplitCredit {
+  items: ReadonlySet<string>
+  ranges: ReadonlyMap<string, FluidRange[]>
+  /** take connection id → the flow keys it was credited (the parts of `credits`) */
+  creditParts: Map<string, Map<string, number>>
+  /** The credit of a take of a ranked pair (the list's allocation, or the take alone from what the entries above left); `blocked` when its ledger is not final yet. */
+  rankedCredit?: (take: BlockConnection, itemId: string, needed: Map<string, number>) => { parts: Map<string, number>; covered: Map<string, number> } | undefined
+}
+
+/** The keys of `itemId` of a per-key map, as the allocator takes them: offers with their tags and versatility. */
+function allocKeysOfMap(itemId: string, offers: ReadonlyMap<string, number> | undefined, ranges: readonly FluidRange[]): AllocKey[] {
+  const out: AllocKey[] = []
+  for (const k of keysOfItem(offers ?? new Map(), itemId)) {
+    const tag = parseFlowKey(k).tag
+    const offer = offers?.get(k) ?? 0
+    if (tag !== undefined && offer > 0) out.push({ key: k, tag, offer, versatility: versatility(tag, ranges) })
+  }
+  return out
+}
+
+/** The ranges a consumer still needs of `itemId` (`needed` is per key), as the allocator takes them. */
+function rangeNeedsOf(itemId: string, needed: ReadonlyMap<string, number>): { range: FluidRange; rate: number }[] {
+  const out: { range: FluidRange; rate: number }[] = []
+  for (const k of keysOfItem(needed, itemId)) {
+    const tag = parseFlowKey(k).tag
+    const rate = needed.get(k) ?? 0
+    if (tag !== undefined && !isTemperatureTag(tag) && rate > 0) out.push({ range: tag, rate })
+  }
+  return out
+}
+
+/** A take alone: the source's keys on offer allocated to the ranges the consumer still needs, up to its limit. */
+function creditAlone(itemId: string, take: BlockConnection, offers: ReadonlyMap<string, number> | undefined, needed: ReadonlyMap<string, number>, ranges: readonly FluidRange[]) {
+  const alloc = allocateKeys(itemId, allocKeysOfMap(itemId, offers, ranges), [[{ id: take.id, needs: rangeNeedsOf(itemId, needed), cap: take.maxRate, weight: 1 }]])
+  return { parts: alloc.grants.get(take.id) ?? new Map<string, number>(), covered: alloc.covered.get(take.id) ?? new Map<string, number>() }
 }
 
 /**
- * Let a consumer's takes cover part of what it needs (`needed`, reduced in place). Each take in
+ * Let a consumer's takes cover part of what it needs (`needed`, per flow key, reduced in place). Each take in
  * connection order covers min(what its source has left, its limit, the need left), reduces
  * the source's estimate (`estimates`, in place) and is recorded in `credits`. A take of a pair the
  * source's served list ranks gets what `rankedRest` says is left for it instead, and leaves the estimate alone
- * (the ledger of a ranked pair is `credits`, read by `rankedRest`).
+ * (the ledger of a ranked pair is `credits`, read by `rankedRest`). A split fluid's take covers per key: the source's
+ * keys go to the consumer's ranges (a one-member allocation: a key only to a range it fits, the least versatile first), the
+ * parts are recorded in `split.creditParts`.
  */
 function applyTakeCredits(
   takes: Map<string, BlockConnection[]> | undefined,
@@ -760,8 +939,30 @@ function applyTakeCredits(
   credits: Map<string, number>,
   rankedRest?: (take: BlockConnection, itemId: string) => number | undefined,
   needs?: Map<string, number>,
+  split?: SplitCredit,
 ): void {
   for (const [itemId, list] of takes ?? []) {
+    if (split?.items.has(itemId)) {
+      let need = sumOfItem(needed, itemId)
+      for (const t of list) {
+        if (need <= 0) break
+        needs?.set(t.id, need) // what is left to cover when this take is reached
+        const ranked = split.rankedCredit?.(t, itemId, needed)
+        const credit = ranked ?? creditAlone(itemId, t, estimates.get(t.fromBlockId), needed, split.ranges.get(itemId) ?? [])
+        let total = 0
+        for (const v of credit.parts.values()) total += v
+        if (total <= 0) continue
+        if (!ranked) {
+          const left = estimates.get(t.fromBlockId)!
+          for (const [k, v] of credit.parts) left.set(k, (left.get(k) ?? 0) - v)
+        }
+        credits.set(t.id, total)
+        split.creditParts.set(t.id, credit.parts)
+        for (const [k, v] of credit.covered) needed.set(k, Math.max(0, (needed.get(k) ?? 0) - v))
+        need -= total
+      }
+      continue
+    }
     let need = needed.get(itemId) ?? 0
     for (const t of list) {
       if (need <= 0) break
@@ -778,13 +979,14 @@ function applyTakeCredits(
   }
 }
 
-/** What a source with solved `nodes` has left per item after the amounts requested of it. */
+/** What a source with solved `nodes` has left per key (the item id for a plain item) after the amounts requested of it. */
 function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, number> | undefined, conversions?: FluidConversion[]): Offers {
   const left: Offers = new Map()
-  const gross = sumByItem(grossFlow(nodes, conversions))
-  for (const [itemId, net] of offerByItem(netBalance(nodes, conversions))) {
-    const rest = net - (requestedOfSource?.get(itemId) ?? 0)
-    if (rest > surplusTolerance(gross.get(itemId) ?? 0)) left.set(itemId, rest)
+  const gross = grossFlow(nodes, conversions)
+  for (const [key, net] of netBalance(nodes, conversions)) {
+    // A flow key's offer is the positive part of its net (a made temperature that a conversion took has none).
+    const rest = (parseFlowKey(key).tag === undefined ? net : Math.max(0, net)) - (requestedOfSource?.get(key) ?? 0)
+    if (rest > surplusTolerance(gross.get(key) ?? 0)) left.set(key, rest)
   }
   return left
 }
@@ -837,7 +1039,11 @@ function computeRequests(
   cache: SolveCache | undefined,
   roundLimit: number,
   ranked: RankedPairs,
+  ranges: ReadonlyMap<string, FluidRange[]>,
 ): RequestPlan {
+  const split = splitFluids(gameData)
+  const creditParts = new Map<string, Map<string, number>>()
+  const splitAlloc: RequestPlan['splitAlloc'] = new Map()
   const byId = new Map(blocks.map(b => [b.id, b]))
   const blockIds = new Set(byId.keys())
   const info = new Map<string, RequestInfo>()
@@ -864,7 +1070,7 @@ function computeRequests(
       else applicable.push({ consumer, connection: c })
     }
   }
-  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), inListOrder: new Set(), areaNeeds: new Map() }
+  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), inListOrder: new Set(), areaNeeds: new Map(), creditParts, splitAlloc }
 
   const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
   for (const { consumer, connection } of applicable) {
@@ -960,6 +1166,7 @@ function computeRequests(
   const inListOrder = new Set<string>() // member connections of the groups served in list order
   for (const items of ranked.values()) {
     for (const pair of items.values()) {
+      if (split.has(pair.itemId)) continue // a split fluid's list is allocated per key (`splitPairs`)
       for (const [start, end] of servedGroupSpans(pair.listed)) {
         if (end - start < 2) continue
         const byConnection = new Map<string, TakeGroup['members'][number]>()
@@ -989,6 +1196,49 @@ function computeRequests(
   const toListOrder = (g: TakeGroup): void => {
     g.status = 'listOrder'
     for (const m of g.members) inListOrder.add(m.connection.id)
+  }
+
+  // A split fluid's ranked pair: its takes are credited from one allocation of the source's keys to the consumers' ranges (`creditSplitPairs`),
+  // when the request pass reaches the first listed take and every need is final; else in list order (`splitToListOrder`), each listed take
+  // allocated alone from what the entries above it left, per key.
+  interface SplitPair {
+    pair: RankedPair
+    status: 'pending' | 'shared' | 'listOrder'
+    /** the consumers with a listed take, in list order */
+    members: { connection: BlockConnection; blockId: string }[]
+    /** shared: member id (a connection id, or 'extra') → key → amount */
+    grants?: Map<string, Map<string, number>>
+    /** shared: member id → range key → need met */
+    covered?: Map<string, Map<string, number>>
+    /** shared: key → what the list holds in all */
+    held?: Map<string, number>
+  }
+  const splitPairs = new Map<RankedPair, SplitPair>()
+  const splitPairsOf = new Map<string, SplitPair[]>() // block id → the pairs it has a listed take in
+  for (const items of ranked.values()) {
+    for (const pair of items.values()) {
+      if (!split.has(pair.itemId)) continue
+      const members: SplitPair['members'] = []
+      for (const e of pair.listed) {
+        if (e.kind === 'block' && rankedTake.get(e.connection.id)?.pair === pair && !members.some(m => m.connection.id === e.connection.id)) {
+          members.push({ connection: e.connection, blockId: e.blockId })
+        }
+      }
+      if (members.length === 0) continue
+      const sp: SplitPair = { pair, status: 'pending', members }
+      splitPairs.set(pair, sp)
+      for (const m of members) splitPairsOf.set(m.blockId, [...(splitPairsOf.get(m.blockId) ?? []), sp])
+    }
+  }
+  const splitToListOrder = (sp: SplitPair): void => {
+    sp.status = 'listOrder'
+    for (const [start, end] of servedGroupSpans(sp.pair.listed)) {
+      if (end - start < 2) continue
+      for (let i = start; i < end; i++) {
+        const e = sp.pair.listed[i]
+        if (e.kind === 'block' && rankedTake.has(e.connection.id)) inListOrder.add(e.connection.id)
+      }
+    }
   }
 
   // Order consumers before sources: orderBlocks puts sources first, so feed it the reversed requests.
@@ -1036,7 +1286,7 @@ function computeRequests(
     depById.get(to)!.inputConnections.push(edge)
     depConsumers.set(from, [...(depConsumers.get(from) ?? []), to])
   }
-  if (takeGroups.length > 0) {
+  if (takeGroups.length > 0 || splitPairs.size > 0) {
     // Static fallback. Every edge so far is guarded, so the cycles of `depBlocks` are the cycles of requests.
     const inCycle = new Set(orderBlocks(depBlocks).components.flatMap(c => (c.loop ? c.loop.blockIds : [])))
     for (const g of takeGroups) {
@@ -1052,6 +1302,21 @@ function computeRequests(
         g.members.some(m => takesOf(m.blockId)?.get(g.pair.itemId)?.[0]?.id !== m.connection.id || below(m))
       ) toListOrder(g)
       else for (const m of g.members) groupsOfBlock.set(m.blockId, [...(groupsOfBlock.get(m.blockId) ?? []), g])
+    }
+    // The same three conditions for a split fluid's list: with any of them its takes are credited in list order.
+    for (const sp of splitPairs.values()) {
+      const { pair } = sp
+      const consumers = [...pair.listed.flatMap(e => (e.kind === 'block' ? [e.blockId] : [])), ...pair.unlisted.map(u => u.blockId)]
+      const spread = (m: SplitPair['members'][number]): boolean => {
+        const spans = servedGroupSpans(pair.listed)
+        const inSpan = (i: number) => spans.findIndex(([a, b]) => i >= a && i < b)
+        const mine = pair.listed.flatMap((e, i) => (e.kind === 'block' && e.connection.id === m.connection.id ? [inSpan(i)] : []))
+        return new Set(mine).size > 1
+      }
+      if (
+        consumers.some(id => inCycle.has(id)) ||
+        sp.members.some(m => takesOf(m.blockId)?.get(pair.itemId)?.[0]?.id !== m.connection.id || spread(m))
+      ) splitToListOrder(sp)
     }
   }
   for (const [sourceId, items] of ranked) {
@@ -1080,6 +1345,15 @@ function computeRequests(
       }
     }
   }
+  // The same for a split fluid's list: every need is known once the blocks that request of a member are processed.
+  for (const sp of splitPairs.values()) {
+    if (sp.status !== 'pending') continue
+    for (const mj of sp.members) {
+      for (const r of requestersOf.get(mj.blockId) ?? []) {
+        for (const mi of sp.members) if (mi.blockId !== mj.blockId) orderEdge(r, mi.blockId, sp.pair.itemId, `split\0${r}\0${mi.connection.id}`)
+      }
+    }
+  }
   const { components } = orderBlocks(depBlocks)
   // Cycle shapes before a served list adds edges: those edges could make another member the entry, and a list never
   // changes member order. Those edges never close or merge a cycle, so with no cycle (or no edge) there is nothing to redo.
@@ -1094,17 +1368,37 @@ function computeRequests(
     return unrankedShapes.get(loop.blockIds[0]) ?? loop
   }
 
-  const requested = new Map<string, Map<string, number>>() // source id → item id → items/min
-  const estimates = new Map<string, Offers>() // processed take source id → item id → leftover items/min
-  const addRequest = (c: BlockConnection, share: number): void => {
+  const requested = new Map<string, Map<string, number>>() // source id → flow key (the item id for a plain item) → items/min
+  const estimates = new Map<string, Offers>() // processed take source id → flow key → leftover items/min
+  const addRequest = (c: BlockConnection, share: number, parts?: ReadonlyMap<string, number>): void => {
     if (share <= 0) return
     const items = requested.get(c.fromBlockId) ?? new Map<string, number>()
-    items.set(c.itemId, (items.get(c.itemId) ?? 0) + share)
+    if (parts) for (const [k, v] of parts) items.set(k, (items.get(k) ?? 0) + v)
+    else items.set(c.itemId, (items.get(c.itemId) ?? 0) + share)
     requested.set(c.fromBlockId, items)
   }
-  // Hand out `needed` over a block's requests in connection order; `share(c, amount)` receives each.
-  const shareOut = (requests: BlockConnection[], needed: Map<string, number>, share: (c: BlockConnection, amount: number) => void): void => {
+  // Hand out `needed` over a block's requests in connection order; `share(c, amount, parts)` receives each. A split fluid's request
+  // takes every range the block needs of it, the deepest (narrowest) first, then by key, up to its limit; `parts` is the amount per range.
+  const shareOut = (requests: BlockConnection[], needed: Map<string, number>, share: (c: BlockConnection, amount: number, parts?: Map<string, number>) => void): void => {
     for (const c of requests) {
+      if (split.has(c.itemId)) {
+        const rs = ranges.get(c.itemId) ?? []
+        const depth = (k: string) => rangeDepth((parseFlowKey(k).tag ?? {}) as FluidRange, rs)
+        const keys = keysOfItem(needed, c.itemId).filter(k => (needed.get(k) ?? 0) > 0).sort((a, b) => depth(b) - depth(a) || (a < b ? -1 : a > b ? 1 : 0))
+        let room = c.maxRate ?? Infinity
+        let total = 0
+        const parts = new Map<string, number>()
+        for (const k of keys) {
+          const amount = Math.min(needed.get(k) ?? 0, room)
+          if (amount <= 0) continue
+          needed.set(k, (needed.get(k) ?? 0) - amount)
+          room -= amount
+          total += amount
+          parts.set(k, amount)
+        }
+        share(c, total, parts)
+        continue
+      }
       const left = needed.get(c.itemId) ?? 0
       const amount = c.maxRate === undefined ? left : Math.min(left, c.maxRate)
       needed.set(c.itemId, left - amount)
@@ -1224,6 +1518,156 @@ function computeRequests(
     }
   }
 
+  // A split fluid's list. `creditPartsOf`: what a higher-ranked take of `blockId` was credited per key, or undefined when it is not credited yet.
+  type CreditPartsOf = (blockId: string, connectionId: string, listed: boolean) => ReadonlyMap<string, number> | undefined
+  // What is left per key of a split pair's source at list index `end` (the takes-first consumers the list does not name, when `unlisted`,
+  // come after all of it): the source's leftover estimate less what the entries above hold (the extra allocated alone at its place, the
+  // takes at their credits; a list shared by need holds `held` in all). Undefined when the pass is not done with the source or a higher take yet.
+  const restKeysAt = (sp: SplitPair, end: number, unlisted: boolean, self: string | undefined, est: Map<string, Offers>, creditPartsOf: CreditPartsOf): Map<string, number> | undefined => {
+    const { pair } = sp
+    const offers = est.get(pair.sourceId)
+    if (offers === undefined) return undefined
+    const rest = new Map<string, number>()
+    for (const k of keysOfItem(offers, pair.itemId)) rest.set(k, offers.get(k) ?? 0)
+    const sub = (parts: ReadonlyMap<string, number>): void => {
+      for (const [k, v] of parts) rest.set(k, Math.max(0, (rest.get(k) ?? 0) - v))
+    }
+    if (sp.status === 'shared') sub(sp.held!)
+    else {
+      const counted = new Set<string>()
+      for (let i = 0; i < end; i++) {
+        const e = pair.listed[i]
+        if (e.kind === 'extra') {
+          // As `grantPair` asks it with no allocation: the extra is the goal on any temperature, held on `item[,]`.
+          const any = flowKey(pair.itemId, {})
+          if (pair.extraRate > 0) sub(new Map([[any, Math.min(pair.extraRate, rest.get(any) ?? 0)]]))
+          continue
+        }
+        if (!rankedTake.has(e.connection.id) || counted.has(e.connection.id)) continue
+        counted.add(e.connection.id)
+        const parts = creditPartsOf(e.blockId, e.connection.id, true)
+        if (parts === undefined) return undefined // a higher-ranked take is not credited yet
+        sub(parts)
+      }
+    }
+    if (unlisted) {
+      for (const u of pair.unlisted) {
+        if (u.areaNamed || u.connection.id === self || !rankedTake.has(u.connection.id)) continue
+        const parts = creditPartsOf(u.blockId, u.connection.id, false)
+        if (parts) sub(parts)
+      }
+    }
+    return rest
+  }
+  // The credit of a ranked take of a split fluid: its part of the list's allocation, or alone from what is left of the source for it.
+  // `blocked` collects the takes that get nothing because the pass is not done with the source (or a higher take) yet.
+  const splitCreditOf = (t: BlockConnection, itemId: string, needed: Map<string, number>, est: Map<string, Offers>, creditPartsOf: CreditPartsOf, blocked?: Set<string>) => {
+    const at = rankedTake.get(t.id)
+    const sp = at && splitPairs.get(at.pair)
+    if (!at || !sp) return undefined
+    if (sp.status === 'shared' && at.position >= 0) return { parts: sp.grants!.get(t.id) ?? new Map<string, number>(), covered: sp.covered!.get(t.id) ?? new Map<string, number>() }
+    const rest = restKeysAt(sp, at.position < 0 ? at.pair.listed.length : at.position, at.position < 0, t.id, est, creditPartsOf)
+    if (rest === undefined) {
+      blocked?.add(t.id)
+      return { parts: new Map<string, number>(), covered: new Map<string, number>() }
+    }
+    return creditAlone(itemId, t, rest, needed, ranges.get(itemId) ?? [])
+  }
+  const outerCreditPartsOf: CreditPartsOf = (blockId, id) => (processed.has(blockId) ? (creditParts.get(id) ?? new Map<string, number>()) : undefined)
+  const splitCredit: SplitCredit = {
+    items: split, ranges, creditParts,
+    rankedCredit: (t, itemId, needed) => splitCreditOf(t, itemId, needed, estimates, outerCreditPartsOf, uncredited),
+  }
+  // Allocate the pairs `block` has a listed take in, once, when the first member is reached: the source's keys go to the members' ranges
+  // by rank (a group by weight), a key only to a range it fits, then every member's credit is known. A pair whose needs are not all
+  // final (the source, or a member's requesters, are not processed yet) is credited in list order instead.
+  const creditSplitPairs = (block: Block, probe: Probe): void => {
+    for (const sp of splitPairsOf.get(block.id) ?? []) {
+      if (sp.status !== 'pending') continue
+      const { pair } = sp
+      const est = estimates.get(pair.sourceId)
+      const ready = est !== undefined && sp.members.every(m =>
+        m.blockId === block.id || (!processed.has(m.blockId) && (requestersOf.get(m.blockId) ?? []).every(r => processed.has(r))))
+      if (!ready) {
+        splitToListOrder(sp)
+        continue
+      }
+      const probeOf = (id: string): Probe => (id === block.id ? probe : aheadProbe(id))
+      const entries = splitByArea(pair.listed, id => probeOf(id).areaNeeds?.get(pair.itemId) ?? [])
+      // What an entry needs per range key: its areas' outside legs when it stands for some areas, else the block's probe.
+      const needOfEntry = (e: Extract<RankedEntry, { kind: 'block' }>): Map<string, number> => {
+        const out = new Map<string, number>()
+        const p = probeOf(e.blockId)
+        if (e.areas !== undefined) {
+          for (const a of e.areas) {
+            for (const [k, v] of p.areaKeyNeeds?.get(pair.itemId)?.get(a.areaId) ?? []) out.set(k, (out.get(k) ?? 0) + v)
+          }
+          return out
+        }
+        for (const k of keysOfItem(p.received, pair.itemId)) out.set(k, p.received.get(k) ?? 0)
+        return out
+      }
+      const needsById = new Map<string, Map<string, number>>()
+      const entryOf = new Map<string, { index: number; need: number }[]>()
+      const groups: AllocMember[][] = []
+      for (const [start, end] of servedGroupSpans(pair.listed)) {
+        const byId = new Map<string, AllocMember>()
+        for (let i = start; i < end; i++) {
+          const e = entries[i]
+          if (e.kind === 'extra') {
+            const m = byId.get('extra') ?? { id: 'extra', needs: [{ range: {}, rate: pair.extraRate }], weight: 0 }
+            m.weight += e.weight ?? 1
+            byId.set('extra', m)
+            continue
+          }
+          const at = rankedTake.get(e.connection.id)
+          if (!at || at.pair !== pair || at.position < start || at.position >= end) continue // a request, or credited at an earlier entry
+          const m = byId.get(e.connection.id) ?? { id: e.connection.id, needs: [], cap: e.connection.maxRate, weight: 0 }
+          m.weight += e.weight ?? 1
+          byId.set(e.connection.id, m)
+          const mine = needOfEntry(e)
+          const all = needsById.get(e.connection.id) ?? new Map<string, number>()
+          let total = 0
+          for (const [k, v] of mine) {
+            all.set(k, (all.get(k) ?? 0) + v)
+            total += v
+          }
+          needsById.set(e.connection.id, all)
+          entryOf.set(e.connection.id, [...(entryOf.get(e.connection.id) ?? []), { index: i, need: total }])
+        }
+        for (const [id, m] of byId) {
+          if (id === 'extra') continue
+          m.needs = rangeNeedsOf(pair.itemId, needsById.get(id)!)
+        }
+        if (byId.size > 0) groups.push([...byId.values()])
+      }
+      const alloc = allocateKeys(pair.itemId, allocKeysOfMap(pair.itemId, est, ranges.get(pair.itemId) ?? []), groups)
+      sp.grants = alloc.grants
+      sp.covered = alloc.covered
+      sp.held = alloc.held
+      sp.status = 'shared'
+      const entryKeys = new Map<number, Map<string, number>>()
+      for (const m of sp.members) {
+        const parts = alloc.grants.get(m.connection.id)
+        if (!parts) continue
+        let total = 0
+        for (const v of parts.values()) total += v
+        credits.set(m.connection.id, total)
+        creditParts.set(m.connection.id, parts)
+        let need = 0
+        for (const v of needsById.get(m.connection.id)?.values() ?? []) need += v
+        needs.set(m.connection.id, need)
+        const mine = entryOf.get(m.connection.id) ?? []
+        const sum = mine.reduce((a, x) => a + x.need, 0)
+        mine.forEach((x, n) => {
+          const fraction = sum > 0 ? x.need / sum : n === 0 ? 1 : 0
+          entryKeys.set(x.index, new Map([...parts].map(([k, v]) => [k, v * fraction])))
+        })
+      }
+      splitAlloc.set(pair, { entryKeys, extra: alloc.grants.get('extra') ?? new Map() })
+    }
+  }
+
   for (const component of components) {
     const loop = component.loop && shapeOf(component.loop)
     if (!loop) {
@@ -1241,13 +1685,14 @@ function computeRequests(
         : probeBlock(block, effectiveGoals, gameData, connectedCaps(block, byId, selfConnectionIds), cache)
       if (probe.areaNeeds) areaNeeds.set(block.id, probe.areaNeeds)
       creditGroups(block, probe)
+      creditSplitPairs(block, probe)
       if (requests || rankedTakes) {
-        const needed = new Map(probe.received) // item id → what the block would import
-        applyTakeCredits(takesOf(block.id), needed, estimates, credits, rankedRest, needs)
+        const needed = new Map(probe.received) // flow key → what the block would import
+        applyTakeCredits(takesOf(block.id), needed, estimates, credits, rankedRest, needs, splitCredit)
         if (requests) {
-          shareOut(requests, needed, (c, amount) => {
-            info.set(c.id, { requested: amount })
-            addRequest(c, amount)
+          shareOut(requests, needed, (c, amount, parts) => {
+            info.set(c.id, { requested: amount, ...(parts ? { parts } : {}) })
+            addRequest(c, amount, parts)
           })
         }
       }
@@ -1288,8 +1733,12 @@ function computeRequests(
         }
       }
     }
-    const inputIds = [...loop.backConnectionIds, ...backCredits.keys()]
-    const maxRateOf = (id: string) => (requestById.get(id) ?? backCredits.get(id))?.maxRate ?? Infinity
+    // The ids the rounds carry from one round to the next: a back connection (or back credit) of a plain item is one id; a split
+    // fluid's is one id per range key it carries (`part`), known once a round has run.
+    const backIds = [...loop.backConnectionIds, ...backCredits.keys()]
+    const part = (id: string, key: string) => `${id}\0${key}`
+    const connectionOfInput = (id: string) => id.split('\0')[0]
+    const maxRateOf = (id: string) => (requestById.get(connectionOfInput(id)) ?? backCredits.get(connectionOfInput(id)))?.maxRate ?? Infinity
 
     // Everything the rounds read, as an exact string.
     const key = cache
@@ -1297,6 +1746,8 @@ function computeRequests(
           roundLimit,
           loop.blockIds,
           loop.backConnectionIds,
+          // The ranges of the split fluids (every block's ingredients, not only the members') shape the credits and the parts.
+          [...ranges].map(([itemId, rs]) => [itemId, rs.map(r => flowKey(itemId, r))]),
           members.map(m => {
             const flat = flattenBlock(m)
             return [
@@ -1315,7 +1766,13 @@ function computeRequests(
           }),
           members.flatMap(m =>
             [...(takesOf(m.id) ?? [])].flatMap(([itemId, takes]) =>
-              takes.map(t => [t.fromBlockId, itemId, estimates.has(t.fromBlockId), estimates.get(t.fromBlockId)?.get(itemId) ?? null]),
+              takes.map(t => [
+                t.fromBlockId, itemId, estimates.has(t.fromBlockId),
+                // A split fluid's estimate is per key.
+                split.has(itemId)
+                  ? keysOfItem(estimates.get(t.fromBlockId) ?? new Map(), itemId).sort().map(k => [k, estimates.get(t.fromBlockId)!.get(k)])
+                  : estimates.get(t.fromBlockId)?.get(itemId) ?? null,
+              ]),
             ),
           ),
           // The lists of the ranked pairs the members take from, and what their outside takes are credited.
@@ -1328,7 +1785,7 @@ function computeRequests(
             // Only the credits a member's take reads: the listed takes above it, and the unlisted ones for a takes-first take.
             [...pair.listed.slice(0, read.listedEnd).flatMap(e => (e.kind === 'block' ? [e] : [])), ...(read.unlisted ? pair.unlisted : [])]
               .filter(e => rankedTake.has(e.connection.id) && !memberSet.has(e.blockId))
-              .map(e => [e.connection.id, processed.has(e.blockId), credits.get(e.connection.id) ?? null]),
+              .map(e => [e.connection.id, processed.has(e.blockId), credits.get(e.connection.id) ?? null, [...(creditParts.get(e.connection.id) ?? [])].sort()]),
           ]),
         ])
       : ''
@@ -1342,13 +1799,21 @@ function computeRequests(
       // With `skipBack` the back connections take no share, so a member's other requests share its whole need.
       const runRound = (input: Map<string, number>, skipBack = false) => {
         const shares = new Map<string, number>()
+        const shareParts = new Map<string, Map<string, number>>() // a split fluid's request per range key
         const roundCredits = new Map<string, number>()
+        const roundCreditParts = new Map<string, Map<string, number>>()
         const roundNeeds = new Map<string, number>()
         const roundAreaNeeds = new Map<string, AreaNeeds>()
         const roundBlocked = new Set<string>()
-        const forward = new Map<string, Map<string, number>>() // member id → item id → shares from earlier members
+        const forward = new Map<string, Map<string, number>>() // member id → flow key → shares from earlier members
         const est = cloneRemaining(estimates)
         const roundProcessed = new Set<string>()
+        // What a back credit of a split fluid carried into this round, per key.
+        const inputParts = (id: string): Map<string, number> => {
+          const out = new Map<string, number>()
+          for (const [pid, v] of input) if (pid.startsWith(`${id}\0`)) out.set(pid.slice(id.length + 1), v)
+          return out
+        }
         // What a ranked take of a member is left: the credits above it, read from this round (earlier members), from
         // the input (a back credit) or from outside the cycle.
         const roundRest = (t: BlockConnection, itemId: string) => restOf(t, itemId, est, (blockId, id, listed) => {
@@ -1356,28 +1821,39 @@ function computeRequests(
           if (roundProcessed.has(blockId)) return roundCredits.get(id) ?? 0
           return listed ? (input.get(id) ?? 0) : undefined // a back credit; an unlisted later member is credited after
         }, roundBlocked)
+        const roundCreditPartsOf: CreditPartsOf = (blockId, id, listed) => {
+          if (!memberSet.has(blockId)) return processed.has(blockId) ? (creditParts.get(id) ?? new Map<string, number>()) : undefined
+          if (roundProcessed.has(blockId)) return roundCreditParts.get(id) ?? new Map<string, number>()
+          return listed ? inputParts(id) : undefined
+        }
+        const roundSplitCredit: SplitCredit = {
+          items: split, ranges, creditParts: roundCreditParts,
+          rankedCredit: (t, itemId, needed) => splitCreditOf(t, itemId, needed, est, roundCreditPartsOf, roundBlocked),
+        }
         let roundFailed = false
         for (const block of members) {
           const asked = new Map(requested.get(block.id))
-          const add = (itemId: string, amount: number): void => {
-            if (amount > 0) asked.set(itemId, (asked.get(itemId) ?? 0) + amount)
+          const add = (key: string, amount: number): void => {
+            if (amount > 0) asked.set(key, (asked.get(key) ?? 0) + amount)
           }
-          for (const [itemId, amount] of forward.get(block.id) ?? []) add(itemId, amount)
+          for (const [key, amount] of forward.get(block.id) ?? []) add(key, amount)
           for (const [id, amount] of input) {
-            const c = requestById.get(id)
-            if (c && c.fromBlockId === block.id) add(c.itemId, amount)
+            const c = requestById.get(connectionOfInput(id))
+            if (c && c.fromBlockId === block.id) add(id.includes('\0') ? id.slice(id.indexOf('\0') + 1) : c.itemId, amount)
           }
           const probe = probeBlock(block, productGoals(block.products, asked), gameData, connectedCaps(block, byId, selfConnectionIds), memo)
           roundFailed ||= probe.failed
           if (probe.areaNeeds) roundAreaNeeds.set(block.id, probe.areaNeeds)
           const needed = new Map(probe.received)
-          applyTakeCredits(takesOf(block.id), needed, est, roundCredits, roundRest, roundNeeds)
+          applyTakeCredits(takesOf(block.id), needed, est, roundCredits, roundRest, roundNeeds, roundSplitCredit)
           const requests = (requestsOf.get(block.id) ?? []).filter(c => !(skipBack && back.has(c.id)))
-          shareOut(requests, needed, (c, amount) => {
+          shareOut(requests, needed, (c, amount, parts) => {
             shares.set(c.id, amount)
+            if (parts) shareParts.set(c.id, parts)
             if (memberSet.has(c.fromBlockId) && !back.has(c.id) && amount > 0) {
               const items = forward.get(c.fromBlockId) ?? new Map<string, number>()
-              items.set(c.itemId, (items.get(c.itemId) ?? 0) + amount)
+              if (parts) for (const [k, v] of parts) items.set(k, (items.get(k) ?? 0) + v)
+              else items.set(c.itemId, (items.get(c.itemId) ?? 0) + amount)
               forward.set(c.fromBlockId, items)
             }
           })
@@ -1388,16 +1864,33 @@ function computeRequests(
         for (const m of members) {
           for (const [itemId, takes] of takesOf(m.id) ?? []) {
             for (const t of takes) {
-              const left = est.get(t.fromBlockId)?.get(itemId)
-              const k = `${t.fromBlockId}\0${itemId}`
-              if (left === undefined || seen.has(k)) continue
-              seen.add(k)
-              credited.push([t.fromBlockId, itemId, left])
+              const offers = est.get(t.fromBlockId)
+              // [source, flow key, leftover]: a split fluid's estimate is per key.
+              const keys = split.has(itemId) ? keysOfItem(offers ?? new Map(), itemId) : [itemId]
+              for (const key of keys) {
+                const left = offers?.get(key)
+                const k = `${t.fromBlockId}\0${key}`
+                if (left === undefined || seen.has(k)) continue
+                seen.add(k)
+                credited.push([t.fromBlockId, key, left])
+              }
             }
           }
         }
         failed ||= roundFailed
-        return { shares, credits: roundCredits, credited, needs: roundNeeds, areaNeeds: roundAreaNeeds, blocked: roundBlocked, failed: roundFailed }
+        return { shares, shareParts, credits: roundCredits, creditParts: roundCreditParts, credited, needs: roundNeeds, areaNeeds: roundAreaNeeds, blocked: roundBlocked, failed: roundFailed }
+      }
+      // What a round passes on to the next: per back connection (request or credit) its amount, a split fluid's per range key.
+      const outputOf = (r: ReturnType<typeof runRound>): Map<string, number> => {
+        const out = new Map<string, number>()
+        for (const id of backIds) {
+          const credit = backCredits.get(id)
+          const c = credit ?? requestById.get(id)
+          if (c && split.has(c.itemId)) {
+            for (const [k, v] of (credit ? r.creditParts : r.shareParts).get(id) ?? []) out.set(part(id, k), v)
+          } else out.set(id, credit ? (r.credits.get(id) ?? 0) : (r.shares.get(id) ?? 0))
+        }
+        return out
       }
 
       const maxAbs = (values: Iterable<number>): number => {
@@ -1405,8 +1898,7 @@ function computeRequests(
         for (const v of values) m = Math.max(m, Math.abs(v))
         return m
       }
-      const zero = new Map(inputIds.map(id => [id, 0]))
-      let input = zero
+      let input: Map<string, number> = new Map(backIds.filter(id => !split.has((backCredits.get(id) ?? requestById.get(id))?.itemId ?? '')).map(id => [id, 0]))
       let last: ReturnType<typeof runRound>
       let rounds = 0
       let converged = false
@@ -1428,9 +1920,10 @@ function computeRequests(
           extrapolate = false
           continue
         }
-        const out = new Map(inputIds.map(id => [id, backCredits.has(id) ? (last.credits.get(id) ?? 0) : (last.shares.get(id) ?? 0)]))
-        const delta = new Map(inputIds.map(id => [id, out.get(id)! - input.get(id)!]))
-        if (inputIds.every(id => sameRate(out.get(id)!, input.get(id)!))) {
+        const out = outputOf(last)
+        const ids = [...new Set([...out.keys(), ...input.keys()])]
+        const delta = new Map(ids.map(id => [id, (out.get(id) ?? 0) - (input.get(id) ?? 0)]))
+        if (ids.every(id => sameRate(out.get(id) ?? 0, input.get(id) ?? 0))) {
           converged = true
           break
         }
@@ -1451,18 +1944,38 @@ function computeRequests(
         plainInput = factor === undefined
         plainOut = factor === undefined ? undefined : out
         input = new Map(
-          inputIds.map(id => {
-            const next = out.get(id)! + (factor === undefined ? 0 : delta.get(id)! * factor)
+          ids.map(id => {
+            const next = (out.get(id) ?? 0) + (factor === undefined ? 0 : delta.get(id)! * factor)
             return [id, Math.min(Math.max(0, next), maxRateOf(id))]
           }),
         )
+        // The parts of one connection (a split fluid) share its `maxRate`: scaled down together when the extrapolation pushed them over it.
+        const total = new Map<string, number>()
+        for (const [id, v] of input) if (id.includes('\0')) total.set(connectionOfInput(id), (total.get(connectionOfInput(id)) ?? 0) + v)
+        for (const [id, v] of input) {
+          const c = connectionOfInput(id)
+          const sum = total.get(c)
+          const max = maxRateOf(id)
+          if (id.includes('\0') && sum !== undefined && sum > max) input.set(id, v * (max / sum))
+        }
       }
       // Not settled: round 1 again, the back connections taking existing output instead of a share.
       // A back credit keeps the last round's value: reading 0 would credit members more than the source has left.
-      const kept = converged
-        ? last
-        : runRound(new Map(inputIds.map(id => [id, backCredits.has(id) ? (last.credits.get(id) ?? 0) : 0])), true)
-      solved = { shares: kept.shares, credits: kept.credits, credited: kept.credited, needs: kept.needs, areaNeeds: kept.areaNeeds, uncredited: kept.blocked, rounds, converged }
+      const keptInput = (): Map<string, number> => {
+        const m = new Map<string, number>()
+        for (const id of backIds) {
+          const credit = backCredits.get(id)
+          if (credit === undefined) m.set(id, 0)
+          else if (split.has(credit.itemId)) for (const [k, v] of last.creditParts.get(id) ?? []) m.set(part(id, k), v)
+          else m.set(id, last.credits.get(id) ?? 0)
+        }
+        return m
+      }
+      const kept = converged ? last : runRound(keptInput(), true)
+      solved = {
+        shares: kept.shares, credits: kept.credits, credited: kept.credited, needs: kept.needs, areaNeeds: kept.areaNeeds, uncredited: kept.blocked, rounds, converged,
+        shareParts: kept.shareParts, creditParts: kept.creditParts,
+      }
       if (!failed) cache?.setRequestLoop(loop.blockIds, gameData, key, solved)
     }
 
@@ -1474,11 +1987,13 @@ function computeRequests(
           continue
         }
         const share = solved.shares.get(c.id) ?? 0
-        info.set(c.id, { requested: share })
-        addRequest(c, share)
+        const parts = solved.shareParts?.get(c.id)
+        info.set(c.id, { requested: share, ...(parts ? { parts } : {}) })
+        addRequest(c, share, parts)
       }
     }
     for (const [id, credit] of solved.credits) credits.set(id, credit)
+    for (const [id, parts] of solved.creditParts ?? []) creditParts.set(id, parts)
     for (const [id, n] of solved.needs) needs.set(id, n)
     for (const [id, n] of solved.areaNeeds ?? []) areaNeeds.set(id, n) // not in the memo key: the key holds every plan, and a member's probe follows from its plan and goals
     for (const id of solved.uncredited) uncredited.add(id)
@@ -1495,7 +2010,7 @@ function computeRequests(
     loops.push({ ...loop, rounds: solved.rounds, converged: solved.converged })
   }
   for (const g of takeGroups) if (g.status === 'pending') toListOrder(g) // unreachable: a group of a pair a cycle reads is served in list order from the start
-  return { goals, info, credits, loops, needs, uncredited, inListOrder, areaNeeds }
+  return { goals, info, credits, loops, needs, uncredited, inListOrder, areaNeeds, creditParts, splitAlloc }
 }
 
 /**
@@ -1527,9 +2042,21 @@ export function solveAll(
   const { order, components, selfConnectionIds } = orderBlocks(blocks)
   const requestRoundLimit = Math.max(1, options.requestRoundLimit ?? REQUEST_ROUND_LIMIT)
   const ranked = rankedPairs(blocks)
-  const requestPlan = computeRequests(blocks, gameData, selfConnectionIds, cache, requestRoundLimit, ranked)
+  const split = splitFluids(gameData)
+  const ranges = fluidRanges(blocks, gameData)
+  const requestPlan = computeRequests(blocks, gameData, selfConnectionIds, cache, requestRoundLimit, ranked, ranges)
   const solvePos = new Map(order.map((b, i) => [b.id, i]))
   const grants = new Map<string, number>()               // connection id → what a ranked source's list grants it
+  const keyGrants = new Map<string, Map<string, number>>() // split fluid: connection id → key → what a ranked source's list grants it
+  // What a connection is reserved of a split fluid per key: its request's parts, else its take's credit.
+  const keyShares = new Map<string, ReadonlyMap<string, number>>()
+  for (const b of blocks) {
+    for (const c of b.inputConnections) {
+      if (!split.has(c.itemId)) continue
+      const parts = connectionKeyShares(requestPlan.info.get(c.id), requestPlan.creditParts.get(c.id))
+      if (parts) keyShares.set(c.id, parts)
+    }
+  }
   const servedRanks = new Map<string, Map<string, ServedRank>>() // source id → item id → rank, for the report
   // Each ranked pair's entries (the listed ones, then the unlisted consumers in solve order) and its place in the report.
   // Grant time reads the areas' needs of the request pass only (see `reportNeedsOf` for the report).
@@ -1548,10 +2075,38 @@ export function solveAll(
       servedRanks.set(pair.sourceId, byItem)
     }
   }
-  // Hand a ranked source's `offer` down its list: grants to the consumers; what the list holds is set as pending in `pend`.
-  const grantPair = (pair: RankedPair, offer: number, pend: Map<string, Offers>): void => {
+  // Hand a ranked source's `offers` down its list: grants to the consumers; what the list holds is set as pending in `pend`.
+  // A split fluid is handed down key by key: each offered key goes down the list on its own, every entry asking what the allocation (or
+  // its request or credit) holds of that key.
+  const grantPair = (pair: RankedPair, offers: Offers, pend: Map<string, Offers>): void => {
+    const entries = entriesOf.get(pair)!
+    if (split.has(pair.itemId)) {
+      const alloc = requestPlan.splitAlloc.get(pair)
+      for (const e of entries) if (e.kind === 'block') keyGrants.set(e.connection.id, new Map())
+      const items = pend.get(pair.sourceId) ?? new Map<string, number>()
+      for (const k of keysOfItem(items, pair.itemId)) items.set(k, 0) // the grants replace the shares
+      pend.set(pair.sourceId, items)
+      const entryGrants = entries.map(() => 0)
+      const anyKey = flowKey(pair.itemId, {})
+      for (const k of keysOfItem(offers, pair.itemId)) {
+        const keyShare = (id: string) => connectionKeyShares(requestPlan.info.get(id), requestPlan.creditParts.get(id))?.get(k) ?? 0
+        const given = grantByRank(
+          offers.get(k) ?? 0, entries,
+          // The extra's part of this key: the allocation's; with none, the extra is the goal on any temperature.
+          alloc ? (alloc.extra.get(k) ?? 0) : (k === anyKey ? pair.extraRate : 0),
+          keyShare,
+          id => requestPlan.inListOrder.has(id),
+          (e, i) => alloc?.entryKeys.get(i)?.get(k) ?? (e.part === undefined ? keyShare(e.connection.id) : keyShare(e.connection.id) * e.part),
+        )
+        for (const [id, amount] of given.grants) keyGrants.get(id)?.set(k, amount)
+        given.entryGrants.forEach((g, i) => { entryGrants[i] += g })
+        items.set(k, given.held)
+      }
+      granted.set(pair, entryGrants)
+      return
+    }
     const given = grantByRank(
-      offer, entriesOf.get(pair)!, pair.extraRate,
+      offers.get(pair.itemId) ?? 0, entries, pair.extraRate,
       id => connectionShare(requestPlan.info.get(id), requestPlan.credits.get(id)),
       id => requestPlan.inListOrder.has(id), // a group of takes the request pass served in list order is granted in list order
     )
@@ -1569,7 +2124,9 @@ export function solveAll(
       const share = connectionShare(info, requestPlan.credits.get(c.id))
       if (share <= 0) continue
       const items = pending.get(c.fromBlockId) ?? new Map<string, number>()
-      items.set(c.itemId, (items.get(c.itemId) ?? 0) + share)
+      const parts = split.has(c.itemId) ? keyShares.get(c.id) : undefined
+      if (parts) for (const [k, v] of parts) items.set(k, (items.get(k) ?? 0) + v)
+      else items.set(c.itemId, (items.get(c.itemId) ?? 0) + share)
       pending.set(c.fromBlockId, items)
     }
   }
@@ -1601,6 +2158,9 @@ export function solveAll(
         requests: requestPlan.info,
         credits: requestPlan.credits,
         grants,
+        keyShares,
+        keyGrants,
+        ranges,
         goals: requestPlan.goals,
       }
       const step = solveStep(block, ctx, remaining, pending)
@@ -1608,7 +2168,7 @@ export function solveAll(
       remaining.set(block.id, step.offers)
       // A source with a served list hands its offer down the list now, before any consumer is solved: each
       // consumer is offered its grant, and what the grants (and a listed extra) hold is not on offer to the others.
-      for (const pair of ranked.get(block.id)?.values() ?? []) grantPair(pair, step.offers.get(pair.itemId) ?? 0, pending)
+      for (const pair of ranked.get(block.id)?.values() ?? []) grantPair(pair, step.offers, pending)
       continue
     }
 
@@ -1621,6 +2181,9 @@ export function solveAll(
       requests: requestPlan.info,
       credits: requestPlan.credits,
       grants,
+      keyShares,
+      keyGrants,
+      ranges,
       goals: requestPlan.goals,
     }
     const back = new Set(loop.backConnectionIds)
@@ -1635,7 +2198,7 @@ export function solveAll(
       const pend = cloneRemaining(pending)
       for (const m of component.blocks) rem.set(m.id, new Map(prev.get(m.id)))
       // Round 1 has no previous offer to grant from: the credits stay reserved (so a round limit of 1 still honours them).
-      if (prev.size > 0) for (const pair of readsPrev) grantPair(pair, prev.get(pair.sourceId)?.get(pair.itemId) ?? 0, pend)
+      if (prev.size > 0) for (const pair of readsPrev) grantPair(pair, prev.get(pair.sourceId) ?? new Map(), pend)
       const steps = new Map<string, BlockStep>()
       const next = new Map<string, Offers>()
       const nets = new Map<string, BlockStep['netOffers']>()
@@ -1647,17 +2210,17 @@ export function solveAll(
         // this round offers, the rest is clamped to nothing (flows already committed stay as they are;
         // this only happens in a round that has not settled).
         const left: Offers = new Map()
-        const gross = sumByItem(grossFlow(step.result.nodes, step.result.conversions))
-        for (const [itemId, offer] of step.offers) {
-          const drawn = (prevOffers?.get(itemId) ?? 0) - (before.get(itemId) ?? 0)
+        const gross = grossFlow(step.result.nodes, step.result.conversions)
+        for (const [key, offer] of step.offers) {
+          const drawn = (prevOffers?.get(key) ?? 0) - (before.get(key) ?? 0)
           const rest = offer - drawn
-          if (rest > surplusTolerance(gross.get(itemId) ?? 0)) left.set(itemId, rest)
+          if (rest > surplusTolerance(gross.get(key) ?? 0)) left.set(key, rest)
         }
         rem.set(m.id, left)
         steps.set(m.id, step)
         next.set(m.id, step.offers)
         nets.set(m.id, step.netOffers)
-        for (const pair of ranked.get(m.id)?.values() ?? []) if (!readsPrev.has(pair)) grantPair(pair, step.offers.get(pair.itemId) ?? 0, pend)
+        for (const pair of ranked.get(m.id)?.values() ?? []) if (!readsPrev.has(pair)) grantPair(pair, step.offers, pend)
       }
       return { rem, pend, steps, next, nets }
     }
@@ -1689,6 +2252,36 @@ export function solveAll(
     if (loop.converged) continue
     for (const id of loop.blockIds) {
       results[id] = withExtraWarnings(results[id], [{ type: 'request-loop-not-converged', blockIds: loop.blockIds, rounds: loop.rounds }])
+    }
+  }
+
+  // A connection of a split fluid that offers it only at temperatures no range the block still imports accepts: one warning per consumer.
+  if (split.size > 0) {
+    for (const b of blocks) {
+      const result = results[b.id]
+      if (!result) continue
+      const goalRanges = new Set((requestPlan.goals.get(b.id) ?? flattenBlock(b).goals).filter(g => split.has(g.itemId)).map(g => flowKey(g.itemId, g.temp ?? {})))
+      const connections: Extract<SolverWarning, { type: 'connection-temperature' }>['connections'] = []
+      for (const f of flows) {
+        if (f.toBlockId !== b.id || !f.parts) continue
+        const offered = f.parts.filter(p => p.available > FLOW_TOLERANCE)
+        // An unknown temperature fits every range, a range key is a request that delivers what was asked: neither can be a mismatch.
+        if (offered.length === 0 || offered.some(p => !isTemperatureTag(p.temp) || p.temp.at === null)) continue
+        const needed = result.unsatisfied.filter(u =>
+          u.itemId === f.itemId && u.temp !== undefined && !isTemperatureTag(u.temp) && u.rate > FLOW_TOLERANCE && !goalRanges.has(flowKey(u.itemId, u.temp)))
+        if (needed.length === 0) continue
+        if (offered.some(p => needed.some(u => fitsRange(p.temp, u.temp as FluidRange)))) continue
+        connections.push({
+          connectionId: f.connectionId,
+          itemId: f.itemId,
+          offered: offered.map(p => ({ temperature: (p.temp as { at: number }).at, rate: p.available })),
+          needed: needed.map(u => {
+            const t = u.temp as FluidRange
+            return { ...(t.min !== undefined ? { min: t.min } : {}), ...(t.max !== undefined ? { max: t.max } : {}), rate: u.rate }
+          }),
+        })
+      }
+      if (connections.length > 0) results[b.id] = withExtraWarnings(result, [{ type: 'connection-temperature', connections }])
     }
   }
 
@@ -1741,6 +2334,7 @@ export function solveAll(
     (sourceId, itemId) => servedRanks.get(sourceId)?.get(itemId),
     { needs: requestPlan.needs, uncredited: requestPlan.uncredited, inListOrder: requestPlan.inListOrder },
     areaReport,
+    id => keyShares.get(id),
   )
 
   cache?.retain(blockIds)

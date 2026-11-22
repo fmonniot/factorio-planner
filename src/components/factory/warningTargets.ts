@@ -1,6 +1,7 @@
 import { blockAreas } from '../../solver/areas'
 import type { SolverWarning, SubPlan, GameData } from '../../data/types'
 import { areaName } from '../../data/subPlanTree'
+import type { ConnectionLink } from './temperature'
 
 /** Where a warning's link goes: a row of the active block, or another block. */
 export type WarningTarget =
@@ -51,7 +52,12 @@ export function warningTargets(
   gameData: GameData,
   blockName: (id: string) => string,
   activeBlockId?: string,
+  connections: readonly ConnectionLink[] = [],
 ): WarningTarget[] {
+  if (w.type === 'connection-temperature') {
+    const sources = new Set(w.connections.flatMap(c => connections.find(x => x.id === c.connectionId)?.fromBlockId ?? []))
+    return [...sources].map(id => ({ kind: 'block', label: `Go to ${blockName(id)}`, blockId: id }))
+  }
   if (w.type === 'loop-not-converged' || w.type === 'request-loop-not-converged') {
     // The block that is open already shows its own rows: a link to it would do nothing.
     return w.blockIds.filter(id => id !== activeBlockId).map(id => ({ kind: 'block', label: `Go to ${blockName(id)}`, blockId: id }))

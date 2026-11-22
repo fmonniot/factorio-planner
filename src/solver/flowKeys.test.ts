@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildClassifiedSystem } from './build'
-import { expandToKeys, keyCaps, noFittingTemperature } from './flowKeys'
-import type { GameData } from '../data/types'
+import { expandToKeys, fluidRanges, goalKeyOf, goalMapKey, keyCaps, noFittingTemperature } from './flowKeys'
+import type { Block, GameData } from '../data/types'
 
 type R = GameData['recipes'][string]
 const fluid = (itemId: string, amount: number, extra: object = {}) => ({ itemId, type: 'fluid' as const, amount, ...extra })
@@ -47,5 +47,34 @@ describe('flow keys of a system', () => {
     const warnings = noFittingTemperature(sys, new Set(['steam[465,]']), id => id)
     expect(warnings).toEqual([{ type: 'no-fitting-temperature', itemId: 'steam', min: 465, recipeIds: ['turbine', 'turbine2'] }])
     expect(noFittingTemperature(sys, new Set(), id => id), 'an importable range needs no warning').toEqual([])
+  })
+})
+
+describe('goalKeyOf, goalMapKey, fluidRanges', () => {
+  it('a goal on a range is that range key; without a range it is the item, or item[,] for a split fluid', () => {
+    const sys = system([['work', 1], ['steam', 5]])
+    expect(goalMapKey({ id: 'g', itemId: 'steam', rate: 1 })).toBe('steam')
+    expect(goalMapKey({ id: 'g', itemId: 'steam', rate: 1, temp: { min: 465 } })).toBe('steam[465,]')
+    expect(goalKeyOf(sys, { id: 'g', itemId: 'steam', rate: 1 })).toBe('steam[,]')
+    expect(goalKeyOf(sys, { id: 'g', itemId: 'steam', rate: 1, temp: { min: 465 } })).toBe('steam[465,]')
+    expect(goalKeyOf(sys, { id: 'g', itemId: 'work', rate: 1 })).toBe('work')
+  })
+
+  it('fluidRanges lists each split fluid’s ranges over the rows of every block, once, sorted by key', () => {
+    const gd = gameData([boiler, turbine, turbine2, engine])
+    const now = new Date().toISOString()
+    const rows = (id: string, recipeIds: string[]) => recipeIds.map(r => ({ kind: 'game-recipe' as const, id: `${id}-${r}`, recipeId: r, modules: [], byproductPolicy: {} }))
+    const block = (id: string, recipeIds: string[], area?: string): Block => ({
+      id, name: id, color: '#60a5fa', products: [], sourceRules: {}, inputConnections: [],
+      rootPlan: {
+        id: `root-${id}`, name: id, createdAt: now, updatedAt: now,
+        nodes: area ? [] : rows(id, recipeIds),
+        subPlans: area ? [{ id: area, name: area, createdAt: now, updatedAt: now, subPlans: [], nodes: rows(id, recipeIds) }] : [],
+      },
+    })
+    const ranges = fluidRanges([block('A', ['turbine', 'boiler']), block('B', ['engine', 'turbine2'], 'sub')], gd)
+    expect(ranges.get('steam')).toEqual([{}, { min: 465 }])
+    expect(ranges.has('work')).toBe(false)
+    expect(fluidRanges([block('A', ['boiler'])], gd).size).toBe(0)
   })
 })

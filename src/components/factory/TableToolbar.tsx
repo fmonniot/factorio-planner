@@ -10,7 +10,7 @@ import { blockAreas } from '../../solver/areas'
 import { areaName } from '../../data/subPlanTree'
 import type { FluidTag, SolvedNode, SubPlan, SolverWarning, GameData } from '../../data/types'
 import { fmtPower, fmtItemRateText } from './ItemTile'
-import { fmtNoFittingTemperature, fmtTemperatureWarning } from './temperature'
+import { fmtConnectionTemperature, type ConnectionLink, fmtNoFittingTemperature, fmtTemperatureWarning } from './temperature'
 import { fmtFluidTag } from '../../data/flowKey'
 import { countSubPlanContents } from './subPlanContents'
 import { warningTargets } from './warningTargets'
@@ -158,6 +158,7 @@ function warningTitle(w: SolverWarning): string {
     case 'request-loop-not-converged': return 'Requests around a loop do not settle'
     case 'temperature-mismatch': return 'Fluid temperature does not fit'
     case 'no-fitting-temperature': return 'No fluid at a fitting temperature'
+    case 'connection-temperature': return 'Connected fluid is at the wrong temperature'
     case 'module-not-allowed': return 'Module not accepted'
   }
 }
@@ -168,6 +169,7 @@ function warningBody(
   blockName: (id: string) => string,
   rootPlan: SubPlan | undefined,
   rateUnit: RateUnit,
+  connections: readonly ConnectionLink[] = [],
 ): string {
   switch (w.type) {
     case 'no-recipe': {
@@ -227,6 +229,7 @@ function warningBody(
     }
     case 'temperature-mismatch': return fmtTemperatureWarning(w, gameData)
     case 'no-fitting-temperature': return fmtNoFittingTemperature(w, gameData)
+    case 'connection-temperature': return fmtConnectionTemperature(w, gameData, id => blockName(connections.find(c => c.id === id)?.fromBlockId ?? id))
     case 'module-not-allowed': {
       return w.misfits
         .map(m => {
@@ -264,6 +267,7 @@ function warningHint(w: SolverWarning): string {
     case 'request-loop-not-converged': return "Set a limit on one of the loop's requests, or remove one."
     case 'temperature-mismatch': return 'Use a boiler or recipe whose output is in range, or connect a block that makes it at the right temperature.'
     case 'no-fitting-temperature': return 'Add a row that makes it at a fitting temperature, turn Import on for it, or connect a block that makes it.'
+    case 'connection-temperature': return 'Connect a block that makes it at a fitting temperature, or add a row here that makes it.'
     case 'module-not-allowed': return 'Replace the module with one the machine accepts, or pick another machine or beacon.'
   }
 }
@@ -378,12 +382,12 @@ export function WarningsPopover() {
                   ⚠ {warningTitle(w)}
                 </div>
                 <div className="text-gray-300 leading-snug mb-1">
-                  {warningBody(w, gameData, blockName, block?.rootPlan, rateUnit)}
+                  {warningBody(w, gameData, blockName, block?.rootPlan, rateUnit, block?.inputConnections)}
                 </div>
                 <div className="text-gray-400 leading-snug">
                   → {warningHint(w)}
                 </div>
-                {warningTargets(w, block?.rootPlan, gameData, blockName, block?.id).map(t => (
+                {warningTargets(w, block?.rootPlan, gameData, blockName, block?.id, block?.inputConnections).map(t => (
                   <button
                     key={t.kind === 'row' ? t.nodeId : t.blockId}
                     type="button"

@@ -1,5 +1,5 @@
-import type { FluidConversion, FluidTag, SolverGoal, SolverWarning } from '../data/types'
-import { flowKey, isTemperatureTag } from '../data/flowKey'
+import type { Block, FluidConversion, FluidTag, GameData, SolverGoal, SolverWarning } from '../data/types'
+import { flowKey, isTemperatureTag, rangeOf, splitFluids, type FluidRange } from '../data/flowKey'
 import type { ClassifiedSystem } from './build'
 
 // ---------------------------------------------------------------------------
@@ -20,10 +20,67 @@ export function tagOf(system: Pick<ClassifiedSystem, 'flow'>, key: string): Flui
   return system.flow?.info.get(key)?.tag
 }
 
-/** A made temperature (`item@T`), as opposed to a range key or a plain item. */
+/** A made temperature (`item@T`) or a key a connection supplies, as opposed to a range key or a plain item: neither has an import slack. */
 export function isTemperatureKey(system: Pick<ClassifiedSystem, 'flow'>, key: string): boolean {
-  const tag = system.flow?.info.get(key)?.tag
-  return tag !== undefined && isTemperatureTag(tag)
+  const k = system.flow?.info.get(key)
+  return k !== undefined && (isTemperatureTag(k.tag) || k.supplied === true)
+}
+
+/** A key a connection supplies (`item@500#in`, `item[465,]#in#1`): a hard row fed by the connection's supply, never a row's own key. */
+export function isSuppliedKey(system: Pick<ClassifiedSystem, 'flow'>, key: string): boolean {
+  return system.flow?.info.get(key)?.supplied === true
+}
+
+/** The key a goal is on in `goalsMap` and in the classification: the item for a plain item or a goal on any temperature, the flow key of its range else. */
+export function goalMapKey(g: SolverGoal): string {
+  return g.temp ? flowKey(g.itemId, g.temp) : g.itemId
+}
+
+/** The classified key of a goal: a ranged goal's own key, `item[,]` for a split fluid without a range, the item for any other. */
+export function goalKeyOf(system: Pick<ClassifiedSystem, 'flow'>, g: SolverGoal): string {
+  return g.temp ? flowKey(g.itemId, g.temp) : goalKey(system, g.itemId)
+}
+
+/**
+ * The distinct ranges each split fluid is taken at over the recipe ingredients of every row of every block (fuel ignored), sorted
+ * by flow key. A goal's range is left out: `[,]` would add one to every key. Versatility and depth of a key are counted over these.
+ */
+export function fluidRanges(blocks: readonly Block[], gameData: GameData): Map<string, FluidRange[]> {
+  const split = splitFluids(gameData)
+  const out = new Map<string, Map<string, FluidRange>>()
+  if (split.size === 0) return new Map()
+  const visit = (nodes: readonly { kind: string; recipeId?: string }[]) => {
+    for (const n of nodes) {
+      if (n.kind !== 'game-recipe' || n.recipeId === undefined) continue
+      const recipe = gameData.recipes[n.recipeId]
+      if (!recipe) continue
+      for (const ing of recipe.ingredients) {
+        if (!split.has(ing.itemId)) continue
+        const range = rangeOf(ing)
+        const m = out.get(ing.itemId) ?? new Map<string, FluidRange>()
+        m.set(flowKey(ing.itemId, range), range)
+        out.set(ing.itemId, m)
+      }
+    }
+  }
+  const walk = (plan: Block['rootPlan']): void => {
+    visit(plan.nodes)
+    for (const sp of plan.subPlans) walk(sp)
+  }
+  for (const b of blocks) walk(b.rootPlan)
+  return new Map([...out].map(([id, m]) => [id, [...m.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, r]) => r)]))
+}
+
+/** Each supplied key's cap: the sum of the offers of its offered key. In areas every area's copy gets the full sum (the shared rows of the LP bound the real total). */
+export function supplyCaps(system: Pick<ClassifiedSystem, 'flow'>): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const [key, s] of system.flow?.supply ?? []) {
+    const offers = system.flow!.keySupply.get(s.fluid)?.offers ?? []
+    let total = 0
+    for (const o of offers) if (flowKey(s.fluid, o.tag) === s.offeredKey) total += o.offer
+    if (total > 0) out.set(key, total)
+  }
+  return out
 }
 
 /** The keys of an item: its flow keys, or itself. */
@@ -39,7 +96,7 @@ export function goalKey(system: Pick<ClassifiedSystem, 'flow'>, itemId: string):
 /** The goals with their item ids replaced by their goal keys. */
 export function keyGoals(system: Pick<ClassifiedSystem, 'flow'>, goals: SolverGoal[]): SolverGoal[] {
   if (!system.flow) return goals
-  return goals.map(g => ({ ...g, itemId: goalKey(system, g.itemId) }))
+  return goals.map(g => ({ ...g, itemId: goalKeyOf(system, g) }))
 }
 
 /** A split base id becomes all its keys except those with an own entry in `own`; any other id stays as it is. */
@@ -102,6 +159,7 @@ export function conversionsOf(
       to: system.flow!.info.get(c.to)!.tag,
       rate,
       ...(c.area !== undefined && areaIdOf ? { areaId: areaIdOf(c.area) } : {}),
+      ...(system.flow!.info.get(c.from)!.supplied ? { supplied: true as const } : {}),
     })
   }
   return out.length > 0 ? out : undefined
@@ -122,7 +180,7 @@ export function noFittingTemperature(
   if (!flow) return []
   const fed = new Set<string>()
   for (const c of flow.conversions.values()) {
-    if ([...(system.S.get(c.from) ?? [])].some(([, coeff]) => coeff > 0)) fed.add(c.to)
+    if (flow.info.get(c.from)?.supplied || [...(system.S.get(c.from) ?? [])].some(([, coeff]) => coeff > 0)) fed.add(c.to)
   }
   const merged = new Map<string, Extract<SolverWarning, { type: 'no-fitting-temperature' }>>()
   for (const key of system.classification.intermediates) {

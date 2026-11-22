@@ -1,6 +1,6 @@
 import type { ClassifiedSystem } from './build'
-import { FLOW_TOLERANCE, itemGrossFlow, surplusTolerance } from './blockResult'
-import { fluidSupply } from './flowKeys'
+import { FLOW_TOLERANCE, itemGrossFlow, surplusTolerance, type KeySupplyPlan } from './blockResult'
+import { fluidSupply, itemKeys } from './flowKeys'
 import { BIG_M, buildLPModel, readLPResult, runLP, type LPModel, type LPResult } from './solve'
 
 // ---------------------------------------------------------------------------
@@ -40,6 +40,10 @@ export interface ConnectionOrderInput {
   totalCaps: Map<string, number>
   /** The result today's two passes end with. */
   today: LPResult
+  /** split fluid → Σ of what its connections offer: the cap of its supplied keys together */
+  fluidCaps?: ReadonlyMap<string, number>
+  /** the fluids with supplied keys (see `KeySupplyPlan`) */
+  keySupply?: KeySupplyPlan
 }
 
 /** The items whose order the steps change: connected intermediates with the default rule (locked ones included). */
@@ -67,8 +71,12 @@ export function needsConnectionOrder(input: ConnectionOrderInput): boolean {
   const imports = [...today.slack].some(([itemId, rate]) =>
     !byproductsFirst.has(itemId) && rate > surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput)))
   if (!imports) return false
-  return defaultItems(input).some(itemId =>
-    input.totalCaps.get(itemId)! - fluidSupply(system, today.supply, itemId) > FLOW_TOLERANCE)
+  return defaultItems(input).some(itemId => {
+    // A supplied key shares its fluid's offers: what is spare is the offers of all its keys less all that was supplied.
+    const fluid = system.flow?.supply.get(itemId)?.fluid
+    const offer = fluid === undefined ? input.totalCaps.get(itemId)! : (input.keySupply?.fluids.get(fluid)?.offers ?? input.totalCaps.get(itemId)!)
+    return offer - fluidSupply(system, today.supply, itemId) > FLOW_TOLERANCE
+  })
 }
 
 /** Adds `attr` with coefficient 1 to each named variable. */
@@ -140,20 +148,33 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
   // `connectionsFirst` here only adds the `supuse` row; it changes no cost.
   const lp = buildLPModel(
     system, pinnedRates, bcRecipeIds, pass1NoImport, caps, new Set([...supplied, ...bfConnected]), byproductsFirst, false, new Set(),
-    { markedFeeders },
+    { markedFeeders, fluidCaps: input.fluidCaps },
   )
 
   const importSlacks = [...lp.itemToSlack].filter(([itemId]) => !byproductsFirst.has(itemId)).map(([, name]) => name)
   const defaultSupplies = defaults.map(itemId => lp.itemToSupply.get(itemId)).filter((n): n is string => n !== undefined)
-  // Steps 2 and 3: a Don't make more here item takes nothing from its connections yet.
-  const bfRows = new Map<string, string>()
+  // Steps 2 and 3: a Don't make more here item takes nothing from its connections yet. A split fluid with supplied keys has
+  // one row over its supplied keys' aggregates, in place of one per key.
+  const bfRows = new Map<string, { row: string; fluid?: string }>()
+  const bfFluids = new Map<string, string[]>() // fluid → its aggregates
   for (const itemId of bfConnected) {
     const name = lp.itemToSupply.get(itemId)
     if (!name) continue
+    const fluid = system.flow?.supply.get(itemId)?.fluid
+    if (fluid !== undefined) {
+      bfFluids.set(fluid, [...(bfFluids.get(fluid) ?? []), name])
+      continue
+    }
     const row = `__bfsup_${name}`
     lp.constraints[row] = { max: 0 }
     lp.variables[name][row] = 1
-    bfRows.set(itemId, row)
+    bfRows.set(itemId, { row })
+  }
+  for (const [fluid, names] of bfFluids) {
+    const row = `__bfsupf_${fluid}`
+    lp.constraints[row] = { max: 0 }
+    for (const name of names) lp.variables[name][row] = 1
+    bfRows.set(fluid, { row, fluid })
   }
 
   // Step 2: least import.
@@ -199,10 +220,23 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
   // there), so step 4 is today's two passes for it: its residual is measured first, with no supply and the
   // runs priced, then its supply fills that residual (min(offer, residual), as `pass2Plan`).
   let refill = false
-  for (const [itemId, row] of bfRows) {
-    const residual = sumOf(step4, [lp.itemToSlack.get(itemId) ?? ''])
+  for (const [itemId, { row, fluid }] of bfRows) {
+    // A split fluid's residual is the sum of its range keys' slacks, and its supply is capped by the offers in all.
+    const slacks = fluid === undefined ? [lp.itemToSlack.get(itemId) ?? ''] : itemKeys(system, fluid).map(k => lp.itemToSlack.get(k) ?? '')
+    const residual = sumOf(step4, slacks)
     if (residual <= FLOW_TOLERANCE) continue
-    lp.constraints[row] = { max: Math.min(totalCaps.get(itemId)!, residual) }
+    let offer = fluid === undefined ? totalCaps.get(itemId)! : (input.keySupply?.fluids.get(fluid)?.offers ?? Infinity)
+    // As `pass2Plan`: no more than the offered keys can serve of the range keys' slacks.
+    const plan = fluid === undefined ? undefined : input.keySupply?.fluids.get(fluid)
+    if (plan) {
+      const perRange = new Map<string, number>()
+      for (const k of plan.rangeKeys) {
+        const r = sumOf(step4, [lp.itemToSlack.get(k) ?? ''])
+        if (r > FLOW_TOLERANCE) perRange.set(k, r)
+      }
+      offer = Math.min(offer, plan.fit(perRange))
+    }
+    lp.constraints[row] = { max: Math.min(offer, residual) }
     refill = true
   }
   if (refill) {

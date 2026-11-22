@@ -137,13 +137,16 @@ export function grantByRank(
   extraRate: number,
   shareOf: (connectionId: string) => number,
   inListOrder?: (connectionId: string) => boolean,
+  /** What an entry asks (default: its connection's share times its part); `at` is its index in `order`. A split fluid's allocation sets it per key. */
+  entryAsk?: (e: RankedEntry & { kind: 'block' }, at: number) => number,
 ): { grants: Map<string, number>; held: number; entryGrants: number[] } {
   const total = Math.max(0, offer)
   let rest = total
   const grants = new Map<string, number>()
   const entryGrants = order.map(() => 0)
-  const askOf = (e: RankedEntry): number => {
+  const askOf = (e: RankedEntry, at: number): number => {
     if (e.kind === 'extra') return extraRate
+    if (entryAsk) return Math.max(0, entryAsk(e, at))
     const share = Math.max(0, shareOf(e.connection.id))
     return e.part === undefined ? share : share * e.part
   }
@@ -156,13 +159,13 @@ export function grantByRank(
     const listOrder = inListOrder !== undefined && group.some(e => e.kind === 'block' && inListOrder(e.connection.id))
     if (group.length === 1 || listOrder) {
       group.forEach((e, m) => {
-        const amount = Math.min(askOf(e), rest)
+        const amount = Math.min(askOf(e, start + m), rest)
         give(e, start + m, amount)
         rest -= amount
       })
       continue
     }
-    const shares = group.map(askOf)
+    const shares = group.map((e, m) => askOf(e, start + m))
     // `rankedPairs` gives every member a valid weight or none; a hand-built group with some missing or invalid reads as equal.
     const given = group.map(e => e.weight)
     const taken = waterFill(rest, shares, given.every(validShare) ? given : undefined)

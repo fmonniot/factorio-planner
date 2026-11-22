@@ -623,7 +623,7 @@ interface Product {
 }
 ```
 
-A saved `extraRate` of `0` loads as an absent key (like `maxRate`); a negative one is rejected. The solver reads each product as a solver-only `SolverGoal` `{ id, itemId, rate }` with `rate = extraRate ?? 0` plus what other blocks request, built when the block is flattened and dropped when it is 0 (see [spec/solver.md](solver.md)); `SolverGoal` is not part of the stored plan.
+A saved `extraRate` of `0` loads as an absent key (like `maxRate`); a negative one is rejected. The solver reads each product as a solver-only `SolverGoal` `{ id, itemId, rate, temp? }` with `rate = extraRate ?? 0` plus what other blocks request (a split fluid requested at a range other than any temperature is one more goal on the item's first product with `temp` set to that range, `{ min?, max? }`; absent means any temperature), built when the block is flattened and dropped when it is 0 (see [spec/solver.md](solver.md)); `SolverGoal` is not part of the stored plan.
 
 `sourceRules` holds one rule per item, set in the **Comes from** control (see [ui.md](ui.md#comes-from)): its three presets are the positions of `makeHere`, *Make it here* (absent), *Receive it first* (`'after-blocks'`) and *Don't make more here* (`'off'`), and its **Import** switch is `importOff`. An absent key is never written, and a rule with no key is dropped (on load and by the store), as `maxRate` is on a connection. The store commands are `setMakeHere(itemId, 'after-blocks' | 'off' | undefined)` and `toggleImportOff(itemId)`; each is an undoable command in the block's history, choosing the current preset changes nothing, and an emptied rule removes the item's entry. The two parts combine freely, *Don't make more here* with Import off included: the block runs no row for the item and what the other sources leave of it is reported as missing (see [solver.md](solver.md#byproducts-first)). `'after-blocks'` applies to every connection the block has for the item and has no effect without a connection or for an item the block cannot make; `'off'` works with or without connections and has no effect on a raw item or a goal item; a product with no extra output and no request is not a goal, so a rule left on it still applies (the control, which reads the block and not the solve, reports it as having no effect and offers **Remove**). The entry is kept when the item's last connection is removed (it is active again on reconnect), and copied when a block or plan is duplicated. The order of a block's connections for an item is the order of `inputConnections`, not part of the rule; it is user-set: `moveConnection(connectionId, beforeConnectionId | null, toBlockId?)` puts a connection just before another of the same item and block (after the item's last one with `null`) and `moveConnectionBy(connectionId, -1 | 1)` moves it one place among its item's connections, each undoable in the target block's history; `addProduct(product, toBlockId?)` adds a product to the given block (the active one by default), with its history entry in that block, as the connection commands do, and an unknown `toBlockId` is a no-op with no history entry (the Sources list's **Make it a product** adds it on the source block); the connections of other items keep their positions, and a move that changes nothing (or across items or blocks) is a no-op with no history entry. Areas of the block can carry their own rules, which replace this one for their item: see [Area source rules](#subplan). See [solver.md](solver.md#connections-first) and [solver.md](solver.md#byproducts-first).
 
@@ -832,6 +832,7 @@ interface FluidConversion {
   to: FluidTag           // a range
   rate: number           // items/min
   areaId?: string        // blocks with areas: the area that converts it
+  supplied?: true        // the conversion takes a key a connection supplies: received, not made here
 }
 
 interface AreaRoute {
@@ -888,6 +889,7 @@ type SolverWarning =
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'temperature-mismatch'; recipeId: string; itemId: string; supplied: number[]; minimum?: number; maximum?: number }  // heat only
   | { type: 'no-fitting-temperature'; itemId: string; min?: number; max?: number; recipeIds: string[] }  // a range of a locked split fluid that nothing in the block makes (critical)
+  | { type: 'connection-temperature'; connections: { connectionId: string; itemId: string; offered: { temperature: number; rate: number }[]; needed: { min?: number; max?: number; rate: number }[] }[] }  // a connection of a split fluid offers only known temperatures that fit none of the ranges the block still imports (not critical)
 ```
 
 `unsatisfied` lists, in this order: goal shortfalls, intermediate slack (items the
@@ -920,6 +922,7 @@ interface ServedConsumer {
   areaId?: string               // set when this line is one area of the consumer block (the block's areas that need the item, ≥ 2, or an area entry of the list); then share, got and need are this area's part. Absent: the line is the whole block
   need?: number                 // items/min of the consumer's need still uncovered when the request pass reached this take; only for a take the pass reached
   notCredited?: true            // a listed or takes-first take the request pass reached before it could credit it: `share` is 0 whatever the list says
+  parts?: { temp: FluidTag; share: number; got: number }[]  // a split fluid, block lines only: the line's share and got per key, in the order of ConnectionFlow.parts
   groupInListOrder?: true       // a member of a group of takes the request pass could not share by need (a need, the source or the ranks above not known in time, a member whose group take is not its first of the item, or a consumer of the pair in a cycle of requests): credited and served in list order, not by weights
 }
 
@@ -950,6 +953,14 @@ interface ConnectionFlow {
   kind: ConnectionKind             // 'request' (the item is a product of the source and the request applies) | 'take'
   requested?: number               // present iff kind is 'request': items/min the consumer asked the source to make (may be 0)
   requestIgnored?: RequestIgnoredReason  // the item is a product of the source but the request is not applied; the connection takes existing output
+  parts?: ConnectionPart[]         // a split fluid only: rate, available and requested above, per key (made temperatures ascending with unknown last, then ranges by minimum, open first, then maximum); a key with no rate, no offer and nothing requested is left out
+}
+
+interface ConnectionPart {
+  temp: FluidTag                   // the key: a made temperature (a take) or a range (a request)
+  rate: number                     // items/min delivered of it
+  available: number                // items/min the source had on offer of it (capped by maxRate)
+  requested?: number               // iff the flow is a request: items/min asked at this range
 }
 
 type ConnectionKind = 'request' | 'take'

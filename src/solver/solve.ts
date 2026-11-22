@@ -1,6 +1,7 @@
 import solver, { type SolveResult } from 'javascript-lp-solver'
 import type { ClassifiedSystem } from './build'
 import type { SolverWarning } from '../data/types'
+import { flowKey, isTemperatureTag, rangeDepth, versatility, type FluidRange } from '../data/flowKey'
 import { isTemperatureKey, itemKeys } from './flowKeys'
 import { absorberRoles, type AbsorberRoles } from './absorbers'
 
@@ -15,6 +16,8 @@ export interface LPResult {
   slack: Map<string, number>
   /** items/min taken from `supplyCaps` per item; only entries > tolerance */
   supply: Map<string, number>
+  /** What each supplied key (see `FlowKeys.supply`) took from each connection, per offered key; only entries > tolerance. Empty without supplied keys. */
+  keySupplyUse: { key: string; connectionId: string; offeredKey: string; value: number }[]
   warnings: SolverWarning[]
   /** feasible flag from the LP solver */
   feasible: boolean
@@ -39,6 +42,20 @@ export const BIG_M = 1e6
  * into one at "any"), and far below a run (1), the byproducts-first slack (1e-5) and SHIP_COST (1e-6).
  */
 export const CONVERT_COST = 1e-7
+/**
+ * Objective cost per unit of a supplied key times its versatility (the number of the fluid's ranges it fits): each consumer prefers
+ * the least versatile key that does for it, so a later consumer is not starved of the key only it can use (fluid temperatures,
+ * decision 11). Like `CONVERT_COST` it sits above the solver's pivot precision and far below a run.
+ */
+export const SUPPLY_TIE_COST = 1e-7
+/**
+ * Weight of the depth term of a supplied conversion (R1 of the case 26 b derivation): the conversion of a supplied key into a
+ * range costs `SUPPLY_TIE_COST · SUPPLY_DEPTH · N · (N − depth)`, N the number of the fluid's ranges, depth the number of ranges that
+ * contain the target. The depth term moves in steps of N while versatility differences stay below N, so a short supply serves the narrowest
+ * ranges first, then the least versatile key. With no shortage every range is covered, the term is constant and decision 11 alone decides.
+ * 0 leaves decision 11 as written.
+ */
+export const SUPPLY_DEPTH: number = 1
 export const SLACK_TOLERANCE = 1e-6
 /**
  * Tiny negative coefficient applied to the rewarded recipes of an absorber chain (flagged byproduct
@@ -82,6 +99,8 @@ export interface LPModel {
   leastShortfall?: number
   /** the absorber chains of the system: which columns cost BC_BONUS or `feederCost` and which stay out of the supply-use rows */
   absorbers: AbsorberRoles
+  /** the per-connection supply variables of the supplied keys */
+  keySupplyVars: { name: string; key: string; connectionId: string; offeredKey: string }[]
 }
 
 /** Options of `buildLPModel` that few callers set. */
@@ -90,6 +109,8 @@ export interface LPBuildOptions {
   markedFeeders?: ReadonlySet<string>
   /** Items supplied by something other than `supplyCaps` (the areas' own supply rows). */
   extraSupplied?: ReadonlySet<string>
+  /** split fluid → a cap on what its supplied keys take together (the pass-2 rule: own production first); Receive-it-first keys are not bounded by it */
+  fluidCaps?: ReadonlyMap<string, number>
 }
 
 /** At most this many pins are probed one by one to tell which bind (see `bindingPins`). */
@@ -165,17 +186,35 @@ export function buildLPModel(
   // their intermediates allow, and the rows that only feed them cost `feederCost`.
   const cheapImports = new Set([...byproductsFirst, ...extraCheapImports].filter(itemId => !noImportItems.has(itemId)))
   // The items whose supply gets a supply-use row below: they never anchor an unflagged candidate (see absorbers.ts).
+  const suppliedFirst = [...connectionsFirst].filter(i => classification.intermediates.has(i) && (supplyCaps.get(i) ?? 0) > 0)
+  // A Receive-it-first supplied key is bounded by one row per fluid over the fluid's range keys (`supfu`), so those keys are supplied rows too.
+  const rangeKeysOf = (fluid: string): string[] => itemKeys(system, fluid).filter(k => {
+    const info = system.flow!.info.get(k)!
+    return !info.supplied && !isTemperatureTag(info.tag) && !classification.goals.has(k)
+  })
   const supplied = new Set([
-    ...[...connectionsFirst].filter(i => classification.intermediates.has(i) && (supplyCaps.get(i) ?? 0) > 0),
+    ...suppliedFirst,
+    ...suppliedFirst.flatMap(i => (system.flow?.supply.has(i) ? rangeKeysOf(system.flow.supply.get(i)!.fluid) : [])),
     ...(options.extraSupplied ?? []),
   ])
   const absorbers = absorberRoles(system, bcRecipeIds, pinnedRates, cheapImports, {
     markedFeeders: options.markedFeeders, supplied,
   })
+  // A conversion out of a supplied key also pays for the depth of the range it feeds (see `SUPPLY_DEPTH`).
+  const conversionCost = (recipeId: string): number => {
+    const flow = system.flow!
+    const conv = flow.conversions.get(recipeId)!
+    const from = flow.info.get(conv.from)
+    if (!from?.supplied || SUPPLY_DEPTH === 0) return CONVERT_COST
+    const ranges = flow.keySupply.get(from.itemId)?.ranges ?? []
+    const n = ranges.length
+    const depth = rangeDepth(flow.info.get(conv.to)!.tag as FluidRange, ranges)
+    return CONVERT_COST + SUPPLY_TIE_COST * SUPPLY_DEPTH * n * Math.max(0, n - depth)
+  }
   for (const recipeId of recipes) {
     const varName = recipeToVar.get(recipeId)!
     variables[varName] = {
-      __obj__: system.flow?.conversions.has(recipeId) ? CONVERT_COST
+      __obj__: system.flow?.conversions.has(recipeId) ? conversionCost(recipeId)
         : absorbers.rewarded.has(recipeId) ? BC_BONUS : (absorbers.feederCost.get(recipeId) ?? 1),
     }
   }
@@ -240,10 +279,20 @@ export function buildLPModel(
     }
   }
 
+  // The supplied keys' per-connection variables (see below): rows shared by the (connection, offered key) and the connection.
+  const keySupplyVars: LPModel['keySupplyVars'] = []
+  const offerRows = new Map<string, string>() // (connection, offered key) → its `kcc` row
+  const connectionVars = new Map<string, string[]>() // connection → its variables
+  const aggregates = new Map<string, { free: string[]; first: string[] }>() // fluid → the supplied keys' aggregate variables
+  const maxRateOf = new Map<string, number>()
+  let linkRows = 0
+  for (const ks of system.flow?.keySupply.values() ?? []) for (const [id, rate] of ks.maxRates) maxRateOf.set(id, rate)
+
   // Intermediate constraints: Σ S_ij * x_j + s_i ≥ 0  (elastic — slack allowed)
   for (const itemId of classification.intermediates) {
     const cName = addConstraintWithSlack(itemId, 0)
     const cap = supplyCaps.get(itemId) ?? 0
+    const suppliedKey = system.flow?.supply.get(itemId)
     if (cap > 0) {
       const supplyName = named('supply_', itemId)
       const capName = named('supcap_', itemId)
@@ -254,7 +303,35 @@ export function buildLPModel(
         constraints[capName] = { max: cap }
         variables[supplyName][capName] = 1
       }
-      if (connectionsFirst.has(itemId)) {
+      if (suppliedKey) {
+        // A supplied key: its aggregate is the sum of one variable per connection that offers the key, each costing the tie-break
+        // (`SUPPLY_TIE_COST` times the versatility of the key) and bounded by the connection's offer of it and its `maxRate`.
+        const flow = system.flow!
+        const ks = flow.keySupply.get(suppliedKey.fluid)!
+        const vers = versatility(flow.info.get(itemId)!.tag, ks.ranges)
+        const agg = aggregates.get(suppliedKey.fluid) ?? { free: [], first: [] }
+        aggregates.set(suppliedKey.fluid, agg)
+        ;(connectionsFirst.has(itemId) ? agg.first : agg.free).push(supplyName)
+        // The aggregate is the sum of the key's connection variables: one link row per key.
+        const link = `ksl${linkRows++}`
+        constraints[link] = { equal: 0 }
+        variables[supplyName][link] = -1
+        for (const o of ks.offers) {
+          if (flowKey(suppliedKey.fluid, o.tag) !== suppliedKey.offeredKey) continue
+          const name = `ksup${keySupplyVars.length}`
+          variables[name] = { __obj__: SUPPLY_TIE_COST * vers, [link]: 1 }
+          const offerKey = `${o.connectionId}\0${suppliedKey.offeredKey}`
+          let offerRow = offerRows.get(offerKey)
+          if (offerRow === undefined) {
+            offerRow = `kcc${offerRows.size}`
+            offerRows.set(offerKey, offerRow)
+            constraints[offerRow] = { max: o.offer }
+          }
+          variables[name][offerRow] = 1
+          connectionVars.set(o.connectionId, [...(connectionVars.get(o.connectionId) ?? []), name])
+          keySupplyVars.push({ name, key: itemId, connectionId: o.connectionId, offeredKey: suppliedKey.offeredKey })
+        }
+      } else if (connectionsFirst.has(itemId)) {
         // Supply covers at most what the recipes outside the flagged rows use (the whole chain in the fallback, see absorbers.ts).
         // Without this row a free u_i could feed a flagged row for its bonus, and be
         // unbounded when the cap is infinite.
@@ -266,6 +343,38 @@ export function buildLPModel(
             const varName = recipeToVar.get(recipeId)
             if (varName) variables[varName][useName] = coeff
           }
+        }
+      }
+    }
+  }
+
+  // The connection's `maxRate` caps the sum of its variables (over keys and areas); a lone variable is capped by its offer already.
+  let rate = 0
+  for (const [connectionId, names] of connectionVars) {
+    const max = maxRateOf.get(connectionId)
+    if (max === undefined || names.length < 2) continue
+    const row = `kmr${rate++}`
+    constraints[row] = { max }
+    for (const name of names) variables[name][row] = 1
+  }
+  for (const [fluid, agg] of aggregates) {
+    // Own production comes first: the supplied keys of a fluid take together at most what pass 2 allows.
+    const cap = options.fluidCaps?.get(fluid)
+    if (cap !== undefined && Number.isFinite(cap) && agg.free.length > 0) {
+      const row = named('kfl_', fluid)
+      constraints[row] = { max: cap }
+      for (const name of agg.free) variables[name][row] = 1
+    }
+    // Receive it first: the supply covers at most what the rows outside the flagged ones take of the fluid's range keys.
+    if (agg.first.length > 0) {
+      const row = named('supfu_', fluid)
+      constraints[row] = { max: 0 }
+      for (const name of agg.first) variables[name][row] = 1
+      for (const key of rangeKeysOf(fluid)) {
+        for (const [recipeId, coeff] of S.get(key) ?? []) {
+          if (coeff >= 0 || system.flow!.conversions.has(recipeId) || absorbers.noSupply.has(recipeId)) continue
+          const varName = recipeToVar.get(recipeId)
+          if (varName) variables[varName][row] = (variables[varName][row] ?? 0) + coeff
         }
       }
     }
@@ -290,7 +399,7 @@ export function buildLPModel(
     variables[varName][cName] = 1
   }
 
-  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, goalToShort, absorbers }
+  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, goalToShort, absorbers, keySupplyVars }
 }
 
 type LPConstraints = LPModel['constraints']
@@ -410,8 +519,14 @@ export function readLPResult(
     }
   }
 
+  const keySupplyUse: LPResult['keySupplyUse'] = []
+  for (const v of lp.keySupplyVars) {
+    const val = result[v.name]
+    if (typeof val === 'number' && val > SLACK_TOLERANCE) keySupplyUse.push({ key: v.key, connectionId: v.connectionId, offeredKey: v.offeredKey, value: val })
+  }
+
   return {
-    throughput, slack, supply, warnings, feasible, shortfall, absorbers: lp.absorbers,
+    throughput, slack, supply, keySupplyUse, warnings, feasible, shortfall, absorbers: lp.absorbers,
   }
 }
 
@@ -435,10 +550,11 @@ export function solveLP(
   connectionsFirst: Set<string> = new Set(),
   byproductsFirst: Set<string> = new Set(),
   markedFeeders: ReadonlySet<string> = new Set(),
+  options: { fluidCaps?: ReadonlyMap<string, number> } = {},
 ): LPResult {
   const build = (elastic: boolean) => buildLPModel(
     system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, elastic, new Set(),
-    { markedFeeders },
+    { markedFeeders, fluidCaps: options.fluidCaps },
   )
   const lp = build(false)
   const result = runLP('__obj__', lp.constraints, lp.variables)

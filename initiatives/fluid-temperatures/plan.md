@@ -148,7 +148,7 @@ Each phase is one ticket, ends in one pull request, and keeps `main` green and u
 
 ### T1. Keys inside a block and its areas (decisions 1, 2, 4, 5, 7, 8; 6 in its interim form)
 
-Done, unmerged: the keys, the conversion columns and the diagnostics are in. Two interim choices differ from the text below, both replaced by T2: connected supply of a split fluid is given to each consumed range key directly (one supply variable per range key, a group row bounding their sum by the offer) instead of entering as `@?`, and a split fluid that is a goal of the block and also feeds its rows gets that supply for the rows' ranges, never for the goal key. T1 adds no snapshot merge: a block's `imports` can list one split fluid once per range until T3 sums them per base item (no contract fixture has a split fluid).
+Done (merged, #362): the keys, the conversion columns and the diagnostics are in. Two interim choices differ from the text below, both replaced by T2: connected supply of a split fluid is given to each consumed range key directly (one supply variable per range key, a group row bounding their sum by the offer) instead of entering as `@?`, and a split fluid that is a goal of the block and also feeds its rows gets that supply for the rows' ranges, never for the goal key. T1 adds no snapshot merge: a block's `imports` can list one split fluid once per range until T3 sums them per base item (no contract fixture has a split fluid).
 
 - `src/data/flowKey.ts`, the split set, `FluidTag`, and the `GameDataSchema` refine.
 - `buildClassifiedSystem` and the area column system build keys, conversion columns, tags and `conversions`; range-key imports; temperature keys without slack.
@@ -169,6 +169,21 @@ Done, unmerged: the keys, the conversion columns and the diagnostics are in. Two
 - The served-list allocation.
 - The supply tie-break cost and its place in the solve cache key (decision 11).
 - Tests: new cases 26 and 27; case 22 D (a loop of blocks and a served list) unchanged.
+
+Done, unmerged: the offers are per key everywhere in `solveAll`, a connection supplies the consumer's supplied keys, requests are per range, the served list allocates the keys (`keyAllocation.ts`), loops and cycles of requests run per key, and `connection-temperature` is raised. Cases 26 and 27 pass; case 22 D, `legacyParity.json` and `contract/` did not move. Where the implementation settled a point the text above leaves open or reads differently:
+
+- *Case 26 b uses a depth term (R1).* Decision 11 as written (supply costs `SUPPLY_TIE_COST × versatility`) makes B's LP pick T 900 at 500° and E 1800 at 165°, importing 900 `{ min: 465 }`, because both imports cost `BIG_M` and only the ties decide. The author chose to keep the value of the table above: a conversion out of a supplied key also costs `SUPPLY_TIE_COST · SUPPLY_DEPTH · N · (N − depth)`, so a short supply serves the narrowest ranges first (`SUPPLY_DEPTH = 0` gives decision 11 as written).
+- *The pass-2 cap is one row per fluid*, not per connection (two connections could each take the whole residual and replace own production).
+- *A supplied key is its own key* (`item@T#in`, `#in#<area>`), converting into every non-goal range key it fits, so supply never reaches a goal key and a consumer's own range row keeps its meaning.
+- *The request probe and direct `solveBlock` calls keep T1's item-level supply* of the range keys; `solveAll` hands a split fluid over by key only.
+- *The offer includes goal keys* (requested ranges, the extra on `[,]`), as for plain items. A requested range is a goal with a range (`SolverGoal.temp`).
+- *Takes-first credit on a pair with no list* is a one-member allocation (the keys the source has left, the consumer's need per range, its `maxRate`).
+- *The allocation runs once per ranked pair* when the request pass reaches its first listed take and every need is final; otherwise each listed take is allocated alone in list order (`notCredited`, `groupInListOrder`). The extra is a member asking `extraRate` on any temperature.
+- *`connection-temperature`* is raised only when the connection offers temperatures with a number (unknown fits everything, a range key is a delivery of what was asked) and none fits a range the block still imports.
+- *Import off locks the intermediate range keys of a connected fluid* the block does not make; pass 1 unlocks them and pass 2 locks them again unless the fitting supply is short (`maxFit`).
+- *`R_F`, for versatility and depth*, is the distinct ranges of the recipe ingredients of every row of every block (fuel ignored, goal ranges left out).
+- *A part* (`ConnectionFlow.parts`, `ServedConsumer.parts`) with no rate, no offer and nothing requested is left out; area lines carry no parts (T3 may add them).
+- *Commits.* The connections per key and the served-list allocation are one commit: they share the per-key ledger of `solveAll`.
 
 ### T3. UI and snapshot (decisions 9, 10)
 

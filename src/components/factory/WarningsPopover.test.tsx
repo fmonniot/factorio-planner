@@ -227,6 +227,42 @@ describe('WarningsPopover — no-fitting-temperature', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// connection-temperature
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — connection-temperature', () => {
+  beforeEach(() => {
+    useBlockStore.setState({
+      blocks: [
+        { ...makeEmptyBlock('Turbines'), id: 't', inputConnections: [{ id: 'c1', itemId: 'steam', fromBlockId: 'b' }] },
+        { ...makeEmptyBlock('Boilers'), id: 'b' },
+      ],
+      activeBlockId: 't',
+    })
+    setupWithWarnings({
+      warnings: [{
+        type: 'connection-temperature',
+        connections: [{ connectionId: 'c1', itemId: 'steam', offered: [{ temperature: 165, rate: 1800 }], needed: [{ min: 465, rate: 1800 }] }],
+      }],
+    })
+    render(<WarningsPopover />)
+    openPopover()
+  })
+
+  it('shows the title, the sentence naming the source block and the hint', () => {
+    expect(screen.getByText(/Connected fluid is at the wrong temperature/)).toBeInTheDocument()
+    expect(screen.getByText('Steam from Boilers is 165°C, but this block needs steam at ≥465°C.')).toBeInTheDocument()
+    expect(screen.getByText(/Connect a block that makes it at a fitting temperature, or add a row here that makes it/)).toBeInTheDocument()
+  })
+
+  it('is not critical, and links to the source block', () => {
+    expect(screen.getByText(/Connected fluid is at the wrong temperature/).className).toContain('text-yellow-400')
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Boilers' }))
+    expect(useBlockStore.getState().activeBlockId).toBe('b')
+  })
+})
+
 describe('WarningsPopover — a split fluid in an item-keyed warning', () => {
   it('names the temperature of an overconstrained fluid', () => {
     setupWithWarnings({ warnings: [{ type: 'overconstrained', surplusItems: [{ itemId: 'steam', rate: 10, temp: { at: 165 } }, { itemId: 'oxygen', rate: 5 }] }] })

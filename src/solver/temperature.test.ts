@@ -280,6 +280,16 @@ describe('flow keys of a fluid two areas touch', () => {
     expect(leg.supplied, 'the connected part').toBeCloseTo(30, 6)
   })
 
+  it('T5, a connection offers 30 at 500 by key: it enters the area that takes the range, the rest is imported', () => {
+    const keySupply = new Map([['steam', { ranges: [{ min: 465 }], offers: [{ connectionId: 'c', tag: { at: 500 }, offer: 30 }], maxRates: [] as [string, number][] }]])
+    const { result, received, receivedParts, receivedKeys } = solveBlock(flattenBlock(twoAreas('b165')), data(), new Map(), keySupply)
+    expect(received.get('steam')).toBeCloseTo(30, 6)
+    expect(receivedKeys.get('steam@500')).toBeCloseTo(30, 6)
+    expect(receivedParts?.get('c')?.get('steam@500')).toBeCloseTo(30, 6)
+    expect(steam(result)).toBeCloseTo(30, 6)
+    expect(result.conversions).toEqual([{ itemId: 'steam', from: { at: 500 }, to: { min: 465 }, rate: expect.closeTo(30, 6), areaId: 'B', supplied: true }])
+  })
+
   it('a rule on each area reads like the block-wide Import off', () => {
     const wide = solveAll([twoAreas('b165', undefined, {}, { steam: { importOff: true } })], data()).results
     const perArea = solveAll([twoAreas('b165', undefined, { L: { steam: { importOff: true, makeHere: 'after-blocks' } }, B: { steam: { importOff: true } } })], data()).results

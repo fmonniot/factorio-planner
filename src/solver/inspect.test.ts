@@ -184,6 +184,24 @@ describe('formatReport served lists', () => {
   })
 })
 
+describe('formatReport, the parts of a split fluid connection', () => {
+  it('prints delivered / on offer per key under the flow', () => {
+    const report: InspectReport = {
+      block: { id: 'B', name: 'B' }, rows: [], items: [], unsatisfied: [], replacedImports: [], warnings: [], areaRoutes: [], areas: [], areaItems: [], served: [],
+      totals: { executions: 0, machineCountExact: 0, machineCountCeil: 0, powerKw: 0 },
+      flows: [{
+        connectionId: 'c', fromBlockId: 'A', toBlockId: 'B', itemId: 'steam', available: 5400, capped: false, rate: 3600, status: 'ok', kind: 'take',
+        parts: [
+          { temp: { at: 165 }, rate: 1800, available: 1800 },
+          { temp: { at: 500 }, rate: 1800, available: 3600 },
+          { temp: { min: 465 }, rate: 0, available: 0, requested: 900 },
+        ],
+      }],
+    }
+    expect(formatReport(report)).toContain('    parts: 165°C 1800/1800, 500°C 1800/3600, ≥465°C 0/0 (asked 900.00)')
+  })
+})
+
 describe('area what-ifs', () => {
   // Case 13's recipes on a local data set: area L uses 12 plate and B uses 8 (both pinned), each has a plate row.
   const recipe = (id: string, from: string, to: string): GameData['recipes'][string] => ({

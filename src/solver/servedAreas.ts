@@ -1,4 +1,5 @@
 import type { AreaRoute, ServedConsumer } from '../data/types'
+import { flowKey } from '../data/flowKey'
 import { FLOW_TOLERANCE } from './blockResult'
 import type { RankedEntry } from './servedRank'
 
@@ -25,6 +26,25 @@ export function areaNeedsOf(routes: readonly AreaRoute[] | undefined): AreaNeeds
     needs.set(r.itemId, list)
   }
   return needs
+}
+
+/**
+ * A split fluid's outside legs per item, area and range key (`flowKey(item, temp)`): what each area takes of it from outside, per range.
+ * Undefined when the block has no areas.
+ */
+export function areaKeyNeedsOf(routes: readonly AreaRoute[] | undefined): ReadonlyMap<string, ReadonlyMap<string, ReadonlyMap<string, number>>> | undefined {
+  if (!routes) return undefined
+  const out = new Map<string, Map<string, Map<string, number>>>()
+  for (const r of routes) {
+    if (r.from !== undefined || r.to === undefined || !(r.rate > FLOW_TOLERANCE) || r.temp === undefined) continue
+    const areas = out.get(r.itemId) ?? new Map<string, Map<string, number>>()
+    const keys = areas.get(r.to) ?? new Map<string, number>()
+    const k = flowKey(r.itemId, r.temp)
+    keys.set(k, (keys.get(k) ?? 0) + r.rate)
+    areas.set(r.to, keys)
+    out.set(r.itemId, areas)
+  }
+  return out
 }
 
 /**

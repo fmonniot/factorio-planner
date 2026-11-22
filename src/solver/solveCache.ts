@@ -11,10 +11,15 @@
  */
 import type { AreaSourceRule, GameData, SolverGoal, RecipeNode, SolverResult, SourceRule } from '../data/types'
 import type { AreaNeeds } from './servedAreas'
+import type { KeySupply } from './build'
 
 export interface BlockSolve {
   result: SolverResult
   received: Map<string, number>
+  /** connection id → offered key → items/min delivered, for a split fluid supplied by key */
+  receivedParts?: Map<string, Map<string, number>>
+  /** unqualified flow key → items/min taken from the offers (a probe's range keys, a connection's supplied keys) */
+  receivedKeys?: Map<string, number>
 }
 
 /** Entries kept per block. */
@@ -26,8 +31,12 @@ export interface RequestLoopSolve {
   shares: Map<string, number>
   /** take connection id → items/min credited, for the members' takes credited more than 0. */
   credits: Map<string, number>
-  /** [take source, item, leftover estimate after the members' takes]. */
+  /** [take source, flow key (the item id for a plain item), leftover estimate after the members' takes]. */
   credited: [string, string, number][]
+  /** A split fluid: request connection id → items/min requested per range key. Optional so a hand-built outcome stays valid. */
+  shareParts?: Map<string, Map<string, number>>
+  /** A split fluid: take connection id → items/min credited per flow key. */
+  creditParts?: Map<string, Map<string, number>>
   /** take connection id → items/min of its member's need still uncovered when the take was reached. */
   needs: Map<string, number>
   /** take connection ids reached before they could be credited. */
@@ -39,8 +48,8 @@ export interface RequestLoopSolve {
 }
 
 export interface SolveCache {
-  get(blockId: string, gameData: GameData, planKey: string, caps: Map<string, number>): BlockSolve | undefined
-  set(blockId: string, gameData: GameData, planKey: string, caps: Map<string, number>, solved: BlockSolve): void
+  get(blockId: string, gameData: GameData, planKey: string, caps: Map<string, number>, supplyKey?: string): BlockSolve | undefined
+  set(blockId: string, gameData: GameData, planKey: string, caps: Map<string, number>, solved: BlockSolve, supplyKey?: string): void
   /** The memoised outcome of the cycle with these members, if `key` and `gameData` match. */
   getRequestLoop(blockIds: string[], gameData: GameData, key: string): RequestLoopSolve | undefined
   setRequestLoop(blockIds: string[], gameData: GameData, key: string, solved: RequestLoopSolve): void
@@ -56,6 +65,8 @@ interface Entry {
   gameData: GameData
   planKey: string
   caps: [string, number][]
+  /** what connections offer of the split fluids by key (see `keySupplyKey`); '' when none */
+  supplyKey: string
   solved: BlockSolve
 }
 
@@ -114,8 +125,20 @@ function sameCaps(stored: [string, number][], caps: Map<string, number>): boolea
   return true
 }
 
-function sameInputs(e: Entry, gameData: GameData, key: string, caps: Map<string, number>): boolean {
-  return e.gameData === gameData && e.planKey === key && sameCaps(e.caps, caps)
+function sameInputs(e: Entry, gameData: GameData, key: string, caps: Map<string, number>, supplyKey: string): boolean {
+  return e.gameData === gameData && e.planKey === key && e.supplyKey === supplyKey && sameCaps(e.caps, caps)
+}
+
+/**
+ * What `solveBlock` reads of the connections of split fluids, as an exact string: '' when none. Per fluid (sorted), the ranges of the
+ * plan (versatility and the depth term follow from them, so a new range in another block changes the key), each connection's offer
+ * per offered key and the `maxRate`s.
+ */
+export function keySupplyKey(keySupply: KeySupply): string {
+  if (keySupply.size === 0) return ''
+  return exactKey([...keySupply]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([fluid, s]) => [fluid, s.ranges, s.offers.map(o => [o.connectionId, o.tag, o.offer]), s.maxRates]))
 }
 
 export function createSolveCache(): SolveCache {
@@ -134,23 +157,23 @@ export function createSolveCache(): SolveCache {
       usedLoops.add(k)
       loops.set(k, { blockIds, gameData, key, solved })
     },
-    get(blockId, gameData, key, caps) {
+    get(blockId, gameData, key, caps, supplyKey = '') {
       const list = entries.get(blockId)
       if (!list) return undefined
-      const i = list.findIndex(e => sameInputs(e, gameData, key, caps))
+      const i = list.findIndex(e => sameInputs(e, gameData, key, caps, supplyKey))
       if (i < 0) return undefined
       const [hit] = list.splice(i, 1)
       list.unshift(hit)
       return hit.solved
     },
-    set(blockId, gameData, key, caps, solved) {
-      const entry: Entry = { gameData, planKey: key, caps: [...caps], solved }
+    set(blockId, gameData, key, caps, solved, supplyKey = '') {
+      const entry: Entry = { gameData, planKey: key, caps: [...caps], supplyKey, solved }
       const list = entries.get(blockId)
       if (!list) {
         entries.set(blockId, [entry])
         return
       }
-      const i = list.findIndex(e => sameInputs(e, gameData, key, caps))
+      const i = list.findIndex(e => sameInputs(e, gameData, key, caps, supplyKey))
       if (i >= 0) list[i] = entry
       else {
         list.unshift(entry)

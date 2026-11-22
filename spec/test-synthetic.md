@@ -1,9 +1,9 @@
 # Solver Synthetic Test Cases
 
-Twenty-five recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Twenty-seven recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 25 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 27 use plain made-up item ids.
 
 Cases 11 to 25 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
@@ -1281,4 +1281,42 @@ c: both ranges are fed from `@500`: 30 · B2 = 3600 + 3600, B2 = 240; one conver
 d: unknown fits every range: 60 · U = 3600, U = 60.
 e: R takes 3600 `[465,]`, which only `@500` fits: 30 · B2 = 3600, B2 = 120. R makes 3600 at `@165`, which fits nothing: a byproduct.
 f: with Import off `[465,]` is locked with no conversion into it, so T = 0; the elastic goals report the 60 work. B1 would only make a byproduct, so it stays 0. `no-fitting-temperature` names steam at 465° or more and T.
+```
+
+## Case 26 — Connections carry temperature keys
+
+Case 25's steam and rows, with two more 1 s recipes: W `case26-make-widget` (1 fuel → 1 widget and 60 steam at 500°) and W2 `case26-make-widget2` (1 fuel → 1 widget2 and 60 steam at 165°). Rates per minute. The plan's ranges of steam are `[465,]` (T) and `[,]` (E), so N = 2; the versatility of `@500` is 2 and of `@165` 1, the depth of `[465,]` is 2 and of `[,]` 1. Costs are in units of `SUPPLY_TIE_COST` = 1e-7; a conversion out of a supplied key costs `CONVERT_COST` (common to all) plus `N · (N − depth)` of them (R1, `SUPPLY_DEPTH = 1`): 0 for `@500→[465,]`, 2 for `@500→[,]` and 2 for `@165→[,]`; a supplied unit of `@500` costs 2 and of `@165` 1.
+
+Source A: W (goal 60 widget) and W2 pinned at 30, so it offers 3600 at 500° and 1800 at 165°. Consumer B: T and E, goals 30 work and 30 work2 (3600 of steam, 1800 at ≥465° and 1800 at any temperature), a take from A.
+
+| Row | Setup | Expected |
+|---|---|---|
+| a | A and B as above | flow rate 3600, `ok`, no steam import, `parts` 165° 1800 (on offer 1800) and 500° 1800 (on offer 3600), no warning |
+| b | a with `maxRate` 2700 | T 1800 at 500°, E 900 at 165°; B imports 900 steam `{}`; flow 2700, available 2700, `limited`, `capped`; parts 165° 900, 500° 1800 |
+| c | A: boilers B1 and B2 with steam as a product (no extra); B as in a with a request | requested 3600 in all: `{}` 1800 and `{ min: 465 }` 1800 (the parts carry `requested`); A runs B2 60 and B1 30; no import in B |
+| d | A: W2 alone, goal 30 widget2 (offers 1800 at 165°); B: T alone, goal 30 work, a take | flow rate 0, `unused`; B imports 1800 steam `{ min: 465 }`; B's warnings are exactly one `connection-temperature`: connection offered `[{ 165, 1800 }]`, needed `[{ min 465, 1800 }]` |
+
+```
+a: B's pass 1 imports 3600 (1800 on `[465,]`, 1800 on `[,]`), so pass 2 caps the supplied keys together at min(3600 + 1800, 3600) = 3600 (the fluid cap) and each key by its offer (@500 3600, @165 1800). T can only use @500. E takes @165 at 1 + 2 = 3 against @500 at 2 + 2 = 4, so E takes @165: 1800 each.
+b: with `maxRate` 2700 the supply is at most 2700 and 900 is imported whichever the split. X (T 1800 at 500°, E 900 at 165°) costs 1800·(0 + 2) + 900·(2 + 1) = 6300 units, Y (T 900 at 500°, E 1800 at 165°, the turbine's 900 imported) 900·2 + 1800·3 = 7200. X wins: the depth term is what keeps the narrow range fed first. Without it (decision 11 as written) X costs 1800·2 + 900·1 = 4500 and Y 900·2 + 1800·1 = 3600, and Y would win (T 900 at 500°, E 1800 at 165°, import 900 `{ min: 465 }`). Both imports cost BIG_M, so only the ties decide.
+c: B's probe (raw range keys, unlimited supply) needs 1800 on `[465,]` and 1800 on `[,]`: the request parts. A's goals are steam `[465,]` 1800 and steam any 1800. `[465,]` takes @500 only: 30 · B2 = 1800, B2 = 60. `[,]` is cheapest on B1 (60 per run against 30): B1 = 30. A offers the range keys `[465,]` 1800 and `[,]` 1800, which B takes into T (`[465,]#in` costs 2 + 0) and E (`[,]#in` costs 1 + 2, against 2 + 2 from `[465,]#in`).
+d: @165 fits no range B takes: no supplied key, `[465,]` stays a raw range key and T imports it. The connection offers only a known temperature that fits none of B's imported ranges: `connection-temperature`.
+```
+
+## Case 27 — Fit before rank
+
+Source A has case 26 a's rows with goal 30 widget: W 30 (1800 at 500°) and W2 pinned at 30 (1800 at 165°). Consumer C1: E with goal 30 work2 (needs 1800 at any temperature). Consumer C2: T with goal 30 work (needs 1800 at ≥465°). Both take steam from A.
+
+| Row | Setup | Expected |
+|---|---|---|
+| a | A's served list C1, C2 | C1 takes 1800 at 165°, C2 1800 at 500°; no import; served shares 1800 and 1800 (parts C1 165° 1800, C2 500° 1800) |
+| b | a with W2 pinned at 15 (900 at 165°) | C1 (ranked first, fully served) takes 900 at 165° and 900 at 500°, C2 900 at 500° and imports 900 steam `{ min: 465 }`, flow `limited`; shares 1800 and 900 |
+| c | no list; tabs A, C1, C2 or A, C2, C1 | as a: C1 takes @165 (3 against 4), C2 takes @500; C1, solved first with no reservation, lists 500° with rate 0 and 1800 on offer |
+| d | b with C1 and C2 tied 50/50 | C1 900 at 165° + 450 at 500°, imports 450 `{}`; C2 1350 at 500°, imports 450 `{ min: 465 }`; both `limited`; shares 1350 and 1350 |
+
+```
+a: the allocation fills group C1 first: its maximum is 1800, so level L1 = 1800. Group C2 then maximises with L1 held: C1 must take @165, so C2 gets @500 1800. The final solve is unique. Credits C1 {@165: 1800}, C2 {@500: 1800}; the grants per key repeat them. C1's caps: @165 1800, @500 connectionOffer(1800, 1800, 0) = 0.
+b: @165 is 900. C1: maximum 1800, L1 = 1800 (900 at @165, 900 at @500). C2: what C1's 1800 leaves of @500 is 900, so C2 = 900 and C1 = @165 900 + @500 900. C1's caps: @165 900, @500 connectionOffer(1800, 1800, 900) = 900.
+c: with no list C1 is solved first and takes the key that costs it least: @165 at 3 units, @500 at 4. C2 then takes @500 1800.
+d: progressive fill with g1 = g2 = t; C2 can use @500 only and 2t ≤ 2700, so t = 1350. C2 = @500 1350, C1 = @165 900 + @500 450. Grants per key: @165 waterFill(900, [900, 0]) gives C1 900; @500 waterFill(1800, [450, 1350]) gives 450 and 1350.
 ```

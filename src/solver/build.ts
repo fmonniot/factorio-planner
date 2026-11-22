@@ -1,7 +1,7 @@
 import type { FluidTag, GameData, GameRecipeNode, Ingredient, Recipe, RecipeProduct } from '../data/types'
 import type { NodeEffects } from './effects'
 import { HEAT_ITEM_ID } from '../data/electricity'
-import { fitsRange, flowKey, isTemperatureTag, productTag, rangeOf, splitFluids } from '../data/flowKey'
+import { fitsRange, flowKey, isTemperatureTag, parseFlowKey, productTag, rangeOf, splitFluids, type FluidRange } from '../data/flowKey'
 
 // ---------------------------------------------------------------------------
 // Item classification for the LP solver
@@ -23,7 +23,29 @@ export interface ItemClassification {
 }
 
 /** What a flow key of a split fluid is: its base item, its tag, and (area-qualified range keys) the one area that takes it. */
-export interface FlowKeyInfo { itemId: string; tag: FluidTag; area?: number }
+export interface FlowKeyInfo {
+  itemId: string
+  tag: FluidTag
+  area?: number
+  /** A key a connection supplies (its tag is the offered key's; see `FluidKeySupply`): it has a hard row and never converts into a goal key. */
+  supplied?: true
+}
+
+/**
+ * What the connections offer of one split fluid to a block (built by `solveAll`): the ranges of the fluid across the plan (for
+ * versatility and depth, see `SUPPLY_TIE_COST`) and each connection's offer per offered key.
+ */
+export interface FluidKeySupply {
+  /** the distinct ranges the plan's rows take of the fluid, sorted by flow key */
+  ranges: FluidRange[]
+  /** per connection and offered key (a made temperature, or a range key for a request); `offer` is already capped by `maxRate`, above `FLOW_TOLERANCE` */
+  offers: { connectionId: string; tag: FluidTag; offer: number }[]
+  /** connection id → `maxRate`, for the connections that have one */
+  maxRates: [string, number][]
+}
+
+/** split fluid → what its connections offer */
+export type KeySupply = ReadonlyMap<string, FluidKeySupply>
 
 /** A conversion column: takes 1 of the key `from` and gives 1 of the key `to` (a temperature that fits a range). */
 export interface ConversionColumn { itemId: string; from: string; to: string; area?: number }
@@ -36,8 +58,12 @@ export interface FlowKeys {
   keysOf: Map<string, string[]>
   /** column id → conversion; the columns are also in `ClassifiedSystem.recipes` and `S` */
   conversions: Map<string, ConversionColumn>
-  /** supplied split fluid → its offer (the cap of the group row over its range keys' supplies) */
+  /** supplied split fluid → its offer (the cap of the group row over its range keys' supplies); the item-level path of probes and direct callers */
   offers: Map<string, number>
+  /** supplied key → the fluid and offered key it carries (and its area, in an area system); every supplied key has a hard row and conversions into the range keys it fits */
+  supply: Map<string, { fluid: string; offeredKey: string; area?: number }>
+  /** the fluids that got supplied keys */
+  keySupply: KeySupply
 }
 
 export interface ClassifiedSystem {
@@ -113,6 +139,8 @@ export type RowEffects = Pick<NodeEffects, 'productivityBonus' | 'heatBonus'> & 
 export interface ClassifiedOptions {
   /** Offers of connected items: a split fluid's offer becomes the cap of the group row over its range keys. */
   supplyCaps?: ReadonlyMap<string, number>
+  /** What connections offer of a split fluid per key: each offered key becomes a supplied key (`FlowKeyInfo.supplied`). Wins over `supplyCaps` for the same fluid. */
+  keySupply?: KeySupply
   /** false: leave the split fluids' flow keys to the caller (the area column system builds them per area). Default true. */
   splitKeys?: boolean
 }
@@ -185,9 +213,20 @@ export function buildClassifiedSystem(
   // Collect all items mentioned
   const allItems = new Set<string>([...producers.keys(), ...consumers.keys()])
 
-  // A goal on a split fluid is a goal on the key that accepts any temperature.
+  // A goal on a split fluid is a goal on the key of its range (`item[,]` for any temperature). `goalsMap` is keyed by the item id,
+  // or by the flow key of a ranged goal (see `goalMapKey` in flowKeys.ts).
   const goals = new Map<string, number>()
-  for (const [id, rate] of goalsMap) goals.set(split.has(id) ? flowKey(id, {}) : id, rate)
+  const goalKeys: { itemId: string; key: string; range: FluidRange }[] = []
+  for (const [id, rate] of goalsMap) {
+    const { itemId, tag } = parseFlowKey(id)
+    if (!split.has(itemId)) {
+      goals.set(id, rate)
+      continue
+    }
+    const key = tag === undefined ? flowKey(itemId, {}) : id
+    goals.set(key, rate)
+    goalKeys.push({ itemId, key, range: tag === undefined ? {} : (tag as FluidRange) })
+  }
   const intermediates = new Set<string>()
   const raw = new Set<string>()
   const byproducts = new Set<string>()
@@ -212,9 +251,10 @@ export function buildClassifiedSystem(
   if (keyed) {
     const offers = new Map<string, number>()
     const used = new Set(uses.flatMap(u => [...u.made, ...u.taken].map(x => x.itemId)))
-    for (const [id, cap] of options.supplyCaps ?? []) if (split.has(id) && cap > OFFER_TOLERANCE && used.has(id)) offers.set(id, cap)
-    const goalItems = [...goalsMap.keys()].filter(id => split.has(id))
-    const flow = addFlowKeys(system, uses, { goalItems, areas: false, offers })
+    for (const [id, cap] of options.supplyCaps ?? []) {
+      if (split.has(id) && cap > OFFER_TOLERANCE && used.has(id) && !options.keySupply?.has(id)) offers.set(id, cap)
+    }
+    const flow = addFlowKeys(system, uses, { goalKeys, areas: false, offers, keySupply: options.keySupply })
     if (flow) {
       system.flow = flow
       system.recipes = [...recipeIds, ...flow.conversions.keys()]
@@ -234,11 +274,12 @@ export function buildClassifiedSystem(
 export function addFlowKeys(
   system: Pick<ClassifiedSystem, 'S' | 'classification'>,
   uses: SplitUse[],
-  options: { goalItems: string[]; areas: boolean; offers: Map<string, number> },
+  options: { goalKeys: { itemId: string; key: string; range: FluidRange }[]; areas: boolean; offers: Map<string, number>; keySupply?: KeySupply },
 ): FlowKeys | undefined {
   const { S, classification } = system
-  const { goalItems, areas, offers } = options
-  if (uses.length === 0 && goalItems.length === 0) return undefined
+  const { goalKeys, areas, offers } = options
+  const keySupply = options.keySupply ?? new Map<string, FluidKeySupply>()
+  if (uses.length === 0 && goalKeys.length === 0) return undefined
   const info = new Map<string, FlowKeyInfo>()
   const keysOf = new Map<string, string[]>()
   const register = (key: string, itemId: string, tag: FluidTag, area?: number): void => {
@@ -272,12 +313,12 @@ export function addFlowKeys(
       addCoeff(key, use.colId, -t.amount)
     }
   }
-  const goalKeys = new Map<string, string>()
-  for (const id of goalItems) {
-    const key = flowKey(id, {})
-    register(key, id, {})
-    goalKeys.set(id, key)
+  const goalKeysOf = new Map<string, string[]>() // item → its goal keys
+  for (const g of goalKeys) {
+    register(g.key, g.itemId, g.range)
+    goalKeysOf.set(g.itemId, [...(goalKeysOf.get(g.itemId) ?? []), g.key])
   }
+  const goalKeySet = new Set(goalKeys.map(g => g.key))
 
   // Conversion columns, per fluid.
   const conversions = new Map<string, ConversionColumn>()
@@ -289,18 +330,44 @@ export function addFlowKeys(
   }
   for (const [itemId, keys] of keysOf) {
     const temps = keys.filter(k => isTemperatureTag(info.get(k)!.tag))
-    const goalKey = goalKeys.get(itemId)
     for (const from of temps) {
       const tag = info.get(from)!.tag
       for (const to of keys) {
         const target = info.get(to)!
         if (isTemperatureTag(target.tag)) continue
         // Goal key in areas: converted in each area that makes the temperature (below).
-        if (areas && to === goalKey) continue
+        if (areas && goalKeySet.has(to)) continue
         if (fitsRange(tag, target.tag)) convert(itemId, from, to, target.area)
       }
-      if (areas && goalKey !== undefined) {
-        for (const a of madeIn.get(from) ?? []) convert(itemId, from, goalKey, a, `conv:${from}→${goalKey}#${a}`)
+      if (areas) {
+        for (const goalKey of goalKeysOf.get(itemId) ?? []) {
+          if (!fitsRange(tag, info.get(goalKey)!.tag as FluidRange)) continue
+          for (const a of madeIn.get(from) ?? []) convert(itemId, from, goalKey, a, `conv:${from}→${goalKey}#${a}`)
+        }
+      }
+    }
+  }
+
+  // Supplied keys: one per offered key of a connected fluid (and per area that takes a range it fits), converting into every non-goal
+  // range key it fits, range to range included. A supplied key never feeds a goal key (a goal gets no supply).
+  const supply = new Map<string, { fluid: string; offeredKey: string; area?: number }>()
+  for (const [fluid, s] of keySupply) {
+    const keys = keysOf.get(fluid)
+    if (!keys) continue
+    const targets = keys.filter(k => !isTemperatureTag(info.get(k)!.tag) && !goalKeySet.has(k) && !info.get(k)!.supplied)
+    const offered = new Map<string, FluidTag>()
+    for (const o of s.offers) if (!offered.has(flowKey(fluid, o.tag))) offered.set(flowKey(fluid, o.tag), o.tag)
+    for (const [offeredKey, tag] of offered) {
+      const fits = targets.filter(t => fitsRange(tag, info.get(t)!.tag as FluidRange))
+      const areasOf = areas ? [...new Set(fits.map(t => info.get(t)!.area))] : [undefined]
+      for (const a of areasOf) {
+        const mine = fits.filter(t => info.get(t)!.area === a)
+        if (mine.length === 0) continue
+        const key = `${offeredKey}#in${a === undefined ? '' : `#${a}`}`
+        register(key, fluid, tag, a)
+        info.get(key)!.supplied = true
+        supply.set(key, { fluid, offeredKey, ...(a !== undefined ? { area: a } : {}) })
+        for (const t of mine) convert(fluid, key, t, a)
       }
     }
   }
@@ -310,16 +377,18 @@ export function addFlowKeys(
   const converted = new Set([...conversions.values()].map(c => c.from))
   for (const [key, k] of info) {
     if (classification.goals.has(key)) continue
-    if (isTemperatureTag(k.tag)) {
+    if (k.supplied) {
+      classification.intermediates.add(key)
+    } else if (isTemperatureTag(k.tag)) {
       if (converted.has(key)) classification.intermediates.add(key)
       else classification.byproducts.add(key)
-    } else if ((keysOf.get(k.itemId) ?? []).some(x => isTemperatureTag(info.get(x)!.tag))) {
+    } else if ((keysOf.get(k.itemId) ?? []).some(x => isTemperatureTag(info.get(x)!.tag) || info.get(x)!.supplied)) {
       classification.intermediates.add(key)
     } else {
       classification.raw.add(key)
     }
   }
-  return { info, keysOf, conversions, offers }
+  return { info, keysOf, conversions, offers, supply, keySupply }
 }
 
 /**

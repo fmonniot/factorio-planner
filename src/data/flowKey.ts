@@ -120,3 +120,55 @@ export function offerByItem(map: ReadonlyMap<string, number>): Map<string, numbe
   }
   return out
 }
+
+export type FluidRange = { min?: number; max?: number }
+
+/**
+ * The order a split fluid's parts are listed in: made temperatures ascending (unknown last), then ranges by minimum (open first),
+ * then by maximum (open last).
+ */
+export function compareTags(a: FluidTag, b: FluidTag): number {
+  const ta = isTemperatureTag(a)
+  const tb = isTemperatureTag(b)
+  if (ta !== tb) return ta ? -1 : 1
+  if (isTemperatureTag(a) && isTemperatureTag(b)) {
+    if (a.at === b.at) return 0
+    if (a.at === null) return 1
+    if (b.at === null) return -1
+    return a.at - b.at
+  }
+  const ra = a as FluidRange
+  const rb = b as FluidRange
+  const minA = ra.min ?? -Infinity
+  const minB = rb.min ?? -Infinity
+  if (minA !== minB) return minA < minB ? -1 : 1
+  const maxA = ra.max ?? Infinity
+  const maxB = rb.max ?? Infinity
+  return maxA === maxB ? 0 : maxA < maxB ? -1 : 1
+}
+
+/** How many of the plan's `ranges` of a fluid `tag` fits: the larger, the more rows could take it. */
+export function versatility(tag: FluidTag, ranges: readonly FluidRange[]): number {
+  let n = 0
+  for (const r of ranges) if (fitsRange(tag, r)) n++
+  return n
+}
+
+/** How many of the plan's `ranges` contain `range` (itself included): a narrower range is deeper. */
+export function rangeDepth(range: FluidRange, ranges: readonly FluidRange[]): number {
+  return versatility(range, ranges)
+}
+
+/** The keys of `map` that belong to `itemId`: a plain item is its own key. */
+export function keysOfItem(map: ReadonlyMap<string, unknown>, itemId: string): string[] {
+  const out: string[] = []
+  for (const key of map.keys()) if (key === itemId || parseFlowKey(key).itemId === itemId) out.push(key)
+  return out
+}
+
+/** Σ of `map` over the keys of `itemId`. */
+export function sumOfItem(map: ReadonlyMap<string, number> | undefined, itemId: string): number {
+  let total = 0
+  for (const [key, v] of map ?? []) if (key === itemId || parseFlowKey(key).itemId === itemId) total += v
+  return total
+}
