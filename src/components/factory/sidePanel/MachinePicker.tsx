@@ -36,7 +36,7 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
   // only the category's own default gets the badge below.
   const rowDefaultId = defaultMachineIdOf(horizon.defaultMachines, recipeCategory, recipeId)
   const defaultMachineName = rowDefaultId ? gameData.machines[rowDefaultId]?.name : undefined
-  const defaultRowCounts = useMemo(() => defaultMachineRowCounts(blocks, gameData), [blocks, gameData])
+  const defaultRowCounts = useMemo(() => defaultMachineRowCounts(blocks, gameData, horizon), [blocks, gameData, horizon])
   const defaultRowCount = defaultRowCounts.get(recipeCategory) ?? 0
 
   const primaryItemId = recipe?.mainProduct ?? recipe?.products[0]?.itemId

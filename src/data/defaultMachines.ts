@@ -1,4 +1,4 @@
-import { withinHorizon, type Horizon } from './horizon'
+import { recipeFallbackKey, withinHorizon, type Horizon } from './horizon'
 import type { Block, GameData, Machine, SubPlan } from './types'
 
 /**
@@ -44,14 +44,22 @@ export function defaultMachineCategories(gameData: GameData, horizon: Horizon): 
     .map(({ category }) => category)
 }
 
-/** Category -> number of recipe rows (all blocks, nested sub-plans included) that follow the default machine. */
-export function defaultMachineRowCounts(blocks: readonly Block[], gameData: GameData): Map<string, number> {
+/**
+ * Category -> number of recipe rows (all blocks, nested sub-plans included) that follow the category's default
+ * machine. A row whose category has no default in the horizon but which uses its recipe's additional-category
+ * fallback (`horizon.defaultMachines`) is left out: changing the category default does not move it.
+ */
+export function defaultMachineRowCounts(
+  blocks: readonly Block[], gameData: GameData, horizon: Pick<Horizon, 'defaultMachines'>,
+): Map<string, number> {
+  const defaults = horizon.defaultMachines
   const counts = new Map<string, number>()
   function visit(plan: SubPlan) {
     for (const node of plan.nodes) {
       if (node.kind !== 'game-recipe' || node.machineId !== undefined) continue
       const recipe = gameData.recipes[node.recipeId]
       if (!recipe) continue
+      if (defaults[recipe.category] === undefined && defaults[recipeFallbackKey(recipe.id)] !== undefined) continue
       counts.set(recipe.category, (counts.get(recipe.category) ?? 0) + 1)
     }
     plan.subPlans.forEach(visit)

@@ -26,7 +26,7 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
   const clearDefaultMachine = useBlockStore(s => s.clearDefaultMachine)
   const resetDefaultMachines = useBlockStore(s => s.resetDefaultMachines)
 
-  const counts = useMemo(() => defaultMachineRowCounts(blocks, gameData), [blocks, gameData])
+  const counts = useMemo(() => defaultMachineRowCounts(blocks, gameData, horizon), [blocks, gameData, horizon])
   const categories = useMemo(() => defaultMachineCategories(gameData, horizon), [gameData, horizon])
   const used = categories.filter(c => (counts.get(c) ?? 0) > 0)
   const other = categories.filter(c => (counts.get(c) ?? 0) === 0)
