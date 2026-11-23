@@ -40,7 +40,7 @@ test('clicking a row opens the panel, the close button clears the selection', as
   await expect(elec).toHaveAttribute('data-selected', 'true')
   // The sections, in order (Effects on this row only once a module or a beacon is set).
   await expect(panel.getByRole('heading', { level: 3 })).toHaveText([
-    'Rate', 'Machine', 'Beacons', 'Where inputs come from',
+    'Rate', 'Machine', 'Beacons', 'Where inputs come from', 'Where outputs go',
   ])
   // The rows do not move vertically when the panel opens.
   expect((await elec.boundingBox())!.y).toBe(before!.y)
