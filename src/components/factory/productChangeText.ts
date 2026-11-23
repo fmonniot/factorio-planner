@@ -39,3 +39,10 @@ export function productChangeLine(
       return `${head} It will request it instead, so its needs will drive how much this block makes.`
   }
 }
+
+/** Warning line when the block already receives the item it is given as a product. */
+export function receivedLine(sourceNames: string[], itemName: string): string {
+  if (sourceNames.length === 0) return ''
+  const from = sourceNames.length > 1 ? `${sourceNames.slice(0, -1).join(', ')} and ${sourceNames[sourceNames.length - 1]}` : sourceNames[0]
+  return `This block already receives ${itemName} from ${from}. Requests for ${itemName} to this block will be ignored: it only gives what it has left over. Remove the incoming connection first if you want it to be requested.`
+}

@@ -6,6 +6,7 @@ import {
   productChangeLine,
   productChangeRateText,
   productChangeTitle,
+  receivedLine,
   type ProductChange,
 } from './productChangeText'
 
@@ -15,6 +16,8 @@ interface ProductChangeDialogProps {
   itemName: string
   blockName: string
   effects: ProductChangeEffect[]
+  /** On add: the blocks this block already takes the item from. */
+  received?: string[]
   rateUnit: RateUnit
   onCancel: () => void
   onConfirm: () => void
@@ -29,6 +32,7 @@ export function ProductChangeDialog({
   itemName,
   blockName,
   effects,
+  received = [],
   rateUnit,
   onCancel,
   onConfirm,
@@ -41,6 +45,9 @@ export function ProductChangeDialog({
       <div data-testid="product-change-confirm">
         <h2 className="font-semibold text-gray-100 mb-2">{productChangeTitle(change, itemName, blockName)}</h2>
         <ul className="list-disc pl-5 space-y-1 text-gray-300 mb-3">
+          {add && received.length > 0 && (
+            <li data-testid="product-change-received" className="text-amber-300">{receivedLine(received, itemName)}</li>
+          )}
           {effects.map(effect => (
             <li key={effect.connectionId} data-testid="product-change-effect">
               {productChangeLine(change, effect, itemName, productChangeRateText(itemId, effect.rate, rateUnit))}

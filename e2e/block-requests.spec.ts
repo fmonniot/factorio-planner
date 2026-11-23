@@ -142,6 +142,22 @@ test.describe('requests between blocks', () => {
     await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/— requested/)
   })
 
+  test('adding a product the block already receives warns first', async ({ page }) => {
+    await setup(page)
+    await requestPlates(page)
+
+    // Gears takes iron plate from Plates; giving it the same product would make later requests to it be ignored.
+    await addProduct(page, 'Iron plate', 'nullius-iron-plate', '10')
+    await expect(page.getByRole('heading', { name: 'Make Iron plate a product of Gears?' })).toBeVisible()
+    await expect(page.getByTestId('product-change-received')).toContainText('already receives Iron plate from Plates')
+    await confirm(page, 'Cancel').click()
+    await expect(slotById(page, 'Products', 'nullius-iron-plate')).toHaveCount(0)
+
+    await addProduct(page, 'Iron plate', 'nullius-iron-plate', '10')
+    await confirm(page, 'Make it a product').click()
+    await expect(slotById(page, 'Products', 'nullius-iron-plate')).toHaveCount(1)
+  })
+
   test('a product without extra output makes only what is requested', async ({ page }) => {
     await setup(page)
 

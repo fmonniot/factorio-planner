@@ -12,7 +12,7 @@ import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { offerByItem, parseFlowKey } from '../../data/flowKey'
 import { flowAtKey } from './flowParts'
-import { productChangeEffects } from '../../store/connections'
+import { productChangeEffects, receivedFromSources } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
 import { ComesFrom } from './ComesFrom'
@@ -206,7 +206,7 @@ export function FactorySummary() {
   const [producerPickerItemId, setProducerPickerItemId] = useState<string | null>(null)
   const [productMenu, setProductMenu] = useState<{ productId: string; x: number; y: number } | null>(null)
   const [pendingChange, setPendingChange] = useState<
-    | { change: 'add'; product: Product; effects: ProductChangeEffect[] }
+    | { change: 'add'; product: Product; effects: ProductChangeEffect[]; received: string[] }
     | { change: 'remove'; productId: string; itemId: string; effects: ProductChangeEffect[] }
     | null
   >(null)
@@ -342,8 +342,9 @@ export function FactorySummary() {
     if (!activeBlock) return
     const product: Product = { id: crypto.randomUUID(), itemId, ...(extraRate !== undefined ? { extraRate } : {}) }
     const effects = productChangeEffects(blocks, activeBlock.id, itemId, 'add', allFlows)
-    if (effects.length === 0) addProduct(product)
-    else setPendingChange({ change: 'add', product, effects })
+    const received = receivedFromSources(blocks, activeBlock.id, itemId)
+    if (effects.length === 0 && received.length === 0) addProduct(product)
+    else setPendingChange({ change: 'add', product, effects, received })
   }
 
   /** Move earlier / Move later for a product, for both menus; none with fewer than two products. */
@@ -709,6 +710,7 @@ export function FactorySummary() {
             ?? (pendingChange.change === 'add' ? pendingChange.product.itemId : pendingChange.itemId)}
           blockName={activeBlock.name}
           effects={pendingChange.effects}
+          received={pendingChange.change === 'add' ? pendingChange.received : undefined}
           rateUnit={rateUnit}
           onCancel={() => setPendingChange(null)}
           onConfirm={confirmPendingChange}
