@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { countRows, pinEdge } from './support/blockGraph'
 
 /**
  * Fixture (Seablock): Metals make invar and brass plates, Sciences (active) make 10 sub-plating/min
@@ -28,9 +29,10 @@ test.describe('cycles of requests', () => {
     const status = page.getByTestId('graph-loop-status')
     await expect(status).toHaveAttribute('data-converged', 'false')
     await expect(status).toContainText('Requests around')
-    await expect(page.locator('[data-testid="graph-edge-label"][data-request-ignored="request-loop"]')).toHaveCount(2)
+    await expect.poll(() => countRows(page, '[data-testid="graph-edge-label"][data-request-ignored="request-loop"]')).toBe(2)
 
     // Limit the waste request to 10/min: the demand settles and nothing is ignored.
+    await pinEdge(page, { connectionId: WASTE_CONNECTION_ID })
     const waste = page.locator(`[data-testid="graph-edge-label"][data-connection-id="${WASTE_CONNECTION_ID}"]`)
     await waste.getByTestId('graph-edge-limit').click()
     await page.getByRole('spinbutton', { name: 'Connection limit' }).fill('10')

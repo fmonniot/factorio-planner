@@ -1,39 +1,27 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useSolverStore, selectBlockResults, selectFlows, selectLoops, selectRequestLoops } from '../../store/solverStore'
-import { useUiStore } from '../../store/uiStore'
-import { closesLoop } from '../../solver/blockGraph'
-import { connectableItems, requestBlockerTitle } from '../../store/connections'
-import type { ItemCandidate } from '../../store/connections'
+import { useSolverStore, selectFlows, selectLoops, selectRequestLoops } from '../../store/solverStore'
 import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
-import { layoutBlockGraph, edgePath, NODE_W, NODE_H, GRAPH_PAD } from '../../utils/blockGraphLayout'
+import { layoutBlockGraph, edgePath, fitScale, NODE_W, NODE_H, GRAPH_PAD } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
 import { Modal } from '../Modal'
 import { TipWrap } from '../TipWrap'
 import { Icon } from '../Icon'
 import { IconButton } from '../IconButton'
 import { GraphIcon } from '../icons'
-import { fmtItemRateText, fmtRate, inputRateUnit } from './ItemTile'
-import { Popover } from './Popover'
-import { RateInput } from './RateInput'
-import { cappedTitle, cappingLimit, REQUEST_IGNORED_TITLE } from './summarySegments'
-import type { Block, BlockLoop, ConnectionFlow, ConnectionPart, GameData, Item } from '../../data/types'
-import { fmtFluidTag } from '../../data/flowKey'
-import { FLOW_TOLERANCE } from '../../solver/index'
-import { fmtPartTemp } from './temperature'
+import type { Block, BlockLoop, ConnectionFlow, GameData } from '../../data/types'
 import { BlockSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
-import { servedListOf } from '../../data/servedEntries'
-import { lineName, servedLines, splitServed } from './servedOrder'
+import { CHIP_TONE, connectionStatus, edgeKey, pairStatus } from './graphConnection'
+import type { EdgeStatus } from './graphConnection'
+import { BlockGraphDetail } from './BlockGraphDetail'
+import type { GraphLit } from './BlockGraphDetail'
 
 // ---------------------------------------------------------------------------
-// Block graph — every block and the connections between them. Connections are
-// made from the source side: the → handle of a block, then a target, then an item.
+// Block graph — every block and the connections between them.
 // ---------------------------------------------------------------------------
-
-type EdgeStatus = 'limited' | 'ok' | 'unused' | 'pending'
 
 const EDGE_COLOR: Record<EdgeStatus, string> = {
   ok: '#16a34a',
@@ -42,72 +30,53 @@ const EDGE_COLOR: Record<EdgeStatus, string> = {
   pending: '#4b5563',
 }
 
-const CHIP_TONE: Record<EdgeStatus, string> = {
-  ok: 'bg-green-950 text-green-300', // border set inline, in the source block's colour
-  limited: 'bg-green-950 text-green-300 border-amber-500',
-  unused: 'bg-green-950/40 text-green-300/50 border-green-900',
-  pending: 'bg-gray-800 text-gray-400 border-gray-700',
-}
-
-/** An edge with more connections than this shows one summary chip instead of one chip each. */
-const MAX_EDGE_CHIPS = 3
 const PAD = GRAPH_PAD
 const MAX_GOAL_ICONS = 4
 /** Item icons on a summary chip; the rest is counted as +N. */
-const MAX_SUMMARY_ICONS = MAX_EDGE_CHIPS
-
-/** Status of one connection; `missing-source` and `self` never reach the graph (no edge is drawn). */
-function connectionStatus(flow: ConnectionFlow | undefined): EdgeStatus {
-  if (!flow) return 'pending'
-  return flow.status === 'missing-source' || flow.status === 'self' ? 'pending' : flow.status
-}
-
-/** Precedence for the single colour of an edge that carries several connections. */
-function pairStatus(statuses: EdgeStatus[]): EdgeStatus {
-  for (const s of ['limited', 'ok', 'unused'] as const) {
-    if (statuses.includes(s)) return s
-  }
-  return 'pending'
-}
-
-type ConnectRole = 'source' | 'target' | 'blocked'
+const MAX_SUMMARY_ICONS = 3
 
 interface BlockNodeProps {
   block: Block
   x: number
   y: number
   isActive: boolean
-  role: ConnectRole | undefined
-  blockedReason: string | undefined
-  closesLoop: boolean
   items: GameData['items']
-  canConnect: boolean
-  sourceName: string
+  /** Pointed at, or an end of the pointed edge, or a neighbour of the pointed block. */
+  lit: boolean
+  /** Something else is pointed at. */
+  dim: boolean
   onSelect: () => void
-  onStartConnect: () => void
+  /** The block's highlight is pinned: it stays lit, and the detail strip keeps showing it. */
+  pinned: boolean
+  onGoTo: () => void
+  onHover: (on: boolean) => void
+  onFocusChange: (on: boolean) => void
 }
 
 function BlockNode({
-  block, x, y, isActive, role, blockedReason, closesLoop, sourceName, items, canConnect, onSelect, onStartConnect,
+  block, x, y, isActive, items, lit, dim, pinned, onSelect, onGoTo, onHover, onFocusChange,
 }: BlockNodeProps) {
   const firstItem = block.products[0] ? items[block.products[0].itemId] : undefined
   const shown = block.products.slice(0, MAX_GOAL_ICONS)
   const more = block.products.length - shown.length
-  const ring = role === 'source'
-    ? 'ring-2 ring-blue-400'
-    : role === 'target'
-      ? 'ring-2 ring-teal-300'
-      : isActive ? 'ring-2 ring-teal-500' : ''
+  const ring = pinned ? 'ring-2 ring-blue-400' : isActive ? 'ring-2 ring-teal-500' : ''
 
   return (
     <div
       data-testid="graph-node"
       data-block-id={block.id}
       data-active={isActive ? 'true' : 'false'}
-      data-connect={role}
-      data-closes-loop={closesLoop ? 'true' : undefined}
+      data-pinned={pinned ? 'true' : undefined}
+      data-lit={lit ? 'true' : undefined}
+      data-dim={dim ? 'true' : undefined}
       style={{ left: x, top: y, width: NODE_W, height: NODE_H }}
-      className={`absolute rounded border border-gray-600 bg-gray-800 ${ring} ${role === 'blocked' ? 'opacity-40' : ''}`}
+      className={`absolute rounded border border-gray-600 bg-gray-800 ${ring} ${dim ? 'opacity-30' : ''}`}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+      onFocus={() => onFocusChange(true)}
+      onBlur={e => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onFocusChange(false)
+      }}
     >
       <span
         aria-hidden
@@ -120,9 +89,8 @@ function BlockNode({
         type="button"
         aria-label={block.name}
         data-testid="graph-node-select"
-        data-tip={closesLoop
-          ? `Closes a loop: ${sourceName} already receives from ${block.name}, directly or through other blocks`
-          : blockedReason}
+        aria-pressed={pinned}
+        data-tip="Click to pin the highlight"
         onClick={onSelect}
         className="w-full h-full flex items-center gap-2 pl-2 pr-8 text-left text-gray-100 rounded hover:bg-gray-700/60"
       >
@@ -132,7 +100,7 @@ function BlockNode({
           <span className="w-8 h-8 shrink-0 flex items-center justify-center text-gray-400">?</span>
         )}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-xs font-medium">{block.name}</span>
+          <span className="block line-clamp-2 break-words text-xs font-medium leading-tight">{block.name}</span>
           <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
             {shown.map(g => {
               const item = items[g.itemId]
@@ -146,80 +114,22 @@ function BlockNode({
           </span>
         </span>
       </button>
-      <TipWrap tip="Send an item from this block to another" className="absolute right-0 top-0 h-full w-7">
+      <TipWrap tip={`Go to ${block.name}`} className="absolute right-0 top-0 h-full w-7">
         <button
           type="button"
-          data-testid="graph-connect-handle"
-          aria-label={`Connect from ${block.name}`}
-          disabled={!canConnect}
-          onClick={onStartConnect}
-          className="w-full h-full rounded-r border-l border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:pointer-events-none disabled:hover:bg-transparent"
+          data-testid="graph-node-open"
+          aria-label={`Go to ${block.name}`}
+          onClick={onGoTo}
+          className="w-full h-full rounded-r border-l border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
         >
-          →
+          ↗
         </button>
       </TipWrap>
     </div>
   )
 }
 
-interface ConnectItemMenuProps {
-  targetName: string
-  sourceName: string
-  closesLoop: boolean
-  x: number
-  y: number
-  candidates: ItemCandidate[]
-  items: GameData['items']
-  onPick: (itemId: string) => void
-}
-
-function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates, items, onPick }: ConnectItemMenuProps) {
-  const rateUnit = useUiStore(s => s.rateUnit)
-  const fmt = (itemId: string, perMin: number) => fmtItemRateText(itemId, perMin / 60, rateUnit)
-
-  return (
-    <div
-      role="menu"
-      style={{ left: x, top: y }}
-      className="absolute z-10 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 min-w-48"
-    >
-      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-400">
-        Send to {targetName}
-      </div>
-      {closesLoop && (
-        <div data-testid="graph-closes-loop" className="px-3 py-1 text-[10px] text-amber-300">
-          ↻ Closes a loop with {sourceName}
-        </div>
-      )}
-      {candidates.map(({ itemId, offered, needed, request, blocker }) => {
-        const item = items[itemId]
-        const reason = blocker ? requestBlockerTitle(blocker, sourceName, item?.name ?? itemId) : undefined
-        const button = (
-          <button
-            key={itemId}
-            type="button"
-            role="menuitem"
-            data-kind={request ? 'request' : 'take'}
-            disabled={!!blocker}
-            className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:bg-transparent"
-            onClick={() => {
-              if (!blocker) onPick(itemId)
-            }}
-          >
-            {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-5 h-5 object-contain shrink-0" />}
-            <span>{item?.name ?? itemId}</span>
-            <span className="ml-auto font-mono tabular-nums text-[10px] text-gray-400">
-              {request ? `needs ${fmt(itemId, needed)}` : `offers ${fmt(itemId, offered)} · needs ${fmt(itemId, needed)}`}
-            </span>
-          </button>
-        )
-        return reason ? <TipWrap key={itemId} tip={reason} className="flex flex-col">{button}</TipWrap> : button
-      })}
-    </div>
-  )
-}
-
-interface EdgeLabelsProps {
+interface EdgeSummaryProps {
   edge: BlockEdgeLayout
   /** Combined status of the edge, as drawn on its path. */
   status: EdgeStatus
@@ -227,320 +137,102 @@ interface EdgeLabelsProps {
   flowsById: Map<string, ConnectionFlow>
   items: GameData['items']
   gameData: GameData
-  onRemove: (connectionId: string, toBlockId: string) => void
-  onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
-}
-
-interface ConnectionChipProps {
-  connectionId: string
-  edge: BlockEdgeLayout
-  source: Block | undefined
-  target: Block | undefined
-  flow: ConnectionFlow | undefined
-  items: GameData['items']
-  gameData: GameData
-  /** The items of the target block that have a source rule with an effect. */
-  ruleItems: ReadonlySet<string>
-  editing: boolean
-  /** Spell the item name out after its icon (the summary chip's list). */
-  showName?: boolean
-  onEdit: () => void
-  onStopEdit: () => void
-  onRemove: (connectionId: string, toBlockId: string) => void
-  onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
-}
-
-function ordinal(n: number): string {
-  const rest = n % 100
-  const suffix = rest >= 11 && rest <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'
-  return `${n}${suffix}`
-}
-
-function ConnectionChip({
-  connectionId: id, edge, source, target, flow, items, gameData, ruleItems, editing, showName,
-  onEdit, onStopEdit, onRemove, onSetLimit,
-}: ConnectionChipProps) {
-  const rateUnit = useUiStore(s => s.rateUnit)
-  const connection = target?.inputConnections.find(c => c.id === id)
-  // Only the (source, item) list of this chip, so a solve that changes another list does not re-render it.
-  const servedList = useSolverStore(s => (source && connection ? s.served[source.id]?.[connection.itemId] : undefined))
-  const sourceName = source?.name ?? edge.from
-  const targetName = target?.name ?? edge.to
-  if (!connection) return null
-  const unitOf = inputRateUnit(connection.itemId, rateUnit)
-  const fmt = (perMin: number) => fmtItemRateText(connection.itemId, perMin / 60, rateUnit)
-  const status = connectionStatus(flow)
-  const item: Item | undefined = items[connection.itemId]
-  const itemName = item?.name ?? connection.itemId
-
-  // The rank this connection's block has in the source's served list for the item; none while the source has no stored list
-  // for it, or while the list does not name the block (the chip then says nothing, as the list's divider does).
-  const stored = source ? servedListOf(source, connection.itemId) : undefined
-  const ranked = stored && servedList ? splitServed(servedLines(servedList, connection.itemId, rateUnit), stored).ranked : []
-  const mine = ranked.filter(l => l.blockId === target?.id) // ranked order: ranks never decrease, so the first is the best
-  const line = mine[0]
-  const rank = line?.rank
-
-  let title = `${itemName}: ${sourceName} → ${targetName}`
-  const cap = cappingLimit(status === 'limited', flow?.capped, connection.maxRate)
-  if (cap !== undefined) {
-    title = cappedTitle(fmt(cap))
-  } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}`
-  else if (status === 'unused') title = `Not used: ${targetName} makes or needs none from outside`
-  if (flow?.loop) title += ' — part of a loop'
-  if (flow?.kind === 'request') {
-    title += ` — requested: ${sourceName} makes ${fmt(flow.requested ?? 0)} for ${targetName}`
-  } else if (flow?.requestIgnored) {
-    title += ` — taken as existing: ${REQUEST_IGNORED_TITLE[flow.requestIgnored]}`
-  }
-  const parts = flow?.parts
-  if (parts && (parts.length >= 2 || (parts.length === 1 && fmtFluidTag(parts[0].temp) !== ''))) {
-    const part = (p: ConnectionPart) =>
-      `${fmt(p.rate)} at ${fmtPartTemp(p.temp)}${p.available > p.rate + FLOW_TOLERANCE ? ` (of ${fmt(p.available)} offered)` : ''}`
-    title += ` — carries ${parts.map(part).join(', ')}`
-  }
-  if (line) {
-    const places = mine.some(l => l.areaId !== undefined)
-      ? mine.map(l => `${ordinal(l.rank)}${l.group ? ' shared' : ''} (${lineName(l, target)})`).join(', ')
-      : `${ordinal(line.rank)}${line.group ? ' (shared)' : ''}`
-    title += ` — served ${places} in ${sourceName}'s list`
-  }
-
-  return (
-    <span
-      data-testid="graph-edge-label"
-      data-connection-id={id}
-      data-status={status}
-      data-loop={flow?.loop ? 'true' : undefined}
-      data-kind={flow?.kind}
-      data-request-ignored={flow?.requestIgnored}
-      data-tip={title}
-      style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap ${CHIP_TONE[status]}`}
-    >
-      {flow?.loop && <span aria-hidden className="text-[10px] leading-none">↻</span>}
-      {/* The rule is the target block's: the marker sits on the item, and its sentence is the item's in that block. */}
-      <span className="relative inline-flex shrink-0">
-        {item?.iconPath ? (
-          <Icon iconPath={item.iconPath} alt={showName ? '' : itemName} className="w-5 h-5 object-contain shrink-0" />
-        ) : (
-          <span className={`truncate ${showName ? 'text-[11px] max-w-[10rem]' : 'text-[10px] max-w-[4rem]'}`}>{itemName}</span>
-        )}
-        {target && ruleItems.has(connection.itemId) && (
-          <span className="absolute -top-1 -right-1 flex">
-            <BlockSourceRuleMarker
-              block={target}
-              itemId={connection.itemId}
-              gameData={gameData}
-            />
-          </span>
-        )}
-      </span>
-      {showName && item?.iconPath && <span className="text-[11px] truncate max-w-[10rem]">{itemName}</span>}
-      {rank !== undefined && (
-        <span data-testid="graph-edge-rank" className="text-[9px] font-mono tabular-nums leading-none opacity-80">
-          #{rank}
-        </span>
-      )}
-      {flow?.kind === 'take' && (
-        <span data-testid="graph-edge-existing" className="text-[9px] uppercase tracking-wide leading-none opacity-70">
-          existing
-        </span>
-      )}
-      <span className="text-[10px] font-mono tabular-nums leading-none">
-        {flow ? fmt(flow.rate) : '—'}
-      </span>
-      {editing ? (
-        <RateInput
-          key={`${id}-${unitOf}`}
-          initial={connection.maxRate !== undefined ? fmtRate(connection.maxRate / 60, unitOf) : ''}
-          rateUnit={unitOf}
-          ariaLabel="Connection limit"
-          allowClear
-          onCommit={perMin => onSetLimit(id, edge.to, perMin)}
-          onStop={onStopEdit}
-        />
-      ) : (
-        <button
-          type="button"
-          data-testid="graph-edge-limit"
-          aria-label={`${connection.maxRate !== undefined ? 'Change limit of' : 'Limit'} ${itemName} from ${sourceName} to ${targetName}`}
-          data-tip={`Most ${targetName} takes over this connection; click to edit, clear to remove`}
-          onClick={e => {
-            e.stopPropagation()
-            onEdit()
-          }}
-          className={`text-[10px] font-mono tabular-nums leading-none hover:text-yellow-300 ${connection.maxRate !== undefined ? '' : 'opacity-60 hover:opacity-100'}`}
-        >
-          ≤{connection.maxRate !== undefined && ` ${fmt(connection.maxRate)}`}
-        </button>
-      )}
-      <button
-        type="button"
-        data-testid="graph-edge-remove"
-        aria-label={`Remove ${itemName} from ${sourceName} to ${targetName}`}
-        onClick={() => onRemove(id, edge.to)}
-        className="text-xs leading-none opacity-60 hover:opacity-100 hover:text-red-400"
-      >
-        ×
-      </button>
-    </span>
-  )
+  /** Centre of the chip, in the overlay's pixels. */
+  x: number
+  y: number
+  /** The edge is pointed at, focused or pinned: the chip shows. */
+  lit: boolean
+  pinned: boolean
+  onTogglePin: () => void
+  onHover: (on: boolean) => void
+  onFocusChange: (on: boolean) => void
 }
 
 /** Tooltip of a summary chip: the count, then what is notable among its connections. */
 function edgeSummaryTitle(
   n: number, sourceName: string, targetName: string, statuses: EdgeStatus[], loop: boolean, withRule = 0,
 ): string {
-  let title = `${n} items from ${sourceName} to ${targetName}`
+  let title = `${n} ${n === 1 ? 'item' : 'items'} from ${sourceName} to ${targetName}`
   const limited = statuses.filter(s => s === 'limited').length
   const unused = statuses.filter(s => s === 'unused').length
   if (limited > 0) title += `; ${limited} limited`
   if (unused > 0) title += `; ${unused} not used`
   if (loop) title += '; part of a loop'
   if (withRule > 0) title += `; ${withRule} with a source rule in ${targetName}`
-  return `${title} — click to list them`
+  return `${title} — click to pin it`
 }
 
-function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove, onSetLimit }: EdgeLabelsProps) {
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [open, setOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const listId = useId()
+/**
+ * The summary chip of one edge, always in the DOM but shown only while the edge is pointed at, focused or pinned. It is
+ * the count badge of the edge and its keyboard stop: a click, or Enter, pins the edge (the detail strip then edits it).
+ */
+function EdgeSummary({ edge, status, blocks, flowsById, items, gameData, x, y, lit, pinned, onTogglePin, onHover, onFocusChange }: EdgeSummaryProps) {
   const source = blocks.find(b => b.id === edge.from)
   const target = blocks.find(b => b.id === edge.to)
   const sourceName = source?.name ?? edge.from
   const targetName = target?.name ?? edge.to
   const ruleItems = useSourceRuleItems(target, gameData)
-  const collapsed = edge.connectionIds.length > MAX_EDGE_CHIPS
-  const listOpen = collapsed && open
-
-  // The edge stopped being summarised: forget the list, so it does not pop open when it is summarised again.
-  const [wasCollapsed, setWasCollapsed] = useState(collapsed)
-  if (wasCollapsed !== collapsed) {
-    setWasCollapsed(collapsed)
-    if (!collapsed) {
-      setOpen(false)
-      setEditingId(null)
-    }
-  }
-
-  // Modal closes on any Escape that reaches the window and Popover does not stop it: swallow the
-  // Escape that closes the list, but not the one that cancels a limit edit (RateInput handles it).
-  useEffect(() => {
-    if (!listOpen || editingId !== null) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') e.stopPropagation() }
-    document.addEventListener('keydown', onKey, true)
-    return () => document.removeEventListener('keydown', onKey, true)
-  }, [listOpen, editingId])
-
-  const chip = (id: string, showName: boolean) => (
-    <ConnectionChip
-      key={id}
-      connectionId={id}
-      edge={edge}
-      source={source}
-      target={target}
-      flow={flowsById.get(id)}
-      items={items}
-      gameData={gameData}
-      ruleItems={ruleItems}
-      editing={editingId === id}
-      showName={showName}
-      onEdit={() => setEditingId(id)}
-      onStopEdit={() => setEditingId(null)}
-      onRemove={onRemove}
-      onSetLimit={onSetLimit}
-    />
-  )
-
-  if (!collapsed) {
-    return (
-      <div
-        style={{ left: edge.chip.x, top: edge.chip.y, transform: 'translate(-50%, -50%)' }}
-        className="absolute flex flex-col items-center gap-0.5"
-      >
-        {edge.connectionIds.map(id => chip(id, false))}
-      </div>
-    )
-  }
-
   const n = edge.connectionIds.length
   const connections = edge.connectionIds
     .map(id => target?.inputConnections.find(c => c.id === id))
     .filter(c => c !== undefined)
   const statuses = edge.connectionIds.map(id => connectionStatus(flowsById.get(id)))
   const shown = connections.slice(0, MAX_SUMMARY_ICONS)
+  const visible = lit || pinned
 
   return (
-    // The transform makes a stacking context: lift the whole label while its list is open so nodes do not cover it.
     <div
-      style={{ left: edge.chip.x, top: edge.chip.y, transform: 'translate(-50%, -50%)', zIndex: open ? 30 : undefined }}
-      className="absolute flex flex-col items-center"
+      style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
+      className={`absolute flex flex-col items-center ${visible
+        ? 'opacity-100 pointer-events-auto'
+        : 'opacity-0 pointer-events-none focus-within:opacity-100 focus-within:pointer-events-auto'}`}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+      onFocus={() => onFocusChange(true)}
+      onBlur={e => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onFocusChange(false)
+      }}
     >
-      <div className="relative">
-        <button
-          ref={triggerRef}
-          type="button"
-          data-testid="graph-edge-summary"
-          data-from={edge.from}
-          data-to={edge.to}
-          data-count={n}
-          data-status={status}
-          data-loop={edge.loop ? 'true' : undefined}
-          aria-expanded={open}
-          aria-haspopup="dialog"
-          aria-controls={listId}
-          aria-label={`${n} items from ${sourceName} to ${targetName}`}
-          data-tip={edgeSummaryTitle(n, sourceName, targetName, statuses, edge.loop, connections.filter(c => ruleItems.has(c.itemId)).length)}
-          style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
-          onClick={() => setOpen(o => !o)}
-          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap hover:brightness-125 ${CHIP_TONE[status]}`}
-        >
-          {edge.loop && <span aria-hidden className="text-[10px] leading-none">↻</span>}
-          {shown.map(c => {
-            const item = items[c.itemId]
-            const icon = item?.iconPath ? (
-              <Icon key={c.id} iconPath={item.iconPath} alt="" className="w-4 h-4 object-contain shrink-0" />
-            ) : (
-              <span key={c.id} aria-hidden className="text-[10px]">{(item?.name ?? c.itemId).charAt(0)}</span>
-            )
-            if (!target || !ruleItems.has(c.itemId)) return icon
-            // The summary chip is a button: the marker only shows the rule here, and the chip's tooltip counts it.
-            return (
-              <span key={c.id} aria-hidden className="relative inline-flex shrink-0">
-                {icon}
-                <span className="absolute -top-1 -right-1 flex">
-                  <BlockSourceRuleMarker block={target} itemId={c.itemId} gameData={gameData} />
-                </span>
+      <button
+        type="button"
+        data-testid="graph-edge-summary"
+        data-from={edge.from}
+        data-to={edge.to}
+        data-count={n}
+        data-connection-ids={edge.connectionIds.join(' ')}
+        data-status={status}
+        data-loop={edge.loop ? 'true' : undefined}
+        data-lit={lit ? 'true' : undefined}
+        data-pinned={pinned ? 'true' : undefined}
+        data-shown={visible ? 'true' : undefined}
+        aria-pressed={pinned}
+        aria-label={`${n} ${n === 1 ? 'item' : 'items'} from ${sourceName} to ${targetName}`}
+        data-tip={edgeSummaryTitle(n, sourceName, targetName, statuses, edge.loop, connections.filter(c => ruleItems.has(c.itemId)).length)}
+        style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
+        onClick={onTogglePin}
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap hover:brightness-125 ${CHIP_TONE[status]}`}
+      >
+        {edge.loop && <span aria-hidden className="text-[10px] leading-none">↻</span>}
+        {shown.map(c => {
+          const item = items[c.itemId]
+          const icon = item?.iconPath ? (
+            <Icon key={c.id} iconPath={item.iconPath} alt="" className="w-4 h-4 object-contain shrink-0" />
+          ) : (
+            <span key={c.id} aria-hidden className="text-[10px]">{(item?.name ?? c.itemId).charAt(0)}</span>
+          )
+          if (!target || !ruleItems.has(c.itemId)) return icon
+          // The summary chip is a button: the marker only shows the rule here, and the chip's tooltip counts it.
+          return (
+            <span key={c.id} aria-hidden className="relative inline-flex shrink-0">
+              {icon}
+              <span className="absolute -top-1 -right-1 flex">
+                <BlockSourceRuleMarker block={target} itemId={c.itemId} gameData={gameData} />
               </span>
-            )
-          })}
-          {n > MAX_SUMMARY_ICONS && <span className="text-[10px] font-mono">+{n - MAX_SUMMARY_ICONS}</span>}
-          <span aria-hidden className="text-[10px] leading-none">▾</span>
-        </button>
-        {open && (
-          <Popover
-            ignoreRef={triggerRef}
-            className="left-1/2 -translate-x-1/2 top-full w-max max-h-80 overflow-y-auto p-1"
-            onClose={reason => {
-              if (reason === 'escape' && editingId !== null) return
-              // Unmounting the input would skip its blur commit: blur it first so the typed limit is saved.
-              if (editingId !== null && document.activeElement instanceof HTMLElement) document.activeElement.blur()
-              setEditingId(null)
-              // Popover hears Escape before the guard above; closing now would re-render and drop the
-              // guard before it runs, letting this same Escape reach the Modal. Close once it has passed.
-              if (reason === 'escape') setTimeout(() => setOpen(false))
-              else setOpen(false)
-            }}
-          >
-            <div id={listId} role="dialog" aria-label={`Connections from ${sourceName} to ${targetName}`} data-testid="graph-edge-list" className="flex flex-col gap-0.5">
-              <div className="text-[10px] uppercase text-gray-400 px-1">{sourceName} → {targetName} · {n} items</div>
-              {edge.connectionIds.map(id => chip(id, true))}
-            </div>
-          </Popover>
-        )}
-      </div>
+            </span>
+          )
+        })}
+        {n > MAX_SUMMARY_ICONS && <span className="text-[10px] font-mono">+{n - MAX_SUMMARY_ICONS}</span>}
+      </button>
     </div>
   )
 }
@@ -575,10 +267,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
-  const addInputConnection = useBlockStore(s => s.addInputConnection)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
-  const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const loops = useSolverStore(selectLoops)
   const requestLoops = useSolverStore(selectRequestLoops)
@@ -590,64 +280,79 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
     [layout, flowsById],
   )
 
-  const [connectFrom, setConnectFrom] = useState<string | undefined>()
-  const [menuTarget, setMenuTarget] = useState<string | undefined>()
-
-  const source = blocks.find(b => b.id === connectFrom)
-
-  // Connect mode: which blocks can receive something from the source right now.
-  const connect = useMemo(() => {
-    if (!connectFrom) return undefined
-    const roles = new Map<string, { role: ConnectRole; reason?: string; closesLoop?: boolean }>()
-    const itemsByTarget = new Map<string, ReturnType<typeof connectableItems>>()
-    for (const b of blocks) {
-      if (b.id === connectFrom) {
-        roles.set(b.id, { role: 'source' })
-        continue
+  // What the pointer, the keyboard focus and the pin (a click on a block or an edge, or Enter on an edge's chip) are on, in
+  // that order of precedence: the pointer previews over the pin and the highlight falls back to the pin when it leaves.
+  // Lights its edges and blocks, dims the rest. One pin at a time.
+  const [hover, setHover] = useState<GraphLit>(null)
+  const [focus, setFocus] = useState<GraphLit>(null)
+  const [pin, setPin] = useState<GraphLit>(null)
+  const exists = (w: GraphLit) => w !== null && (w.kind === 'block' ? !!layout.nodes[w.key] : layout.edges.some(e => edgeKey(e) === w.key))
+  // A pin on something that is gone (the last connection of a pinned edge was removed) is dropped.
+  if (pin !== null && !exists(pin)) setPin(null)
+  const isPin = (kind: 'block' | 'edge', key: string) => pin?.kind === kind && pin.key === key
+  const togglePin = (kind: 'block' | 'edge', key: string) => setPin(p => (p?.kind === kind && p.key === key ? null : { kind, key }))
+  const lit = [hover, focus, pin].find(exists) ?? null
+  const { litBlocks, litEdges } = useMemo(() => {
+    const litBlocks = new Set<string>()
+    const litEdges = new Set<string>()
+    if (lit?.kind === 'block') {
+      litBlocks.add(lit.key)
+      for (const e of layout.edges) {
+        if (e.from !== lit.key && e.to !== lit.key) continue
+        litEdges.add(edgeKey(e))
+        litBlocks.add(e.from)
+        litBlocks.add(e.to)
       }
-      const items = connectableItems(blocks, connectFrom, b.id, results, flows)
-      itemsByTarget.set(b.id, items)
-      if (items.length > 0) {
-        roles.set(b.id, { role: 'target', closesLoop: closesLoop(blocks, connectFrom, b.id) })
-      } else {
-        let reason: string
-        if (!results[b.id]) reason = `${b.name} has not been solved yet`
-        else reason = `Nothing to send: ${b.name} imports nothing ${source?.name ?? ''} makes or has left over`
-        roles.set(b.id, { role: 'blocked', reason })
+    } else if (lit?.kind === 'edge') {
+      litEdges.add(lit.key)
+      const e = layout.edges.find(e => edgeKey(e) === lit.key)
+      if (e) {
+        litBlocks.add(e.from)
+        litBlocks.add(e.to)
       }
     }
-    return { roles, itemsByTarget }
-  }, [connectFrom, source, blocks, results, flows])
+    return { litBlocks, litEdges }
+  }, [lit, layout])
 
-  function cancelConnect() {
-    setConnectFrom(undefined)
-    setMenuTarget(undefined)
-  }
+  // Fit the graph to the viewport: no pan, no zoom.
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    const measure = () => setView(v => (v.w === el.clientWidth && v.h === el.clientHeight ? v : { w: el.clientWidth, h: el.clientHeight }))
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const contentW = layout.width + PAD * 2
+  const contentH = layout.height + PAD * 2
+  const scale = Math.round(fitScale(view.w, view.h, contentW, contentH) * 1000) / 1000
 
-  // Only clicks on the canvas or its layer themselves; nodes, chips and the menu are children.
+  // Escape unpins first and closes the graph only when nothing is pinned. A limit being typed handles its own Escape.
+  useEffect(() => {
+    if (pin === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || (e.target instanceof HTMLElement && e.target.tagName === 'INPUT')) return
+      e.stopPropagation()
+      setPin(null)
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [pin])
+
+  // A click on the background unpins; nodes and chips are children.
   function onBackgroundClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) cancelConnect()
+    if (e.target === e.currentTarget) setPin(null)
   }
 
-  function selectNode(id: string) {
-    const entry = connect?.roles.get(id)
-    if (!entry) {
-      setActiveBlock(id)
-      onClose()
-    } else if (entry.role === 'source') {
-      cancelConnect()
-    } else if (entry.role === 'target') {
-      setMenuTarget(id)
-    }
+  function goTo(id: string) {
+    setActiveBlock(id)
+    onClose()
   }
 
-  function pick(itemId: string) {
-    if (connectFrom && menuTarget) addInputConnection(itemId, connectFrom, menuTarget)
-    cancelConnect()
-  }
-
-  const menuNode = menuTarget ? layout.nodes[menuTarget] : undefined
-  const menuCandidates = (menuTarget && connect?.itemsByTarget.get(menuTarget)) || []
   const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
 
   return (
@@ -664,108 +369,142 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           </span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.limited }} />Limited</span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.unused }} />Not used</span>
+          <span data-testid="graph-legend-back" className="flex items-center gap-1" data-tip="Drawn right to left, along the bottom">
+            <svg aria-hidden width="14" height="4"><line x1="0" y1="2" x2="14" y2="2" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" /></svg>
+            Right to left
+          </span>
           <span data-testid="graph-legend-loop" className="flex items-center gap-1" data-tip="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
         </div>
         {(loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
-        {blocks.length < 2 && (
-          <span className="text-xs text-gray-400">Add another block to connect blocks.</span>
-        )}
-        {source && (
-          <span data-testid="graph-connect-hint" className="flex items-center gap-2 text-xs text-blue-300">
-            Connecting from {source.name}: click a highlighted block to send it an item.
-            <button type="button" onClick={cancelConnect} className="text-gray-300 hover:text-white underline">Cancel</button>
-          </span>
-        )}
         <button type="button" onClick={onClose} className={`${btn} ml-auto`}>Close</button>
       </div>
 
-      <div data-testid="block-graph-viewport" className="relative flex-1 overflow-auto">
+      <div ref={viewportRef} data-testid="block-graph-viewport" className="relative flex-1 min-h-0 overflow-hidden">
         <div
           data-testid="block-graph-canvas"
-          style={{ width: layout.width + PAD * 2, height: layout.height + PAD * 2 }}
-          className="relative"
+          style={{ width: contentW * scale, height: contentH * scale }}
+          className="relative mx-auto"
           onClick={onBackgroundClick}
         >
           <div
-            data-testid="block-graph-layer"
-            className="absolute"
-            style={{ left: PAD, top: PAD, width: layout.width, height: layout.height }}
+            className="absolute left-0 top-0"
+            style={{ width: contentW, height: contentH, transform: `scale(${scale})`, transformOrigin: '0 0' }}
             onClick={onBackgroundClick}
           >
-            <svg width={layout.width} height={layout.height} className="absolute left-0 top-0 pointer-events-none" style={{ overflow: 'visible' }}>
-              {layout.edges.map(e => {
-                const status = edgeStatuses.get(e)!
-                const source = blocks.find(b => b.id === e.from)
-                const stroke = status === 'ok' ? (source?.color ?? MISSING_BLOCK_COLOR) : EDGE_COLOR[status]
+            <div
+              data-testid="block-graph-layer"
+              className="absolute"
+              style={{ left: PAD, top: PAD, width: layout.width, height: layout.height }}
+              onClick={onBackgroundClick}
+            >
+              <svg aria-hidden width={layout.width} height={layout.height} className="absolute left-0 top-0 pointer-events-none" style={{ overflow: 'visible' }}>
+                {layout.edges.map(e => {
+                  const key = edgeKey(e)
+                  const status = edgeStatuses.get(e)!
+                  const source = blocks.find(b => b.id === e.from)
+                  const stroke = status === 'ok' ? (source?.color ?? MISSING_BLOCK_COLOR) : EDGE_COLOR[status]
+                  const isLit = litEdges.has(key)
+                  const dim = lit !== null && !isLit
+                  const d = edgePath(e)
+                  return (
+                    <g key={key}>
+                      <path
+                        data-testid="graph-edge"
+                        data-from={e.from}
+                        data-to={e.to}
+                        data-status={status}
+                        data-loop={e.loop ? 'true' : undefined}
+                        data-back={e.back ? 'true' : undefined}
+                        data-lit={isLit ? 'true' : undefined}
+                        data-dim={dim ? 'true' : undefined}
+                        d={d}
+                        fill="none"
+                        stroke={stroke}
+                        strokeWidth={1 + Math.min(e.connectionIds.length, 14) / 4 + (isLit ? 1 : 0)}
+                        strokeOpacity={isLit ? 1 : dim ? 0.07 : 0.55}
+                        strokeDasharray={e.back ? '6 5' : undefined}
+                        className="pointer-events-none"
+                      />
+                      <path
+                        data-testid="graph-edge-hit"
+                        data-from={e.from}
+                        data-to={e.to}
+                        d={d}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth={Math.max(10, 12 / scale)}
+                        style={{ pointerEvents: 'stroke' }}
+                        className="cursor-pointer"
+                        onMouseEnter={() => setHover({ kind: 'edge', key })}
+                        onMouseLeave={() => setHover(null)}
+                        onClick={() => togglePin('edge', key)}
+                      />
+                    </g>
+                  )
+                })}
+              </svg>
+              {blocks.map(b => {
+                const n = layout.nodes[b.id]
                 return (
-                  <path
-                    key={`${e.from}>${e.to}`}
-                    data-testid="graph-edge"
-                    data-from={e.from}
-                    data-to={e.to}
-                    data-status={status}
-                    data-loop={e.loop ? 'true' : undefined}
-                    data-back={e.back ? 'true' : undefined}
-                    d={edgePath(e)}
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth={1.5}
-                    className="pointer-events-none"
+                  <BlockNode
+                    key={b.id}
+                    block={b}
+                    x={n.x}
+                    y={n.y}
+                    isActive={b.id === activeBlockId}
+                    items={gameData.items}
+                    lit={litBlocks.has(b.id)}
+                    dim={lit !== null && !litBlocks.has(b.id)}
+                    pinned={isPin('block', b.id)}
+                    onSelect={() => togglePin('block', b.id)}
+                    onGoTo={() => goTo(b.id)}
+                    onHover={on => setHover(on ? { kind: 'block', key: b.id } : null)}
+                    onFocusChange={on => setFocus(on ? { kind: 'block', key: b.id } : null)}
                   />
                 )
               })}
-            </svg>
-            {layout.edges.map(e => (
-              <EdgeLabels
-                key={`${e.from}>${e.to}`}
-                edge={e}
-                status={edgeStatuses.get(e)!}
-                blocks={blocks}
-                flowsById={flowsById}
-                items={gameData.items}
-                gameData={gameData}
-                onRemove={(id, to) => removeInputConnection(id, to)}
-                onSetLimit={(id, to, max) => setConnectionMaxRate(id, max, to)}
-              />
-            ))}
-            {blocks.map(b => {
-              const n = layout.nodes[b.id]
-              const entry = connect?.roles.get(b.id)
+            </div>
+          </div>
+          {/* Chips are not scaled: they stay readable at any fit. */}
+          <div data-testid="block-graph-overlay" className="absolute inset-0 pointer-events-none">
+            {layout.edges.map(e => {
+              const key = edgeKey(e)
               return (
-                <BlockNode
-                  key={b.id}
-                  block={b}
-                  x={n.x}
-                  y={n.y}
-                  isActive={b.id === activeBlockId}
-                  role={entry?.role}
-                  blockedReason={entry?.reason}
-                  closesLoop={entry?.closesLoop ?? false}
-                  sourceName={source?.name ?? ''}
+                <EdgeSummary
+                  key={key}
+                  edge={e}
+                  status={edgeStatuses.get(e)!}
+                  blocks={blocks}
+                  flowsById={flowsById}
                   items={gameData.items}
-                  canConnect={blocks.length >= 2}
-                  onSelect={() => selectNode(b.id)}
-                  onStartConnect={() => {
-                    setConnectFrom(connectFrom === b.id ? undefined : b.id)
-                    setMenuTarget(undefined)
-                  }}
+                  gameData={gameData}
+                  x={(PAD + e.chip.x) * scale}
+                  y={(PAD + e.chip.y) * scale}
+                  lit={lit?.kind === 'edge' && lit.key === key}
+                  pinned={isPin('edge', key)}
+                  onTogglePin={() => togglePin('edge', key)}
+                  onHover={on => setHover(on ? { kind: 'edge', key } : null)}
+                  onFocusChange={on => setFocus(on ? { kind: 'edge', key } : null)}
                 />
               )
             })}
-            {menuNode && menuTarget && (
-              <ConnectItemMenu
-                targetName={blocks.find(b => b.id === menuTarget)?.name ?? ''}
-                sourceName={source?.name ?? ''}
-                closesLoop={connect?.roles.get(menuTarget)?.closesLoop ?? false}
-                x={menuNode.x}
-                y={menuNode.y + NODE_H + 4}
-                candidates={menuCandidates}
-                items={gameData.items}
-                onPick={pick}
-              />
-            )}
           </div>
         </div>
+      </div>
+
+      <div className="shrink-0 h-40 border-t border-gray-700 overflow-y-auto">
+        <BlockGraphDetail
+          lit={lit}
+          pinned={lit !== null && isPin(lit.kind, lit.key)}
+          onGoTo={goTo}
+          edges={layout.edges}
+          blocks={blocks}
+          flowsById={flowsById}
+          items={gameData.items}
+          gameData={gameData}
+          onRemove={(id, to) => removeInputConnection(id, to)}
+          onSetLimit={(id, to, max) => setConnectionMaxRate(id, max, to)}
+        />
       </div>
     </Modal>
   )

@@ -4,6 +4,7 @@ import fs from 'fs'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, selectSlot, slot, slotById } from './support/summary'
 import { exportPlan } from './support/appMenu'
+import { countRows } from './support/blockGraph'
 
 /**
  * Fixture: block "Plates" (product iron plate 60/min) and the active block "Gears"
@@ -186,7 +187,7 @@ test.describe('requests between blocks', () => {
     // Both connections now request and the cycle is solved, not ignored.
     await page.getByRole('button', { name: 'Block graph' }).click()
     await expect(page.locator('[data-request-ignored]')).toHaveCount(0)
-    await expect(page.locator('[data-testid="graph-edge-label"][data-kind="request"]')).toHaveCount(2)
+    await expect.poll(() => countRows(page, '[data-testid="graph-edge-label"][data-kind="request"]')).toBe(2)
     await expect(page.getByTestId('graph-loop-status')).toHaveText('↻ 1 loop')
     await expect(page.getByTestId('graph-loop-status')).toHaveAttribute('data-converged', 'true')
   })

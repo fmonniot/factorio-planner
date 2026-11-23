@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { detail, selectSlot } from './support/summary'
+import { pinEdge } from './support/blockGraph'
 
 /**
  * Groups and shares in the served list. "Plates" makes 45 iron plate/min (a pinned row, 3 plates per run) plus a 10/min
@@ -237,9 +238,12 @@ test('Served order groups: an edge drop leaves a group', async ({ page }, testIn
 test('Served order groups: the graph chips carry the rank of a group', async ({ page }, testInfo) => {
   await setup(page, testInfo)
   // A short consumer's chip is titled "Limited: ..." (no name in it), so the chips are found by their connection.
-  const chipOf = (id: string) => page.locator(`[data-testid="graph-edge-label"][data-connection-id="${id}"]`)
-  const chips = { Gears: chipOf('bbbb0002-c000-0000-0000-000000000001'), Belts: chipOf('bbbb0003-c000-0000-0000-000000000001'), Cogs: chipOf('bbbb0004-c000-0000-0000-000000000001') }
-  const chipTo = (name: keyof typeof chips) => chips[name]
+  // One edge list is open at a time: open the list of the edge, then find the chip.
+  const ids = { Gears: 'bbbb0002-c000-0000-0000-000000000001', Belts: 'bbbb0003-c000-0000-0000-000000000001', Cogs: 'bbbb0004-c000-0000-0000-000000000001' }
+  const chipTo = async (name: keyof typeof ids) => {
+    await pinEdge(page, { connectionId: ids[name] })
+    return page.locator(`[data-testid="graph-edge-label"][data-connection-id="${ids[name]}"]`)
+  }
 
   await openPopover(page)
   await tie(page, 'Cogs').click()
@@ -247,10 +251,13 @@ test('Served order groups: the graph chips carry the rank of a group', async ({ 
   await page.keyboard.press('Escape')
   await expect(popover(page)).toHaveCount(0)
   await page.getByRole('button', { name: 'Block graph' }).click()
-  await expect(chipTo('Gears').getByTestId('graph-edge-rank')).toHaveText('#1')
-  await expect(chipTo('Belts').getByTestId('graph-edge-rank')).toHaveText('#2')
-  await expect(chipTo('Cogs').getByTestId('graph-edge-rank')).toHaveText('#2')
-  await expect(chipTo('Belts')).toHaveAttribute('data-tip', /served 2nd \(shared\) in Plates's list/)
-  await expect(chipTo('Cogs')).toHaveAttribute('data-tip', /served 2nd \(shared\) in Plates's list/)
-  await expect(chipTo('Gears')).toHaveAttribute('data-tip', /served 1st in Plates's list/)
+  const gears = await chipTo('Gears')
+  await expect(gears.getByTestId('graph-edge-rank')).toHaveText('#1')
+  await expect(gears).toHaveAttribute('data-tip', /served 1st in Plates's list/)
+  const belts = await chipTo('Belts')
+  await expect(belts.getByTestId('graph-edge-rank')).toHaveText('#2')
+  await expect(belts).toHaveAttribute('data-tip', /served 2nd \(shared\) in Plates's list/)
+  const cogs = await chipTo('Cogs')
+  await expect(cogs.getByTestId('graph-edge-rank')).toHaveText('#2')
+  await expect(cogs).toHaveAttribute('data-tip', /served 2nd \(shared\) in Plates's list/)
 })

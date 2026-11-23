@@ -4,6 +4,7 @@ import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, pane, slot } from './support/summary'
 import { changeSourcing, comesFromPopover } from './support/sidePanel'
+import { pinEdge } from './support/blockGraph'
 
 const FIXTURE = path.resolve('e2e/fixtures/item-sourcing.json')
 const OXYGEN = 'nullius-oxygen'
@@ -159,7 +160,8 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   const lineChip = ingredients.locator(`[data-testid="summary-line-chip"][data-item-id="${OXYGEN}"]`)
   const matrix = page.getByRole('table', { name: 'Areas of Acid' })
   const matrixHeader = matrix.locator(`tr[data-item-id="${OXYGEN}"] th[scope="row"]`)
-  const edgeChip = page.getByTestId('graph-edge-label')
+  const edgeSummary = page.getByTestId('graph-edge-summary')
+  const edgeChip = page.getByTestId('graph-detail').getByTestId('graph-edge-label')
   const openMatrix = () => page.getByRole('button', { name: 'Areas in every block' }).click()
   const openGraph = () => page.getByRole('button', { name: 'Block graph' }).click()
   const close = () => page.getByRole('button', { name: 'Close' }).click()
@@ -173,7 +175,7 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(markers(page)).toHaveCount(0)
   await close()
   await openGraph()
-  await expect(edgeChip).toHaveCount(1)
+  await expect(edgeSummary).toHaveCount(1)
   await expect(markers(page)).toHaveCount(0)
   await close()
 
@@ -236,8 +238,12 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await close()
 
   // The block graph: on the edge chip of the oxygen connection into Acid, with the same sentence.
+  // The summary chip of the edge shows the rule as a decorative dot; the chip of the connection, in the edge's list, the marker.
   await openGraph()
+  await expect(markers(edgeSummary)).toHaveCount(1)
   await expect(markers(page.getByTestId('modal-panel'))).toHaveCount(1)
+  await pinEdge(page, { to: 'Acid' })
+  await expect(markers(page.getByTestId('modal-panel'))).toHaveCount(2)
   await expect(markers(edgeChip)).toHaveAccessibleName(sentence)
   const chipBox = (await edgeChip.boundingBox())!
   const chipDot = (await markers(edgeChip).locator('span').boundingBox())!
@@ -247,13 +253,14 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
 
   // From O2 maker, which holds no rule, the same chip shows Acid's rule too.
   await openGraph()
-  await page.getByTestId('graph-node').getByRole('button', { name: 'O2 maker', exact: true }).click()
+  await page.getByTestId('graph-node').filter({ has: page.getByRole('button', { name: 'O2 maker', exact: true }) }).getByTestId('graph-node-open').click()
   await expect(page.getByRole('heading', { name: 'Block graph' })).toHaveCount(0)
   await expect(markers(summary)).toHaveCount(0)
   await openGraph()
+  await pinEdge(page, { to: 'Acid' })
   await expect(markers(edgeChip)).toHaveAccessibleName(sentence)
   await expect(markers(edgeChip)).toHaveRole('img')
-  await page.getByTestId('graph-node').getByRole('button', { name: 'Acid', exact: true }).click()
+  await page.getByTestId('graph-node').filter({ has: page.getByRole('button', { name: 'Acid', exact: true }) }).getByTestId('graph-node-open').click()
   await expect(oxygenSlot(page)).toBeVisible()
 
   // The collapsed line: on the chip of oxygen only, as an image beside the chip; it expands nothing.
@@ -285,6 +292,6 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(markers(page)).toHaveCount(0)
   await close()
   await openGraph()
-  await expect(edgeChip).toHaveCount(1)
+  await expect(edgeSummary).toHaveCount(1)
   await expect(markers(page)).toHaveCount(0)
 })

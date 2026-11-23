@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, selectSlot, slot } from './support/summary'
+import { countRows, pinEdge } from './support/blockGraph'
 
 /**
  * Editing the served list. "Plates" makes exactly 60 iron plate/min (a pinned row, no extra output); "Gears" and "Belts"
@@ -148,12 +149,17 @@ test('Served order: a line joins the list when dragged into it', async ({ page }
 
 test('Served order: the graph chips carry the rank of the stored list', async ({ page }, testInfo) => {
   await setup(page, testInfo)
-  const chipTo = (name: string) => page.locator(`[data-testid="graph-edge-label"][data-tip*="→ ${name}"]`)
+  // One list is open at a time: open the list of the edge into `name`, then find its chip.
+  const chipTo = async (name: string) => {
+    await pinEdge(page, { to: name })
+    return page.locator(`[data-testid="graph-edge-label"][data-tip*="→ ${name}"]`)
+  }
 
   // No stored list yet: no chip is ranked.
   await page.getByRole('button', { name: 'Block graph' }).click()
-  await expect(page.locator('[data-testid="graph-edge-label"]')).toHaveCount(2)
-  await expect(page.getByTestId('graph-edge-rank')).toHaveCount(0)
+  await expect(page.getByTestId('graph-edge-summary')).toHaveCount(2)
+  await expect.poll(() => countRows(page, '[data-testid="graph-edge-label"]')).toBe(2)
+  await expect.poll(() => countRows(page, '[data-testid="graph-edge-rank"]')).toBe(0)
   await page.keyboard.press('Escape')
 
   // Belts first: its chip says #1 and Gears' says #2.
@@ -162,7 +168,8 @@ test('Served order: the graph chips carry the rank of the stored list', async ({
   await expect.poll(() => rankedNames(page)).toEqual(['Belts', 'Gears'])
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Block graph' }).click()
-  await expect(chipTo('Belts').getByTestId('graph-edge-rank')).toHaveText('#1')
-  await expect(chipTo('Gears').getByTestId('graph-edge-rank')).toHaveText('#2')
-  await expect(chipTo('Gears')).toHaveAttribute('data-tip', /served 2nd in Plates's list/)
+  await expect((await chipTo('Belts')).getByTestId('graph-edge-rank')).toHaveText('#1')
+  const gears = await chipTo('Gears')
+  await expect(gears.getByTestId('graph-edge-rank')).toHaveText('#2')
+  await expect(gears).toHaveAttribute('data-tip', /served 2nd in Plates's list/)
 })
