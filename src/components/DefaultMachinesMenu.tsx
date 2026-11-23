@@ -32,7 +32,8 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
   const other = categories.filter(c => (counts.get(c) ?? 0) === 0)
   // Overrides whose category the flyout does not list (a saved plan from before it hid some, or a category the
   // horizon left with one machine): without a row of their own they could only be dropped by Reset all.
-  const unlisted = Object.entries(overrides).filter(([category]) => !categories.includes(category))
+  const listed = new Set(categories)
+  const unlisted = Object.entries(overrides).filter(([category]) => !listed.has(category))
   const hasOverrides = Object.keys(overrides).length > 0
 
   function renderCategory(category: string) {
@@ -115,8 +116,16 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
                   aria-label={`Clear default for ${label}`}
                   title={`Clear default for ${label}`}
                   tabIndex={-1}
-                  data-menu-row
-                  onClick={() => clearDefaultMachine(category)}
+                  data-clear-default
+                  onClick={e => {
+                    // The row disappears with its button: hand the focus on first, or the menu's keys stop working.
+                    const menu = e.currentTarget.closest('[role="menu"]')
+                    const clears = Array.from(menu?.querySelectorAll<HTMLElement>('[data-clear-default]') ?? [])
+                    const at = clears.indexOf(e.currentTarget)
+                    const next = clears[at + 1] ?? clears[at - 1] ?? menu?.querySelector<HTMLElement>('[aria-checked="true"]')
+                    next?.focus()
+                    clearDefaultMachine(category)
+                  }}
                   className="ml-auto px-2 h-6 rounded text-[11px] text-gray-300 bg-gray-900 ring-1 ring-gray-600 outline-none hover:bg-gray-700 focus:bg-gray-700"
                 >
                   Clear

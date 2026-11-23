@@ -531,7 +531,10 @@ the name is the accessible name and tooltip). The flyout is navigated as a grid:
 category rows (wrapping; the column is kept, clamped to the row's length, and arriving from the Reset
 button lands on the row's checked machine) and Left / Right move within a row. The checked one is the effective default; picking one
 sets the plan's `defaultMachineOverrides` entry and leaves the menu open. Rows set to an explicit
-machine are not affected. An override whose category the flyout does not list (saved before the filter above, or a category the horizon left with one machine) gets a "Not listed above" row with the machine's name and a **Clear** button (`clearDefaultMachine`). The footer has **Reset all** (clears every override; disabled with none) and
+machine are not affected. An override whose category the flyout does not list (saved before the filter
+above, or a category the horizon left with one machine) gets a "Not listed above" row with the machine's
+name and a **Clear** button (`clearDefaultMachine`; focus moves to the next Clear button, else the previous,
+else the first checked machine, so the keys keep working). The footer has **Reset all** (clears every override; disabled with none) and
 the note "Used by rows set to 'Default'". Overrides are not undoable.
 
 Opening the flyout programmatically: `uiStore.requestDefaultMachines(category?)` (used by the Edit

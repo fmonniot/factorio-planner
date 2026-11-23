@@ -383,6 +383,16 @@ describe('WorkspaceMenu default machines', () => {
     expect(flyout).not.toHaveTextContent('Not listed above')
   })
 
+  it('keeps the focus in the flyout after Clear removes the focused button', async () => {
+    useBlockStore.setState({ defaultMachineOverrides: { electronics: 'asm2' } })
+    const flyout = await openFlyout()
+    const clear = within(flyout).getByRole('menuitem', { name: 'Clear default for Electronics' })
+    clear.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(useBlockStore.getState().defaultMachineOverrides).toEqual({})
+    expect(flyout.contains(document.activeElement)).toBe(true)
+  })
+
   it('puts a category used by a default row under "Used in this plan"', async () => {
     defaultRowBlock()
     const flyout = await openFlyout()
