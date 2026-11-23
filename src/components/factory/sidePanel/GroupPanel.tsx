@@ -37,7 +37,7 @@ function FlowList({ lines, items, empty, testId }: {
         const name = item?.name ?? l.itemId
         const rate = fmtItemRate(l.itemId, l.rate / 60, unit)
         return (
-          <li key={l.itemId} data-item-id={l.itemId} className="flex items-center gap-2 text-xs">
+          <li key={l.key} data-item-id={l.itemId} className="flex items-center gap-2 text-xs">
             {item?.iconPath ? (
               <Icon iconPath={item.iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />
             ) : (
