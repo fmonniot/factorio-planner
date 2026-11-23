@@ -1,6 +1,5 @@
 import { closesLoop, hasProduct } from '../solver/blockGraph'
-import { grossFlow, receivesItem, surplusTolerance, FLOW_TOLERANCE } from '../solver/index'
-import { sumByItem } from '../data/flowKey'
+import { receivesItem, surplusTolerance, FLOW_TOLERANCE } from '../solver/index'
 import type { Block, ConnectionFlow, SolverResult } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -74,7 +73,7 @@ export type RequestBlocker = 'source-receives'
 
 /**
  * The one rule for "can `target` request `itemId` from `fromBlockId`", used by the
- * Request menu section, the connect-mode menu and the product-change effects. The store
+ * Request menu section and the product-change effects. The store
  * accepts a request whose source receives the item (the solver ignores it as
  * `source-receives`). Undefined when the connection is not a request (the source has no
  * product for the item) or when the request can be applied. A request that closes a cycle
@@ -122,48 +121,6 @@ export function requestCandidates(blocks: Block[], targetId: string, itemId: str
         ...(blocker ? { blocker } : {}),
       }
     })
-}
-
-export interface ItemCandidate {
-  itemId: string
-  offered: number
-  needed: number
-  /** The source has the item as a product, so connecting is a request. */
-  request: boolean
-  /** Why that request is not applied; only for requests. */
-  blocker?: RequestBlocker
-}
-
-/**
- * Items `targetId` still imports (in its `unsatisfied` order) that `sourceId`
- * has as a product (whatever it offers now) or has left over. Empty when the target has no result yet.
- */
-export function connectableItems(
-  blocks: Block[],
-  sourceId: string,
-  targetId: string,
-  results: Record<string, SolverResult>,
-  flows: ConnectionFlow[],
-): ItemCandidate[] {
-  const target = blocks.find(b => b.id === targetId)
-  const result = results[targetId]
-  if (!target || !result) return []
-  const items: ItemCandidate[] = []
-  const gross = sumByItem(grossFlow(result.nodes, result.conversions))
-  // A split fluid is imported over several ranges: the target needs their sum, once.
-  const needed = new Map<string, number>()
-  for (const u of result.unsatisfied) needed.set(u.itemId, (needed.get(u.itemId) ?? 0) + u.rate)
-  for (const u of [...needed].map(([itemId, rate]) => ({ itemId, rate }))) {
-    if (u.rate <= surplusTolerance(gross.get(u.itemId) ?? 0)) continue
-    if (!canConnect(blocks, target, u.itemId, sourceId)) continue
-    const offered = offeredRate(sourceId, u.itemId, results, flows)
-    const source = blocks.find(b => b.id === sourceId)
-    const request = !!source && hasProduct(source, u.itemId)
-    if (!request && offered <= 0) continue
-    const blocker = request ? requestBlocker(blocks, u.itemId, sourceId) : undefined
-    items.push({ itemId: u.itemId, offered, needed: u.rate, request, ...(blocker ? { blocker } : {}) })
-  }
-  return items
 }
 
 export interface ProductChangeEffect {

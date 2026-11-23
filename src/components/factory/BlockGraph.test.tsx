@@ -777,10 +777,41 @@ describe('BlockGraph', () => {
       const input = screen.getByRole('spinbutton', { name: 'Connection limit' })
       input.focus()
       fireEvent.change(input, { target: { value: '5' } })
-      fireEvent.blur(input)
-      expect(consumerIn().inputConnections[0].maxRate).toBe(5)
+      // A real press on the background blurs the input before the click unpins and unmounts the strip.
+      input.blur()
       fireEvent.click(screen.getByTestId('block-graph-layer'))
+      expect(consumerIn().inputConnections[0].maxRate).toBe(5)
       expect(rows()).toHaveLength(0)
+    })
+
+    it('keeps the pinned edge in the strip, with the limit being typed, while the pointer previews another block', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      fireEvent.click(within(rows()[0]).getByTestId('graph-edge-limit'))
+      const input = screen.getByRole('spinbutton', { name: 'Connection limit' })
+      input.focus()
+      fireEvent.change(input, { target: { value: '5' } })
+      fireEvent.mouseEnter(screen.getAllByTestId('graph-node')[0])
+      fireEvent.mouseEnter(screen.getByTestId('graph-edge-hit'))
+      expect(screen.getByRole('spinbutton', { name: 'Connection limit' })).toBe(input)
+      expect(input).toHaveValue(5)
+      expect(rows()).toHaveLength(12)
+      input.blur()
+      expect(consumerIn().inputConnections[0].maxRate).toBe(5)
+    })
+
+    it('lets the pointer in the strip hold the pin over a preview from the graph', () => {
+      setup({ connected: true, extra: 1 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      fireEvent.mouseEnter(screen.getByTestId('graph-detail').parentElement!)
+      fireEvent.mouseEnter(screen.getAllByTestId('graph-node')[0])
+      expect(rows()).toHaveLength(2)
+      fireEvent.mouseLeave(screen.getByTestId('graph-detail').parentElement!)
+      expect(screen.getByTestId('graph-detail').textContent).not.toContain('Receives from')
     })
 
     it('shows no pull mark or count on the summary chip', () => {
@@ -1015,13 +1046,14 @@ describe('BlockGraph', () => {
     it('shows the source rule marker on the chip in the strip, as the list did', () => {
       withOther()
       useBlockStore.setState(s => ({
-        blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, sourceRules: { 'iron-ore': { importOff: true as const } } } : b)),
+        blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, sourceRules: { 'iron-ore': { importOff: true as const } }, rootPlan: { ...b.rootPlan, nodes: [makeRecipeNode('mine')] } } : b)),
       }))
       render(<BlockGraphButton />)
       open()
       fireEvent.mouseEnter(hit('consumer'))
       const detail = within(screen.getByTestId('graph-detail'))
       expect(detail.getAllByTestId('graph-edge-label')).toHaveLength(1)
+      expect(detail.getAllByTestId('source-rule-marker')).toHaveLength(1)
     })
     it('draws a back edge dashed and says so in the legend', () => {
       setup({ connected: true, loop: { converged: true } })

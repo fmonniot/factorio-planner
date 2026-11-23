@@ -74,6 +74,26 @@ test.describe('block graph, 15 blocks', () => {
     expect(await page.getByTestId('block-graph-viewport').evaluate(el => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight)).toBe(true)
   })
 
+  test('no chip covers a block\'s Go to button, at the fit scale', async ({ page }, testInfo) => {
+    await setup(page, testInfo.outputPath('scale-plan.json'))
+    const goTo = (await page.getByTestId('graph-node-open').evaluateAll(els => els.map(el => {
+      const r = el.getBoundingClientRect()
+      return { x: r.x, y: r.y, w: r.width, h: r.height }
+    })))
+    const chips = await page.getByTestId('graph-edge-summary').evaluateAll(els => els.map(el => {
+      const r = el.getBoundingClientRect()
+      return { x: r.x, y: r.y, w: r.width, h: r.height, icons: el.getAttribute('data-icons') }
+    }))
+    expect(chips).toHaveLength(46)
+    expect(goTo).toHaveLength(15)
+    for (const c of chips) {
+      for (const g of goTo) {
+        const overlaps = c.x < g.x + g.w && g.x < c.x + c.w && c.y < g.y + g.h && g.y < c.y + c.h
+        expect(overlaps, `chip at ${Math.round(c.x)},${Math.round(c.y)} (${Math.round(c.w)} wide) covers a Go to button`).toBe(false)
+      }
+    }
+  })
+
   test('pointing at a block lights its edges and fills the strip', async ({ page }, testInfo) => {
     await setup(page, testInfo.outputPath('scale-plan.json'))
     await page.getByTestId('graph-node').filter({ has: page.getByRole('button', { name: 'Sludge', exact: true }) }).hover()

@@ -360,6 +360,17 @@ describe('layoutBlockGraph', () => {
     expect(Number.isFinite(layout.width) && Number.isFinite(layout.height)).toBe(true)
   })
 
+  it('lays out a 120-block chain with skip connections within a bounded time', () => {
+    // Every block takes several earlier ones: one long chain with many dummy vertices and segments.
+    const plan = Array.from({ length: 120 }, (_, i) =>
+      block(`B${i}`, [1, 2 + (i * 7) % 5, 4 + (i * 13) % 9, 8 + (i * 5) % 12, 12 + (i * 11) % 30, 20 + (i * 3) % 40].filter(k => i >= k).map(k => `B${i - k}`)))
+    const start = performance.now()
+    const layout = layoutBlockGraph(plan)
+    const elapsed = performance.now() - start
+    expect(Object.keys(layout.nodes)).toHaveLength(120)
+    expect(elapsed, `layout took ${Math.round(elapsed)} ms`).toBeLessThan(700)
+  })
+
   it('keeps a bigger gap between blocks than between a block and a routed edge', () => {
     const layout = layoutBlockGraph([block('A'), block('B', ['A']), block('C', ['B', 'A']), block('D', ['A'])])
     const col1 = Object.values(layout.nodes).filter(n => n.column === 1).sort((a, b) => a.y - b.y)

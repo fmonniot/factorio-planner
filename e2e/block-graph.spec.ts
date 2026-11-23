@@ -65,6 +65,8 @@ test.describe('block graph', () => {
 
     const list = await pinEdge(page, { to: 'Gears' })
     const chip = list.getByTestId('graph-edge-label')
+    // The tooltip carries the flow, which arrives after the solve.
+    await expect(chip).toHaveAttribute('data-tip', /requested/)
     const tip = await chip.getAttribute('data-tip')
     expect(tip).toContain('→ Gears')
     await chip.hover()
@@ -206,6 +208,69 @@ test.describe('block graph', () => {
     // Escape unpins first; the graph stays open.
     await page.keyboard.press('Escape')
     await expect(summary).not.toHaveAttribute('data-pinned', 'true')
+    await expect(page.getByRole('heading', { name: 'Block graph' })).toBeVisible()
+  })
+
+  test('unpinning a block by a second click, with the pointer away, leaves nothing lit', async ({ page }) => {
+    await setup(page)
+    await connectPlatesToGears(page)
+    const plates = node(page, 'Plates').getByRole('button', { name: 'Plates', exact: true })
+    await plates.click()
+    await expect(node(page, 'Plates')).toHaveAttribute('data-pinned', 'true')
+    await plates.click()
+    await page.mouse.move(2, 2)
+    await expect(page.locator('[data-pinned="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-lit="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-dim="true"]')).toHaveCount(0)
+    await expect(page.getByTestId('graph-detail')).toContainText('Point at a block')
+  })
+
+  test('Escape on a pinned chip unpins it and leaves nothing lit', async ({ page }) => {
+    await setup(page)
+    await connectPlatesToGears(page)
+    await page.mouse.move(2, 2)
+    const summary = page.getByTestId('graph-edge-summary')
+    await summary.focus()
+    await page.keyboard.press('Enter')
+    await expect(summary).toHaveAttribute('data-pinned', 'true')
+    await page.keyboard.press('Escape')
+    await expect(summary).not.toHaveAttribute('data-pinned', 'true')
+    await expect(page.locator('[data-lit="true"]')).toHaveCount(0)
+    await expect(page.getByTestId('graph-detail')).toContainText('Point at a block')
+  })
+
+  test('Enter on a chip moves the focus into the strip, where a limit survives the pointer crossing the graph', async ({ page }) => {
+    await setup(page)
+    await connectPlatesToGears(page)
+    await page.mouse.move(2, 2)
+    const summary = page.getByTestId('graph-edge-summary')
+    await summary.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('graph-detail').getByTestId('graph-edge-limit')).toBeFocused()
+    await page.keyboard.press('Enter')
+    const input = page.getByRole('spinbutton', { name: 'Connection limit' })
+    await input.fill('10')
+    // The pointer previews a block over the pin: the strip does not swap while the focus is in it.
+    await node(page, 'Plates').hover()
+    await expect(input).toBeVisible()
+    await expect(page.getByTestId('graph-detail')).toContainText('Items on this edge')
+    await page.keyboard.press('Enter')
+    // The input is gone with the focus in it: the pointer's preview shows again until it leaves.
+    await page.mouse.move(2, 2)
+    await expect(page.getByTestId('graph-edge-limit')).toContainText('10')
+  })
+
+  test('Escape from the strip unpins the edge and puts the focus back on its chip', async ({ page }) => {
+    await setup(page)
+    await connectPlatesToGears(page)
+    await page.mouse.move(2, 2)
+    const summary = page.getByTestId('graph-edge-summary')
+    await summary.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('graph-detail').getByTestId('graph-edge-limit')).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(summary).not.toHaveAttribute('data-pinned', 'true')
+    await expect(summary).toBeFocused()
     await expect(page.getByRole('heading', { name: 'Block graph' })).toBeVisible()
   })
 

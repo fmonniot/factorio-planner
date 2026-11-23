@@ -330,28 +330,34 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
     let changed = false
     for (let l = 0; l < layerCount; l++) {
       for (let i = 0; i + 1 < layers[l].length; i++) {
-        const gaps = [l - 1, l].filter(g => g >= 0 && g < segmentsByGap.length)
-        const before = gaps.reduce((s, g) => s + gapCrossings(g), 0)
         const a = layers[l][i]
         const b = layers[l][i + 1]
-        layers[l][i] = b
-        layers[l][i + 1] = a
-        rows.set(b, i)
-        rows.set(a, i + 1)
-        const after = gaps.reduce((s, g) => s + gapCrossings(g), 0)
-        if (after < before) changed = true
-        else {
-          layers[l][i] = a
-          layers[l][i + 1] = b
-          rows.set(a, i)
-          rows.set(b, i + 1)
+        // Only segments of a and of b can change their crossings: a above b crosses where a's neighbour is below b's.
+        let before = 0
+        let after = 0
+        for (const adj of [adjUp, adjDn]) {
+          for (const u of adj.get(a)!) {
+            const ru = rows.get(u)
+            for (const w of adj.get(b)!) {
+              const rw = rows.get(w)
+              if (ru > rw) before++
+              else if (ru < rw) after++
+            }
+          }
+        }
+        if (after < before) {
+          layers[l][i] = b
+          layers[l][i + 1] = a
+          rows.set(b, i)
+          rows.set(a, i + 1)
+          changed = true
         }
       }
     }
     if (!changed) break
   }
 
-  // Rows: stack each layer, then relax toward the neighbours' mean keeping order and minimum gaps.
+  // Rows: stack each layer, then move each vertex toward its neighbours' mean, only ever pushing it down to keep order and minimum gaps.
   const heightOf = (id: string) => (vertices.get(id)!.dummy ? DUMMY_H : NODE_H)
   const gapOf = (a: string, b: string) => (vertices.get(a)!.dummy || vertices.get(b)!.dummy ? DUMMY_GAP : ROW_GAP)
   const y = new Map<string, number>() // vertex centre
@@ -378,10 +384,6 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
           ? -Infinity
           : y.get(ids[i - 1])! + heightOf(ids[i - 1]) / 2 + gapOf(ids[i - 1], ids[i]) + heightOf(ids[i]) / 2
         y.set(ids[i], Math.max(want[i], minY))
-      }
-      for (let i = ids.length - 2; i >= 0; i--) {
-        const maxY = y.get(ids[i + 1])! - heightOf(ids[i + 1]) / 2 - gapOf(ids[i], ids[i + 1]) - heightOf(ids[i]) / 2
-        if (y.get(ids[i])! > maxY) y.set(ids[i], maxY)
       }
     }
   }

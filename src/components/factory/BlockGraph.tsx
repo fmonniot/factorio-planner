@@ -143,9 +143,21 @@ interface EdgeSummaryProps {
   /** The edge is pointed at, focused or pinned: the chip shows. */
   lit: boolean
   pinned: boolean
-  onTogglePin: () => void
+  /** Widest the chip may be on screen (px): the gap it sits in, so that it never covers a block. */
+  maxWidth: number
+  onTogglePin: (e: MouseEvent<HTMLButtonElement>) => void
   onHover: (on: boolean) => void
   onFocusChange: (on: boolean) => void
+}
+
+/** How many connection icons a chip can show within `maxWidth` px (the chip's padding, loop mark, icons and "+N" label). */
+function chipIconCount(n: number, loop: boolean, maxWidth: number): number {
+  const base = 14 + (loop ? 14 : 0)
+  for (let k = Math.min(n, MAX_SUMMARY_ICONS); k > 0; k--) {
+    const label = n > k ? 4 + 7 * `+${n - k}`.length : 0
+    if (base + k * 20 - 4 + label <= maxWidth) return k
+  }
+  return 0
 }
 
 /** Tooltip of a summary chip: the count, then what is notable among its connections. */
@@ -166,7 +178,7 @@ function edgeSummaryTitle(
  * The summary chip of one edge, always in the DOM but shown only while the edge is pointed at, focused or pinned. It is
  * the count badge of the edge and its keyboard stop: a click, or Enter, pins the edge (the detail strip then edits it).
  */
-function EdgeSummary({ edge, status, blocks, flowsById, items, gameData, x, y, lit, pinned, onTogglePin, onHover, onFocusChange }: EdgeSummaryProps) {
+function EdgeSummary({ edge, status, blocks, flowsById, items, gameData, x, y, lit, pinned, maxWidth, onTogglePin, onHover, onFocusChange }: EdgeSummaryProps) {
   const source = blocks.find(b => b.id === edge.from)
   const target = blocks.find(b => b.id === edge.to)
   const sourceName = source?.name ?? edge.from
@@ -177,7 +189,8 @@ function EdgeSummary({ edge, status, blocks, flowsById, items, gameData, x, y, l
     .map(id => target?.inputConnections.find(c => c.id === id))
     .filter(c => c !== undefined)
   const statuses = edge.connectionIds.map(id => connectionStatus(flowsById.get(id)))
-  const shown = connections.slice(0, MAX_SUMMARY_ICONS)
+  const iconCount = chipIconCount(n, edge.loop, maxWidth)
+  const shown = connections.slice(0, iconCount)
   const visible = lit || pinned
 
   return (
@@ -205,6 +218,7 @@ function EdgeSummary({ edge, status, blocks, flowsById, items, gameData, x, y, l
         data-lit={lit ? 'true' : undefined}
         data-pinned={pinned ? 'true' : undefined}
         data-shown={visible ? 'true' : undefined}
+        data-icons={iconCount}
         aria-pressed={pinned}
         aria-label={`${n} ${n === 1 ? 'item' : 'items'} from ${sourceName} to ${targetName}`}
         data-tip={edgeSummaryTitle(n, sourceName, targetName, statuses, edge.loop, connections.filter(c => ruleItems.has(c.itemId)).length)}
@@ -231,7 +245,7 @@ function EdgeSummary({ edge, status, blocks, flowsById, items, gameData, x, y, l
             </span>
           )
         })}
-        {n > MAX_SUMMARY_ICONS && <span className="text-[10px] font-mono">+{n - MAX_SUMMARY_ICONS}</span>}
+        {n > iconCount && <span className="text-[10px] font-mono">{iconCount === 0 ? n : `+${n - iconCount}`}</span>}
       </button>
     </div>
   )
@@ -290,8 +304,29 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   // A pin on something that is gone (the last connection of a pinned edge was removed) is dropped.
   if (pin !== null && !exists(pin)) setPin(null)
   const isPin = (kind: 'block' | 'edge', key: string) => pin?.kind === kind && pin.key === key
-  const togglePin = (kind: 'block' | 'edge', key: string) => setPin(p => (p?.kind === kind && p.key === key ? null : { kind, key }))
-  const lit = [hover, focus, pin].find(exists) ?? null
+  // A click leaves its element focused; the pin it sets or clears is what should hold the highlight, not that stale focus.
+  const togglePin = (kind: 'block' | 'edge', key: string) => {
+    setFocus(null)
+    setPin(p => (p?.kind === kind && p.key === key ? null : { kind, key }))
+  }
+  // While the pointer or the focus is in the detail strip it keeps showing the pin: a preview from the graph would replace
+  // it under a limit being typed.
+  const stripRef = useRef<HTMLDivElement>(null)
+  const [stripHover, setStripHover] = useState(false)
+  const [stripFocus, setStripFocus] = useState(false)
+  const sticky = pin !== null && exists(pin) && (stripHover || stripFocus)
+  const lit = (sticky ? pin : [hover, focus, pin].find(exists)) ?? null
+  // Focus on an element the strip removed (a connection taken off the edge) does not blur.
+  useEffect(() => {
+    if (stripFocus && !stripRef.current?.contains(document.activeElement)) setStripFocus(false)
+  }, [stripFocus, blocks])
+  // Enter on a chip hands the focus to the strip, whose first control is the edge's first connection.
+  const focusStrip = useRef(false)
+  useEffect(() => {
+    if (!focusStrip.current || pin === null) return
+    focusStrip.current = false
+    stripRef.current?.querySelector<HTMLElement>('button, input, [tabindex]')?.focus()
+  }, [pin])
   const { litBlocks, litEdges } = useMemo(() => {
     const litBlocks = new Set<string>()
     const litEdges = new Set<string>()
@@ -329,19 +364,28 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   }, [])
   const contentW = layout.width + PAD * 2
   const contentH = layout.height + PAD * 2
-  const scale = Math.round(fitScale(view.w, view.h, contentW, contentH) * 1000) / 1000
+  const scale = Math.floor(fitScale(view.w, view.h, contentW, contentH) * 1000) / 1000
 
   // Escape unpins first and closes the graph only when nothing is pinned. A limit being typed handles its own Escape.
+  // From the strip, focus goes back to the pinned block or chip, so the keyboard does not fall to the page.
   useEffect(() => {
     if (pin === null) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || (e.target instanceof HTMLElement && e.target.tagName === 'INPUT')) return
       e.stopPropagation()
+      if (stripRef.current?.contains(document.activeElement)) {
+        const edge = pin.kind === 'edge' ? layout.edges.find(x => edgeKey(x) === pin.key) : undefined
+        const origin = pin.kind === 'block'
+          ? viewportRef.current?.querySelector<HTMLElement>(`[data-block-id="${pin.key}"] [data-testid="graph-node-select"]`)
+          : edge && viewportRef.current?.querySelector<HTMLElement>(`[data-testid="graph-edge-summary"][data-from="${edge.from}"][data-to="${edge.to}"]`)
+        origin?.focus()
+      }
+      setFocus(null)
       setPin(null)
     }
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
-  }, [pin])
+  }, [pin, layout])
 
   // A click on the background unpins; nodes and chips are children.
   function onBackgroundClick(e: MouseEvent<HTMLDivElement>) {
@@ -482,7 +526,11 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                   y={(PAD + e.chip.y) * scale}
                   lit={lit?.kind === 'edge' && lit.key === key}
                   pinned={isPin('edge', key)}
-                  onTogglePin={() => togglePin('edge', key)}
+                  maxWidth={e.back ? Infinity : (e.points[e.points.length - 1].x - e.points[e.points.length - 2].x) * scale - 2}
+                  onTogglePin={ev => {
+                    if (ev.detail === 0 && !isPin('edge', key)) focusStrip.current = true
+                    togglePin('edge', key)
+                  }}
                   onHover={on => setHover(on ? { kind: 'edge', key } : null)}
                   onFocusChange={on => setFocus(on ? { kind: 'edge', key } : null)}
                 />
@@ -492,7 +540,16 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
         </div>
       </div>
 
-      <div className="shrink-0 h-40 border-t border-gray-700 overflow-y-auto">
+      <div
+        ref={stripRef}
+        className="shrink-0 h-40 border-t border-gray-700 overflow-y-auto"
+        onMouseEnter={() => setStripHover(true)}
+        onMouseLeave={() => setStripHover(false)}
+        onFocus={() => setStripFocus(true)}
+        onBlur={e => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setStripFocus(false)
+        }}
+      >
         <BlockGraphDetail
           lit={lit}
           pinned={lit !== null && isPin(lit.kind, lit.key)}
