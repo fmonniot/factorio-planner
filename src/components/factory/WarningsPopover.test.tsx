@@ -228,6 +228,37 @@ describe('WarningsPopover — no-fitting-temperature', () => {
 })
 
 // ---------------------------------------------------------------------------
+// unbounded-absorber
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — unbounded-absorber', () => {
+  it('names the row, hints at the fix and is critical', () => {
+    setupWithWarnings({ warnings: [{ type: 'unbounded-absorber', recipeIds: ['boiler'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/Absorber has no limit/).className).toContain('text-red-400')
+    expect(screen.getByText(/"Boiler Recipe" earns more per run than the items it takes cost to make/)).toBeInTheDocument()
+    expect(screen.getByText(/Stop absorbing byproduct/)).toBeInTheDocument()
+    expect(screen.getByTitle('Show solver warnings').className).toContain('text-red')
+  })
+
+  it('links to the row', () => {
+    setupAreaBlock()
+    setupWithWarnings({ warnings: [{ type: 'unbounded-absorber', recipeIds: ['boiler'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getAllByTestId('warning-link')).toHaveLength(1)
+  })
+
+  it('says "An absorbing row" when no row is named', () => {
+    setupWithWarnings({ warnings: [{ type: 'unbounded-absorber', recipeIds: [] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/An absorbing row earns more per run/)).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // connection-temperature
 // ---------------------------------------------------------------------------
 

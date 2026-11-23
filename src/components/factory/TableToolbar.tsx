@@ -150,6 +150,7 @@ function warningTitle(w: SolverWarning): string {
     case 'no-recipe': return 'No recipe in plan'
     case 'duplicate-recipe': return 'Duplicate recipe'
     case 'infeasible-pins': return w.conflict ? 'Pinned rate is impossible' : 'Pins cap a product'
+    case 'unbounded-absorber': return 'Absorber has no limit'
     case 'overconstrained': return "Recipe network can't fully balance"
     case 'coproduct-driven': return 'Recipe runs for its co-product'
     case 'area-shortfall': return "Area can't cover its own need"
@@ -191,6 +192,12 @@ function warningBody(
           : `The pinned rates on ${names.join(', ')} hold, so the block falls short of what its products need.`
       }
       return `The pinned rate on ${names.join(', ')} can't be reached given the other recipes. Goals will not be met.`
+    }
+    case 'unbounded-absorber': {
+      const names = w.recipeIds.map(id => `"${gameData.recipes[id]?.name ?? id}"`)
+      return names.length === 0
+        ? 'An absorbing row earns more per run than the items it takes cost to make, so the solver found no limit and the rates in this block are not reliable.'
+        : `${names.join(', ')} ${names.length === 1 ? 'earns' : 'earn'} more per run than the items ${names.length === 1 ? 'it takes' : 'they take'} cost to make, so the solver found no limit and the rates in this block are not reliable.`
     }
     case 'overconstrained': {
       const names = w.surplusItems.map(si => withTemp(gameData.items[si.itemId]?.name ?? si.itemId, si.temp))
@@ -259,6 +266,7 @@ function warningHint(w: SolverWarning): string {
         ? 'Remove the duplicate rows from that area, or make one of their sub-factories a separate area.'
         : 'Remove the duplicate nodes from the production table.'
     case 'infeasible-pins': return w.conflict ? 'Unpin it, or change which recipes are active.' : 'Raise the pin, unpin it, or change which recipes are active.'
+    case 'unbounded-absorber': return 'Right-click the row and choose Stop absorbing byproduct, or make fewer of the items it takes per run in the recipe that makes them.'
     case 'area-shortfall': return 'Unpin that row, or turn Import on for its inputs.'
     case 'area-cut-off': return 'Switch a supplying area back on, or turn Import on for it.'
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
@@ -273,7 +281,7 @@ function warningHint(w: SolverWarning): string {
 }
 
 function isCritical(w: SolverWarning): boolean {
-  return w.type === 'infeasible-pins' || w.type === 'no-fitting-temperature'
+  return w.type === 'infeasible-pins' || w.type === 'no-fitting-temperature' || w.type === 'unbounded-absorber'
 }
 
 // ---------------------------------------------------------------------------

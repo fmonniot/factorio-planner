@@ -69,7 +69,7 @@ function importOf(lp: LPResult, byproductsFirst: Set<string>): number {
  */
 export function needsConnectionOrder(input: ConnectionOrderInput): boolean {
   const { today, system, byproductsFirst } = input
-  if (!today.feasible || today.shortfall.size > 0 || today.warnings.some(w => w.type === 'infeasible-pins')) return false
+  if (!today.feasible || today.shortfall.size > 0 || today.warnings.some(w => w.type === 'infeasible-pins' || w.type === 'unbounded-absorber')) return false
   const imports = [...today.slack].some(([itemId, rate]) =>
     !byproductsFirst.has(itemId) && rate > surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput)))
   if (!imports) return false

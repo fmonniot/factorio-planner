@@ -790,6 +790,7 @@ describe('absorber chains', () => {
     expect(result.throughput.get('make-saw'), 'make-saw').toBeCloseTo(2, 6)
     expect(result.throughput.get('make-plate'), 'make-plate').toBeCloseTo(0, 6)
     expect(result.supply.get('plate'), 'plate received').toBeCloseTo(3, 6)
+    expect(result.warnings.some(w => w.type === 'unbounded-absorber')).toBe(false)
   })
 
   // Rows as [id, ingredients, products]; the system is classified by `buildClassifiedSystem`, as in a block solve.
@@ -811,6 +812,24 @@ describe('absorber chains', () => {
   }
   const GROW: Row = ['grow', { seed: 1 }, { goal: 1, tree: 2 }]
   const SAWING: Row = ['sawr', { tree: 1, saw: 1 }, { wood: 8, saw: 0.9 }]
+
+  it('warns when a rewarded row earns more per run than the trees it takes cost', () => {
+    // 150 trees per run: chopping one earns 0.01, so a grow run's 150 chops earn 1.5 against its cost of 1; the objective has no minimum.
+    const forest = (trees: number): Row[] => [['grow', { seed: 1 }, { goal: 1, tree: trees }], ['chop', { tree: 1 }, { wood: 1 }]]
+    const { raw, result } = lpOf(forest(150), { goal: 10 }, ['chop'])
+    expect(raw.bounded, 'raw bounded').toBe(false)
+    expect(result.feasible).toBe(true)
+    expect(result.warnings).toEqual([{ type: 'unbounded-absorber', recipeIds: ['chop'] }])
+  })
+
+  it('does not warn below the limit of 100 trees per run', () => {
+    const rows: Row[] = [['grow', { seed: 1 }, { goal: 1, tree: 99 }], ['chop', { tree: 1 }, { wood: 1 }]]
+    const { raw, result } = lpOf(rows, { goal: 10 }, ['chop'])
+    expect(raw.bounded, 'raw bounded').not.toBe(false)
+    expect(result.warnings.filter(w => w.type === 'unbounded-absorber')).toEqual([])
+    expect(result.throughput.get('chop'), 'chop').toBeCloseTo(990, 3)
+    expect(result.throughput.get('grow'), 'grow').toBeCloseTo(10, 3)
+  })
 
   it('keeps the whole chain out when the supply would take a reward away', () => {
     // An ordinary row (mine) makes the roll and burn also takes it; a supply of roll must not reach make-plate, or make-saw would lose its reward.

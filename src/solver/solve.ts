@@ -476,7 +476,11 @@ export function buildLPModel(
 type LPConstraints = LPModel['constraints']
 type LPVariables = LPModel['variables']
 
-/** Solve `constraints` / `variables` for `optimize` (minimised); javascript-lp-solver does not modify them. */
+/**
+ * Solve `constraints` / `variables` for `optimize` (minimised); javascript-lp-solver does not modify them. A result
+ * with `bounded: false` is an arbitrary vertex; only the `__obj__` / `__s2` objectives (the only ones with a negative
+ * coefficient, the absorber reward) can be unbounded.
+ */
 export function runLP(optimize: string, constraints: LPConstraints, variables: LPVariables): SolveResult {
   return solver.Solve({ optimize, opType: 'min', constraints, variables }) as SolveResult
 }
@@ -550,6 +554,11 @@ export function readLPResult(
     warnings.push(feasible
       ? { type: 'infeasible-pins', recipeIds: bindingPins(lp, pins) }
       : { type: 'infeasible-pins', recipeIds: pins, conflict: true })
+  }
+
+  // A rewarded row that earns more per run than its inputs cost leaves the objective without a minimum (absorbers.ts).
+  if (feasible && result.bounded === false) {
+    warnings.push({ type: 'unbounded-absorber', recipeIds: recipes.filter(id => lp.absorbers.rewarded.has(id)) })
   }
 
   const throughput = new Map<string, number>()

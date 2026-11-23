@@ -408,8 +408,8 @@ export function solveBlock(
     const main = r ? explicitMainProduct(n, r) : undefined
     if (main !== undefined) mainItemOfRecipe.set(n.recipeId, main)
   }
-  // Pins that cannot be met make the flows meaningless for this check.
-  const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
+  // Pins that cannot be met, or an unbounded objective, make the flows meaningless for this check.
+  const coproductDriven = warnings.some(w => w.type === 'infeasible-pins' || w.type === 'unbounded-absorber') ? undefined : coproductDrivenWarning({
     goals: keyGoals(system, plan.goals), system, throughput: throughputMap, slack: lp.slack, itemSurplus, itemGross,
     fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.absorberOnly]), noImportItems: cannotImport, recipeOf: id => id,
     mainItemOf: id => mainItemOfRecipe.get(id), itemOf: key => baseOf(system, key),

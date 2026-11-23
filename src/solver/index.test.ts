@@ -169,6 +169,21 @@ describe('solve — no-recipe warning', () => {
   })
 })
 
+describe('solveBlock — unbounded-absorber warning', () => {
+  it('is raised for a rewarded row that earns more per run than its trees cost, in a block solve too', () => {
+    const gd = makeGameData({ recipes: {
+      grow: recipe('grow', 1, [product('seed', 1)], [product('goal', 1), product('tree', 150)]),
+      chop: recipe('chop', 1, [product('tree', 1)], [product('wood', 1)]),
+    } })
+    const chop: GameRecipeNode = { ...planNode('c', 'chop'), byproductConsumer: true }
+    const plan = { goals: [{ id: 'g1', itemId: 'goal', rate: 10 }], nodes: [planNode('g', 'grow'), chop] }
+    const { result } = solveBlock(plan, gd, new Map())
+    const types = result.warnings.map(w => w.type)
+    expect(result.warnings.find(w => w.type === 'unbounded-absorber')).toEqual({ type: 'unbounded-absorber', recipeIds: ['chop'] })
+    expect(types.indexOf('unbounded-absorber'), 'before overconstrained').toBeLessThan(types.includes('overconstrained') ? types.indexOf('overconstrained') : Infinity)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // flattenBlock + wrap-in-subplan parity
 //

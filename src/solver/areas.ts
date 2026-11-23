@@ -700,7 +700,7 @@ function solveAreaLPOnce(
     // The LP is keyed by column id; warnings name recipes.
     const recipeOf = new Map(columns.map(c => [c.id, c.node.recipeId]))
     const warnings = lp.warnings.map(w =>
-      w.type === 'infeasible-pins'
+      w.type === 'infeasible-pins' || w.type === 'unbounded-absorber'
         ? { ...w, recipeIds: [...new Set(w.recipeIds.map(id => recipeOf.get(id) ?? id))] }
         : w,
     )
@@ -1328,7 +1328,7 @@ export function solveAreaBlock(
    * each solves a different model (one mutable LP there, `solveAreaLP`'s two stages here).
    */
   const areaConnectionOrder = (today: AreaLPResult): AreaLPResult | undefined => {
-    if (!today.feasible || today.shortfall.size > 0 || today.warnings.some(w => w.type === 'infeasible-pins')) return undefined
+    if (!today.feasible || today.shortfall.size > 0 || today.warnings.some(w => w.type === 'infeasible-pins' || w.type === 'unbounded-absorber')) return undefined
     const tol = (itemId: string) => surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput))
     // Counted as the LP's `__imp` sum counts: every slack at BIG_M. An area on Don't make more here has the cheap slack,
     // except for a byproduct consumer's ingredient, whose slack stays at BIG_M. An item's slacks over its areas add up
@@ -1484,8 +1484,8 @@ export function solveAreaBlock(
     goals: plan.goals, system, throughput, slack: lp.slack, supply: lp.supply, nodes, totalCaps, keySupplyUse: lp.keySupplyUse,
   })
   if (overconstrained) warnings.push(overconstrained)
-  // Pins that cannot be met make the flows meaningless for this check.
-  const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
+  // Pins that cannot be met, or an unbounded objective, make the flows meaningless for this check.
+  const coproductDriven = warnings.some(w => w.type === 'infeasible-pins' || w.type === 'unbounded-absorber') ? undefined : coproductDrivenWarning({
     goals: keyGoals(system, plan.goals), system, throughput, slack: lp.slack, itemSurplus, itemGross,
     fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.absorberOnly]), noImportItems: cannotImport, recipeOf: id => recipeOfCol.get(id) ?? id,
     mainItemOf: id => mainItemOfCol.get(id), itemOf: key => baseOf(system, key),
