@@ -2777,19 +2777,19 @@ describe('solveAll — served lists', () => {
       block('Hi', [prod('gear')], [planNode('g', 'gear')], [link('ci', 'T')]),
       block('Hj', [prod('kit', 10)], [planNode('k', 'kit')], [link('cj', 'T'), link('cg', 'Hi', 'gear')]),
     ]
-    it('a lower-ranked take that the request pass reaches first gets no credit', () => {
+    it('a lower-ranked take that the request pass reaches first is credited once the take above it is', () => {
       const all = solveAll(plan(listOf('Hi', 'Hj')), listData())
       const t = all.served.T.plate
       expect(t.consumers.map(c => c.blockId)).toEqual(['Hi', 'Hj'])
       expect(t.consumers[0].share).toBeCloseTo(20, 4)
       expect(t.consumers[0].got).toBeCloseTo(20, 4)
-      expect(t.consumers[1].share).toBeCloseTo(0, 4)
+      expect(t.consumers[1].share).toBeCloseTo(5, 4)
       expect(t.consumers[1].got).toBeCloseTo(5, 4)
-      // Hi needs 20 plate for the 10 gear Hj requests; Hj needs 10 for its kits. Hj is reached before Hi's credit exists.
+      // Hi needs 20 plate for the 10 gear Hj requests; Hj needs 10 for its kits. Hj is reached before Hi's credit exists: its take waits for it.
       expect(t.consumers[0].need).toBeCloseTo(20, 4)
       expect(t.consumers[0].notCredited).toBeUndefined()
       expect(t.consumers[1].need).toBeCloseTo(10, 4)
-      expect(t.consumers[1].notCredited).toBe(true)
+      expect(t.consumers[1].notCredited).toBeUndefined()
       expect(flowOf(all, 'cj').status).toBe('limited')
       expect(rate(all.results.Hj.unsatisfied, 'plate')).toBeCloseTo(5, 4)
       expect(flowOf(all, 'cg').rate).toBeCloseTo(10, 4)
@@ -2990,23 +2990,23 @@ describe('solveAll — served lists', () => {
       return data
     }
 
-    // Limitation of the request pass (the Risks rule of phase 3): H requests slag from T, so H is processed before T,
-    // and the credit of H's take of the plate needs T processed. The take of the first-listed H gets no credit.
-    // T runs twin 10 times (H asks 10 slag) and leaves 10 plate. H needs 10 plate, H2 (gear 5) needs 10. The list
-    // [H, H2] would give all 10 to H. The result: H share 0 and 0 received, H2 share 10 and 10 received.
-    it('limitation: a listed take whose consumer requests from the same source is credited nothing', () => {
+    // H requests slag from T, so H is processed before T, and the credit of H's take of the plate needs T processed: the take waits.
+    // T runs twin 10 times (H asks 10 slag) and leaves 10 plate. H needs 10 plate, H2 (gear 5) needs 10. The list [H, H2] gives all
+    // 10 to H, as soon as T is done: H share 10, H2 share 0 (it imports its 10).
+    it('a listed take whose consumer requests from the same source is credited once the source is processed', () => {
       const t = withList(block('T', [prod('slag')], [planNode('t', 'twin')]), 'plate', listOf('H', 'H2'))
       const h = block('H', [prod('mixed', 10)], [planNode('m', 'mix')], [link('cs', 'T', 'slag'), link('cp', 'T', 'plate')])
       const h2 = block('H2', [prod('gear', 5)], [planNode('g', 'gear')], [link('c2', 'T', 'plate')])
       const all = solveAll([t, h, h2], dataWith())
-      expect(flowOf(all, 'cp')).toMatchObject({ status: 'limited' })
-      expect(flowOf(all, 'cp').rate).toBeCloseTo(0, 4)
-      expect(flowOf(all, 'c2').rate).toBeCloseTo(10, 4)
+      expect(flowOf(all, 'cp')).toMatchObject({ status: 'ok' })
+      expect(flowOf(all, 'cp').rate).toBeCloseTo(10, 4)
+      expect(flowOf(all, 'c2').rate).toBeCloseTo(0, 4)
+      expect(rate(all.results.H2.unsatisfied, 'plate')).toBeCloseTo(10, 4)
       const plate = all.served.T.plate
       expect(plate.consumers.map(c => c.blockId)).toEqual(['H', 'H2'])
-      expect(plate.consumers[0].share).toBeCloseTo(0, 4)
-      expect(plate.consumers[1].share).toBeCloseTo(10, 4)
-      expect(plate.consumers[0].notCredited).toBe(true)
+      expect(plate.consumers[0].share).toBeCloseTo(10, 4)
+      expect(plate.consumers[1].share).toBeCloseTo(0, 4)
+      expect(plate.consumers[0].notCredited).toBeUndefined()
       expect(plate.consumers[0].need).toBeCloseTo(10, 4)
       expect(plate.consumers[1].notCredited).toBeUndefined()
     })
@@ -3043,10 +3043,10 @@ describe('solveAll — served lists', () => {
       expect(line.got).toBeCloseTo(0, 4)
     })
 
-    // A take of a source in the same cycle of requests (the T5 gap): A and B request each other's x and y; A's twin-like
-    // recipe also makes plate, B takes plate from A and A's list ranks B. B is reached before A is processed.
-    // B runs fy 40 times (the cycle of the 'cycles of requests' test), so it needs 0.1 * 40 = 4 plate.
-    it('a take of a source in the same cycle of requests is flagged', () => {
+    // A take of a source in the same cycle of requests: A and B request each other's x and y; A's twin-like
+    // recipe also makes plate, B takes plate from A and A's list ranks B. A comes before B in the cycle, so B reads A's leftover
+    // from the same round and is credited it. B runs fy 40 times (the cycle of the 'cycles of requests' test), so it needs 0.1 * 40 = 4 plate.
+    it('a take of a source earlier in the same cycle of requests is credited from that source in the same round', () => {
       const data = connectionGameData()
       const need = (itemId: string, amount: number) => [{ itemId, type: 'item' as const, amount }]
       data.recipes.fxz = recipe('fxz', 1, need('y', 0.5), [product('x', 1), product('plate', 1)])
@@ -3057,8 +3057,10 @@ describe('solveAll — served lists', () => {
       expect(all.requestLoops).toHaveLength(1)
       const line = all.served.A.plate.consumers[0]
       expect(line.blockId).toBe('B')
-      expect(line.notCredited).toBe(true)
+      expect(line.notCredited).toBeUndefined()
       expect(line.need).toBeCloseTo(4, 3)
+      expect(line.share).toBeCloseTo(4, 3)
+      expect(line.got).toBeCloseTo(4, 3)
     })
 
     // A take-only consumer takes the item from two sources: U (not ranked, 20 plate left) first, then T (listed).
