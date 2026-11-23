@@ -2,14 +2,14 @@
 // Step 1 of the prototype's data pipeline: solve an exported plan with the app's own solver and layout code and write
 //   <out>/data.json     blocks, every connection flow (rate, status, request/take) and today's layout (nodes, edges, paths)
 //   <out>/fixture.json  the layout-only fixture: blocks with their input connections (real ids), no rows
-// Usage: node initiatives/block-graph-scale/tools/extract-plan.mjs <plan.json> <out-dir>
+// Usage: node initiatives/archive/block-graph-scale/tools/extract-plan.mjs <plan.json> <out-dir>
 // The data set is read from the plan's stamp (public/data/<id>/game-data.json), as scripts/inspect-plan.mjs does.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const [planPath, outDir] = process.argv.slice(2)
 if (!planPath || !outDir) {
   console.error('Usage: node extract-plan.mjs <plan.json> <out-dir>')

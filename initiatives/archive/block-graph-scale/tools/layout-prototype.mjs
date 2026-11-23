@@ -3,7 +3,7 @@
 // Reads <dir>/data.json (from extract-plan.mjs) and writes
 //   <dir>/scenes.json     the intermediate result (tidy layout, plus the hub-rail layouts the owner dropped)
 //   <dir>/graph-data.js   the compact `window.BG` data file the artifact loads (artifact/project/graph-data.js)
-// Usage: node initiatives/block-graph-scale/tools/layout-prototype.mjs <dir>
+// Usage: node initiatives/archive/block-graph-scale/tools/layout-prototype.mjs <dir>
 // What it does, in order: group flows into (source, consumer) edges; order the blocks with the Eades-Lin-Smyth
 // heuristic then local moves to minimise back edges; layer by longest path over the forward edges; add a dummy
 // vertex per skipped column; order each layer with 24 barycenter sweeps plus a transposition pass; place rows by

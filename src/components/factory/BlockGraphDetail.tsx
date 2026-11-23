@@ -46,30 +46,29 @@ function BlockRows({ title, rows }: { title: string; rows: { block: Block | unde
   )
 }
 
-function EdgeItems({ edge, blocks, flowsById, items, gameData, pinned, onRemove, onSetLimit }: {
-  edge: BlockEdgeLayout
+interface EdgeChipsProps {
+  edge: Pick<BlockEdgeLayout, 'from' | 'to' | 'connectionIds'>
   blocks: Block[]
   flowsById: Map<string, ConnectionFlow>
   items: GameData['items']
   gameData: GameData
-  pinned: boolean
+  /** `grid`: the strip under the graph, items across its width. `column`: the matrix's cell panel, one chip per line. */
+  arrange: 'grid' | 'column'
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
-}) {
+}
+
+/** The connections of one (source, consumer) pair as chips, with the limit control and the remove button. Shared by the strip and the matrix panel. */
+export function EdgeChips({ edge, blocks, flowsById, items, gameData, arrange, onRemove, onSetLimit }: EdgeChipsProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const source = blocks.find(b => b.id === edge.from)
   const target = blocks.find(b => b.id === edge.to)
   const ruleItems = useSourceRuleItems(target, gameData)
-  const n = edge.connectionIds.length
+  const column = arrange === 'column'
   return (
-    <div>
-      <div className={HEAD}>
-        Items on this edge · {source?.name ?? edge.from} → {target?.name ?? edge.to} · {n} {n === 1 ? 'connection' : 'connections'}
-        {!pinned && <span className="normal-case"> · click the edge to pin it and edit</span>}
-      </div>
-      <div data-testid="graph-detail-items" className={FLOW}>
-        {edge.connectionIds.map(id => (
-          <div key={id} className="min-w-0">
+    <div data-testid={column ? 'matrix-panel-items' : 'graph-detail-items'} className={column ? 'flex flex-col gap-1' : FLOW}>
+      {edge.connectionIds.map(id => (
+        <div key={id} className={column ? 'min-w-0 [&>span]:max-w-full' : 'min-w-0'}>
           <ConnectionChip
             connectionId={id}
             edge={edge}
@@ -86,9 +85,32 @@ function EdgeItems({ edge, blocks, flowsById, items, gameData, pinned, onRemove,
             onRemove={onRemove}
             onSetLimit={onSetLimit}
           />
-          </div>
-        ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EdgeItems({ edge, blocks, flowsById, items, gameData, pinned, onRemove, onSetLimit }: {
+  edge: BlockEdgeLayout
+  blocks: Block[]
+  flowsById: Map<string, ConnectionFlow>
+  items: GameData['items']
+  gameData: GameData
+  pinned: boolean
+  onRemove: (connectionId: string, toBlockId: string) => void
+  onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
+}) {
+  const source = blocks.find(b => b.id === edge.from)
+  const target = blocks.find(b => b.id === edge.to)
+  const n = edge.connectionIds.length
+  return (
+    <div>
+      <div className={HEAD}>
+        Items on this edge · {source?.name ?? edge.from} → {target?.name ?? edge.to} · {n} {n === 1 ? 'connection' : 'connections'}
+        {!pinned && <span className="normal-case"> · click the edge to pin it and edit</span>}
       </div>
+      <EdgeChips edge={edge} blocks={blocks} flowsById={flowsById} items={items} gameData={gameData} arrange="grid" onRemove={onRemove} onSetLimit={onSetLimit} />
     </div>
   )
 }

@@ -1,22 +1,25 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useBlockStore } from '../../store/blockStore'
+import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectFlows, selectLoops, selectRequestLoops } from '../../store/solverStore'
 import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { layoutBlockGraph, edgePath, fitScale, NODE_W, NODE_H, GRAPH_PAD } from '../../utils/blockGraphLayout'
-import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
+import type { BlockEdgeLayout, BlockGraphLayout } from '../../utils/blockGraphLayout'
 import { Modal } from '../Modal'
 import { TipWrap } from '../TipWrap'
 import { Icon } from '../Icon'
 import { IconButton } from '../IconButton'
+import { Segmented, Segment } from '../SegmentedControl'
 import { GraphIcon } from '../icons'
 import type { Block, BlockLoop, ConnectionFlow, GameData } from '../../data/types'
 import { BlockSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
-import { CHIP_TONE, connectionStatus, edgeKey, pairStatus } from './graphConnection'
+import { CHIP_TONE, connectionStatus, edgeKey, edgeSummaryTitle, pairStatus } from './graphConnection'
 import type { EdgeStatus } from './graphConnection'
 import { BlockGraphDetail } from './BlockGraphDetail'
+import { BlockMatrix } from './BlockMatrix'
 import type { GraphLit } from './BlockGraphDetail'
 
 // ---------------------------------------------------------------------------
@@ -160,20 +163,6 @@ function chipIconCount(n: number, loop: boolean, maxWidth: number): number {
   return 0
 }
 
-/** Tooltip of a summary chip: the count, then what is notable among its connections. */
-function edgeSummaryTitle(
-  n: number, sourceName: string, targetName: string, statuses: EdgeStatus[], loop: boolean, withRule = 0,
-): string {
-  let title = `${n} ${n === 1 ? 'item' : 'items'} from ${sourceName} to ${targetName}`
-  const limited = statuses.filter(s => s === 'limited').length
-  const unused = statuses.filter(s => s === 'unused').length
-  if (limited > 0) title += `; ${limited} limited`
-  if (unused > 0) title += `; ${unused} not used`
-  if (loop) title += '; part of a loop'
-  if (withRule > 0) title += `; ${withRule} with a source rule in ${targetName}`
-  return `${title} — click to pin it`
-}
-
 /**
  * The summary chip of one edge, always in the DOM but shown only while the edge is pointed at, focused or pinned. It is
  * the count badge of the edge and its keyboard stop: a click, or Enter, pins the edge (the detail strip then edits it).
@@ -277,23 +266,20 @@ function LoopStatus({ loops, requestLoops, blocks }: { loops: BlockLoop[]; reque
   )
 }
 
-function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: () => void }) {
-  const blocks = useBlockStore(s => s.blocks)
-  const activeBlockId = useBlockStore(s => s.activeBlockId)
-  const setActiveBlock = useBlockStore(s => s.setActiveBlock)
-  const removeInputConnection = useBlockStore(s => s.removeInputConnection)
-  const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
-  const flows = useSolverStore(selectFlows)
-  const loops = useSolverStore(selectLoops)
-  const requestLoops = useSolverStore(selectRequestLoops)
+interface GraphViewProps {
+  layout: BlockGraphLayout
+  blocks: Block[]
+  flowsById: Map<string, ConnectionFlow>
+  edgeStatuses: Map<BlockEdgeLayout, EdgeStatus>
+  gameData: GameData
+  activeBlockId: string | null
+  goTo: (id: string) => void
+  onRemove: (connectionId: string, toBlockId: string) => void
+  onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
+}
 
-  const layout = useMemo(() => layoutBlockGraph(blocks), [blocks])
-  const flowsById = useMemo(() => new Map(flows.map(f => [f.connectionId, f])), [flows])
-  const edgeStatuses = useMemo(
-    () => new Map(layout.edges.map(e => [e, pairStatus(e.connectionIds.map(id => connectionStatus(flowsById.get(id))))])),
-    [layout, flowsById],
-  )
-
+/** The graph view of the modal: the canvas fitted to its viewport, and the detail strip under it. */
+function GraphView({ layout, blocks, flowsById, edgeStatuses, gameData, activeBlockId, goTo, onRemove, onSetLimit }: GraphViewProps) {
   // What the pointer, the keyboard focus and the pin (a click on a block or an edge, or Enter on an edge's chip) are on, in
   // that order of precedence: the pointer previews over the pin and the highlight falls back to the pin when it leaves.
   // Lights its edges and blocks, dims the rest. One pin at a time.
@@ -392,37 +378,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
     if (e.target === e.currentTarget) setPin(null)
   }
 
-  function goTo(id: string) {
-    setActiveBlock(id)
-    onClose()
-  }
-
-  const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
-
   return (
-    <Modal onClose={onClose} className="w-[96vw] h-[92vh] flex flex-col overflow-hidden">
-      <div className="p-3 border-b border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h2 className="text-lg font-semibold text-amber-200">Block graph</h2>
-        <div className="flex items-center gap-3 text-xs text-gray-400">
-          <span className="flex items-center gap-1" data-tip="In the source block's colour">
-            <span
-              className="w-3 h-0.5"
-              style={{ background: `linear-gradient(90deg, ${BLOCK_PALETTE[0]}, ${BLOCK_PALETTE[5]}, ${BLOCK_PALETTE[10]})` }}
-            />
-            OK
-          </span>
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.limited }} />Limited</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.unused }} />Not used</span>
-          <span data-testid="graph-legend-back" className="flex items-center gap-1" data-tip="Drawn right to left, along the bottom">
-            <svg aria-hidden width="14" height="4"><line x1="0" y1="2" x2="14" y2="2" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" /></svg>
-            Right to left
-          </span>
-          <span data-testid="graph-legend-loop" className="flex items-center gap-1" data-tip="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
-        </div>
-        {(loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
-        <button type="button" onClick={onClose} className={`${btn} ml-auto`}>Close</button>
-      </div>
-
+    <>
       <div ref={viewportRef} data-testid="block-graph-viewport" className="relative flex-1 min-h-0 overflow-hidden">
         <div
           data-testid="block-graph-canvas"
@@ -559,10 +516,95 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           flowsById={flowsById}
           items={gameData.items}
           gameData={gameData}
-          onRemove={(id, to) => removeInputConnection(id, to)}
-          onSetLimit={(id, to, max) => setConnectionMaxRate(id, max, to)}
+          onRemove={onRemove}
+          onSetLimit={onSetLimit}
         />
       </div>
+    </>
+  )
+}
+
+function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: () => void }) {
+  const blocks = useBlockStore(s => s.blocks)
+  const activeBlockId = useBlockStore(s => s.activeBlockId)
+  const setActiveBlock = useBlockStore(s => s.setActiveBlock)
+  const removeInputConnection = useBlockStore(s => s.removeInputConnection)
+  const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
+  const flows = useSolverStore(selectFlows)
+  const loops = useSolverStore(selectLoops)
+  const requestLoops = useSolverStore(selectRequestLoops)
+  const view = useUiStore(s => s.blockGraphView)
+  const setBlockGraphView = useUiStore(s => s.setBlockGraphView)
+
+  const layout = useMemo(() => layoutBlockGraph(blocks), [blocks])
+  const flowsById = useMemo(() => new Map(flows.map(f => [f.connectionId, f])), [flows])
+  const edgeStatuses = useMemo(
+    () => new Map(layout.edges.map(e => [e, pairStatus(e.connectionIds.map(id => connectionStatus(flowsById.get(id))))])),
+    [layout, flowsById],
+  )
+
+  function goTo(id: string) {
+    setActiveBlock(id)
+    onClose()
+  }
+
+  const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
+  const onRemove = (id: string, to: string) => removeInputConnection(id, to)
+  const onSetLimit = (id: string, to: string, max: number | undefined) => setConnectionMaxRate(id, max, to)
+
+  return (
+    <Modal onClose={onClose} className="w-[96vw] h-[92vh] flex flex-col overflow-hidden">
+      <div className="p-3 border-b border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h2 className="text-lg font-semibold text-amber-200">Block graph</h2>
+        <Segmented label="View" size="sm">
+          <Segment pressed={view === 'graph'} onClick={() => setBlockGraphView('graph')} data-tip="The blocks and their connections as a graph">Graph</Segment>
+          <Segment pressed={view === 'matrix'} onClick={() => setBlockGraphView('matrix')} data-tip="Who supplies whom, as a grid">Matrix</Segment>
+        </Segmented>
+        {view === 'graph' && (
+          <div className="flex items-center gap-3 text-xs text-gray-400">
+            <span className="flex items-center gap-1" data-tip="In the source block's colour">
+              <span
+                className="w-3 h-0.5"
+                style={{ background: `linear-gradient(90deg, ${BLOCK_PALETTE[0]}, ${BLOCK_PALETTE[5]}, ${BLOCK_PALETTE[10]})` }}
+              />
+              OK
+            </span>
+            <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.limited }} />Limited</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.unused }} />Not used</span>
+            <span data-testid="graph-legend-back" className="flex items-center gap-1" data-tip="Drawn right to left, along the bottom">
+              <svg aria-hidden width="14" height="4"><line x1="0" y1="2" x2="14" y2="2" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" /></svg>
+              Right to left
+            </span>
+            <span data-testid="graph-legend-loop" className="flex items-center gap-1" data-tip="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
+          </div>
+        )}
+        {(loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
+        <button type="button" onClick={onClose} className={`${btn} ml-auto`}>Close</button>
+      </div>
+
+      {view === 'graph' ? (
+        <GraphView
+          layout={layout}
+          blocks={blocks}
+          flowsById={flowsById}
+          edgeStatuses={edgeStatuses}
+          gameData={gameData}
+          activeBlockId={activeBlockId}
+          goTo={goTo}
+          onRemove={onRemove}
+          onSetLimit={onSetLimit}
+        />
+      ) : (
+        <BlockMatrix
+          blocks={blocks}
+          dependencyOrder={layout.order}
+          edges={layout.edges}
+          flowsById={flowsById}
+          gameData={gameData}
+          onRemove={onRemove}
+          onSetLimit={onSetLimit}
+        />
+      )}
     </Modal>
   )
 }

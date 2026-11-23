@@ -117,3 +117,17 @@ export function useConnectionDetail({ connectionId: id, edge, source, target, fl
 
 /** Identity of a (source, consumer) edge. */
 export const edgeKey = (e: { from: string; to: string }) => `${e.from}>${e.to}`
+
+/** Tooltip of a summary chip or a matrix cell: the count, then what is notable among its connections. */
+export function edgeSummaryTitle(
+  n: number, sourceName: string, targetName: string, statuses: EdgeStatus[], loop: boolean, withRule = 0, action = 'click to pin it',
+): string {
+  let title = `${n} ${n === 1 ? 'item' : 'items'} from ${sourceName} to ${targetName}`
+  const limited = statuses.filter(s => s === 'limited').length
+  const unused = statuses.filter(s => s === 'unused').length
+  if (limited > 0) title += `; ${limited} limited`
+  if (unused > 0) title += `; ${unused} not used`
+  if (loop) title += '; part of a loop'
+  if (withRule > 0) title += `; ${withRule} with a source rule in ${targetName}`
+  return `${title} — ${action}`
+}

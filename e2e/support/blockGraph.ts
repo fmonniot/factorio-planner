@@ -60,3 +60,26 @@ export async function pointOnEdge(page: Page, edge: Locator): Promise<{ x: numbe
     return { x: p.x * m.a + p.y * m.c + m.e, y: p.x * m.b + p.y * m.d + m.f }
   })
 }
+
+/** Switch the modal between its two views, by the pill in the header. */
+export async function setView(page: Page, view: 'Graph' | 'Matrix') {
+  const pill = page.getByRole('button', { name: view, exact: true })
+  await pill.click()
+  await expect(pill).toHaveAttribute('aria-pressed', 'true')
+}
+
+/** A filled cell of the matrix: by one of its connections, by the consumer's block name, or by both block names. */
+export function matrixCell(page: Page, ref: EdgeRef): Locator {
+  if ('connectionId' in ref) return page.locator(`[data-testid="matrix-cell"][data-connection-ids~="${ref.connectionId}"]`)
+  const name = 'from' in ref ? new RegExp(` from ${ref.from} to ${ref.to}(,|$)`) : new RegExp(` to ${ref.to}(,|$)`)
+  return page.getByTestId('matrix-cell').and(page.getByRole('button', { name }))
+}
+
+/** Select a cell and return the panel, where its connections are chips with the limit and remove controls. */
+export async function selectCell(page: Page, ref: EdgeRef): Promise<Locator> {
+  const cell = matrixCell(page, ref)
+  await expect(cell).toHaveCount(1)
+  if ((await cell.getAttribute('aria-pressed')) !== 'true') await cell.click()
+  await expect(cell).toHaveAttribute('aria-pressed', 'true')
+  return page.getByTestId('matrix-panel')
+}
