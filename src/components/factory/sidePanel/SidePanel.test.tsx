@@ -463,6 +463,7 @@ describe('SidePanel — where outputs go', () => {
     select('n1')
     renderWithSolve()
     expect(sentence('plate')).toMatch(/^Discarded: this row's Iron Plate is not counted/)
+    expect(within(screen.getByTestId('panel-outputs')).getByTestId('output-not-counted')).toHaveTextContent('not counted')
   })
 
   it('says an output the row does not make at the moment is not produced', () => {

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { outputText, itemConsumers, itemReceivers, itemLeftover, type OutputTextInput } from './outputsText'
+import { outputText, itemConsumers, itemReceivers, itemLeftover, countOtherMakers, tagReaches, type OutputTextInput } from './outputsText'
+import { exportedByKey, leftoverByKey } from './summaryRows'
+import { netBalance, grossFlow } from '../../solver/index'
 import { indexRecipeAreas } from './recipeAreas'
 import { makeEmptyBlock } from '../../store/blockStore'
 import type { Block, ConnectionFlow, GameData, GameRecipeNode, SolvedNode, SolverResult, SubPlan } from '../../data/types'
@@ -64,10 +66,17 @@ describe('outputText', () => {
     expect(outputText(base({ leftover: 20 }))).toBe('Left over: no row or block uses it (20.0/m).')
   })
 
-  it('adds the other rows that make the item', () => {
-    expect(outputText(base({ otherMakers: 1 }))).toBe('Not used by any row or block. Also made by 1 other row.')
-    expect(outputText(base({ otherMakers: 2, leftover: 20 }))).toBe('Left over: no row or block uses it (20.0/m). Also made by 2 other rows.')
-    expect(outputText(base({ otherMakers: 2, rate: 0 }))).not.toContain('Also made by')
+  it('says the rates are the block\'s when other rows also make the item', () => {
+    expect(outputText(base({ otherMakers: 1 }))).toBe("Not used by any row or block. These are the block's rates: 1 other row also makes it.")
+    expect(outputText(base({ otherMakers: 2, leftover: 20 }))).toBe("Left over: no row or block uses it (20.0/m). These are the block's rates: 2 other rows also make it.")
+    expect(outputText(base({ otherMakers: 2, rate: 0 }))).not.toContain('other rows')
+    expect(outputText(base({
+      otherMakers: 1, consumers: [{ recipeName: 'Gear', rate: 120, absorber: false }], receivers: [{ blockName: 'B', rate: 5 }], leftover: 3,
+    }))).toBe("Used in this block by Gear (takes 120/m); Sent from this block to B (5.00/m); 3.00/m left over in this block. These are the block's rates: 1 other row also makes it.")
+  })
+
+  it('treats a rate that shows as 0.00/min as none', () => {
+    expect(outputText(base({ rate: 0.0001 }))).toContain('Not produced')
   })
 })
 
@@ -101,10 +110,10 @@ describe('itemConsumers, itemReceivers and itemLeftover', () => {
 
     it('lists the other rows that take the item, not the row itself, nor a row at rate 0', () => {
       const block = plain()
-      const out = itemConsumers(block, gameData(), solve(), 'x', 'n1', indexRecipeAreas(block.rootPlan), undefined)
+      const out = itemConsumers(block, gameData(), solve(), 'x', undefined, 'n1', indexRecipeAreas(block.rootPlan), undefined)
       expect(out).toEqual([{ recipeName: 'B', rate: 30, absorber: true }])
-      expect(itemConsumers(block, gameData(), solve(), 'x', 'n2', indexRecipeAreas(block.rootPlan), undefined)).toEqual([])
-      expect(itemConsumers(block, gameData(), undefined, 'x', 'n1', indexRecipeAreas(block.rootPlan), undefined)).toEqual([])
+      expect(itemConsumers(block, gameData(), solve(), 'x', undefined, 'n2', indexRecipeAreas(block.rootPlan), undefined)).toEqual([])
+      expect(itemConsumers(block, gameData(), undefined, 'x', undefined, 'n1', indexRecipeAreas(block.rootPlan), undefined)).toEqual([])
     })
 
     it('names the area of a row only when it differs from the one shown', () => {
@@ -112,7 +121,7 @@ describe('itemConsumers, itemReceivers and itemLeftover', () => {
       block.rootPlan.subPlans = [sub('L', 'Line', [row('n1', 'a'), row('n2', 'b')]), sub('M', 'Other', [row('n3', 'b')])]
       const index = indexRecipeAreas(block.rootPlan)
       const r = result([solvedNode('n1', {}, { x: 60 }), solvedNode('n2', { x: 30 }, {}), solvedNode('n3', { x: 20 }, {})])
-      const out = itemConsumers(block, gameData(), r, 'x', 'n1', index, 'L')
+      const out = itemConsumers(block, gameData(), r, 'x', undefined, 'n1', index, 'L')
       expect(out).toEqual([
         { recipeName: 'B', rate: 30, absorber: false },
         { recipeName: 'B', rate: 20, absorber: false, areaName: 'Other' },
@@ -142,20 +151,87 @@ describe('itemConsumers, itemReceivers and itemLeftover', () => {
   })
 
   describe('itemLeftover', () => {
-    const r = () => result([solvedNode('n1', {}, { x: 100 }), solvedNode('n2', { x: 30 }, {})])
+    const left = (nodes: SolvedNode[], flows: ConnectionFlow[] = [], blockId = 'b1', conversions: SolverResult['conversions'] = []) => {
+      const r = { ...result(nodes), conversions }
+      return leftoverByKey(netBalance(r.nodes, r.conversions), grossFlow(r.nodes, r.conversions), exportedByKey(flows, blockId))
+    }
+    const r = () => [solvedNode('n1', {}, { x: 100 }), solvedNode('n2', { x: 30 }, {})]
 
     it('is the net surplus of the item minus what other blocks take', () => {
-      expect(itemLeftover(r(), [], 'b1', 'x')).toBeCloseTo(70)
-      expect(itemLeftover(r(), [flow({ rate: 20 })], 'b1', 'x')).toBeCloseTo(50)
+      expect(itemLeftover(left(r()), 'x')).toBeCloseTo(70)
+      expect(itemLeftover(left(r(), [flow({ rate: 20 })]), 'x')).toBeCloseTo(50)
       // A flow of another block's does not count.
-      expect(itemLeftover(r(), [flow({ fromBlockId: 'other', rate: 20 })], 'b1', 'x')).toBeCloseTo(70)
+      expect(itemLeftover(left(r(), [flow({ fromBlockId: 'other', rate: 20 })]), 'x')).toBeCloseTo(70)
     })
 
-    it('is 0 without a solve, with nothing left, or below the tolerance', () => {
-      expect(itemLeftover(undefined, [], 'b1', 'x')).toBe(0)
-      expect(itemLeftover(r(), [flow({ rate: 70 })], 'b1', 'x')).toBe(0)
-      expect(itemLeftover(result([solvedNode('n1', {}, { x: 100 }), solvedNode('n2', { x: 100 }, {})]), [], 'b1', 'x')).toBe(0)
-      expect(itemLeftover(r(), [], 'b1', 'y')).toBe(0)
+    it('is 0 with nothing left, below the tolerance or for another item', () => {
+      expect(itemLeftover(left(r(), [flow({ rate: 70 })]), 'x')).toBe(0)
+      expect(itemLeftover(left([solvedNode('n1', {}, { x: 100 }), solvedNode('n2', { x: 100 }, {})]), 'x')).toBe(0)
+      expect(itemLeftover(left(r()), 'y')).toBe(0)
+    })
+
+    it('reads a split fluid at the temperature the row makes it at', () => {
+      const nodes: SolvedNode[] = [
+        { ...solvedNode('n1', {}, { steam: 60 }), outputTags: { steam: { at: 165 } } },
+        { ...solvedNode('n2', {}, { steam: 100 }), outputTags: { steam: { at: 500 } } },
+        { ...solvedNode('n3', { steam: 100 }, {}), inputTags: { steam: { min: 465 } } },
+      ]
+      // The 500 degree steam is converted to the turbine's range, so it nets to zero; the 165 degree steam is the surplus.
+      const l = left(nodes, [], 'b1', [{ itemId: 'steam', from: { at: 500 }, to: { min: 465 }, rate: 100 }])
+      expect(itemLeftover(l, 'steam', { at: 165 })).toBeCloseTo(60)
+      expect(itemLeftover(l, 'steam', { at: 500 })).toBe(0)
+      expect(itemLeftover(l, 'steam')).toBeCloseTo(60)
+    })
+  })
+
+  describe('split fluids', () => {
+    const nodes = (): SolvedNode[] => [
+      { ...solvedNode('n1', {}, { x: 60 }), outputTags: { x: { at: 165 } } },
+      { ...solvedNode('n2', { x: 30 }, {}), inputTags: { x: { min: 465 } } },
+      { ...solvedNode('n3', { x: 20 }, {}), inputTags: { x: {} } },
+    ]
+
+    it('lists only the rows whose range covers the temperature the row makes', () => {
+      const block = makeEmptyBlock('B')
+      block.rootPlan.nodes = [row('n1', 'a'), row('n2', 'b'), row('n3', 'b')]
+      const index = indexRecipeAreas(block.rootPlan)
+      expect(itemConsumers(block, gameData(), result(nodes()), 'x', { at: 165 }, 'n1', index, undefined)).toEqual([{ recipeName: 'B', rate: 20, absorber: false }])
+      expect(itemConsumers(block, gameData(), result(nodes()), 'x', { at: 500 }, 'n1', index, undefined)).toHaveLength(2)
+    })
+
+    it('counts only the connection parts that fit', () => {
+      const b1 = makeEmptyBlock('Source')
+      const b2 = makeEmptyBlock('Turbines')
+      const f = flow({
+        fromBlockId: b1.id, toBlockId: b2.id, itemId: 'x', rate: 50,
+        parts: [{ temp: { at: 165 }, rate: 20, available: 20 }, { temp: { at: 500 }, rate: 30, available: 30 }],
+      })
+      expect(itemReceivers(b1.id, [b1, b2], [f], 'x', { at: 500 })).toEqual([{ blockName: 'Turbines', rate: 30 }])
+      expect(itemReceivers(b1.id, [b1, b2], [f], 'x', { at: 165 })).toEqual([{ blockName: 'Turbines', rate: 20 }])
+    })
+
+    it('matches temperatures to ranges', () => {
+      expect(tagReaches({ at: 165 }, { min: 465 })).toBe(false)
+      expect(tagReaches({ at: 500 }, { min: 465 })).toBe(true)
+      expect(tagReaches({ at: null }, { min: 465 })).toBe(true)
+      expect(tagReaches(undefined, { min: 465 })).toBe(true)
+      expect(tagReaches({ at: 165 }, { at: 500 })).toBe(false)
+    })
+  })
+
+  describe('countOtherMakers', () => {
+    const nodes = () => [solvedNode('n1', {}, { x: 60 }), solvedNode('n2', {}, { x: 30 }), solvedNode('n3', {}, { x: 20 }), solvedNode('n4', {}, { x: 0 })]
+    const block = () => {
+      const b = makeEmptyBlock('B')
+      b.rootPlan.nodes = [row('n1', 'a'), row('n2', 'a'), row('n3', 'a', { byproductPolicy: { x: 'discard' } }), row('n4', 'a')]
+      return b
+    }
+
+    it('counts the rows that make the item, other than the row itself, a discarding row or a row at 0', () => {
+      const index = indexRecipeAreas(block().rootPlan)
+      expect(countOtherMakers(result(nodes()), index, 'x', 'n1')).toBe(1)
+      expect(countOtherMakers(result(nodes()), index, 'x', 'n3')).toBe(2)
+      expect(countOtherMakers(undefined, index, 'x', 'n1')).toBe(0)
     })
   })
 })

@@ -5,8 +5,9 @@ import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solv
 import { useUiStore } from '../../store/uiStore'
 import { dedicatedProduct } from '../../solver/areas'
 import { indexRecipeAreas } from './recipeAreas'
-import { itemMakers } from './sourcingText'
-import { itemConsumers, itemLeftover, itemReceivers, outputText } from './outputsText'
+import { exportedByKey, leftoverByKey } from './summaryRows'
+import { netBalance, grossFlow } from '../../solver/index'
+import { countOtherMakers, itemConsumers, itemLeftover, itemReceivers, outputText } from './outputsText'
 
 /** One product or byproduct of a row, with the sentence about where it goes. */
 export interface RowOutput {
@@ -15,10 +16,10 @@ export interface RowOutput {
   rate: number | undefined
   /** The item is a co-product of the row, not the one it is built for. */
   byproduct: boolean
+  /** The row's policy for the item is Discard: the rate is not counted. */
+  discarded: boolean
   text: string
 }
-
-const EPS = 1e-6
 
 /**
  * The outputs of a row of the active block, the item the row is built for first, with where each goes, from the last solve.
@@ -43,15 +44,20 @@ export function useRowOutputs(node: GameRecipeNode, solved: SolvedNode | undefin
     const index = indexRecipeAreas(block.rootPlan)
     const rowAreaId = index.rowById.get(node.id)?.areaId
     const productIds = new Set(block.products.map(p => p.itemId))
+    // The block's leftovers once for every output, by the Byproducts pane's maths.
+    const leftovers = result
+      ? leftoverByKey(netBalance(result.nodes, result.conversions), grossFlow(result.nodes, result.conversions), exportedByKey(flows, block.id))
+      : new Map<string, number>()
 
     return sorted.map(itemId => {
       const rate = solved?.outputRates[itemId]
       const product = productIds.has(itemId)
-      // Rows that make the item at the moment, other than this one.
-      const otherMakers = Math.max(0, itemMakers(block, gameData, result, itemId).filter(m => m.rate > EPS).length - ((rate ?? 0) > EPS ? 1 : 0))
+      const tag = solved?.outputTags?.[itemId]
+      const discarded = node.byproductPolicy[itemId] === 'discard'
       return {
         itemId,
         rate,
+        discarded,
         byproduct: primary !== undefined && itemId !== primary,
         text: outputText({
           itemId,
@@ -59,12 +65,12 @@ export function useRowOutputs(node: GameRecipeNode, solved: SolvedNode | undefin
           unit,
           solved: solved !== undefined,
           rate: rate ?? 0,
-          discarded: node.byproductPolicy[itemId] === 'discard',
+          discarded,
           product,
-          consumers: itemConsumers(block, gameData, result, itemId, node.id, index, rowAreaId),
-          receivers: itemReceivers(block.id, blocks, flows, itemId),
-          leftover: product ? 0 : itemLeftover(result, flows, block.id, itemId),
-          otherMakers,
+          consumers: itemConsumers(block, gameData, result, itemId, tag, node.id, index, rowAreaId),
+          receivers: itemReceivers(block.id, blocks, flows, itemId, tag),
+          leftover: product ? 0 : itemLeftover(leftovers, itemId, tag),
+          otherMakers: countOtherMakers(result, index, itemId, node.id),
         }),
       }
     })

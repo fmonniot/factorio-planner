@@ -29,8 +29,12 @@ test('a byproduct is read as used by the row that absorbs it', async ({ page }) 
   const panel = await selectRow(page, row(page, ELECTROLYSIS))
 
   // Research depends on the data set's technology data, so only the order of the two sections is fixed.
-  const headings = await panel.getByRole('heading', { level: 3 }).allTextContents()
-  expect(headings.indexOf('Where outputs go')).toBe(headings.indexOf('Where inputs come from') + 1)
+  const headings = panel.getByRole('heading', { level: 3 })
+  await expect(headings.filter({ hasText: 'Where outputs go' })).toHaveCount(1)
+  await expect.poll(async () => {
+    const texts = await headings.allTextContents()
+    return texts.indexOf('Where outputs go') - texts.indexOf('Where inputs come from')
+  }).toBe(1)
 
   await expect(outputEntry(page, 'nullius-oxygen')).toHaveAttribute('data-byproduct', 'true')
   const oxygen = outputEntry(page, 'nullius-oxygen').getByTestId('output-sentence')
