@@ -102,6 +102,12 @@ export type SolverWarning =
       /** true when the elastic solve failed too (the pins conflict, or a locked item cannot be made whatever the pins): values are arbitrary. Absent: the pins hold and products fall short; recipeIds are the pins that bind where the solver could tell, else all */
       conflict?: true
     }
+  /**
+   * A rewarded absorbing row earns more per run than the producers of what it takes cost, so the objective has no
+   * minimum: the solver returned an arbitrary vertex and the block's rates are not reliable. `recipeIds` are the
+   * block's rewarded rows (the culprits are among them); may be empty.
+   */
+  | { type: 'unbounded-absorber'; recipeIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number; temp?: FluidTag }[] }
   /**
    * Recipes the solver runs mostly to make a co-product the block consumes. `throughput` and

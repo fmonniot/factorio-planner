@@ -169,6 +169,41 @@ describe('solve — no-recipe warning', () => {
   })
 })
 
+describe('solveBlock — unbounded-absorber warning', () => {
+  it('is raised for a rewarded row that earns more per run than its trees cost, in a block solve too', () => {
+    const gd = makeGameData({ recipes: {
+      grow: recipe('grow', 1, [product('seed', 1)], [product('goal', 1), product('tree', 150)]),
+      chop: recipe('chop', 1, [product('tree', 1)], [product('wood', 1)]),
+    } })
+    const chop: GameRecipeNode = { ...planNode('c', 'chop'), byproductConsumer: true }
+    const plan = { goals: [{ id: 'g1', itemId: 'goal', rate: 10 }], nodes: [planNode('g', 'grow'), chop] }
+    const { result } = solveBlock(plan, gd, new Map())
+    const types = result.warnings.map(w => w.type)
+    expect(result.warnings.find(w => w.type === 'unbounded-absorber')).toEqual({ type: 'unbounded-absorber', recipeIds: ['chop'] })
+    expect(types, 'only the warning').toEqual(['unbounded-absorber'])
+  })
+})
+
+describe('solveBlock — unbounded pass 1', () => {
+  it('keeps pass 1 and its warning: pass 2 would be planned from an arbitrary vertex', () => {
+    const base = connectionGameData()
+    const gd = makeGameData({ recipes: {
+      ...base.recipes,
+      grow: recipe('grow', 1, [product('seed', 1)], [product('goal', 1), product('tree', 150)]),
+      chop: recipe('chop', 1, [product('tree', 1)], [product('wood', 1)]),
+    } })
+    const plan = {
+      goals: [{ id: 'g', itemId: 'gear', rate: 25 }, { id: 'g2', itemId: 'goal', rate: 10 }],
+      nodes: [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20), planNode('w', 'grow'), { ...planNode('c', 'chop'), byproductConsumer: true }],
+    }
+    const { result, received } = solveBlock(plan, gd, new Map([['plate', 100]]))
+    expect(result.warnings.filter(w => w.type === 'unbounded-absorber')).toEqual([{ type: 'unbounded-absorber', recipeIds: ['chop'] }])
+    // Pass 2 would have filled the 30 plate the pinned row leaves over from the supply.
+    expect(received.get('plate') ?? 0, 'no pass 2').toBe(0)
+    expect(rate(result.unsatisfied, 'plate'), 'plate imported').toBeCloseTo(30, 4)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // flattenBlock + wrap-in-subplan parity
 //
@@ -2620,6 +2655,21 @@ describe('solve — coproduct-driven warning', () => {
     expect(w.drivers[0].throughput).toBeCloseTo(150, 3)
     expect(w.drivers[0].needed).toBeCloseTo(60, 3)
     expect(types(r).indexOf('coproduct-driven')).toBeGreaterThan(types(r).indexOf('overconstrained'))
+  })
+
+  it('skips the check for an unbounded block, whose flows are an arbitrary vertex', () => {
+    // The first test's maker/gadget pair, which raises coproduct-driven on its own, plus an unbounded forest:
+    // a grower of 150 trees per run and a rewarded row that chops them.
+    const grow = recipe('grow', 1, [product('seed', 1)], [product('goal', 1), product('tree', 150)])
+    const chop = recipe('chop', 1, [product('tree', 1)], [product('wood', 1)])
+    const g = makeGameData({ recipes: { maker: maker(), gadget: gadget(100), grow, chop } })
+    const goals: SolverGoal[] = [...gadgetGoal(), { id: 'g2', itemId: 'goal', rate: 10 }]
+    const planNodes = [...nodes(), planNode('n2', 'grow'), { ...planNode('n3', 'chop'), byproductConsumer: true }]
+    expect(types(solve({ goals: gadgetGoal(), nodes: nodes() }, g))).toContain('coproduct-driven')
+    const r = solve({ goals, nodes: planNodes }, g)
+    expect(r.warnings.filter(w => w.type === 'unbounded-absorber')).toEqual([{ type: 'unbounded-absorber', recipeIds: ['chop'] }])
+    expect(types(r)).not.toContain('coproduct-driven')
+    expect(types(r), 'order').toEqual(['unbounded-absorber', 'overconstrained'])
   })
 
   it('flags a recipe whose product goal is overshot by the co-product demand', () => {

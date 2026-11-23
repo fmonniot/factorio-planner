@@ -92,6 +92,9 @@ function gd(): GameData {
     recipe('use-q', [['q', 1]], [['qg', 1]]),
     recipe('mine-roll', [['rock', 1]], [['roll', 1]]),
     recipe('burn-roll', [['roll', 1]], [['ash', 1]]),
+    // An unbounded absorber: a grower of 150 trees per run and a row that chops them (flagged, so rewarded).
+    recipe('grow-forest', [['seed', 1]], [['fgoal', 1], ['tree', 150]]),
+    recipe('chop-tree', [['tree', 1]], [['wood', 1]]),
   ]
   return {
     factorioVersion: '2.0.0',
@@ -1547,6 +1550,23 @@ describe('area rules: a connection replaces an import (phase 6, T3)', () => {
       expect(node(result, 'plate-12@M').throughput, 'P').toBeCloseTo(25, 6)
       expect(unsat(result, 'ingot'), 'ingot imported').toBeCloseTo(15, 6)
       expect(node(result, 'make-rod@M').throughput, 'R').toBeCloseTo(5, 6)
+    })
+  })
+
+  describe('an unbounded block keeps its first pass (no pass 2, no connection order)', () => {
+    const forest = (): RecipeNode[] => [row('grow-forest', 'M'), row('chop-tree', 'M', { byproductConsumer: true })]
+    const blockOf = (rows: Record<string, RecipeNode[]>, blockRules: Block['sourceRules'] = {}) =>
+      plateBlock(['L', 'M'], { L: rows.L, M: [...rows.M, ...forest()] }, {}, blockRules, [['pgear', 50], ['widget', 5], ['fgoal', 10]])
+    const warnings = (b: Block, offers: Offers) => solveWith(b, offers).result.warnings.filter(w => w.type === 'unbounded-absorber')
+    it('the connection order stays closed: pass 1 only (2 calls, against 6 without the forest)', () => {
+      const b = blockOf(baseRows())
+      expect(warnings(b, BASE_OFFERS)).toEqual([{ type: 'unbounded-absorber', recipeIds: ['chop-tree'] }])
+      expect(callsOf(b, BASE_OFFERS)).toBe(2)
+    })
+    it('pass 2 is skipped (2 calls, against 10 without the forest)', () => {
+      const b = blockOf(rodRows(true), { rod: off })
+      expect(warnings(b, ROD_OFFERS)).toEqual([{ type: 'unbounded-absorber', recipeIds: ['chop-tree'] }])
+      expect(callsOf(b, ROD_OFFERS)).toBe(2)
     })
   })
 

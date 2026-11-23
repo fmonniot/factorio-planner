@@ -1,7 +1,7 @@
 import type { ClassifiedSystem } from './build'
 import { FLOW_TOLERANCE, itemGrossFlow, surplusTolerance, type KeySupplyPlan } from './blockResult'
 import { fluidSupply, itemKeys } from './flowKeys'
-import { BIG_M, LEFTOVER_COST, buildLPModel, readLPResult, runLP, type LPModel, type LPResult } from './solve'
+import { BIG_M, hasUnreliableRates, LEFTOVER_COST, buildLPModel, readLPResult, runLP, type LPModel, type LPResult } from './solve'
 
 // ---------------------------------------------------------------------------
 // A connection replaces an import (sourcing priority phase 6)
@@ -69,7 +69,7 @@ function importOf(lp: LPResult, byproductsFirst: Set<string>): number {
  */
 export function needsConnectionOrder(input: ConnectionOrderInput): boolean {
   const { today, system, byproductsFirst } = input
-  if (!today.feasible || today.shortfall.size > 0 || today.warnings.some(w => w.type === 'infeasible-pins')) return false
+  if (!today.feasible || today.shortfall.size > 0 || hasUnreliableRates(today.warnings)) return false
   const imports = [...today.slack].some(([itemId, rate]) =>
     !byproductsFirst.has(itemId) && rate > surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput)))
   if (!imports) return false

@@ -44,3 +44,14 @@ describe('warningTargets of a connection-temperature warning', () => {
     ])
   })
 })
+
+describe('warningTargets of an unbounded-absorber warning', () => {
+  it('links each row once', () => {
+    const w: SolverWarning = { type: 'unbounded-absorber', recipeIds: ['turbine', 'turbine', 'engine'] }
+    const t = warningTargets(w, plan(row('n1', 'turbine'), row('n2', 'engine')), gameData, name, undefined, links)
+    expect(t).toEqual([
+      { kind: 'row', label: 'Go to Steam turbine', nodeId: 'n1' },
+      { kind: 'row', label: 'Go to Steam engine', nodeId: 'n2' },
+    ])
+  })
+})

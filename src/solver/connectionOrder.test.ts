@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import solver from 'javascript-lp-solver'
 import { solveAll, solveBlock } from './index'
-import { boundOf, boundedStep, improvesImport } from './connectionOrder'
+import { boundOf, boundedStep, improvesImport, needsConnectionOrder } from './connectionOrder'
+import type { ConnectionOrderInput } from './connectionOrder'
 import type { Block, GameData, GameRecipeNode, RecipeNode, SolverGoal, SolverResult, SourceRule } from '../data/types'
 
 // The rules the order of connectionOrder.ts must keep (sourcing priority phase 6, T1's points 6 to 8).
@@ -294,5 +295,12 @@ describe('connectionOrder: the gate', () => {
   ]
   it('a block the gate does not open keeps its count, and a touched block adds the least-import step and, with a gain, two more', () => {
     for (const [name, make, offers, calls] of rows) expect(lpCalls(make(), offers), `LP calls, ${name}`).toBe(calls)
+  })
+})
+
+describe('connectionOrder: the gate on a warning', () => {
+  it('stays closed when the solve was unbounded: its rates are arbitrary', () => {
+    const today = { feasible: true, shortfall: new Map(), warnings: [{ type: 'unbounded-absorber', recipeIds: [] }] }
+    expect(needsConnectionOrder({ today } as unknown as ConnectionOrderInput)).toBe(false)
   })
 })

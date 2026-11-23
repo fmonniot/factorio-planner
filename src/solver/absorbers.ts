@@ -103,7 +103,7 @@ export function isFeeder(roles: AbsorberRoles, flagged: ReadonlySet<string>, id:
  * one, is never anchored, so it cannot run for free forever. "Every producer" matters: if X is made by an ordinary column and
  * by a raw-fed feeder, rewarding X's consumer would let the feeder make X for nothing. What remains unbounded is a loop whose
  * gain exceeds the reward ratio: a rewarded row that gives back most of an item a feeder makes (100 or more runs per unit of
- * it) while that feeder's ingredients cost less than the runs earn; see spec/solver.md.
+ * it) while that feeder's ingredients cost less than the runs earn; `readLPResult` raises `unbounded-absorber` for it, see spec/solver.md.
  *
  * A flagged id that is not a column of `system` is ignored.
  */

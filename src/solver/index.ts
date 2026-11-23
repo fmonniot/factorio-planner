@@ -20,7 +20,7 @@ import type {
 } from '../data/types'
 import { blockAreas, explicitMainProduct, solveAreaBlock, withAreaRules } from './areas'
 import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount, type FluidKeySupply, type KeySupply } from './build'
-import { solveLP } from './solve'
+import { hasUnreliableRates, isUnbounded, solveLP } from './solve'
 import { isFeeder } from './absorbers'
 import { connectionOrder, needsConnectionOrder } from './connectionOrder'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
@@ -362,7 +362,8 @@ export function solveBlock(
     totalCaps, intermediates: system.classification.intermediates, firstItems, locked,
     slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow, keySupply: keySupplyPlan,
   })
-  if (pass2.run) {
+  // An unbounded pass 1 has arbitrary slack and throughput, so pass 2 would be planned from noise: keep pass 1 and its warning.
+  if (pass2.run && !isUnbounded(lp.warnings)) {
     lp = solveLP(
       system, pinnedRates, bcRecipeIds, pass2.noImport,
       new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, markedFeeders, { fluidCaps: pass2.fluidCaps, leftoverOff: sets.leftoverOff },
@@ -408,8 +409,8 @@ export function solveBlock(
     const main = r ? explicitMainProduct(n, r) : undefined
     if (main !== undefined) mainItemOfRecipe.set(n.recipeId, main)
   }
-  // Pins that cannot be met make the flows meaningless for this check.
-  const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
+  // Pins that cannot be met, or an unbounded objective, make the flows meaningless for this check.
+  const coproductDriven = hasUnreliableRates(warnings) ? undefined : coproductDrivenWarning({
     goals: keyGoals(system, plan.goals), system, throughput: throughputMap, slack: lp.slack, itemSurplus, itemGross,
     fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.absorberOnly]), noImportItems: cannotImport, recipeOf: id => id,
     mainItemOf: id => mainItemOfRecipe.get(id), itemOf: key => baseOf(system, key),

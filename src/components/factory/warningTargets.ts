@@ -99,6 +99,7 @@ export function warningTargets(
       return [...blockLinks, ...uniqueRows(recipeIds.flatMap(id => recipeTarget(id)))]
     }
     case 'duplicate-recipe': return recipeTarget(w.recipeId, w.areaId)
+    case 'unbounded-absorber':
     case 'infeasible-pins': return uniqueRows(w.recipeIds.flatMap(id => recipeTarget(id)))
     case 'temperature-mismatch': return recipeTarget(w.recipeId)
     case 'no-fitting-temperature': return uniqueRows(w.recipeIds.flatMap(id => recipeTarget(id)))

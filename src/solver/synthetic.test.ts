@@ -157,6 +157,8 @@ function recipes(): GameRecipe[] {
     // Case 23 (an absorber chain): G grows the goal and 2 trees from a seed, S saws a tree into 8 wood and gives back 0.9 of the saw it
     // takes, K makes a saw from a plate, P makes 4 plates from a roll; U turns a plate into a gadget, B burns a roll into ash.
     recipe('case23-grow', 'smelting', 1, [item('case23-seed', 1)], [item('case23-goal', 1), item('case23-tree', 2)]),
+    recipe('case23-grow-forest', 'smelting', 1, [item('case23-seed', 1)], [item('case23-goal', 1), item('case23-tree', 150)]),
+    recipe('case23-grow-grove', 'smelting', 1, [item('case23-seed', 1)], [item('case23-goal', 1), item('case23-tree', 99)]),
     recipe('case23-grow-plate', 'smelting', 1, [item('case23-seed', 1)], [item('case23-goal', 1), item('case23-tree', 2), item('case23-plate', 0.4)]),
     recipe('case23-saw-wood', 'smelting', 1, [item('case23-tree', 1), item('case23-saw', 1)], [item('case23-wood', 8), { ...item('case23-saw', 1), probability: 0.9 }]),
     recipe('case23-make-saw', 'smelting', 1, [item('case23-plate', 1)], [item('case23-saw', 1)]),
@@ -3053,6 +3055,32 @@ describe('solver synthetic cases', () => {
         expect(over?.type === 'overconstrained' ? over.surplusItems.map(i => [i.itemId, i.rate]) : undefined, 'tree is left over').toEqual([[TREE, 20]])
         expect(feeders(r), 'feeders').toEqual([])
       })
+    })
+
+    it('o: a grower of 150 trees per run makes the saw row earn more than the growing costs', () => {
+      const r = solveRows(GOAL, nodesOf(['case23-saw-wood'], ['case23-grow-forest', 'case23-make-saw', 'case23-make-plate']))
+      expect(r.warnings.find(w => w.type === 'unbounded-absorber'), 'warning').toEqual({ type: 'unbounded-absorber', recipeIds: ['case23-saw-wood'] })
+    })
+
+    it('o3: o in an area of its own names recipes, not columns, and skips the co-product check', () => {
+      const wood = subPlan('Wood', [
+        { ...rowIn('case23-saw-wood', 'Wood'), byproductConsumer: true },
+        rowIn('case23-make-saw', 'Wood'), rowIn('case23-make-plate', 'Wood'),
+      ], [], true)
+      const block: Block = {
+        id: 'H', name: 'H', color: '#60a5fa',
+        products: [{ id: 'p0', itemId: 'case23-goal', extraRate: 10 }],
+        sourceRules: {}, inputConnections: [],
+        rootPlan: subPlan('root', [rowIn('case23-grow-forest', 'root')], [wood]),
+      }
+      const r = solve(flattenBlock(block), makeGameData())
+      expect(r.warnings.find(w => w.type === 'unbounded-absorber'), 'warning').toEqual({ type: 'unbounded-absorber', recipeIds: ['case23-saw-wood'] })
+      expect(r.warnings.map(w => w.type), 'no coproduct-driven').not.toContain('coproduct-driven')
+    })
+
+    it('o2: at 99 trees per run the reward stays below the cost: no warning', () => {
+      const r = solveRows(GOAL, nodesOf(['case23-saw-wood'], ['case23-grow-grove', 'case23-make-saw', 'case23-make-plate']))
+      expect(r.warnings.map(w => w.type), 'no warning').not.toContain('unbounded-absorber')
     })
   })
 
