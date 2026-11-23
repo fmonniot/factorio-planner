@@ -55,3 +55,12 @@ describe('warningTargets of an unbounded-absorber warning', () => {
     ])
   })
 })
+
+describe('warningTargets of an unbounded-source warning', () => {
+  it('links each source block, with or without a plan', () => {
+    const w: SolverWarning = { type: 'unbounded-source', blockIds: ['boilers'] }
+    const expected = [{ kind: 'block', label: 'Go to Boilers', blockId: 'boilers' }]
+    expect(warningTargets(w, undefined, gameData, name, undefined, links)).toEqual(expected)
+    expect(warningTargets(w, plan(row('n1', 'turbine')), gameData, name, undefined, links)).toEqual(expected)
+  })
+})

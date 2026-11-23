@@ -266,6 +266,28 @@ describe('WarningsPopover — unbounded-absorber', () => {
 })
 
 // ---------------------------------------------------------------------------
+// unbounded-source
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — unbounded-source', () => {
+  it('names the source block, links to it and is amber', () => {
+    useBlockStore.setState({
+      blocks: [
+        { ...makeEmptyBlock('Planks'), id: 't', inputConnections: [{ id: 'c1', itemId: 'wood', fromBlockId: 'b' }] },
+        { ...makeEmptyBlock('Forest'), id: 'b' },
+      ],
+      activeBlockId: 't',
+    })
+    setupWithWarnings({ warnings: [{ type: 'unbounded-source', blockIds: ['b'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/Fed by a block with no limit/).className).not.toContain('text-red-400')
+    expect(screen.getByText(/"Forest" has no limit on an absorbing row/)).toBeInTheDocument()
+    expect(screen.getAllByTestId('warning-link')).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // connection-temperature
 // ---------------------------------------------------------------------------
 

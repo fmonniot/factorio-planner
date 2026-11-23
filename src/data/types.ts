@@ -108,6 +108,11 @@ export type SolverWarning =
    * block's rewarded rows (the culprits are among them); may be empty.
    */
   | { type: 'unbounded-absorber'; recipeIds: string[] }
+  /**
+   * The block receives over a connection from a block whose rates are arbitrary (`unbounded-absorber`, or itself fed by one), so what
+   * it takes is arbitrary too. `blockIds` are the sources that deliver something and are in that state. Added by `solveAll`.
+   */
+  | { type: 'unbounded-source'; blockIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number; temp?: FluidTag }[] }
   /**
    * Recipes the solver runs mostly to make a co-product the block consumes. `throughput` and

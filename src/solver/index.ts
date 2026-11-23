@@ -2408,6 +2408,24 @@ export function solveAll(
     }
   }
 
+  // A block that takes from a block with arbitrary rates (an unbounded absorber, or one fed by such a block) takes arbitrary rates too.
+  {
+    const arbitrary = new Set(blocks.filter(b => results[b.id]?.warnings.some(w => w.type === 'unbounded-absorber')).map(b => b.id))
+    const delivering = flows.filter(f => f.rate > FLOW_TOLERANCE)
+    for (let grew = arbitrary.size > 0; grew;) {
+      grew = false
+      for (const f of delivering) {
+        if (arbitrary.has(f.fromBlockId) && !arbitrary.has(f.toBlockId)) { arbitrary.add(f.toBlockId); grew = true }
+      }
+    }
+    for (const b of blocks) {
+      const result = results[b.id]
+      if (!result || result.warnings.some(w => w.type === 'unbounded-absorber')) continue
+      const sources = [...new Set(delivering.filter(f => f.toBlockId === b.id && arbitrary.has(f.fromBlockId)).map(f => f.fromBlockId))]
+      if (sources.length > 0) results[b.id] = withExtraWarnings(result, [{ type: 'unbounded-source', blockIds: sources }])
+    }
+  }
+
   if (hasTemperatureData(gameData)) {
     const recipeIdOfNode = new Map<string, Map<string, string>>()
     const discarded = new Map<string, Set<string>>()
