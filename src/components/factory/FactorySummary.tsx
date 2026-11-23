@@ -90,7 +90,7 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
         <button
           type="button"
           onClick={onStart}
-          title={`Extra output: ${extraDisplay}${unitLabel} — click to edit`}
+          data-tip={`Extra output: ${extraDisplay}${unitLabel} — click to edit`}
           className="text-gray-300 hover:text-yellow-300 tabular-nums font-mono text-[11px] leading-none"
         >
           extra {extraDisplay}
@@ -112,7 +112,7 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
             <>
               {(showExtra || showRequested) && <span className="text-gray-400 text-[10px]">→</span>}
               <span
-                title={short
+                data-tip={short
                   ? `Actual: ${actualDisplay}${unitLabel} — short by ${shortfallDisplay}${unitLabel}`
                   : `Actual: ${actualDisplay}${unitLabel} — solver output`}
                 className={`${short ? 'text-amber-400' : 'text-teal-400'} tabular-nums font-mono text-[11px] leading-none`}
@@ -468,7 +468,7 @@ export function FactorySummary() {
             <button
               type="button"
               onClick={edit.start}
-              title="Add extra output on top of what is requested"
+              data-tip="Add extra output on top of what is requested"
               className="border border-dashed border-gray-600 rounded px-2 py-0.5 leading-4 whitespace-nowrap text-gray-400 hover:text-gray-200"
             >
               + Extra output

@@ -150,12 +150,12 @@ test.describe('summary panes with many items', () => {
     await expect(input).toBeFocused()
     await input.fill('5')
     await input.press('Enter')
-    await expect(page.getByTitle(/^Extra output:/)).toHaveAttribute('title', /5\.00/)
+    await expect(page.locator('[data-tip^="Extra output:"]')).toHaveAttribute('data-tip', /5\.00/)
 
     await first.dblclick()
     await input.fill('7')
     await input.press('Escape')
-    await expect(page.getByTitle(/^Extra output:/)).toHaveAttribute('title', /5\.00/)
+    await expect(page.locator('[data-tip^="Extra output:"]')).toHaveAttribute('data-tip', /5\.00/)
   })
 
   test('an export segment opens the consumer, whose ingredient slots hold their own connections', async ({ page }) => {

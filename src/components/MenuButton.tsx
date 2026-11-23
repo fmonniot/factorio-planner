@@ -45,7 +45,7 @@ interface MenuButtonProps {
   label: ReactNode
   /** Accessible name of the trigger, when it differs from the visible label. */
   ariaLabel?: string
-  /** Native tooltip; leave out when the trigger has a tooltip of its own. */
+  /** Instant tooltip (`TooltipLayer`); leave out when the trigger has a tooltip of its own. */
   title?: string
   /** Accessible name of the panel. */
   menuLabel: string
@@ -238,7 +238,7 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label={ariaLabel}
-        title={title}
+        data-tip={title}
         disabled={disabled}
         className={triggerClassName ?? 'flex items-center gap-1 text-xs bg-gray-800 text-gray-400 hover:text-gray-100 border border-gray-600 rounded px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed'}
         // detail is 0 for clicks synthesised from Enter / Space.

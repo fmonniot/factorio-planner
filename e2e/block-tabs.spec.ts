@@ -269,7 +269,7 @@ test('a long plan name is truncated inside the workspace button, which keeps its
   const trigger = page.getByTestId('top-bar').getByRole('button', { name: /^Plan: / })
   await renameActivePlan(page, 'A plan name that is far too long to fit in a button of 132 p')
   expect((await trigger.boundingBox())!.width, 'the button keeps its width').toBe(132)
-  await expect(trigger, 'the native tooltip names the plan').toHaveAttribute('title', /^A plan name that is far too long.*Plans, game data/)
+  await expect(trigger, 'the instant tooltip names the plan').toHaveAttribute('data-tip', /^A plan name that is far too long.*Plans, game data/)
   const name = trigger.locator('span.truncate').first()
   expect(await name.evaluate(el => el.scrollWidth > el.clientWidth), 'the name is cut with an ellipsis').toBe(true)
   const box = (await trigger.boundingBox())!

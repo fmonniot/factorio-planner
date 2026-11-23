@@ -74,7 +74,7 @@ test.describe('Extraction recipes', () => {
 
     const rows = page.locator('main table tbody tr')
     await expect(rows).toHaveCount(2)
-    const drill = rows.nth(1).getByTitle('Electric mining drill', { exact: true })
+    const drill = rows.nth(1).getByLabel('Electric mining drill', { exact: true })
     await expect(drill).toBeVisible()
     await expect(drill).toHaveText(/^\??2$/)
   })
@@ -83,7 +83,7 @@ test.describe('Extraction recipes', () => {
     await addGoal(page, 'water', '72000')
     await addRecipe(page, 'offshore:water')
     const row = page.locator('main table tbody tr').first()
-    const pump = row.getByTitle('Offshore pump', { exact: true })
+    const pump = row.getByLabel('Offshore pump', { exact: true })
     await expect(pump).toBeVisible()
     await expect(pump).toHaveText(/^\??1$/)
   })

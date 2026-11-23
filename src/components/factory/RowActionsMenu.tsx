@@ -14,7 +14,7 @@ export interface RowAction {
   danger?: boolean
   /** Shown but not selectable. */
   disabled?: boolean
-  /** Tooltip, e.g. why the action is disabled. */
+  /** Shown as the instant tooltip (`data-tip`), e.g. why the action is disabled. */
   title?: string
   /** Makes the item a checkbox in this state (a radio with `radio`). */
   checked?: boolean
@@ -100,7 +100,7 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
             role={action.checked === undefined ? 'menuitem' : action.radio ? 'menuitemradio' : 'menuitemcheckbox'}
             aria-checked={action.checked}
             disabled={action.disabled}
-            title={action.title}
+            data-tip={action.title}
             className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent ${
               action.danger ? 'text-red-400' : 'text-gray-200'
             }`}

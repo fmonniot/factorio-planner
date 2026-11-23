@@ -72,7 +72,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
               quiet={!blocked}
               alt="Add beacon"
               disabled={blocked}
-              title={disabledTitle ?? 'Add beacon'}
+              data-tip={disabledTitle ?? 'Add beacon'}
               aria-label="Add beacon"
               className={blocked ? 'opacity-40' : ''}
             />
@@ -91,7 +91,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
               alt="Add beacon module"
               quantity={newBeacon ? `0/${newBeacon.moduleSlots}` : undefined}
               disabled={blocked}
-              title={disabledTitle ?? 'Add beacon with a module'}
+              data-tip={disabledTitle ?? 'Add beacon with a module'}
               aria-label="Add beacon module"
               className={blocked ? 'opacity-40' : ''}
             />
@@ -149,7 +149,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
       alt={moduleData?.name ?? shown ?? 'module'}
       fallback={shown ? '?' : '+'}
       quantity={`${used}/${slots}`}
-      title={
+      data-tip={
         beacon.modules.length > 0
           ? `${beacon.modules.map(m => {
               const name = gameData.modules[m.moduleId]?.name
@@ -175,7 +175,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
           quantityTestId="beacon-count"
           badges={more > 0 ? <MoreBadge count={more} /> : undefined}
           warn={beyondHorizon}
-          title={more > 0 ? `${editTitle}: ${chipTitle}` : editTitle}
+          data-tip={more > 0 ? `${editTitle}: ${chipTitle}` : editTitle}
           aria-label="Edit beacon"
           data-beyond-horizon={beyondHorizon ? 'true' : undefined}
         />

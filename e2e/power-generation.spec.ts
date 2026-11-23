@@ -169,7 +169,7 @@ test.describe('Power generation', () => {
     await expect(electricity).toHaveAccessibleName('Electricity, 10.0 MW')
     const rows = page.locator('main table tbody tr')
     const engine = rows.first()
-    await expect(engine.getByTitle('Steam engine', { exact: true })).toHaveText(/^\??12$/)
+    await expect(engine.getByLabel('Steam engine', { exact: true })).toHaveText(/^\??12$/)
     // The chip's corner drops the decimal to fit the 32 px icon; the title keeps the exact value.
     await expect(engine.locator('[data-variant="product"]')).toContainText('10MW')
     await expect(engine.locator('[data-variant="product"]')).toHaveAttribute('aria-label', 'Electricity — 10.0MW')
@@ -180,7 +180,7 @@ test.describe('Power generation', () => {
     await engine.locator('button[aria-label^="Steam ("]').first().click()
     await pickBoilerFuel(page, 'power:boiler:coal')
     await expect(rows).toHaveCount(2)
-    await expect(rows.nth(1).getByTitle('Boiler', { exact: true })).toHaveText(/^\??6$/)
+    await expect(rows.nth(1).getByLabel('Boiler', { exact: true })).toHaveText(/^\??6$/)
     await expect(slot(page, 'Ingredients', 'Coal')).toHaveAccessibleName('Coal, 150 per minute')
   })
 
@@ -215,7 +215,7 @@ test.describe('Power generation', () => {
   test('1 MW of solar panels is 24 panels', async ({ page }) => {
     await addElectricityGoal(page, '1')
     await addRecipe(page, 'power:solar-panel')
-    const panel = page.locator('main table tbody tr').first().locator('button[title="Solar panel"]')
+    const panel = page.locator('main table tbody tr').first().locator('button[aria-label="Solar panel"]')
     await expect(panel).toHaveText(/^\??24$/)
   })
 
@@ -300,7 +300,7 @@ test.describe('Heat', () => {
     await rows.first().locator('button[aria-label^="Steam ("]').first().click()
     await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:heat-exchanger:power:heat"]').click()
     await expect(rows).toHaveCount(2)
-    await expect(rows.nth(1).getByTitle('Heat exchanger', { exact: true })).toHaveText(/^\??3$/)
+    await expect(rows.nth(1).getByLabel('Heat exchanger', { exact: true })).toHaveText(/^\??3$/)
     const heat = slot(page, 'Ingredients', 'Heat')
     await expect(heat).toHaveAccessibleName('Heat, 21.6 MW')
     await expect(heat).toContainText('21.6MW')
@@ -308,11 +308,11 @@ test.describe('Heat', () => {
     await rows.nth(1).locator('button[aria-label^="Heat — Find producer recipe"]').click()
     await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:nuclear-reactor:uranium-fuel-cell"]').click()
     await expect(rows).toHaveCount(3)
-    await expect(rows.nth(2).getByTitle('Nuclear reactor', { exact: true })).toHaveText(/^\??2$/)
+    await expect(rows.nth(2).getByLabel('Nuclear reactor', { exact: true })).toHaveText(/^\??2$/)
     await expect(slot(page, 'Ingredients', 'Uranium fuel cell')).toHaveAccessibleName('Uranium fuel cell, 0.65 per minute')
     await expect(slot(page, 'Ingredients', 'Heat')).toHaveCount(0)
 
-    await rows.nth(1).getByTitle('Heat exchanger', { exact: true }).click()
+    await rows.nth(1).getByLabel('Heat exchanger', { exact: true }).click()
     await expect(page.getByTestId('neighbour-section')).toHaveCount(0)
   })
 
@@ -340,7 +340,7 @@ test.describe('Heat', () => {
     await expect(overlay).not.toBeVisible()
     await addRecipe(page, 'power:nuclear-reactor:uranium-fuel-cell')
     const rows = page.locator('main table tbody tr')
-    const reactor = rows.first().getByTitle('Nuclear reactor', { exact: true })
+    const reactor = rows.first().getByLabel('Nuclear reactor', { exact: true })
     await expect(reactor).toHaveText(/^\??2$/)
 
     await selectRow(page, rows.first())

@@ -53,7 +53,7 @@ interface IconChipProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   /** With `onClick`: the button is disabled. */
   disabled?: boolean
   quantityTestId?: string
-  /** The chip's accessible name and its instant tooltip (`TooltipLayer`): sets `aria-label` and `data-tip`, never `title`. */
+  /** The chip's accessible name and its instant tooltip (`TooltipLayer`): sets `aria-label` and `data-tip`, never `title`. A non-empty `data-tip` passed in the rest props overrides the tooltip text. */
   tip?: string
 }
 

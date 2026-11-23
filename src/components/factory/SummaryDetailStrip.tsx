@@ -21,7 +21,7 @@ export interface StripAction {
   onSelect: (e: React.MouseEvent<HTMLButtonElement>) => void
   danger?: boolean
   disabled?: boolean
-  /** Tooltip, used to say why the action is disabled. */
+  /** Shown as the instant tooltip (`data-tip`); used to say why the action is disabled. */
   title?: string
 }
 
@@ -212,7 +212,7 @@ export function SummaryDetailStrip({
               type="button"
               onClick={a.onSelect}
               disabled={a.disabled}
-              title={a.title ?? (a.badge ? `${a.badge.count} ${a.badge.noun}` : undefined)}
+              data-tip={a.title ?? (a.badge ? `${a.badge.count} ${a.badge.noun}` : undefined)}
               aria-label={a.badge ? `${a.label} · ${a.badge.count} ${a.badge.noun}` : undefined}
               className={`bg-gray-900 border border-gray-700 rounded px-2 py-0.5 leading-4 whitespace-nowrap hover:border-gray-500 disabled:opacity-40 disabled:cursor-default disabled:hover:border-gray-700 ${a.danger ? 'text-red-400' : 'text-gray-300'}`}
             >

@@ -130,7 +130,7 @@ test('Duplicate to… copies an area into another area', async ({ page }) => {
   const items = page.getByRole('menu').getByRole('menuitem')
   await expect(items).toHaveText(['Top level', 'Compression', 'Chlorides'])
   await expect(items.nth(1)).toBeDisabled()
-  await expect(items.nth(1)).toHaveAttribute('title', 'Cannot copy a subfactory into itself')
+  await expect(items.nth(1)).toHaveAttribute('data-tip', 'Cannot copy a subfactory into itself')
   await items.nth(2).click()
 
   const revealed = page.locator('tr[data-highlighted="true"]')
@@ -170,7 +170,7 @@ test('Duplicate to… disables an area that already has a row of the recipe', as
   await menu.getByRole('menuitem', { name: 'Duplicate to…' }).click()
   const compression = page.getByRole('menu').getByRole('menuitem', { name: 'Compression' })
   await expect(compression).toBeDisabled()
-  await expect(compression).toHaveAttribute('title', 'Already has a row of Compressed hydrogen')
+  await expect(compression).toHaveAttribute('data-tip', 'Already has a row of Compressed hydrogen')
   await page.getByRole('menu').getByRole('menuitem', { name: 'Top level' }).click()
 
   await expect.poll(async () => {

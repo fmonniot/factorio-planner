@@ -993,7 +993,7 @@ describe('ItemPicker — recipe detail panel unlock section', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].dataset.techId).toBe('smelting')
     expect(rows[0]).toHaveTextContent('Smelting')
-    expect(within(rows[0]).getByTitle('Iron Ore ×1')).toBeInTheDocument()
+    expect(within(rows[0]).getByLabelText('Iron Ore ×1')).toBeInTheDocument()
     const cost = within(rows[0]).getByTestId('tech-cost')
     expect(cost).toHaveTextContent('×10')
     expect(cost.textContent).not.toContain('·')
@@ -1058,7 +1058,7 @@ describe('ItemPicker — recipe detail panel unlock section', () => {
     data.technologies.smelting.trigger = { type: 'craft-item', item: 'iron-ore', count: 5 }
     hover(data, 'iron-plate')
     expect(screen.getByTestId('tech-cost')).toHaveTextContent('Craft 5 ×')
-    expect(screen.getByTestId('tech-cost')).toHaveAttribute('title', expect.stringContaining('Researched by crafting 5'))
+    expect(screen.getByTestId('tech-cost')).toHaveAttribute('data-tip', expect.stringContaining('Researched by crafting 5'))
   })
 
   it('reads "No technology" for a recipe nothing unlocks', () => {

@@ -401,7 +401,7 @@ export function WorkspaceMenu() {
               <span className="max-md:hidden text-xs font-semibold text-gray-100 truncate max-w-full">{topLine}</span>
               {status.type === 'loading' && <span className="text-[11px] text-gray-400 truncate max-w-full">Loading…</span>}
               {status.type === 'error' && (
-                <span className="text-[11px] text-red-400 truncate max-w-full" title={status.message}>Error loading data</span>
+                <span className="text-[11px] text-red-400 truncate max-w-full" data-tip={status.message}>Error loading data</span>
               )}
               {status.type === 'loaded' && datasetLabel && (
                 <span className="max-md:hidden text-[11px] text-gray-400 truncate max-w-full">{datasetLabel}</span>
@@ -445,7 +445,7 @@ export function WorkspaceMenu() {
                         <span aria-hidden className="w-3 inline-block">{checked ? '✓' : ''}</span>{d.label}
                       </span>
                       {showInfo && info && (
-                        <span id={infoId} className="block text-[11px] text-gray-400 pl-4" title={info.mods.join('\n')}>
+                        <span id={infoId} className="block text-[11px] text-gray-400 pl-4" data-tip={info.mods.join('\n')}>
                           {infoText}
                         </span>
                       )}
@@ -460,7 +460,7 @@ export function WorkspaceMenu() {
                   aria-checked={true}
                   aria-label={uploadedFilename}
                   aria-describedby={infoText !== null ? infoId : undefined}
-                  title={uploadedFilename}
+                  data-tip={uploadedFilename}
                   tabIndex={-1}
                   className={ITEM_CLASS}
                   onClick={() => close(true)}
@@ -471,7 +471,7 @@ export function WorkspaceMenu() {
                       <span className="truncate max-w-64">{uploadedFilename}</span>
                     </span>
                     {info && (
-                      <span id={infoId} className="block text-[11px] text-gray-400 pl-4" title={info.mods.join('\n')}>
+                      <span id={infoId} className="block text-[11px] text-gray-400 pl-4" data-tip={info.mods.join('\n')}>
                         {infoText}
                       </span>
                     )}
@@ -500,7 +500,7 @@ export function WorkspaceMenu() {
             <button
               type="button"
               role="menuitem"
-              title="Export plan as JSON"
+              data-tip="Export plan as JSON"
               tabIndex={-1}
               className={ITEM_CLASS}
               onClick={() => { exportPlan(); close(true) }}
@@ -511,7 +511,7 @@ export function WorkspaceMenu() {
               type="button"
               role="menuitem"
               disabled={status.type !== 'loaded'}
-              title="Import a plan from a JSON file as a new plan"
+              data-tip="Import a plan from a JSON file as a new plan"
               tabIndex={-1}
               className={ITEM_CLASS}
               onClick={() => { startImport(); close(true) }}

@@ -10,6 +10,7 @@ import { useSolverStore } from '../../store/solverStore'
 import { BLOCK_PALETTE } from '../../data/blockColors'
 import { sourceRulesOf } from '../../test/sourceRulesOf'
 import type { Block, ConnectionFlow, GameData, SolverResult, Product } from '../../data/types'
+import { getByTip, queryByTip } from '../../test/byTip'
 
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
@@ -436,15 +437,15 @@ describe('FactorySummary — electricity', () => {
   it('shows the extra output and the actual rate in MW', () => {
     render(<FactorySummary />)
     select('Products', 'Electricity')
-    expect(screen.getByTitle(/^Extra output:/).textContent).toContain('10.0MW')
-    expect(screen.getByTitle(/Actual:/).textContent).toContain('10.0MW')
+    expect(getByTip(/^Extra output:/).textContent).toContain('10.0MW')
+    expect(getByTip(/Actual:/).textContent).toContain('10.0MW')
   })
 
   it.each(['min', 'sec'] as const)('labels the extra output field in MW in /%s', unit => {
     useUiStore.setState({ rateUnit: unit })
     render(<FactorySummary />)
     select('Products', 'Electricity')
-    fireEvent.click(screen.getByTitle(/^Extra output:/))
+    fireEvent.click(getByTip(/^Extra output:/))
     expect(screen.getByLabelText('Extra output rate')).toBeInTheDocument()
     expect(screen.getByTestId('extra-input-unit').textContent).toBe('MW')
   })
@@ -525,16 +526,16 @@ describe('FactorySummary — heat', () => {
 describe('FactorySummary — extra output and actual', () => {
   it('shows the extra output with title "Extra output" once the slot is selected', () => {
     render(<FactorySummary />)
-    expect(screen.queryByTitle(/^Extra output:/)).not.toBeInTheDocument()
+    expect(queryByTip(/^Extra output:/)).not.toBeInTheDocument()
     select('Products', 'Iron Plate')
-    const extraBtn = screen.getByTitle(/^Extra output:/)
+    const extraBtn = getByTip(/^Extra output:/)
     expect(extraBtn.textContent).toMatch(/60/)
   })
 
   it('shows actual rate with title containing "Actual" when solver has run', () => {
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    expect(screen.getByTitle(/Actual:/).textContent).toMatch(/58/)
+    expect(getByTip(/Actual:/).textContent).toMatch(/58/)
     expect(screen.getByText('→')).toBeInTheDocument()
   })
 
@@ -542,8 +543,8 @@ describe('FactorySummary — extra output and actual', () => {
     setupStore([ironGoal], false)
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    expect(screen.getByTitle(/^Extra output:/)).toBeInTheDocument()
-    expect(screen.queryByTitle(/Actual:/)).not.toBeInTheDocument()
+    expect(getByTip(/^Extra output:/)).toBeInTheDocument()
+    expect(queryByTip(/Actual:/)).not.toBeInTheDocument()
     expect(screen.queryByText('→')).not.toBeInTheDocument()
   })
 
@@ -559,7 +560,7 @@ describe('FactorySummary — extra output and actual', () => {
     useSolverStore.setState({ lastResult: overResult })
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    expect(screen.getByTitle(/Actual:/).textContent).toMatch(/850/)
+    expect(getByTip(/Actual:/).textContent).toMatch(/850/)
   })
 })
 
@@ -569,7 +570,7 @@ describe('FactorySummary — extra output editing', () => {
   function startEdit() {
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    fireEvent.click(screen.getByTitle(/^Extra output:/))
+    fireEvent.click(getByTip(/^Extra output:/))
     return screen.getByLabelText('Extra output rate')
   }
 
@@ -1535,7 +1536,7 @@ describe('FactorySummary — requests', () => {
     const ore = within(pane('Products')).getByRole('button', { name: 'Iron Ore, nothing requested yet' })
     expect(ore.textContent).toContain('—')
     fireEvent.click(ore)
-    expect(screen.queryByTitle(/^Extra output:/)).not.toBeInTheDocument()
+    expect(queryByTip(/^Extra output:/)).not.toBeInTheDocument()
     expect(within(strip('Products')).getByRole('button', { name: '+ Extra output' })).toBeInTheDocument()
   })
 
@@ -1740,7 +1741,7 @@ describe('FactorySummary — products pane', () => {
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
     const extra = within(strip('Products')).getByRole('button', { name: /^extra 60\.0$/ })
-    expect(extra).toHaveAttribute('title', 'Extra output: 60.0/m — click to edit')
+    expect(extra).toHaveAttribute('data-tip', 'Extra output: 60.0/m — click to edit')
     expect(stripText()).toContain('+ requested 30.0')
     expect(stripText()).not.toContain('makes')
     expect(keyTexts()).toEqual(['Consumer requests 30.0', 'Extra: 60.0 of 60.0'])
@@ -1750,7 +1751,7 @@ describe('FactorySummary — products pane', () => {
     setupRequest({ minerProducts: [{ id: 'pp', itemId: 'iron-plate' }], result: makerResult(30) })
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    expect(screen.queryByTitle(/^Extra output:/)).not.toBeInTheDocument()
+    expect(queryByTip(/^Extra output:/)).not.toBeInTheDocument()
     expect(stripText()).toContain('requested 30.0')
     fireEvent.click(within(strip('Products')).getByRole('button', { name: '+ Extra output' }))
     const input = screen.getByLabelText('Extra output rate')
@@ -1779,7 +1780,7 @@ describe('FactorySummary — products pane', () => {
     setupRequest({})
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    fireEvent.click(screen.getByTitle(/^Extra output:/))
+    fireEvent.click(getByTip(/^Extra output:/))
     const input = screen.getByLabelText('Extra output rate')
     fireEvent.change(input, { target: { value: '' } })
     fireEvent.blur(input)
@@ -1867,7 +1868,7 @@ describe('FactorySummary — products pane', () => {
       expect(miner().sourceRules).toEqual({ slag: { leftoverOff: true } })
       // The rule is on; the slot is still a leftover here (the solve is not rerun), so the action says it is done.
       expect(action()).toBeDisabled()
-      expect(action()).toHaveAttribute('title', 'Leftover is already off for this item: no row of this block can use more of it.')
+      expect(action().closest('[data-tip]')).toHaveAttribute('data-tip', 'Leftover is already off for this item: no row of this block can use more of it.')
 
       act(() => useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'miner' ? { ...b, sourceRules: {} } : b)) })))
       fireEvent.contextMenu(slot('Byproducts', 'Slag'))
@@ -1910,8 +1911,8 @@ describe('FactorySummary — short product', () => {
     render(<FactorySummary />)
     expect(slot('Products', 'Iron Plate')).toHaveAttribute('data-status', 'short')
     select('Products', 'Iron Plate')
-    const actual = screen.getByTitle(/Actual:/)
-    expect(actual.getAttribute('title')).toContain('short by 2.00')
+    const actual = getByTip(/Actual:/)
+    expect(actual.getAttribute('data-tip')).toContain('short by 2.00')
     expect(actual).toHaveClass('text-amber-400')
     expect(actual.textContent).toContain('▼')
   })
@@ -1928,8 +1929,8 @@ describe('FactorySummary — short product', () => {
     useSolverStore.setState({ lastResult: met })
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    const actual = screen.getByTitle(/Actual:/)
-    expect(actual.getAttribute('title')).not.toContain('short by')
+    const actual = getByTip(/Actual:/)
+    expect(actual.getAttribute('data-tip')).not.toContain('short by')
     expect(actual.textContent).not.toContain('▼')
     expect(actual).toHaveClass('text-teal-400')
   })
@@ -1939,8 +1940,8 @@ describe('FactorySummary — short product', () => {
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
     // goal 60/min, actual 58/min: 1.00/s -> 0.97/s, short by 0.03/s
-    const actual = screen.getByTitle(/Actual:/)
-    expect(actual.getAttribute('title')).toContain('short by 0.03/s')
+    const actual = getByTip(/Actual:/)
+    expect(actual.getAttribute('data-tip')).toContain('short by 0.03/s')
     expect(actual).toHaveClass('text-amber-400')
   })
 
@@ -1949,8 +1950,8 @@ describe('FactorySummary — short product', () => {
     render(<FactorySummary />)
     expect(slot('Products', 'Iron Plate')).toHaveAttribute('data-status', 'short')
     select('Products', 'Iron Plate')
-    const actual = screen.getByTitle(/Actual:/)
-    expect(actual.getAttribute('title')).toContain('short by 60.0')
+    const actual = getByTip(/Actual:/)
+    expect(actual.getAttribute('data-tip')).toContain('short by 60.0')
     expect(actual.textContent).toContain('▼')
   })
 
@@ -1967,8 +1968,8 @@ describe('FactorySummary — short product', () => {
     render(<FactorySummary />)
     expect(slot('Products', 'Iron Plate')).not.toHaveAttribute('data-status')
     select('Products', 'Iron Plate')
-    const actual = screen.getByTitle(/Actual:/)
-    expect(actual.getAttribute('title')).not.toContain('short by')
+    const actual = getByTip(/Actual:/)
+    expect(actual.getAttribute('data-tip')).not.toContain('short by')
     expect(actual.textContent).not.toContain('▼')
     expect(actual).toHaveClass('text-teal-400')
   })
@@ -2239,7 +2240,7 @@ describe('FactorySummary — two goals for the same item', () => {
   it('edits the extra output of the second product', () => {
     render(<FactorySummary />)
     fireEvent.click(slots()[1])
-    fireEvent.click(screen.getByTitle(/^Extra output:/))
+    fireEvent.click(getByTip(/^Extra output:/))
     const input = screen.getByLabelText('Extra output rate')
     fireEvent.change(input, { target: { value: '45' } })
     fireEvent.keyDown(input, { key: 'Enter' })

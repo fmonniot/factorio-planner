@@ -50,7 +50,7 @@ export function MachineCell({
           quantity={machineCountCeil}
           quantityTestId="machine-count"
           warn={flagged}
-          title={title}
+          tip={title}
           data-beyond-horizon={flagged ? 'true' : undefined}
           data-no-machine={row.noMachineInHorizon ? 'true' : undefined}
         />

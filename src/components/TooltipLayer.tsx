@@ -6,7 +6,7 @@ import { anchoredAbove, type Placement } from '../utils/anchoredPosition'
  * Instant tooltips for the elements that carry `data-tip`, drawn by one delegated layer (mounted once in `FactoryShell`).
  * The text is the attribute's value, or the element's `aria-label` when the value is empty. The tooltip is a fixed box on
  * `document.body`, so no scrolling or clipping container cuts it off; it is `aria-hidden` (the `aria-label` is the accessible
- * name) and never takes the pointer. Mouse and pen open it on hover, the keyboard on `:focus-visible`; touch does not.
+ * name) and never takes the pointer. A newline in the text starts a new line. Mouse and pen open it on hover, the keyboard on `:focus-visible`; touch does not.
  */
 
 /** The text to show for an anchor: `data-tip` when it has a value, else the `aria-label`. */
@@ -15,7 +15,7 @@ export function tipText(el: Element): string {
   return el.getAttribute('data-tip') || el.getAttribute('aria-label') || ''
 }
 
-const BOX_CLASS = 'fixed z-[70] bg-black text-gray-100 text-xs border border-gray-700 rounded px-2 py-1 max-w-[280px] pointer-events-none'
+const BOX_CLASS = 'fixed z-[70] bg-black text-gray-100 text-xs border border-gray-700 rounded px-2 py-1 max-w-[280px] pointer-events-none whitespace-pre-line'
 
 const anchorOf = (target: EventTarget | null): HTMLElement | null =>
   target instanceof Element ? target.closest<HTMLElement>('[data-tip]') : null

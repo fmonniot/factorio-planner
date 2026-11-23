@@ -165,3 +165,16 @@ test('an area flow chip names the other end of its route', async ({ page }) => {
   await expect(tooltip(page)).toBeVisible({ timeout: 250 })
   await expect(tooltip(page)).toHaveText(/ — from /)
 })
+
+for (const id of ['machine-chip', 'module-chip']) {
+  test(`opens instantly on the ${id} and leaves no native title on the row chips`, async ({ page }) => {
+    await open(page)
+    const chip = page.locator(`main table tbody tr [data-testid="${id}"]`).first()
+    const label = await chip.getAttribute('aria-label')
+    expect(label, 'the chip has an accessible name').toBeTruthy()
+    await chip.hover()
+    await expect(tooltip(page)).toBeVisible({ timeout: 250 })
+    await expect(tooltip(page)).toHaveText(label!)
+    await expect(page.locator('main table tbody tr [data-testid$="-chip"][title]')).toHaveCount(0)
+  })
+}

@@ -296,13 +296,13 @@ test.describe('Plan horizon: machines and modules', () => {
     await addGoal(page, 'iron-gear-wheel')
     await addRecipe(page, 'iron-gear-wheel')
     const row = page.locator('main table tbody tr').first()
-    await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible()
+    await expect(row.getByLabel('Assembling machine', { exact: true })).toBeVisible()
 
     await setHorizon(page, 'electronics', 'automation-2')
-    await expect(row.getByTitle('Assembling machine 2', { exact: true })).toBeVisible()
+    await expect(row.getByLabel('Assembling machine 2', { exact: true })).toBeVisible()
 
     await setHorizon(page)
-    await expect(row.getByTitle('Assembling machine 2', { exact: true })).toBeVisible()
+    await expect(row.getByLabel('Assembling machine 2', { exact: true })).toBeVisible()
   })
 
   test('a recipe with no machine within the horizon shows zero machines', async ({ page }) => {
@@ -320,10 +320,10 @@ test.describe('Plan horizon: machines and modules', () => {
     await expect(page.getByTestId('machine-picker-empty')).toBeVisible()
 
     await setHorizon(page, 'electronics', 'smelting')
-    await expect(row.getByTitle('Stone furnace', { exact: true })).toBeVisible()
+    await expect(row.getByLabel('Stone furnace', { exact: true })).toBeVisible()
     await expect(row.locator('[data-no-machine="true"]')).toHaveCount(0)
     // The machine count (the icon is a "?" placeholder in the fixture) becomes at least 1 once re-solved.
-    await expect(row.getByTitle('Stone furnace', { exact: true })).toHaveText(/^\??[1-9]\d*$/)
+    await expect(row.getByLabel('Stone furnace', { exact: true })).toHaveText(/^\??[1-9]\d*$/)
   })
 
   test('the machine list is gated', async ({ page }) => {
@@ -347,10 +347,10 @@ test.describe('Plan horizon: machines and modules', () => {
     await page.locator('[data-testid="machine-option"][data-machine-id="assembling-machine-2"]').click()
 
     await setHorizon(page, 'electronics')
-    await expect(row.locator('[data-beyond-horizon="true"]').first()).toHaveAttribute('title', /Assembling machine 2/)
+    await expect(row.locator('[data-beyond-horizon="true"]').first()).toHaveAttribute('aria-label', /Assembling machine 2/)
 
     await page.reload()
-    await expect(row.locator('[data-beyond-horizon="true"]').first()).toHaveAttribute('title', /Assembling machine 2/, { timeout: 10000 })
+    await expect(row.locator('[data-beyond-horizon="true"]').first()).toHaveAttribute('aria-label', /Assembling machine 2/, { timeout: 10000 })
   })
 
   test('modules and beacons are gated', async ({ page }) => {
@@ -363,7 +363,8 @@ test.describe('Plan horizon: machines and modules', () => {
     await sidePanel(page).getByTestId('module-slot').first().click()
     await expect(page.locator('[data-testid="module-option"][data-module-id="speed-module"]')).toHaveCount(0)
     await expect(row.getByLabel('Add beacon', { exact: true })).toBeDisabled()
-    await expect(row.getByLabel('Add beacon', { exact: true })).toHaveAttribute('title', 'No beacon within the research horizon')
+    await row.getByLabel('Add beacon', { exact: true }).hover()
+    await expect(page.getByTestId('tooltip')).toHaveText('No beacon within the research horizon')
 
     await setHorizon(page, 'electronics', 'automation-2', 'modules')
     await selectRow(page, row)
@@ -403,23 +404,23 @@ test.describe('Default machines', () => {
     await selectRow(page, row)
     await openMachinePicker(page)
     await page.getByRole('button', { name: 'Make Assembling machine the Crafting default' }).click()
-    await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible()
+    await expect(row.getByLabel('Assembling machine', { exact: true })).toBeVisible()
 
     await selectRow(page, row)
     await openMachinePicker(page)
     await expect(page.getByTestId('default-machine-usage')).toContainText('Crafting default is used by 1 row')
 
     await page.reload()
-    await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(row.getByLabel('Assembling machine', { exact: true })).toBeVisible({ timeout: 10000 })
   })
 
   test('the workspace menu sets and resets the default', async ({ page }) => {
     const row = firstRow(page)
     const flyout = await openDefaultMachines(page)
     await flyout.getByRole('group', { name: 'Crafting' }).getByRole('menuitemradio', { name: 'Assembling machine', exact: true }).click()
-    await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible()
+    await expect(row.getByLabel('Assembling machine', { exact: true })).toBeVisible()
     await flyout.getByRole('menuitem', { name: 'Reset all' }).click()
-    await expect(row.getByTitle('Assembling machine 2', { exact: true })).toBeVisible()
+    await expect(row.getByLabel('Assembling machine 2', { exact: true })).toBeVisible()
   })
 
   test('an override outside the horizon is ignored, then applies again', async ({ page }) => {
@@ -429,9 +430,9 @@ test.describe('Default machines', () => {
     await page.keyboard.press('Escape')
     await page.keyboard.press('Escape')
     await setHorizon(page, 'electronics')
-    await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible()
+    await expect(row.getByLabel('Assembling machine', { exact: true })).toBeVisible()
     await setHorizon(page)
-    await expect(row.getByTitle('Assembling machine 2', { exact: true })).toBeVisible()
+    await expect(row.getByLabel('Assembling machine 2', { exact: true })).toBeVisible()
   })
 
   test('"All defaults…" opens the flyout on the category', async ({ page }) => {

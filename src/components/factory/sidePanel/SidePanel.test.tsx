@@ -527,7 +527,7 @@ describe('SidePanel — Research needed', () => {
     const rows = within(section).getAllByTestId('research-tech')
     expect(rows).toHaveLength(1)
     expect(rows[0]).toHaveTextContent('Smelting')
-    expect(within(rows[0]).getByTitle('Red Pack ×1')).toBeInTheDocument()
+    expect(within(rows[0]).getByLabelText('Red Pack ×1')).toBeInTheDocument()
     expect(rows[0].textContent).not.toContain('×10')
     expect(rows[0].textContent).not.toContain('5s')
   })

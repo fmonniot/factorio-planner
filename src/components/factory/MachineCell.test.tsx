@@ -51,6 +51,14 @@ describe('MachineCell', () => {
     expect(screen.getByText('speed 0.75')).toBeInTheDocument()
   })
 
+  it('names the chip as its tooltip and has no native title', () => {
+    renderCell()
+    const chip = screen.getByTestId('machine-chip')
+    expect(chip).toHaveAttribute('aria-label', 'Assembler 1')
+    expect(chip).toHaveAttribute('data-tip', '')
+    expect(chip).not.toHaveAttribute('title')
+  })
+
   it('changes the machine type of the row and closes', () => {
     renderCell()
     fireEvent.click(screen.getByTestId('machine-chip'))

@@ -809,13 +809,13 @@ describe('RecipeRow — research horizon', () => {
   it('uses the horizon default machine without flagging it', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['base'] })
     renderRow({ gameData: makeHorizonGameData() })
-    expect(screen.getByTitle('Furnace 1')).not.toHaveAttribute('data-beyond-horizon')
+    expect(screen.getByLabelText('Furnace 1')).not.toHaveAttribute('data-beyond-horizon')
   })
 
   it('uses the plan override as the default machine', () => {
     useBlockStore.setState({ defaultMachineOverrides: { smelting: 'furnace-1' } })
     renderRow({ gameData: makeHorizonGameData() })
-    expect(screen.getByTitle('Furnace 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Furnace 1')).toBeInTheDocument()
   })
 
   it('flags an explicit machine outside the horizon', () => {
@@ -824,9 +824,9 @@ describe('RecipeRow — research horizon', () => {
       gameData: makeHorizonGameData(),
       planNode: { ...ironPlateRecipeNode, machineId: 'electric-furnace' } as RecipeNode,
     })
-    const cell = screen.getByTitle(/ \(beyond research horizon\)$/)
+    const cell = screen.getByLabelText(/ \(beyond research horizon\)$/)
     expect(cell).toHaveAttribute('data-beyond-horizon', 'true')
-    expect(cell).toHaveAttribute('title', 'Electric Furnace (beyond research horizon)')
+    expect(cell).toHaveAttribute('aria-label', 'Electric Furnace (beyond research horizon)')
   })
 
   describe('no machine within the horizon', () => {
@@ -840,8 +840,8 @@ describe('RecipeRow — research horizon', () => {
 
     it('flags the machine cell as having no machine', () => {
       renderRow({ gameData: noMachineData(), solvedNode: { ...solvedNode, machineCountCeil: 0 } })
-      // The disabled beacon "+" carries the same title; the machine cell is the flagged one.
-      const cell = screen.getAllByTitle('No machine within research horizon').find(e => e.hasAttribute('data-no-machine'))
+      // The disabled beacon "+" carries the same tooltip but keeps its own accessible name; the machine cell is the flagged one.
+      const cell = screen.getByLabelText('No machine within research horizon')
       expect(cell).toHaveAttribute('data-beyond-horizon', 'true')
       expect(screen.getByLabelText('Add beacon')).toBeDisabled()
     })
@@ -851,13 +851,13 @@ describe('RecipeRow — research horizon', () => {
         gameData: noMachineData(),
         planNode: { ...ironPlateRecipeNode, modules: [{ moduleId: 'speed-1', count: 1 }] } as RecipeNode,
       })
-      expect(screen.getByTitle('Modules without a machine')).toHaveTextContent('1/0')
+      expect(screen.getByLabelText('Modules without a machine')).toHaveTextContent('1/0')
     })
 
     it('shows no module cell without modules', () => {
       renderRow({ gameData: noMachineData() })
-      expect(screen.queryByTitle('Modules without a machine')).not.toBeInTheDocument()
-      expect(screen.queryByTitle(/Edit modules/)).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Modules without a machine')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/^Edit modules/)).not.toBeInTheDocument()
     })
   })
 })
@@ -1151,7 +1151,7 @@ describe('RecipeRow source rule marker', () => {
       rowIn(combustionB, root)
       fireEvent.contextMenu(screen.getByLabelText(/^Oxygen/))
       const item = screen.getByRole('menuitem')
-      expect(item).toHaveAttribute('title', "Choose where this item comes from, for the block or for this row's area")
+      expect(item).toHaveAttribute('data-tip', "Choose where this item comes from, for the block or for this row's area")
       fireEvent.click(item)
       expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'oxygen', areaId: 'B' })
     })
@@ -1284,7 +1284,7 @@ describe('RecipeRow sub-factory actions', () => {
     fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0])
     const wrap = screen.getByRole('menuitem', { name: 'Wrap in subfactory…' })
     expect(wrap).toBeDisabled()
-    expect(wrap).toHaveAttribute('title', 'Cannot nest deeper than 4 levels')
+    expect(wrap.closest('[data-tip]')).toHaveAttribute('data-tip', 'Cannot nest deeper than 4 levels')
   })
 
   it('shows no area marker for an organising sub-factory', () => {
@@ -1654,7 +1654,7 @@ describe('RecipeRow in a block with areas', () => {
     openMenu()
     const item = screen.getByRole('menuitem', { name: 'Build also in…' })
     expect(item).toBeDisabled()
-    expect(item).toHaveAttribute('title', 'No other area uses Hydrogen without a row of this recipe')
+    expect(item.closest('[data-tip]')).toHaveAttribute('data-tip', 'No other area uses Hydrogen without a row of this recipe')
   })
 
   it('says it is waiting for the solve, not that no area qualifies, before the block is solved', () => {
@@ -1662,7 +1662,7 @@ describe('RecipeRow in a block with areas', () => {
     openMenu()
     const item = screen.getByRole('menuitem', { name: 'Build also in…' })
     expect(item).toBeDisabled()
-    expect(item).toHaveAttribute('title', 'Waiting for the solve')
+    expect(item.closest('[data-tip]')).toHaveAttribute('data-tip', 'Waiting for the solve')
   })
 
   it('hides Go to row in… when no other row can be revealed', () => {
@@ -1734,7 +1734,7 @@ describe('RecipeRow in a block with areas', () => {
       expect(labels()).toEqual(['Top level', 'Plastics', 'Rocket fuel', 'Chlorides'])
       const self = screen.getByRole('menuitem', { name: 'Plastics' })
       expect(self).toBeDisabled()
-      expect(self).toHaveAttribute('title', 'Cannot copy a subfactory into itself')
+      expect(self.closest('[data-tip]')).toHaveAttribute('data-tip', 'Cannot copy a subfactory into itself')
       fireEvent.click(screen.getByRole('menuitem', { name: 'Rocket fuel' }))
 
       const target = planOf('F')
@@ -1749,7 +1749,7 @@ describe('RecipeRow in a block with areas', () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate to…' }))
       const chlorides = screen.getByRole('menuitem', { name: 'Chlorides' })
       expect(chlorides).toBeDisabled()
-      expect(chlorides).toHaveAttribute('title', 'Already has a row of Iron Plate')
+      expect(chlorides.closest('[data-tip]')).toHaveAttribute('data-tip', 'Already has a row of Iron Plate')
     })
 
     it('disables the entry when every area already has a row of one of the recipes', () => {
@@ -1773,7 +1773,7 @@ describe('RecipeRow in a block with areas', () => {
       openGroupMenu('Group')
       const item = screen.getByRole('menuitem', { name: 'Duplicate to…' })
       expect(item).toBeDisabled()
-      expect(item).toHaveAttribute('title', 'Every area already has a row of one of its recipes')
+      expect(item.closest('[data-tip]')).toHaveAttribute('data-tip', 'Every area already has a row of one of its recipes')
     })
 
     it('uses a neutral tooltip when some areas are disabled only for being inside the source', () => {
@@ -1797,7 +1797,7 @@ describe('RecipeRow in a block with areas', () => {
       openGroupMenu('Group')
       const item = screen.getByRole('menuitem', { name: 'Duplicate to…' })
       expect(item).toBeDisabled()
-      expect(item).toHaveAttribute('title', 'No area can take a copy of this subfactory')
+      expect(item.closest('[data-tip]')).toHaveAttribute('data-tip', 'No area can take a copy of this subfactory')
     })
   })
 
