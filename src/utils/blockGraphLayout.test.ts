@@ -71,8 +71,7 @@ function randomPlan(n: number, seed: number): Block[] {
 }
 
 describe('layoutBlockGraph on the 15-block real plan', () => {
-  // The fixture lives under initiatives/; fix this path when the initiative is archived.
-  const FIXTURE = 'initiatives/block-graph-scale/real-plan.layout.json'
+  const FIXTURE = 'initiatives/archive/block-graph-scale/real-plan.layout.json'
   const fixture = JSON.parse(readFileSync(FIXTURE, 'utf8')) as {
     blocks: { id: string; name: string; connections: { id: string; itemId: string; fromBlockId: string }[] }[]
   }

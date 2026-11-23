@@ -68,7 +68,7 @@ function setup(opts: {
     inputConnections: opts.loop ? [{ id: 'c2', itemId: 'iron-plate', fromBlockId: 'consumer' }] : [],
   }
   useBlockStore.setState({ blocks: [miner, consumer], activeBlockId: 'consumer', history: {} })
-  useUiStore.setState({ rateUnit: 'min' })
+  useUiStore.setState({ rateUnit: 'min', blockGraphView: 'graph' })
   const mine = {
     id: 'mine', name: 'mine', category: 'crafting', craftingTime: 1, ingredients: [],
     products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }], madeIn: [],

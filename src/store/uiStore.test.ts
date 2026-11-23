@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 beforeEach(() => {
   localStorageMock.clear()
   vi.clearAllMocks()
-  useUiStore.setState({ rateUnit: 'min', bridgeUrl: 'ws://127.0.0.1:34199/', viewerAutoSend: false, viewerEnabled: false, summaryCollapsed: true, defaultMachinesRequest: null, revealRowRequest: null })
+  useUiStore.setState({ rateUnit: 'min', bridgeUrl: 'ws://127.0.0.1:34199/', viewerAutoSend: false, viewerEnabled: false, summaryCollapsed: true, blockGraphView: 'graph', blockMatrixOrder: 'dependency', defaultMachinesRequest: null, revealRowRequest: null })
 })
 
 afterEach(() => {
@@ -74,6 +74,38 @@ describe('summaryCollapsed', () => {
   })
 })
 
+describe('blockGraphView and blockMatrixOrder', () => {
+  it('start on the graph and the dependency order', () => {
+    expect(useUiStore.getState().blockGraphView).toBe('graph')
+    expect(useUiStore.getState().blockMatrixOrder).toBe('dependency')
+  })
+
+  it('are saved when they change', () => {
+    const unsub = initUiStatePersistence()
+    useUiStore.getState().setBlockGraphView('matrix')
+    const first = JSON.parse(localStorageMock.setItem.mock.calls.at(-1)?.[1] as string)
+    expect(first.blockGraphView).toBe('matrix')
+    useUiStore.getState().setBlockMatrixOrder('plan')
+    unsub()
+    const second = JSON.parse(localStorageMock.setItem.mock.calls.at(-1)?.[1] as string)
+    expect(second.blockMatrixOrder).toBe('plan')
+  })
+
+  it('are restored from storage', () => {
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ blockGraphView: 'matrix', blockMatrixOrder: 'plan' }))
+    loadPersistedUiState()
+    expect(useUiStore.getState().blockGraphView).toBe('matrix')
+    expect(useUiStore.getState().blockMatrixOrder).toBe('plan')
+  })
+
+  it('ignore a value they do not know', () => {
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ blockGraphView: 'table', blockMatrixOrder: 'alphabetical' }))
+    loadPersistedUiState()
+    expect(useUiStore.getState().blockGraphView).toBe('graph')
+    expect(useUiStore.getState().blockMatrixOrder).toBe('dependency')
+  })
+})
+
 describe('defaultMachinesRequest', () => {
   it('counts requests up, carrying the category', () => {
     useUiStore.getState().requestDefaultMachines()
@@ -92,7 +124,7 @@ describe('defaultMachinesRequest', () => {
     useUiStore.getState().requestDefaultMachines('crafting')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'viewerEnabled', 'summaryCollapsed'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'viewerEnabled', 'summaryCollapsed', 'blockGraphView', 'blockMatrixOrder'])
   })
 })
 
@@ -109,7 +141,7 @@ describe('revealRowRequest', () => {
     useUiStore.getState().requestRevealRow('a')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'viewerEnabled', 'summaryCollapsed'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'viewerEnabled', 'summaryCollapsed', 'blockGraphView', 'blockMatrixOrder'])
   })
 })
 

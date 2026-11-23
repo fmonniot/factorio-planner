@@ -13,6 +13,11 @@ export const UI_STATE_STORAGE_KEY = 'factorio-planner:ui'
 
 export type RateUnit = 'sec' | 'min'
 
+/** The two views of the Block graph modal. */
+export type BlockGraphView = 'graph' | 'matrix'
+/** How the dependency matrix orders its blocks: the graph layout's order, or the order of the tabs. */
+export type BlockMatrixOrder = 'dependency' | 'plan'
+
 /** How the production table lists its rows: the block's tree, or one line per recipe over every area. */
 
 export interface UiStoreState {
@@ -30,6 +35,12 @@ export interface UiStoreState {
   /** The summary strip shows one line per pane (true, the default) or the three full panes. Persisted; it spans block switches. */
   summaryCollapsed: boolean
   setSummaryCollapsed: (value: boolean) => void
+  /** The view the Block graph modal opens in: the graph (the default) or the dependency matrix. Persisted. */
+  blockGraphView: BlockGraphView
+  setBlockGraphView: (view: BlockGraphView) => void
+  /** The matrix's block order: the layout's dependency order (the default) or the tabs' plan order. Persisted. */
+  blockMatrixOrder: BlockMatrixOrder
+  setBlockMatrixOrder: (order: BlockMatrixOrder) => void
   /**
    * Transient (not persisted) ask to open the workspace menu on its "Default machines"
    * flyout, optionally focused on one crafting category. `seq` changes on every request.
@@ -128,6 +139,10 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   setViewerEnabled: (value) => set({ viewerEnabled: value }),
   summaryCollapsed: true,
   setSummaryCollapsed: (value) => set({ summaryCollapsed: value }),
+  blockGraphView: 'graph',
+  setBlockGraphView: (view) => set({ blockGraphView: view }),
+  blockMatrixOrder: 'dependency',
+  setBlockMatrixOrder: (order) => set({ blockMatrixOrder: order }),
   defaultMachinesRequest: null,
   requestDefaultMachines: (category) =>
     set(state => ({ defaultMachinesRequest: { seq: (state.defaultMachinesRequest?.seq ?? 0) + 1, category } })),
@@ -174,12 +189,14 @@ interface PersistedUiState {
   viewerAutoSend: boolean
   viewerEnabled: boolean
   summaryCollapsed: boolean
+  blockGraphView: BlockGraphView
+  blockMatrixOrder: BlockMatrixOrder
 }
 
 export function saveUiState(): void {
   try {
-    const { rateUnit, bridgeUrl, viewerAutoSend, viewerEnabled, summaryCollapsed } = useUiStore.getState()
-    const persisted: PersistedUiState = { rateUnit, bridgeUrl, viewerAutoSend, viewerEnabled, summaryCollapsed }
+    const { rateUnit, bridgeUrl, viewerAutoSend, viewerEnabled, summaryCollapsed, blockGraphView, blockMatrixOrder } = useUiStore.getState()
+    const persisted: PersistedUiState = { rateUnit, bridgeUrl, viewerAutoSend, viewerEnabled, summaryCollapsed, blockGraphView, blockMatrixOrder }
     localStorage.setItem(UI_STATE_STORAGE_KEY, JSON.stringify(persisted))
   } catch {
     // Storage quota exceeded or unavailable — ignore.
@@ -206,6 +223,12 @@ export function loadPersistedUiState(): void {
     if (typeof parsed.summaryCollapsed === 'boolean') {
       useUiStore.setState({ summaryCollapsed: parsed.summaryCollapsed })
     }
+    if (parsed.blockGraphView === 'graph' || parsed.blockGraphView === 'matrix') {
+      useUiStore.setState({ blockGraphView: parsed.blockGraphView })
+    }
+    if (parsed.blockMatrixOrder === 'dependency' || parsed.blockMatrixOrder === 'plan') {
+      useUiStore.setState({ blockMatrixOrder: parsed.blockMatrixOrder })
+    }
   } catch {
     // Malformed or unavailable — start with defaults.
   }
@@ -216,7 +239,8 @@ export function initUiStatePersistence(): () => void {
     if (
       state.rateUnit !== prevState.rateUnit ||
       state.bridgeUrl !== prevState.bridgeUrl || state.viewerAutoSend !== prevState.viewerAutoSend || state.viewerEnabled !== prevState.viewerEnabled ||
-      state.summaryCollapsed !== prevState.summaryCollapsed
+      state.summaryCollapsed !== prevState.summaryCollapsed ||
+      state.blockGraphView !== prevState.blockGraphView || state.blockMatrixOrder !== prevState.blockMatrixOrder
     ) {
       saveUiState()
     }
