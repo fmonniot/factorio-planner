@@ -476,6 +476,16 @@ export function buildLPModel(
 type LPConstraints = LPModel['constraints']
 type LPVariables = LPModel['variables']
 
+/** True when the LP result's rates cannot be trusted: pins that cannot be met, or an unbounded objective (an arbitrary vertex). */
+export function hasUnreliableRates(warnings: readonly SolverWarning[]): boolean {
+  return warnings.some(w => w.type === 'infeasible-pins' || w.type === 'unbounded-absorber')
+}
+
+/** True when the LP result has the `unbounded-absorber` warning. */
+export function isUnbounded(warnings: readonly SolverWarning[]): boolean {
+  return warnings.some(w => w.type === 'unbounded-absorber')
+}
+
 /**
  * Solve `constraints` / `variables` for `optimize` (minimised); javascript-lp-solver does not modify them. A result
  * with `bounded: false` is an arbitrary vertex; only the `__obj__` / `__s2` objectives (the only ones with a negative

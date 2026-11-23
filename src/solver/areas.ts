@@ -21,7 +21,7 @@ import { leftoverOffItems } from '../data/sourceRules'
 import { keySupplyPlanOf } from './keySupplyPlan'
 import { flowKey, parseFlowKey, splitFluids, productTag, rangeOf, type FluidRange } from '../data/flowKey'
 import {
-  BIG_M, BYPRODUCTS_FIRST_SLACK_COST, LEFTOVER_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP, supplyUseVar,
+  BIG_M, BYPRODUCTS_FIRST_SLACK_COST, LEFTOVER_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, hasUnreliableRates, isUnbounded, readLPResult, runLP, supplyUseVar,
   type LPModel, type LPResult,
 } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
@@ -1328,7 +1328,7 @@ export function solveAreaBlock(
    * each solves a different model (one mutable LP there, `solveAreaLP`'s two stages here).
    */
   const areaConnectionOrder = (today: AreaLPResult): AreaLPResult | undefined => {
-    if (!today.feasible || today.shortfall.size > 0 || today.warnings.some(w => w.type === 'infeasible-pins' || w.type === 'unbounded-absorber')) return undefined
+    if (!today.feasible || today.shortfall.size > 0 || hasUnreliableRates(today.warnings)) return undefined
     const tol = (itemId: string) => surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput))
     // Counted as the LP's `__imp` sum counts: every slack at BIG_M. An area on Don't make more here has the cheap slack,
     // except for a byproduct consumer's ingredient, whose slack stays at BIG_M. An item's slacks over its areas add up
@@ -1449,7 +1449,8 @@ export function solveAreaBlock(
     if (totalCaps.has(o.itemId) && !isFirst(o.area, o.itemId)) openResidual.set(o.itemId, (openResidual.get(o.itemId) ?? 0) + o.slack)
   }
   const areaPass2 = [...openResidual].some(([itemId, r]) => r > surplusTolerance(itemGrossFlow(system.S.get(itemId), lp.throughput)))
-  if (pass2.run || areaPass2) {
+  // An unbounded pass 1 has arbitrary slack and throughput, so pass 2 would be planned from noise: keep pass 1 and its warning.
+  if ((pass2.run || areaPass2) && !isUnbounded(lp.warnings)) {
     lp = solveAreaLP(
       system, columns, pinnedRates, bcColumns, feederColumns, pass2.noImport,
       new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual), undefined, pass2.fluidCaps, leftoverOff,
@@ -1485,7 +1486,7 @@ export function solveAreaBlock(
   })
   if (overconstrained) warnings.push(overconstrained)
   // Pins that cannot be met, or an unbounded objective, make the flows meaningless for this check.
-  const coproductDriven = warnings.some(w => w.type === 'infeasible-pins' || w.type === 'unbounded-absorber') ? undefined : coproductDrivenWarning({
+  const coproductDriven = hasUnreliableRates(warnings) ? undefined : coproductDrivenWarning({
     goals: keyGoals(system, plan.goals), system, throughput, slack: lp.slack, itemSurplus, itemGross,
     fixed: new Set([...pinnedRates.keys(), ...lp.absorbers.absorberOnly]), noImportItems: cannotImport, recipeOf: id => recipeOfCol.get(id) ?? id,
     mainItemOf: id => mainItemOfCol.get(id), itemOf: key => baseOf(system, key),

@@ -1196,7 +1196,6 @@ Goal: 10 `case23-goal`. Seed and roll are raw.
 | n | k plus U and a goal of 4 gadget, with Feed absorbing rows on P; roll Receive it first, offer 100, and again with an unlimited offer | G 10, U 4, P 1, K 0, M 0, B 0; roll received 1 (both offers), none imported; no warning; feeders `['case23-make-plate']` |
 | n2 | n with K (flagged) and P (marked) in an area "Plates", G, M, B and U in the root; roll Receive it first, offer 100 | the same rates; roll received 1; a plate route from Plates to the root of 4; an outside leg of roll into Plates of 1, all of it supplied |
 | n3 | n with `case23-grow-plate` for G (it also makes 0.4 plate per run, so U's 4 plates arrive as a byproduct); roll Receive it first, offer 100, and again with an unlimited offer | G 10, U 4, K 0, P 0, M 0; roll received 0 (both offers), none imported; feeders `[]` |
-
 | o | b with `case23-grow-forest` for G (1 goal and 150 trees per run), only S flagged | `unbounded-absorber` naming `['case23-saw-wood']`; rates not asserted |
 | o2 | o with `case23-grow-grove` (99 trees per run) | no `unbounded-absorber` |
 | o3 | o with S, K and P in an area "Wood" | the same warning, naming the recipe id (not a column id); no `coproduct-driven` |

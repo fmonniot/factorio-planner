@@ -250,6 +250,13 @@ describe('WarningsPopover — unbounded-absorber', () => {
     expect(screen.getAllByTestId('warning-link')).toHaveLength(1)
   })
 
+  it('says "One of" when several rows are listed, since only some need be the culprit', () => {
+    setupWithWarnings({ warnings: [{ type: 'unbounded-absorber', recipeIds: ['boiler', 'mystery'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/One of "Boiler Recipe", "mystery" earns more per run than the items it takes cost to make/)).toBeInTheDocument()
+  })
+
   it('says "An absorbing row" when no row is named', () => {
     setupWithWarnings({ warnings: [{ type: 'unbounded-absorber', recipeIds: [] }] })
     render(<WarningsPopover />)

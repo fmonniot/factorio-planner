@@ -197,7 +197,9 @@ function warningBody(
       const names = w.recipeIds.map(id => `"${gameData.recipes[id]?.name ?? id}"`)
       return names.length === 0
         ? 'An absorbing row earns more per run than the items it takes cost to make, so the solver found no limit and the rates in this block are not reliable.'
-        : `${names.join(', ')} ${names.length === 1 ? 'earns' : 'earn'} more per run than the items ${names.length === 1 ? 'it takes' : 'they take'} cost to make, so the solver found no limit and the rates in this block are not reliable.`
+        : names.length === 1
+          ? `${names[0]} earns more per run than the items it takes cost to make, so the solver found no limit and the rates in this block are not reliable.`
+          : `One of ${names.join(', ')} earns more per run than the items it takes cost to make, so the solver found no limit and the rates in this block are not reliable.`
     }
     case 'overconstrained': {
       const names = w.surplusItems.map(si => withTemp(gameData.items[si.itemId]?.name ?? si.itemId, si.temp))
