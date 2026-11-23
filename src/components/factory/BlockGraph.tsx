@@ -8,7 +8,7 @@ import { closesLoop } from '../../solver/blockGraph'
 import { connectableItems, requestBlockerTitle } from '../../store/connections'
 import type { ItemCandidate } from '../../store/connections'
 import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
-import { layoutBlockGraph, edgePath, NODE_W, NODE_H, MAX_EDGE_CHIPS } from '../../utils/blockGraphLayout'
+import { layoutBlockGraph, edgePath, NODE_W, NODE_H, GRAPH_PAD } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
 import { Modal } from '../Modal'
 import { TipWrap } from '../TipWrap'
@@ -49,7 +49,9 @@ const CHIP_TONE: Record<EdgeStatus, string> = {
   pending: 'bg-gray-800 text-gray-400 border-gray-700',
 }
 
-const PAD = 24
+/** An edge with more connections than this shows one summary chip instead of one chip each. */
+const MAX_EDGE_CHIPS = 3
+const PAD = GRAPH_PAD
 const MAX_GOAL_ICONS = 4
 /** Item icons on a summary chip; the rest is counted as +N. */
 const MAX_SUMMARY_ICONS = MAX_EDGE_CHIPS
@@ -410,13 +412,14 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove
   const sourceName = source?.name ?? edge.from
   const targetName = target?.name ?? edge.to
   const ruleItems = useSourceRuleItems(target, gameData)
-  const listOpen = edge.collapsed && open
+  const collapsed = edge.connectionIds.length > MAX_EDGE_CHIPS
+  const listOpen = collapsed && open
 
   // The edge stopped being summarised: forget the list, so it does not pop open when it is summarised again.
-  const [wasCollapsed, setWasCollapsed] = useState(edge.collapsed)
-  if (wasCollapsed !== edge.collapsed) {
-    setWasCollapsed(edge.collapsed)
-    if (!edge.collapsed) {
+  const [wasCollapsed, setWasCollapsed] = useState(collapsed)
+  if (wasCollapsed !== collapsed) {
+    setWasCollapsed(collapsed)
+    if (!collapsed) {
       setOpen(false)
       setEditingId(null)
     }
@@ -451,10 +454,10 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove
     />
   )
 
-  if (!edge.collapsed) {
+  if (!collapsed) {
     return (
       <div
-        style={{ left: edge.labelX, top: edge.labelY, transform: 'translate(-50%, -50%)' }}
+        style={{ left: edge.chip.x, top: edge.chip.y, transform: 'translate(-50%, -50%)' }}
         className="absolute flex flex-col items-center gap-0.5"
       >
         {edge.connectionIds.map(id => chip(id, false))}
@@ -472,7 +475,7 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove
   return (
     // The transform makes a stacking context: lift the whole label while its list is open so nodes do not cover it.
     <div
-      style={{ left: edge.labelX, top: edge.labelY, transform: 'translate(-50%, -50%)', zIndex: open ? 30 : undefined }}
+      style={{ left: edge.chip.x, top: edge.chip.y, transform: 'translate(-50%, -50%)', zIndex: open ? 30 : undefined }}
       className="absolute flex flex-col items-center"
     >
       <div className="relative">

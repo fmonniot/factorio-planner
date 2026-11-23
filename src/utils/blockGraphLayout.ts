@@ -3,34 +3,53 @@ import type { Block } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Block graph layout — layered, deterministic, recomputed on every change.
-// A column is the longest chain of sources feeding a block, not counting the
-// back connections of loops; one barycenter pass orders the rows. A back
-// connection is drawn in its own lane under the blocks it spans. Positions
-// are never saved.
+// Blocks are ordered to leave as few connections as possible running against
+// the order (Eades-Lin-Smyth, then local moves); a column is the longest path
+// over the connections that run with it. A connection that skips a column gets
+// one dummy vertex per skipped column, so it is routed through the gaps instead
+// of across the blocks in between; rows come from barycenter sweeps, a
+// transposition pass and a relaxation with minimum gaps. Edges leave and enter
+// a block spread along its sides. A connection drawn right to left runs along
+// a lane under the graph. Blocks with no connection go in a strip underneath.
+// Positions are never saved.
 // ---------------------------------------------------------------------------
 
-export const NODE_W = 200
-export const NODE_H = 64
-export const COL_GAP = 160
-export const ROW_GAP = 40
-/** Footprint reserved for one connection chip, and the minimum space between stacked labels. */
-export const LABEL_W = 120
-export const LABEL_CHIP_H = 28
-export const LABEL_GAP = 4
-/** An edge with more connections than this shows one summary chip instead of one chip each. */
-export const MAX_EDGE_CHIPS = 3
-/** Horizontal reach of a forward edge's control points. */
-export const EDGE_CURVE = 48
-/** Horizontal reach of a back edge's corners, and the space kept between a back lane and what it passes under. */
-export const BACK_CURVE = 32
+export const NODE_W = 176
+export const NODE_H = 56
+export const COL_GAP = 144
+export const ROW_GAP = 24
+/** Height of a dummy vertex, and the minimum space between it and a neighbour in its column. */
+export const DUMMY_H = 12
+export const DUMMY_GAP = 6
+/** Distance kept between a block's corner and its first and last port. */
+export const PORT_INSET = 8
+/** Horizontal reach of a back edge's corners (the graph's padding leaves room for it). */
+export const BACK_CURVE = 24
+/** Space between the graph and the first back lane, and between two lanes. */
+export const BACK_LANE_TOP = 24
 export const BACK_LANE_GAP = 12
+/** Isolated blocks: space between two of them, between them and the graph, and the minimum per row. */
+export const ISO_GAP = 24
+export const ISO_TOP = 48
+export const ISO_MIN_PER_ROW = 3
+/** Room around the layout that the drawing keeps for a back edge's corners. */
+export const GRAPH_PAD = 24
+
+export interface Point {
+  x: number
+  y: number
+}
 
 export interface BlockNodeLayout {
   id: string
+  /** Layer of a connected block; -1 for an isolated one. */
   column: number
+  /** Index among the blocks of the column; for an isolated block, its index in the strip. */
   row: number
   x: number
   y: number
+  /** No connection to or from another block: drawn in the strip under the graph. */
+  isolated: boolean
 }
 
 export interface BlockEdgeLayout {
@@ -38,25 +57,17 @@ export interface BlockEdgeLayout {
   to: string
   /** Connections of this (source, consumer) pair, in the consumer's order. */
   connectionIds: string[]
-  /** More than MAX_EDGE_CHIPS connections: the edge shows one summary chip, not one chip per connection. */
-  collapsed: boolean
   /** Some connection of the pair joins two members of one loop. */
   loop: boolean
-  /** The pair is a loop's back connection: the source comes later in the loop's order than the consumer. */
+  /** The pair is drawn right to left (its source sits in the same column as its consumer or after it). */
   back: boolean
-  /** From the source's right-middle to the consumer's left-middle. */
-  x1: number
-  y1: number
-  x2: number
-  y2: number
   /**
-   * Centre of the label stack (one chip per connection, or one summary chip when collapsed): in the gutter just before the
-   * consumer's column, or, for a back edge, on its lane.
+   * Forward: the source's right port, then for each column it skips the left and right ends of the dummy slot, then the
+   * consumer's left port. Back: the source's right port, its lane, the lane above the consumer's left port, that port.
    */
-  labelX: number
-  labelY: number
-  /** Back edges only: the y of the lane the edge runs along under the blocks. */
-  laneY?: number
+  points: Point[]
+  /** Where the edge's summary chip is centred: on the last segment of a forward edge, on the lane of a back edge. */
+  chip: Point
 }
 
 export interface BlockGraphLayout {
@@ -64,6 +75,8 @@ export interface BlockGraphLayout {
   edges: BlockEdgeLayout[]
   width: number
   height: number
+  /** Dependency order: the ordering of the connected blocks, then the isolated ones in plan order. */
+  order: string[]
 }
 
 interface Pair {
@@ -71,21 +84,106 @@ interface Pair {
   to: string
   connectionIds: string[]
   loop: boolean
-  back: boolean
 }
 
-/** Height of an edge's label stack: one chip per connection, or a single summary chip when collapsed. */
-export function labelStackHeight(e: Pick<BlockEdgeLayout, 'connectionIds' | 'collapsed'>): number {
-  return (e.collapsed ? 1 : e.connectionIds.length) * LABEL_CHIP_H
+interface Vertex {
+  id: string
+  layer: number
+  dummy: boolean
+}
+
+/** Eades-Lin-Smyth ordering: sinks go right, sources go left, then the block with the most surplus of out-edges. */
+function eadesLinSmyth(nodes: string[], edges: Pair[]): string[] {
+  const out = new Map(nodes.map(n => [n, new Set<string>()]))
+  const inn = new Map(nodes.map(n => [n, new Set<string>()]))
+  for (const e of edges) {
+    out.get(e.from)!.add(e.to)
+    inn.get(e.to)!.add(e.from)
+  }
+  const left: string[] = []
+  const right: string[] = []
+  const rem = new Set(nodes)
+  const del = (n: string) => {
+    rem.delete(n)
+    for (const m of out.get(n)!) inn.get(m)!.delete(n)
+    for (const m of inn.get(n)!) out.get(m)!.delete(n)
+  }
+  while (rem.size) {
+    let moved = true
+    while (moved) {
+      moved = false
+      for (const n of [...rem]) {
+        if (out.get(n)!.size === 0) {
+          right.unshift(n)
+          del(n)
+          moved = true
+        }
+      }
+      for (const n of [...rem]) {
+        if (rem.has(n) && inn.get(n)!.size === 0) {
+          left.push(n)
+          del(n)
+          moved = true
+        }
+      }
+    }
+    if (rem.size) {
+      let best: string | null = null
+      let bestValue = -Infinity
+      for (const n of rem) {
+        const v = out.get(n)!.size - inn.get(n)!.size
+        if (v > bestValue) {
+          bestValue = v
+          best = n
+        }
+      }
+      left.push(best!)
+      del(best!)
+    }
+  }
+  return [...left, ...right]
+}
+
+/** ELS followed by local moves: move one block to another position whenever that leaves strictly fewer back edges. */
+function feedbackOrder(nodes: string[], edges: Pair[]): string[] {
+  let order = eadesLinSmyth(nodes, edges)
+  const nodeIndex = new Map(nodes.map((n, i) => [n, i]))
+  const ends = edges.map(e => [nodeIndex.get(e.from)!, nodeIndex.get(e.to)!] as const)
+  const pos = new Array<number>(nodes.length)
+  const backCount = (o: string[]) => {
+    for (let i = 0; i < o.length; i++) pos[nodeIndex.get(o[i])!] = i
+    let c = 0
+    for (const [a, b] of ends) if (pos[a] > pos[b]) c++
+    return c
+  }
+  let current = backCount(order)
+  for (let pass = 0; pass < 10; pass++) {
+    let improved = false
+    for (let i = 0; i < order.length; i++) {
+      for (let j = 0; j < order.length; j++) {
+        if (i === j) continue
+        const moved = order.slice()
+        const [x] = moved.splice(i, 1)
+        moved.splice(j, 0, x)
+        const count = backCount(moved)
+        if (count < current) {
+          order = moved
+          current = count
+          improved = true
+        }
+      }
+    }
+    if (!improved) break
+  }
+  return order
 }
 
 export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
-  if (blocks.length === 0) return { nodes: {}, edges: [], width: 0, height: 0 }
+  if (blocks.length === 0) return { nodes: {}, edges: [], width: 0, height: 0, order: [] }
 
   const index = new Map(blocks.map((b, i) => [b.id, i]))
-  const { order, components } = orderBlocks(blocks)
+  const { components } = orderBlocks(blocks)
   const loopConnectionIds = new Set(components.flatMap(c => c.loop?.connectionIds ?? []))
-  const backConnectionIds = new Set(components.flatMap(c => c.loop?.backConnectionIds ?? []))
 
   // Group connections by (source, consumer); unknown sources and self-connections get no edge.
   const pairs: Pair[] = []
@@ -96,162 +194,327 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
       const key = `${c.fromBlockId}>${b.id}`
       let pair = pairByKey.get(key)
       if (!pair) {
-        pair = { from: c.fromBlockId, to: b.id, connectionIds: [], loop: false, back: false }
+        pair = { from: c.fromBlockId, to: b.id, connectionIds: [], loop: false }
         pairByKey.set(key, pair)
         pairs.push(pair)
       }
       pair.connectionIds.push(c.id)
       if (loopConnectionIds.has(c.id)) pair.loop = true
-      if (backConnectionIds.has(c.id)) pair.back = true
     }
   }
 
-  // Longest path over the forward pairs, walking sources before consumers.
-  const column = new Map(blocks.map(b => [b.id, 0]))
-  const incoming = new Map<string, string[]>()
+  const connected = new Set<string>()
   for (const p of pairs) {
-    if (p.back) continue
-    const list = incoming.get(p.to)
-    if (list) list.push(p.from)
-    else incoming.set(p.to, [p.from])
+    connected.add(p.from)
+    connected.add(p.to)
   }
-  for (const b of order) {
-    for (const from of incoming.get(b.id) ?? []) {
-      column.set(b.id, Math.max(column.get(b.id)!, column.get(from)! + 1))
+  const active = blocks.map(b => b.id).filter(id => connected.has(id))
+  const isolated = blocks.map(b => b.id).filter(id => !connected.has(id))
+
+  const order = feedbackOrder(active, pairs)
+  const pos = new Map(order.map((n, i) => [n, i]))
+
+  // Layers: longest path over the pairs that run with the order, sources first.
+  const layer = new Map(active.map(n => [n, 0]))
+  const incomingByTarget = new Map<string, string[]>()
+  for (const p of pairs) {
+    if (pos.get(p.from)! > pos.get(p.to)!) continue
+    const list = incomingByTarget.get(p.to)
+    if (list) list.push(p.from)
+    else incomingByTarget.set(p.to, [p.from])
+  }
+  for (const n of order) {
+    for (const from of incomingByTarget.get(n) ?? []) layer.set(n, Math.max(layer.get(n)!, layer.get(from)! + 1))
+  }
+  const layerCount = active.length ? Math.max(...layer.values()) + 1 : 0
+  const isBack = (p: Pair) => layer.get(p.from)! >= layer.get(p.to)!
+
+  // Vertices: the blocks, plus a dummy per skipped layer of each forward pair.
+  const vertices = new Map<string, Vertex>()
+  for (const n of active) vertices.set(n, { id: n, layer: layer.get(n)!, dummy: false })
+  const segments: [string, string][] = []
+  const chains: string[][] = [] // per pair index; empty for a back edge
+  pairs.forEach((p, pi) => {
+    if (isBack(p)) {
+      chains.push([])
+      return
     }
+    const chain = [p.from]
+    let prev = p.from
+    for (let l = layer.get(p.from)! + 1; l < layer.get(p.to)!; l++) {
+      const id = `d${pi}_${l}`
+      vertices.set(id, { id, layer: l, dummy: true })
+      segments.push([prev, id])
+      chain.push(id)
+      prev = id
+    }
+    segments.push([prev, p.to])
+    chain.push(p.to)
+    chains.push(chain)
+  })
+
+  // Crossing minimisation: barycenter sweeps keeping the best, then transpositions.
+  const layers: string[][] = Array.from({ length: layerCount }, () => [])
+  const rank = (id: string) => {
+    const v = vertices.get(id)!
+    if (!v.dummy) return pos.get(id)!
+    return active.length + Number(id.slice(1, id.indexOf('_')))
+  }
+  for (const v of vertices.values()) layers[v.layer].push(v.id)
+  for (const l of layers) l.sort((a, b) => rank(a) - rank(b))
+  const adjUp = new Map<string, string[]>()
+  const adjDn = new Map<string, string[]>()
+  for (const id of vertices.keys()) {
+    adjUp.set(id, [])
+    adjDn.set(id, [])
+  }
+  for (const [a, b] of segments) {
+    adjDn.get(a)!.push(b)
+    adjUp.get(b)!.push(a)
+  }
+  // Crossing counts run on integer vertex numbers: they dominate the cost on big plans.
+  const vnum = new Map([...vertices.keys()].map((id, i) => [id, i]))
+  const rowOfNum = new Int32Array(vnum.size)
+  const segmentsByGap: [number, number][][] = Array.from({ length: Math.max(0, layerCount - 1) }, () => [])
+  for (const [a, b] of segments) segmentsByGap[vertices.get(a)!.layer].push([vnum.get(a)!, vnum.get(b)!])
+
+  const rows = {
+    get: (id: string) => rowOfNum[vnum.get(id)!],
+    set: (id: string, r: number) => void (rowOfNum[vnum.get(id)!] = r),
+  }
+  const refreshRows = () => layers.forEach(l => l.forEach((id, i) => rows.set(id, i)))
+  const gapCrossings = (g: number) => {
+    const ss = segmentsByGap[g]
+    let c = 0
+    for (let i = 0; i < ss.length; i++) {
+      const ra = rowOfNum[ss[i][0]]
+      const rb = rowOfNum[ss[i][1]]
+      for (let j = i + 1; j < ss.length; j++) {
+        if ((ra - rowOfNum[ss[j][0]]) * (rb - rowOfNum[ss[j][1]]) < 0) c++
+      }
+    }
+    return c
+  }
+  const crossings = () => {
+    let c = 0
+    for (let g = 0; g < segmentsByGap.length; g++) c += gapCrossings(g)
+    return c
+  }
+  refreshRows()
+  let best = layers.map(l => l.slice())
+  let bestC = crossings()
+  for (let sweep = 0; sweep < 24; sweep++) {
+    const down = sweep % 2 === 0
+    const idxs = down
+      ? Array.from({ length: layerCount }, (_, i) => i).slice(1)
+      : Array.from({ length: layerCount }, (_, i) => i).reverse().slice(1)
+    for (const l of idxs) {
+      const nb = down ? adjUp : adjDn
+      const bc = new Map<string, number>()
+      layers[l].forEach((id, i) => {
+        const ns = nb.get(id)!
+        bc.set(id, ns.length ? ns.reduce((s, x) => s + rows.get(x)!, 0) / ns.length : i)
+      })
+      layers[l].sort((a, b) => bc.get(a)! - bc.get(b)!)
+      layers[l].forEach((id, i) => rows.set(id, i))
+    }
+    const c = crossings()
+    if (c < bestC) {
+      bestC = c
+      best = layers.map(l => l.slice())
+    }
+  }
+  best.forEach((l, i) => (layers[i] = l.slice()))
+  refreshRows()
+  for (let pass = 0; pass < 6; pass++) {
+    let changed = false
+    for (let l = 0; l < layerCount; l++) {
+      for (let i = 0; i + 1 < layers[l].length; i++) {
+        const gaps = [l - 1, l].filter(g => g >= 0 && g < segmentsByGap.length)
+        const before = gaps.reduce((s, g) => s + gapCrossings(g), 0)
+        const a = layers[l][i]
+        const b = layers[l][i + 1]
+        layers[l][i] = b
+        layers[l][i + 1] = a
+        rows.set(b, i)
+        rows.set(a, i + 1)
+        const after = gaps.reduce((s, g) => s + gapCrossings(g), 0)
+        if (after < before) changed = true
+        else {
+          layers[l][i] = a
+          layers[l][i + 1] = b
+          rows.set(a, i)
+          rows.set(b, i + 1)
+        }
+      }
+    }
+    if (!changed) break
   }
 
-  // Rows: array order per column, then one barycenter pass from column 1 rightwards.
-  const maxCol = Math.max(...column.values())
-  const columns: string[][] = Array.from({ length: maxCol + 1 }, () => [])
-  for (const b of blocks) columns[column.get(b.id)!].push(b.id)
-  const row = new Map<string, number>()
-  columns[0].forEach((id, r) => row.set(id, r))
-  for (let col = 1; col <= maxCol; col++) {
-    const current = new Map(columns[col].map((id, r) => [id, r]))
-    const key = (id: string) => {
-      const preds = incoming.get(id)
-      if (!preds) return current.get(id)!
-      return preds.reduce((sum, p) => sum + row.get(p)!, 0) / preds.length
-    }
-    columns[col].sort((a, b) =>
-      key(a) - key(b) || current.get(a)! - current.get(b)! || index.get(a)! - index.get(b)!)
-    columns[col].forEach((id, r) => row.set(id, r))
+  // Rows: stack each layer, then relax toward the neighbours' mean keeping order and minimum gaps.
+  const heightOf = (id: string) => (vertices.get(id)!.dummy ? DUMMY_H : NODE_H)
+  const gapOf = (a: string, b: string) => (vertices.get(a)!.dummy || vertices.get(b)!.dummy ? DUMMY_GAP : ROW_GAP)
+  const y = new Map<string, number>() // vertex centre
+  for (const l of layers) {
+    let yy = 0
+    l.forEach((id, i) => {
+      if (i) yy += gapOf(l[i - 1], id)
+      y.set(id, yy + heightOf(id) / 2)
+      yy += heightOf(id)
+    })
   }
+  for (let it = 0; it < 12; it++) {
+    const forward = it % 2 === 1
+    const idxs = Array.from({ length: layerCount }, (_, i) => i)
+    if (!forward) idxs.reverse()
+    for (const l of idxs) {
+      const ids = layers[l]
+      const want = ids.map(id => {
+        const ns = adjUp.get(id)!.concat(adjDn.get(id)!)
+        return ns.length ? ns.reduce((s, x) => s + y.get(x)!, 0) / ns.length : y.get(id)!
+      })
+      for (let i = 0; i < ids.length; i++) {
+        const minY = i === 0
+          ? -Infinity
+          : y.get(ids[i - 1])! + heightOf(ids[i - 1]) / 2 + gapOf(ids[i - 1], ids[i]) + heightOf(ids[i]) / 2
+        y.set(ids[i], Math.max(want[i], minY))
+      }
+      for (let i = ids.length - 2; i >= 0; i--) {
+        const maxY = y.get(ids[i + 1])! - heightOf(ids[i + 1]) / 2 - gapOf(ids[i], ids[i + 1]) - heightOf(ids[i]) / 2
+        if (y.get(ids[i])! > maxY) y.set(ids[i], maxY)
+      }
+    }
+  }
+  let minTop = Infinity
+  for (const id of vertices.keys()) minTop = Math.min(minTop, y.get(id)! - heightOf(id) / 2)
+  if (!Number.isFinite(minTop)) minTop = 0
+  for (const id of vertices.keys()) y.set(id, y.get(id)! - minTop)
+
+  const colX = (l: number) => l * (NODE_W + COL_GAP)
+  const top = (id: string) => y.get(id)! - NODE_H / 2
 
   const nodes: Record<string, BlockNodeLayout> = {}
-  for (const b of blocks) {
-    const col = column.get(b.id)!
-    const r = row.get(b.id)!
-    nodes[b.id] = { id: b.id, column: col, row: r, x: col * (NODE_W + COL_GAP), y: r * (NODE_H + ROW_GAP) }
-  }
-
-  const edges: BlockEdgeLayout[] = pairs.map(p => ({
-    from: p.from,
-    to: p.to,
-    connectionIds: p.connectionIds,
-    collapsed: p.connectionIds.length > MAX_EDGE_CHIPS,
-    loop: p.loop,
-    back: p.back,
-    x1: nodes[p.from].x + NODE_W,
-    y1: nodes[p.from].y + NODE_H / 2,
-    x2: nodes[p.to].x,
-    y2: nodes[p.to].y + NODE_H / 2,
-    labelX: 0,
-    labelY: 0,
-  }))
-
-  // Labels sit in the gutter before the consumer's column, which holds no node, on the
-  // straight line between the endpoints; labels sharing a gutter are pushed apart.
-  const stackH = labelStackHeight
-  const byGutter = new Map<number, BlockEdgeLayout[]>()
-  for (const e of edges) {
-    if (e.back) continue
-    e.labelX = e.x2 - COL_GAP / 2
-    const t = e.x2 === e.x1 ? 1 : (e.labelX - e.x1) / (e.x2 - e.x1)
-    e.labelY = e.y1 + (e.y2 - e.y1) * t
-    const list = byGutter.get(e.x2)
-    if (list) list.push(e)
-    else byGutter.set(e.x2, [e])
-  }
-  let labelsTop = 0
-  let labelsBottom = 0
-  for (const list of byGutter.values()) {
-    list.sort((a, b) => a.labelY - b.labelY) // stable: ties keep pair order
-    for (let i = 1; i < list.length; i++) {
-      const min = list[i - 1].labelY + (stackH(list[i - 1]) + stackH(list[i])) / 2 + LABEL_GAP
-      if (list[i].labelY < min) list[i].labelY = min
-    }
-    for (const e of list) {
-      labelsTop = Math.min(labelsTop, e.labelY - stackH(e) / 2)
-      labelsBottom = Math.max(labelsBottom, e.labelY + stackH(e) / 2)
+  for (const l of layers) {
+    let r = 0
+    for (const id of l) {
+      if (vertices.get(id)!.dummy) continue
+      nodes[id] = { id, column: vertices.get(id)!.layer, row: r++, x: colX(vertices.get(id)!.layer), y: top(id), isolated: false }
     }
   }
 
-  // Back edges run along a lane under every block and forward label in the columns they
-  // span, one lane below another when their spans overlap.
-  const colStep = NODE_W + COL_GAP
-  const placed: { left: number; right: number; bottom: number }[] = []
-  for (const e of edges) {
-    if (!e.back) continue
-    const lo = Math.min(nodes[e.from].column, nodes[e.to].column)
-    const hi = Math.max(nodes[e.from].column, nodes[e.to].column)
-    const left = lo * colStep - COL_GAP
-    const right = hi * colStep + NODE_W
-    let spanBottom = 0
-    for (const n of Object.values(nodes)) {
-      if (n.column >= lo && n.column <= hi) spanBottom = Math.max(spanBottom, n.y + NODE_H)
+  // Ports: along each side, in the order of the neighbouring vertex's y; back edges last.
+  const neighbourY = (pi: number, side: 'out' | 'in') => {
+    const chain = chains[pi]
+    return y.get(side === 'out' ? chain[1] : chain[chain.length - 2])!
+  }
+  const portY = new Map<string, number>() // `${side}:${pairIndex}`
+  for (const id of active) {
+    for (const side of ['out', 'in'] as const) {
+      const mine = pairs
+        .map((p, pi) => ({ p, pi }))
+        .filter(({ p }) => (side === 'out' ? p.from : p.to) === id)
+      mine.sort((a, b) => {
+        const ab = isBack(a.p)
+        const bb = isBack(b.p)
+        if (ab !== bb) return ab ? 1 : -1
+        if (!ab) return neighbourY(a.pi, side) - neighbourY(b.pi, side) || a.pi - b.pi
+        return a.pi - b.pi
+      })
+      mine.forEach(({ pi }, k) => {
+        portY.set(`${side}:${pi}`, top(id) + PORT_INSET + (NODE_H - 2 * PORT_INSET) * (k + 0.5) / mine.length)
+      })
     }
-    for (const f of edges) {
-      if (f.back || f.labelX < left || f.labelX > right) continue
-      spanBottom = Math.max(spanBottom, f.labelY + stackH(f) / 2)
-    }
-    let top = spanBottom + BACK_LANE_GAP
-    for (const p of placed) {
-      if (p.left <= right && p.right >= left) top = Math.max(top, p.bottom + BACK_LANE_GAP)
-    }
-    placed.push({ left, right, bottom: top + stackH(e) })
-    e.labelX = (e.x1 + e.x2) / 2
-    e.labelY = top + stackH(e) / 2
-    e.laneY = e.labelY
-    labelsBottom = Math.max(labelsBottom, top + stackH(e))
   }
 
-  // A tall stack on a top-row edge reaches above the first row: move everything down so
-  // it stays inside the layout (the viewport cannot scroll to negative coordinates).
-  const shift = -labelsTop
-  if (shift > 0) {
-    for (const n of Object.values(nodes)) n.y += shift
-    for (const e of edges) {
-      e.y1 += shift
-      e.y2 += shift
-      e.labelY += shift
-      if (e.laneY !== undefined) e.laneY += shift
-    }
-    labelsBottom += shift
-  }
+  // Back lanes lie under every block and dummy, shorter ones above longer ones.
+  let bottom = 0
+  for (const id of vertices.keys()) bottom = Math.max(bottom, y.get(id)! + heightOf(id) / 2)
+  const startOf = (pi: number): Point => ({ x: nodes[pairs[pi].from].x + NODE_W, y: portY.get(`out:${pi}`)! })
+  const endOf = (pi: number): Point => ({ x: nodes[pairs[pi].to].x, y: portY.get(`in:${pi}`)! })
+  const backIndexes = pairs.map((_, pi) => pi).filter(pi => isBack(pairs[pi]))
+  backIndexes.sort((a, b) =>
+    Math.abs(endOf(a).x - startOf(a).x) - Math.abs(endOf(b).x - startOf(b).x) || a - b)
+  const laneOf = new Map(backIndexes.map((pi, k) => [pi, bottom + BACK_LANE_TOP + k * BACK_LANE_GAP]))
+  let graphBottom = bottom
+  if (backIndexes.length) graphBottom = bottom + BACK_LANE_TOP + (backIndexes.length - 1) * BACK_LANE_GAP
 
-  const maxRows = Math.max(...columns.map(c => c.length))
+  const edges: BlockEdgeLayout[] = pairs.map((p, pi) => {
+    const start = startOf(pi)
+    const end = endOf(pi)
+    if (isBack(p)) {
+      const lane = laneOf.get(pi)!
+      return {
+        from: p.from, to: p.to, connectionIds: p.connectionIds, loop: p.loop, back: true,
+        points: [start, { x: start.x, y: lane }, { x: end.x, y: lane }, end],
+        chip: { x: (start.x + end.x) / 2, y: lane },
+      }
+    }
+    const points: Point[] = [start]
+    for (const id of chains[pi].slice(1, -1)) {
+      const x = colX(vertices.get(id)!.layer)
+      points.push({ x, y: y.get(id)! }, { x: x + NODE_W, y: y.get(id)! })
+    }
+    points.push(end)
+    const a = points[points.length - 2]
+    return {
+      from: p.from, to: p.to, connectionIds: p.connectionIds, loop: p.loop, back: false,
+      points,
+      chip: { x: (a.x + end.x) / 2, y: (a.y + end.y) / 2 },
+    }
+  })
+
+  // Isolated blocks: a row-wrapped strip under the graph and its lanes.
+  const connectedWidth = layerCount ? layerCount * (NODE_W + COL_GAP) - COL_GAP : 0
+  const perRow = Math.max(ISO_MIN_PER_ROW, Math.floor((connectedWidth + ISO_GAP) / (NODE_W + ISO_GAP)))
+  const stripTop = active.length ? graphBottom + ISO_TOP : 0
+  isolated.forEach((id, i) => {
+    nodes[id] = {
+      id, column: -1, row: i,
+      x: (i % perRow) * (NODE_W + ISO_GAP),
+      y: stripTop + Math.floor(i / perRow) * (NODE_H + ROW_GAP),
+      isolated: true,
+    }
+  })
+  const stripWidth = isolated.length ? Math.min(isolated.length, perRow) * (NODE_W + ISO_GAP) - ISO_GAP : 0
+  const stripBottom = isolated.length
+    ? stripTop + Math.ceil(isolated.length / perRow) * (NODE_H + ROW_GAP) - ROW_GAP
+    : 0
+
   return {
     nodes,
     edges,
-    width: (maxCol + 1) * (NODE_W + COL_GAP) - COL_GAP + (edges.some(e => e.back) ? BACK_CURVE : 0),
-    height: Math.max(maxRows * (NODE_H + ROW_GAP) - ROW_GAP + shift, labelsBottom),
+    width: Math.max(connectedWidth, stripWidth),
+    height: Math.max(graphBottom, stripBottom),
+    order: [...order, ...isolated],
   }
 }
 
 /**
- * SVG path of an edge. A forward edge is one cubic curve. A back edge leaves the
- * source's right side, drops to its lane, runs left under the blocks and rises into
- * the consumer's left side; its corners reach BACK_CURVE past both ends, so it
- * overhangs the layout by BACK_CURVE (the graph's padding leaves room for that).
+ * SVG path of an edge. A forward edge joins its points with cubic curves that leave and arrive
+ * horizontally. A back edge leaves the source's right side, drops to its lane, runs left and
+ * rises into the consumer's left side; its corners reach BACK_CURVE past both ends, so it
+ * overhangs the layout by BACK_CURVE (GRAPH_PAD leaves room for that).
  */
 export function edgePath(e: BlockEdgeLayout): string {
-  const { x1, y1, x2, y2 } = e
-  if (e.back && e.laneY !== undefined) {
-    const lane = e.laneY
-    return `M ${x1} ${y1} C ${x1 + BACK_CURVE} ${y1}, ${x1 + BACK_CURVE} ${lane}, ${x1} ${lane} ` +
-      `L ${x2} ${lane} C ${x2 - BACK_CURVE} ${lane}, ${x2 - BACK_CURVE} ${y2}, ${x2} ${y2}`
+  const pts = e.points
+  if (e.back) {
+    const [start, , , end] = pts
+    const lane = pts[1].y
+    return `M ${start.x} ${start.y} C ${start.x + BACK_CURVE} ${start.y}, ${start.x + BACK_CURVE} ${lane}, ${start.x} ${lane} ` +
+      `L ${end.x} ${lane} C ${end.x - BACK_CURVE} ${lane}, ${end.x - BACK_CURVE} ${end.y}, ${end.x} ${end.y}`
   }
-  return `M ${x1} ${y1} C ${x1 + EDGE_CURVE} ${y1}, ${x2 - EDGE_CURVE} ${y2}, ${x2} ${y2}`
+  let d = `M ${pts[0].x} ${pts[0].y}`
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]
+    const b = pts[i]
+    const midX = (a.x + b.x) / 2
+    d += ` C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`
+  }
+  return d
+}
+
+/** Scale that fits content into a view, never enlarging; 1 when any size is not positive. */
+export function fitScale(viewW: number, viewH: number, contentW: number, contentH: number): number {
+  if (viewW <= 0 || viewH <= 0 || contentW <= 0 || contentH <= 0) return 1
+  return Math.min(1, viewW / contentW, viewH / contentH)
 }
