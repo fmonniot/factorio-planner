@@ -4,6 +4,7 @@ import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { useHoverPopup } from '../useHoverPopup'
 import { FlowChip } from './AreaFlow'
+import { rowDisplayName } from './areaMatrix'
 import { fmtItemRateText } from './ItemTile'
 import type { FlowLine } from './sidePanel/groupFlows'
 
@@ -32,8 +33,8 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
   if (empty) return null
   const received = direction === 'receives'
   const rows = flows.flatMap(l => (l.ends.length > 0
-    ? l.ends.map(e => ({ itemId: l.itemId, boundary: l.boundary, rate: e.rate, otherEnd: e.otherEnd }))
-    : [{ itemId: l.itemId, boundary: l.boundary, rate: l.rate, otherEnd: '' }]))
+    ? l.ends.map(e => ({ itemId: l.itemId, temp: l.temp, boundary: l.boundary, rate: e.rate, otherEnd: e.otherEnd }))
+    : [{ itemId: l.itemId, temp: l.temp, boundary: l.boundary, rate: l.rate, otherEnd: '' }]))
   return (
     <>
       <button
@@ -64,9 +65,9 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
                 data-other-end={r.otherEnd}
                 className="flex items-center gap-2"
               >
-                <FlowChip itemId={r.itemId} rate={r.rate} boundary={r.boundary} otherEnd={r.otherEnd} direction={direction} items={items} rateUnit={rateUnit} />
+                <FlowChip itemId={r.itemId} temp={r.temp} rate={r.rate} boundary={r.boundary} otherEnd={r.otherEnd} direction={direction} items={items} rateUnit={rateUnit} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-gray-200">{items[r.itemId]?.name ?? r.itemId}</div>
+                  <div className="truncate text-gray-200">{rowDisplayName({ name: items[r.itemId]?.name ?? r.itemId, temp: r.temp })}</div>
                   {r.otherEnd && <div className="truncate text-[11px] text-gray-400" title={r.otherEnd}>{r.otherEnd}</div>}
                 </div>
                 <span className="shrink-0 whitespace-nowrap font-mono tabular-nums text-gray-400">{fmtItemRateText(r.itemId, r.rate / 60, rateUnit)}</span>

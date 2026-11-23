@@ -1041,7 +1041,7 @@ function AreaFlowChips({ lines, direction, items, rateUnit, testId }: AreaFlowCe
       style={direction === 'sends' ? { marginRight: -INGREDIENTS_INDENT_PX } : undefined}
     >
       {lines.slice(0, shown).map(l => (
-        <FlowChip key={l.key} itemId={l.itemId} rate={l.rate} boundary={l.boundary} otherEnd={l.otherEnd} direction={direction} items={items} rateUnit={rateUnit} />
+        <FlowChip key={l.key} itemId={l.itemId} temp={l.temp} rate={l.rate} boundary={l.boundary} otherEnd={l.otherEnd} direction={direction} items={items} rateUnit={rateUnit} />
       ))}
       <AreaChipsMore flows={lines.slice(shown)} direction={direction} items={items} rateUnit={rateUnit} />
     </div>

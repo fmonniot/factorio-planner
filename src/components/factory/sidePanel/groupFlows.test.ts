@@ -16,6 +16,21 @@ describe('flowLines', () => {
     expect(new Set(keys).size).toBe(3)
   })
 
+  it('matches the routes of a split fluid to the temperature of the line', () => {
+    const steamRoutes = [
+      { itemId: 'steam', temp: { at: 165 }, from: 'oil', to: 'a', rate: 10 },
+      { itemId: 'steam', temp: { at: 500 }, from: 'root', to: 'a', rate: 5 },
+    ]
+    const flows = [
+      { itemId: 'steam', rate: 10, boundary: false, temp: { at: 165 } },
+      { itemId: 'steam', rate: 5, boundary: false, temp: { at: 500 } },
+    ]
+    expect(flowLines(flows, steamRoutes, 'a', 'receives', nameOf)).toMatchObject([
+      { temp: { at: 165 }, otherEnd: 'from Oil', ends: [{ rate: 10 }] },
+      { temp: { at: 500 }, otherEnd: 'from the rest of the block', ends: [{ rate: 5 }] },
+    ])
+  })
+
   const routes = [
     { itemId: 'gas', from: 'oil', to: 'a', rate: 30 },
     { itemId: 'gas', from: 'root', to: 'a', rate: 10 },
