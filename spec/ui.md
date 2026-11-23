@@ -182,51 +182,46 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
 
 ### Block graph
 
-`BlockGraph.tsx`. The **Block graph** icon button (a three-node graph glyph; hidden until game data is loaded) opens a
-near-full-screen modal showing every block and the connections between them, like the
-[technology tree](#technology-tree) but without pan or zoom: the viewport scrolls natively.
+`BlockGraph.tsx`, with `BlockGraphDetail.tsx` (the detail strip), `GraphConnectionChip.tsx` (the chip of one connection, in the strip) and `graphConnection.ts` (the status, title and served rank of one connection). The **Block graph** icon button (a three-node graph glyph; hidden until game data is loaded) opens a
+near-full-screen modal showing every block and the connections between them. The graph is always **scaled to fit** the modal's viewport (never above 100%): there is no pan, no zoom and no scrolling, so every block and every edge is on screen at once. The viewport is measured with a `ResizeObserver` and `fitScale` (`src/utils/blockGraphLayout.ts`); at the 15 blocks of a big plan the scale is about 0.5, so block names are small and the detail strip carries the readable text. The nodes and edges sit in a scaled layer; the edges' summary chips sit in an unscaled overlay above it (`block-graph-overlay`), so they stay readable at any fit. The graph only shows and edits connections: a block has no handle to start one (a connection is made from the consuming block's Ingredients slot, see the [connection menu](#connection-menu)).
 
-- **Layout** (`src/utils/blockGraphLayout.ts`). A block's column is the longest chain of
-  sources feeding it (sources on the left), not counting the *back connections* of loops (see
-  [solver.md](solver.md#loops)), so every other edge runs left to right and every back edge right to left; rows follow one barycenter pass (the mean row of a
-  block's sources, ties by plan order). Positions are recomputed on every change and never saved.
-- **Nodes.** Block name, first goal icon (or `?`) and up to four goal icons plus `+N`. The active
+- **Layout** (`src/utils/blockGraphLayout.ts`, pure and deterministic, ties by plan order, recomputed on every change and never saved). The layout is a layered drawing:
+  1. *Order.* Blocks that have at least one edge are put in the order that leaves the fewest edges running against it (Eades-Lin-Smyth, then local moves). The order is exported as `order`, the isolated blocks last.
+  2. *Layers.* A block's column is the longest path of edges that run with that order. An edge is drawn **right to left** (`back`) when its source's column is the same as or after its consumer's; the layout chooses this set for drawing only, so it can differ from the solver's loop entry (see [solver.md](solver.md#loops)).
+  3. *Routing.* An edge that skips columns gets one dummy vertex per skipped column and passes through the gap between blocks there, never across a block. Rows come from 24 barycenter sweeps, a transposition pass and a relaxation with minimum gaps.
+  4. *Ports.* Edges leave a block's right side and enter its left side at separate points spread along the side, ordered like the neighbours they lead to.
+  5. *Edges.* A forward edge is a chain of cubic curves through its ports and dummy slots (`BlockEdgeLayout.points`, drawn by `edgePath`); `chip` is the middle of its last segment, next to the consumer.
+  6. *Isolated blocks.* A block with no edge goes in a row-wrapped strip under the graph and its lanes.
+- **Nodes.** Block name (up to two lines), first goal icon (or `?`) and up to four goal icons plus `+N`. The active
   block has a teal ring. A 3px stripe across the top of the node shows the block's colour
-  (`Block.color`) at full strength. Clicking a node makes that block active and closes the graph.
+  (`Block.color`) at full strength. Clicking a node **pins** it (blue ring, `data-pinned`; see Pointing, focus and pinning); a **Go to <block>** button (`graph-node-open`, `↗`, tooltip "Go to <block>") on the node's right edge makes that block active and closes the graph.
 - **Edges.** One curve per (source, consumer) pair, coloured by its connections' status (limited,
   then ok, then not used). An ok edge is stroked, and its chips
   bordered, in the *source* block's colour, matching the source segment on the consumer's bar;
   the other statuses keep their status colours (limited stays amber). The legend's OK swatch is
-  a multi-colour gradient with the tooltip "In the source block's colour". Each connection is a chip:
+  a multi-colour gradient with the tooltip "In the source block's colour"; **Right to left** is the dashed swatch. The line is thicker the more connections the edge carries (`1 + min(n, 14) / 4` px, one more while lit) and drawn at 55% opacity; an edge right to left is dashed and runs along the bottom.
+- **Pointing, focus and pinning.** The graph shows a chip only on the edge you point at or have pinned. Pointing at a block (or focusing it with the keyboard) **lights** it, its edges and the blocks at their other ends (`data-lit`) and dims everything else (`data-dim`; edges to 7% opacity, nodes to 30%). Pointing at an edge lights it and its two blocks. The pointer wins over the keyboard focus. Each edge has a transparent, wider hit path (`graph-edge-hit`) so a thin line is easy to point at. **Clicking** a block, an edge (its hit path) or an edge's summary chip (or Enter on the focused chip) **pins** it: it stays lit and the detail strip keeps showing it when the pointer leaves. One pin at a time: pinning another block or edge replaces it, clicking the pinned one again unpins it, a click on the background (including the padding around the graph) clears it, and Escape unpins first and closes the graph only when nothing is pinned (a limit being typed handles its own Escape). While something is pinned, pointing at another block or edge previews it, and the highlight falls back to the pin when the pointer leaves. Removing the last connection of a pinned edge clears the pin.
+- **Summary chip.** Every edge, even one with a single connection, has a **summary chip** (`graph-edge-summary`, always in the DOM) at the end of its last segment: the first three item icons, `+N` for the rest and `↻` if the edge is part of a loop, with the border in the edge's status. It is the edge's count badge and its keyboard stop, and **visible only while its edge is pointed at, focused or pinned** (`data-shown`); a lit block does not show the chips of its edges. It is a toggle button (`aria-pressed`, `data-pinned`) that pins the edge, so **Tab** reaches the chip of every edge (an invisible chip shows when it takes focus, which also lights its edge) and Enter pins it. Its name is "12 items from Metals to Sciences" ("1 item from ..."); its tooltip gives the count and how many connections are limited or not used (for example "12 items from Metals to Sciences; 2 limited — click to pin it"), and how many of its items have a source rule in the target ("; 1 with a source rule in Sciences"); the icon of such an item, among the three shown, carries the marker's dot, which is decorative there (the chip is a button). The chip carries `data-connection-ids` (its connections, space-separated).
+- **Connection chips.** In the detail strip, each connection of the lit or pinned edge is a chip (`graph-edge-label`), in the consumer's connection order, with limit and remove. They are editable on a **pinned** edge (moving the pointer to the strip unlights a merely pointed one); a pointed edge shows the same chips and says "click the edge to pin it and edit". There is no popover. Each chip shows:
   item icon, delivered rate (`—` before the first solve), the limit control and `×`, which removes the
   connection at once. The limit control reads `≤` (no limit) or `≤ N` and opens an inline number
   input (display unit); Enter or blur commits, an empty field clears the limit, Escape cancels
   without closing the graph. A chip held back by its limit has the tooltip "Limited by this
-  connection's limit of N". A connection of a split fluid whose flow has two or more parts (or one part with a label) ends its tooltip with ` — carries 20/m at 165°C (of 30/m offered), 10/m at ≥465°C` (`fmtPartTemp`; "(of N offered)" only when the source had more at that key). There is no pull toggle: whether a connection is a [request](solver.md#requests) follows from the source's products. A chip carries `data-kind="request"` or `"take"` (absent before the first solve); a take chip, including an ignored request, also shows a small `existing` tag after the item name (`graph-edge-existing`; none before the first solve). A chip also carries, when the source has the item as a product but the request is not applied, `data-request-ignored` with the reason. A request chip's tooltip ends " — requested: <source> makes N/m for <target>"; an ignored request ends " — taken as existing: " and the reason: the requests around this loop do not settle, the source receives the item itself, or an earlier connection already takes the item from the same source (the connection then takes existing output). A chip whose source has a stored [served list](#served-order-popover) for the item and names the chip's block in it carries a small `#N` tag (`graph-edge-rank`) right after the item's icon or name, N being the block's place in the list as the popover numbers it (the source's own extra-output line, when listed, takes a place; the lines of a group share one place, so its members show the same N), and ends its tooltip with " — served Nth in <source>'s list" (" — served Nth (shared) in <source>'s list" for a member of a group) (after the request or existing text); a block the list does not name has no tag, as it sits under the popover's divider, and a source with no stored list tags nothing. A block drawn as areas shows the best (lowest) place among its ranked lines, and its tooltip lists each ranked line (" — served 1st (Hub / Logistics), 2nd shared (Hub / Building) in <source>'s list"); a block with no area line keeps the format above. The tag follows the last solve's served report, like the popover's figures. A summary chip carries no rank, but the chips in its expanded list do. A chip whose item has a source rule with an effect in the *target* block shows the [source rule marker](#source-rule-marker) on the corner of its item icon: the rule is the receiving block's, so a connection of the item out of that block, or into another block, shows none.
-  An edge with more than three connections (`MAX_EDGE_CHIPS`) shows one **summary chip**
-  (`graph-edge-summary`) instead of one chip each: the first three item icons, `+N` for the rest,
-  `↻` if the edge is part of a loop and a `▾`, with the border in the
-  edge's status. Its tooltip gives the count and how many connections are limited or not used (for example "12 items from Metals to Sciences; 2 limited — click to list them"), and how many of its items have a source rule in the target ("; 1 with a source rule in Sciences"); the icon of such an item, among the three shown, carries the marker's dot, which is decorative there (the chip is a button). Clicking
-  it opens a list (`graph-edge-list`, a popover over the graph; the layout does not move) with one
-  full chip per connection, item name included, in the consumer's connection order; limit and
-  remove work there as on a plain chip. A click outside or Escape closes the list; Escape closes only
-  the list, or cancels a limit edit, never the graph. If removals bring the edge to three
-  connections or fewer, plain chips come back.
-  The chips of an edge (or its summary chip) are stacked in the gutter just before the consumer's
-  column, which never holds a node, at the height of the edge there; the layout reserves one chip
-  height for a summarised edge. Chips of different edges sharing a gutter are
-  pushed apart so none covers another; if a tall stack would reach above the first row, the whole
-  graph is moved down to make room. Edges are drawn under the nodes. A graph edit is recorded
+  connection's limit of N". A connection of a split fluid whose flow has two or more parts (or one part with a label) ends its tooltip with ` — carries 20/m at 165°C (of 30/m offered), 10/m at ≥465°C` (`fmtPartTemp`; "(of N offered)" only when the source had more at that key). There is no pull toggle: whether a connection is a [request](solver.md#requests) follows from the source's products. A chip carries `data-kind="request"` or `"take"` (absent before the first solve); a take chip, including an ignored request, also shows a small `existing` tag after the item name (`graph-edge-existing`; none before the first solve). A chip also carries, when the source has the item as a product but the request is not applied, `data-request-ignored` with the reason. A request chip's tooltip ends " — requested: <source> makes N/m for <target>"; an ignored request ends " — taken as existing: " and the reason: the requests around this loop do not settle, the source receives the item itself, or an earlier connection already takes the item from the same source (the connection then takes existing output). A chip whose source has a stored [served list](#served-order-popover) for the item and names the chip's block in it carries a small `#N` tag (`graph-edge-rank`) right after the item's icon or name, N being the block's place in the list as the popover numbers it (the source's own extra-output line, when listed, takes a place; the lines of a group share one place, so its members show the same N), and ends its tooltip with " — served Nth in <source>'s list" (" — served Nth (shared) in <source>'s list" for a member of a group) (after the request or existing text); a block the list does not name has no tag, as it sits under the popover's divider, and a source with no stored list tags nothing. A block drawn as areas shows the best (lowest) place among its ranked lines, and its tooltip lists each ranked line (" — served 1st (Hub / Logistics), 2nd shared (Hub / Building) in <source>'s list"); a block with no area line keeps the format above. The tag follows the last solve's served report, like the popover's figures. The summary chip carries no rank, but the chips in the strip do. A chip whose item has a source rule with an effect in the *target* block shows the [source rule marker](#source-rule-marker) on the corner of its item icon: the rule is the receiving block's, so a connection of the item out of that block, or into another block, shows none.
+- **Detail strip.** Under the graph (`graph-detail`, a fixed-height strip that scrolls) the text of what is lit or pinned, so nothing floats over the graph. For a lit block: its name, **pinned** when it is, a **Go to <block>** button (`graph-detail-open`), and two columns, **Receives from** and **Supplies**, one row per neighbouring block (colour dot, name, item count, `↻` for a loop), the most items first, then plan order; a block with no edge reads "Not connected to any other block." For a lit edge: **Items on this edge** with `A → B · N connections` and the connection chips described above. Nothing lit reads "Point at a block or a connection to see what it carries."
+  A graph edit is recorded
   in the *consumer* block's history, while undo and redo act on the *active* block, so undoing
   after editing another block's connections does not revert that edit. Titles match the
   [Ingredients pane's segment titles](#ingredients-pane). Connections whose source was deleted and
   self-connections are not drawn; they stay visible and removable in the Ingredients pane.
-- **Loops.** Blocks that supply each other form a loop. The back edge runs from the source's right
-  side down to its own lane under every block and label in the columns it spans, left along that
-  lane, and up into the consumer's left side; its chips sit on the lane, and two back edges that
-  overlap use separate lanes. The graph grows to make room (the corner reaches slightly left of
-  and right of the first and last column, inside the padding). Edges and chips that belong to a loop
-  carry `data-loop`, the back edge `data-back`; a loop chip has a `↻` prefix and the tooltip suffix
+- **Loops.** Blocks that supply each other form a loop. Edges and chips that belong to a loop
+  carry `data-loop` (the solver's notion: a member of a loop); an edge the layout draws right to left carries `data-back`
+  (the layout's: its source is not before its consumer in the drawing), which is not always a loop's closing connection and can
+  also hold for an edge outside any loop. A back edge runs from the source's right
+  side down to its own lane under every block and routed edge, left along that
+  lane (dashed), and up into the consumer's left side; its chip sits on the lane, shorter lanes lie above longer ones,
+  and the graph grows to make room (the corners reach slightly left of
+  and right of the layout, inside the padding). A loop chip has a `↻` prefix and the tooltip suffix
   " — part of a loop". The legend ends with **↻ Loop**. When the plan has loops the header shows
   `↻ N loop(s)` (tooltip: the members of each loop in order, `A → B → C → A`, loops joined by `; `);
   when a loop did not settle it instead shows, in red, "Loop through <blocks> did not settle after
@@ -234,18 +229,6 @@ near-full-screen modal showing every block and the connections between them, lik
   the same red status (`data-converged="false"`, parts joined by `. `), "Requests around <blocks> do not
   settle after N rounds; the requests that close the loop take what is left over". A cycle that settles
   is counted as an ordinary loop.
-- **Connecting from the source side.** The `→` handle on a node (disabled with a single block)
-  starts connect mode: blocks that import something the source has as a product (whatever it offers now) or still has left over are
-  highlighted, the others are dimmed with a reason ("<block> has not been
-  solved yet" or "Nothing to send: <block> imports nothing <source> makes or has left over"). A highlighted block that would close a loop is marked
-  (`data-closes-loop`) with the tooltip "Closes a loop: <source> already receives from <block>, directly or
-  through other blocks", and its item menu starts with "↻ Closes a loop with <source>"; the
-  connection is made without confirmation.
-  Clicking a highlighted block opens a menu "Send to <block>" with one entry per item, showing
-  what the source offers and the target needs (`data-kind` `request` when the source has the item as a product, else `take`; a request entry shows only "needs N", a take entry "offers X · needs Y");
-  choosing one adds the connection to the target. An item that the source receives itself is disabled, with the reason as its tooltip ("<source> receives <item> itself"); a request that would close a cycle of requests is allowed (the menu above it says "↻ Closes a loop").
-  The same rules as the [connection menu](#connection-menu) apply (`src/store/connections.ts`). **Cancel**, the
-  handle again or a click on the empty background (anywhere outside nodes, chips and the menu) leaves connect mode; Escape closes the whole graph.
 
 ### Plan areas
 
@@ -977,8 +960,8 @@ The same marker, for the same items, is on four more surfaces. Membership is nev
 | The item's row in the collapsed line's `+N` list | corner of the icon | none: the list is a hover popup | active block |
 | Row header of the areas matrix of the block that holds the rule (`PlanAreas.tsx`, `BlockAreaMatrix.tsx`) | corner of the item icon | none | the block shown |
 | Column header of an area of the areas matrix that has rules of its own with an effect (`areaRuleItems`, `BlockAreaMatrix`'s `areaRuleMarker`) | right after the area's name button, outside it | none | "Has its own source rule for {item names}" |
-| Edge chip of the block graph, for a connection of the item into the block that holds the rule (`BlockGraph.tsx`) | corner of the item icon | none | the target block |
-| Item icon of a summary chip of the block graph | corner of the icon | none: the chip is a button; `aria-hidden`, counted in the chip's tooltip | the target block |
+| Chip of a connection in the detail strip of the block graph, for a connection of the item into the block that holds the rule (`BlockGraph.tsx`) | corner of the item icon | none | the target block |
+| Item icon of a summary chip of the block graph (every edge has one, shown while the edge is lit) | corner of the icon | none: the chip is a button; `aria-hidden`, counted in the chip's tooltip | the target block |
 
 Byproducts and Products slots and chips never show it. The slot, the collapsed line, the matrix row headers and the block graph stay block-level: an item that only an area has a rule for shows through the "{n} areas have their own rule" button and the Source rules count.
 
@@ -1264,7 +1247,7 @@ The same component in recipes mode (`source="recipes"`).
 - `src/utils/viewTransform.ts` — pure pan/zoom maths (zoom around a point, pan, fit,
   centre) used by the technology tree.
 - `src/utils/blockGraphLayout.ts` — layered layout of the blocks and their
-  connections, used by the block graph.
+  connections (feedback ordering, routed edges, ports, isolated strip, fit scale), used by the block graph.
 
 ### Segmented control
 
