@@ -22,6 +22,12 @@ describe('FlowChip', () => {
     expect(document.querySelector('[data-item-id="water"]')).toHaveAttribute('aria-label', 'Water: 60.0/m — from Oil')
   })
 
+  it('names the temperature of a split fluid in the title', () => {
+    render(<FlowChip itemId="water" temp={{ at: 165 }} rate={60} boundary={false} otherEnd="from Oil" direction="receives" items={items} rateUnit="min" />)
+    expect(document.querySelector('[data-item-id="water"]')).toHaveAttribute('aria-label', 'Water 165°C: 60.0/m — from Oil')
+    expect(screen.getByTestId('area-flow-temperature')).toHaveTextContent('165°C')
+  })
+
   it('keeps the old title without an other end', () => {
     render(<FlowChip itemId="water" rate={60} boundary direction="sends" items={items} rateUnit="min" />)
     expect(document.querySelector('[data-item-id="water"]')).toHaveAttribute('aria-label', 'Water: 60.0/m — leaves the block')

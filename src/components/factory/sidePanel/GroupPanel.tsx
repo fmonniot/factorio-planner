@@ -8,6 +8,7 @@ import { dedicatedProduct } from '../../../solver/areas'
 import { PanelHeader, PanelSection } from './PanelParts'
 import { FolderIcon } from '../../icons'
 import { FoldedList } from '../FoldedList'
+import { rowDisplayName } from '../areaMatrix'
 import { areaEndName, flowLines, type FlowLine } from './groupFlows'
 
 function Stat({ label, value, testId }: { label: string; value: string; testId: string }) {
@@ -19,7 +20,7 @@ function Stat({ label, value, testId }: { label: string; value: string; testId: 
   )
 }
 
-function FlowList({ lines, items, empty, testId }: {
+export function FlowList({ lines, items, empty, testId }: {
   lines: FlowLine[]
   items: GameData['items']
   empty: string
@@ -34,7 +35,7 @@ function FlowList({ lines, items, empty, testId }: {
       className="space-y-1"
       renderItem={l => {
         const item = items[l.itemId]
-        const name = item?.name ?? l.itemId
+        const name = rowDisplayName({ name: item?.name ?? l.itemId, temp: l.temp })
         const rate = fmtItemRate(l.itemId, l.rate / 60, unit)
         return (
           <li key={l.key} data-item-id={l.itemId} className="flex items-center gap-2 text-xs">

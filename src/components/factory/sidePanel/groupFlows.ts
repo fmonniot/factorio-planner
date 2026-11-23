@@ -1,4 +1,5 @@
-import type { AreaFlow, AreaRoute, SubPlan } from '../../../data/types'
+import type { AreaFlow, AreaRoute, FluidTag, SubPlan } from '../../../data/types'
+import { compareTags } from '../../../data/flowKey'
 import { findSubPlan } from '../../../data/subPlanTree'
 import { routeEnds } from '../areaRouteEnds'
 
@@ -17,6 +18,11 @@ export function areaEndName(rootPlan: SubPlan): (areaId: string | undefined) => 
   }
 }
 
+/** Whether two flow tags are the same temperature or range (both absent counts as the same). */
+function sameTemp(a: FluidTag | undefined, b: FluidTag | undefined): boolean {
+  return a === undefined || b === undefined ? a === b : compareTags(a, b) === 0
+}
+
 export interface FlowEnd {
   partnerId: string | undefined
   /** e.g. "from Oil" or "to the rest of the block" */
@@ -29,6 +35,8 @@ export interface FlowLine {
   /** Unique among the lines of one list: a split fluid has one line per temperature, so the item id alone is not. */
   key: string
   itemId: string
+  /** A split fluid only: the temperature or range of this line. */
+  temp?: FluidTag
   /** items/min */
   rate: number
   /** The other end, e.g. "from Oil" or "to the rest of the block"; empty when no route names it. */
@@ -54,7 +62,7 @@ export function flowLines(
   return flows.map(f => {
     // Merged by displayed text, so the popup's lines and the title agree when two partners share a name.
     const byText = new Map<string, FlowEnd>()
-    for (const e of routeEnds(routes.filter(r => r.itemId === f.itemId), areaId, direction)) {
+    for (const e of routeEnds(routes.filter(r => r.itemId === f.itemId && sameTemp(r.temp, f.temp)), areaId, direction)) {
       const otherEnd = `${word} ${nameOf(e.partnerId)}`
       const seen = byText.get(otherEnd)
       if (seen) seen.rate += e.rate
@@ -64,6 +72,7 @@ export function flowLines(
     return {
       key: f.temp ? `${f.itemId}@${JSON.stringify(f.temp)}` : f.itemId,
       itemId: f.itemId,
+      temp: f.temp,
       rate: f.rate,
       otherEnd: ends.length > 0 ? `${word} ${ends.map(e => e.otherEnd.slice(word.length + 1)).join(', ')}` : '',
       boundary: f.boundary,
