@@ -69,6 +69,19 @@ test.describe('block graph', () => {
     await expect(detail(page, 'Ingredients').locator('[data-kind="import"]')).toHaveCount(0)
   })
 
+  test('shows a connection chip\'s detail as an instant tooltip, with no native title', async ({ page }) => {
+    await setup(page)
+    await openGraph(page)
+    await connectPlatesToGears(page)
+
+    const chip = page.getByTestId('graph-edge-label')
+    const tip = await chip.getAttribute('data-tip')
+    expect(tip).toContain('→ Gears')
+    await chip.hover()
+    await expect(page.getByTestId('tooltip')).toHaveText(tip!)
+    await expect(page.locator('[data-testid="graph-node"] [title], [data-testid="graph-edge-label"][title]')).toHaveCount(0)
+  })
+
   test('blocks a target with nothing left to send', async ({ page }) => {
     await setup(page)
     await openGraph(page)
@@ -76,7 +89,7 @@ test.describe('block graph', () => {
 
     await node(page, 'Gears').getByTestId('graph-connect-handle').click()
     await expect(node(page, 'Plates')).toHaveAttribute('data-connect', 'blocked')
-    await expect(node(page, 'Plates')).toHaveAttribute('title', /Nothing to send/)
+    await expect(node(page, 'Plates').getByTestId('graph-node-select')).toHaveAttribute('data-tip', /Nothing to send/)
     await page.getByRole('button', { name: 'Cancel' }).click()
 
     await node(page, 'Plates').getByTestId('graph-connect-handle').click()

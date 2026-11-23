@@ -72,14 +72,14 @@ test.describe('requests between blocks', () => {
     await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
     await expect(productEntry(page, 'export')).toContainText('30.0')
-    await expect(page.getByTitle(/^Actual: 90\.0/)).toBeVisible()
+    await expect(page.locator('[data-tip^="Actual: 90.0"]')).toBeVisible()
     await expect(detail(page, 'Products')).toContainText('extra 60.0')
     await expect(detail(page, 'Products')).toContainText('+ requested 30.0')
     await expect(productEntry(page, 'export')).toHaveText('Gears requests 30.0')
     await expect(productEntry(page, 'kept')).toHaveText('Extra: 60.0 of 60.0')
 
     // Lower the Plates target to 20: Gears still gets all 30, because the request adds to it.
-    await page.getByTitle(/^Extra output:/).click()
+    await page.locator('[data-tip^="Extra output:"]').click()
     await page.getByLabel('Extra output rate').fill('20')
     await page.getByLabel('Extra output rate').press('Enter')
     await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
@@ -198,9 +198,9 @@ test.describe('requests between blocks', () => {
     await selectSlot(page, 'Products', 'Iron plate')
 
     await detail(page, 'Products').getByRole('button', { name: 'Remove extra' }).click()
-    await expect(page.getByTitle(/^Extra output:/)).toHaveCount(0)
+    await expect(page.locator('[data-tip^="Extra output:"]')).toHaveCount(0)
     await expect(detail(page, 'Products')).toContainText('requested 30.0')
-    await expect(page.getByTitle(/^Actual: 30\.0/)).toBeVisible()
+    await expect(page.locator('[data-tip^="Actual: 30.0"]')).toBeVisible()
     await expect(productEntry(page, 'kept')).toHaveCount(0)
     await expect(productEntry(page, 'export')).toHaveText('Gears requests 30.0')
 
@@ -208,7 +208,7 @@ test.describe('requests between blocks', () => {
     await page.getByLabel('Extra output rate').fill('10')
     await page.getByLabel('Extra output rate').press('Enter')
     await expect(detail(page, 'Products').getByRole('button', { name: 'extra 10.0' })).toBeVisible()
-    await expect(page.getByTitle(/^Actual: 40\.0/)).toBeVisible()
+    await expect(page.locator('[data-tip^="Actual: 40.0"]')).toBeVisible()
   })
 
   test('a shortfall comes out of the extra first, then out of the requests', async ({ page }) => {
@@ -318,7 +318,7 @@ test.describe('requests between blocks', () => {
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toHaveCount(0)
     await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
-    await expect(page.getByTitle(/^Actual: 90\.0/)).toBeVisible()
+    await expect(page.locator('[data-tip^="Actual: 90.0"]')).toBeVisible()
     await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
 
     await ensureSelected(page)

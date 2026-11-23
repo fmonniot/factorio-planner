@@ -111,5 +111,5 @@ test('a connection delivering 465°C steam shows no import and its tooltip lists
 
   await page.getByRole('button', { name: 'Block graph' }).click()
   const chip = page.locator(`[data-testid="graph-edge-label"][data-connection-id="${HOT_STEAM_TO_TURBINES}"]`)
-  await expect(chip).toHaveAttribute('title', /carries .* at ≥465°C/)
+  await expect(chip).toHaveAttribute('data-tip', /carries .* at ≥465°C/)
 })

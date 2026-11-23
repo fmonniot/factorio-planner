@@ -201,7 +201,7 @@ describe('BeaconCell — research horizon', () => {
     renderCell(gd)
     const btn = screen.getByLabelText('Add beacon')
     expect(btn).toBeDisabled()
-    expect(btn).toHaveAttribute('title', 'No machine within research horizon')
+    expect(btn.closest('[data-tip]')).toHaveAttribute('data-tip', 'No machine within research horizon')
     // Not a quiet placeholder: gray-700 at 40% opacity would vanish, and it must not brighten on hover.
     expect(btn.querySelector('.border-dashed')).toHaveClass('border-gray-600')
     expect(btn.className).toContain('opacity-40')
@@ -213,7 +213,7 @@ describe('BeaconCell — research horizon', () => {
     renderCell(horizonData())
     const btn = screen.getByLabelText('Add beacon')
     expect(btn).toBeDisabled()
-    expect(btn).toHaveAttribute('title', 'No beacon within the research horizon')
+    expect(btn.closest('[data-tip]')).toHaveAttribute('data-tip', 'No beacon within the research horizon')
   })
 
   it('is disabled when no module is within the horizon', () => {
@@ -222,7 +222,7 @@ describe('BeaconCell — research horizon', () => {
     gd.technologies.base.unlockedRecipes = ['iron-plate', 'r-am1', 'r-beacon']
     gd.technologies.mods.unlockedRecipes = ['r-speed']
     renderCell(gd)
-    expect(screen.getByLabelText('Add beacon')).toHaveAttribute('title', 'No module within the research horizon')
+    expect(screen.getByLabelText('Add beacon').closest('[data-tip]')).toHaveAttribute('data-tip', 'No module within the research horizon')
   })
 
   it('creates the beacon config without a horizon', () => {
@@ -241,7 +241,7 @@ describe('BeaconCell — research horizon', () => {
     renderCell(gd)
     const btn = screen.getByLabelText('Add beacon')
     expect(btn).not.toBeDisabled()
-    expect(btn).toHaveAttribute('title', 'Add beacon')
+    expect(btn.closest('[data-tip]')).toHaveAttribute('data-tip', 'Add beacon')
   })
 })
 
@@ -284,7 +284,7 @@ describe('BeaconCell — chips over a list of configurations', () => {
     renderList([beacon, { ...beacon, beaconCount: 8 }, { ...beacon, beaconCount: 2 }])
     expect(screen.getByLabelText('Edit beacon')).toHaveTextContent('4')
     expect(screen.getByTestId('chip-more')).toHaveTextContent('+2')
-    const title = screen.getByLabelText('Edit beacon').getAttribute('title')!
+    const title = screen.getByLabelText('Edit beacon').getAttribute('data-tip')!
     expect(title).toContain('4 × Beacon')
     expect(title).toContain('8 × Beacon')
     expect(title).toContain('2 × Beacon')
@@ -300,7 +300,7 @@ describe('BeaconCell — chips over a list of configurations', () => {
     renderList([{ ...beacon, modules: [{ moduleId: 'gone-module', count: 2 }] }])
     const chip = screen.getByLabelText('Edit beacon modules')
     expect(chip).toHaveTextContent('2/2')
-    expect(chip.getAttribute('title')).toContain('gone-module')
+    expect(chip.getAttribute('data-tip')).toContain('gone-module')
     expect(chip.querySelector('.border-dashed')).toBeNull()
   })
 
@@ -308,7 +308,7 @@ describe('BeaconCell — chips over a list of configurations', () => {
     renderList([{ ...beacon, modules: [{ moduleId: 'speed-3', count: 1 }] }])
     const chip = screen.getByTestId('beacon-module-chip')
     expect(chip).toHaveTextContent('1/2')
-    expect(chip.getAttribute('title')).toBe('Speed 3 × 1 per beacon')
+    expect(chip.getAttribute('data-tip')).toBe('Speed 3 × 1 per beacon')
   })
 
   it('shows the most used module of a mixed beacon and lists every module in the title', () => {
@@ -320,7 +320,7 @@ describe('BeaconCell — chips over a list of configurations', () => {
     )
     const chip = screen.getByTestId('beacon-module-chip')
     expect(chip).toHaveTextContent('2/2')
-    expect(chip.getAttribute('title')).toBe('Speed 3 × 1 + Eff 1 × 1 per beacon')
+    expect(chip.getAttribute('data-tip')).toBe('Speed 3 × 1 + Eff 1 × 1 per beacon')
   })
 
   it('rings the module chip when a module is unknown or there are more modules than slots', () => {

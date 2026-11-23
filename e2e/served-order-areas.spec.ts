@@ -171,7 +171,7 @@ test('Served areas: a list written before the popover drew areas expands on the 
   const chipOf = (id: string) => page.locator(`[data-testid="graph-edge-label"][data-connection-id="${id}"]`)
   await expect(chipOf(S_CONN).getByTestId('graph-edge-rank')).toHaveText('#1')
   await expect(chipOf(H_CONN).getByTestId('graph-edge-rank')).toHaveText('#2')
-  await expect(chipOf(H_CONN)).toHaveAttribute('title', /served 2nd \(Hub \/ Building\), 3rd \(Hub \/ Logistics\) in Plates's list/)
+  await expect(chipOf(H_CONN)).toHaveAttribute('data-tip', /served 2nd \(Hub \/ Building\), 3rd \(Hub \/ Logistics\) in Plates's list/)
 })
 
 test('Served areas: an area the list does not rank is added by hand', async ({ page }, testInfo) => {

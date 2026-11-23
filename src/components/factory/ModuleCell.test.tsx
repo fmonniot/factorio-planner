@@ -34,18 +34,24 @@ describe('ModuleCell', () => {
   })
 
   const cell = () => screen.getByRole('button')
+
+  it('offers to fill every slot on the dashed chip, with no native title', () => {
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[]} machineSlots={2} gameData={makeData()} onOpenEdit={() => {}} />)
+    expect(screen.getByTestId('module-chip')).toHaveAttribute('aria-label', 'Fill all 2 slots with a module')
+    expect(screen.getByTestId('module-chip')).not.toHaveAttribute('title')
+  })
   const noop = () => {}
 
   it('does not claim a missing machine on a real machine with zero slots', () => {
     render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={0} gameData={makeData()} onOpenEdit={noop} />)
-    expect(cell()).toHaveAttribute('title', 'Edit modules (this machine has no module slots)')
+    expect(cell()).toHaveAttribute('aria-label', 'Edit modules (this machine has no module slots)')
     expect(cell()).not.toHaveAttribute('data-beyond-horizon')
     expect(cell()).toHaveAttribute('data-over-slots', 'true')
   })
 
   it('flags modules without a machine when the row has no machine', () => {
     render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={0} noMachine gameData={makeData()} onOpenEdit={noop} />)
-    expect(cell()).toHaveAttribute('title', 'Modules without a machine')
+    expect(cell()).toHaveAttribute('aria-label', 'Modules without a machine')
     expect(cell()).toHaveAttribute('data-beyond-horizon', 'true')
     expect(cell()).not.toHaveAttribute('data-over-slots')
   })
@@ -53,7 +59,7 @@ describe('ModuleCell', () => {
   it('flags more modules than slots', () => {
     render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 4 }]} machineSlots={2} gameData={makeData()} onOpenEdit={noop} />)
     expect(cell()).toHaveAttribute('data-over-slots', 'true')
-    expect(cell()).toHaveAttribute('title', 'Edit modules (more modules than slots)')
+    expect(cell()).toHaveAttribute('aria-label', 'Edit modules (more modules than slots)')
     expect(cell()).toHaveClass('ring-amber-500')
     expect(cell()).not.toHaveAttribute('data-beyond-horizon')
   })
@@ -64,16 +70,16 @@ describe('ModuleCell', () => {
     const props = { nodeId: 'n1', recipeId: 'r', modules: [{ moduleId: 'agri', count: 1 }], machineSlots: 2, gameData: gd, onOpenEdit: noop }
     const { rerender } = render(<ModuleCell {...props} machine={{ allowedEffects: ['speed'], allowedModuleCategories: ['speed'] }} />)
     expect(cell()).toHaveAttribute('data-incompatible', 'true')
-    expect(cell()).toHaveAttribute('title', 'Edit modules (a module does not fit this machine)')
+    expect(cell()).toHaveAttribute('aria-label', 'Edit modules (a module does not fit this machine)')
     expect(cell()).toHaveClass('ring-amber-500')
     rerender(<ModuleCell {...props} machine={{ allowedEffects: ['speed'] }} />)
     expect(cell()).not.toHaveAttribute('data-incompatible')
-    expect(cell()).toHaveAttribute('title', 'Edit modules')
+    expect(cell()).toHaveAttribute('aria-label', 'Edit modules')
   })
 
   it('is not flagged when the modules fit', () => {
     render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 2 }]} machineSlots={2} gameData={makeData()} onOpenEdit={noop} />)
-    expect(cell()).toHaveAttribute('title', 'Edit modules')
+    expect(cell()).toHaveAttribute('aria-label', 'Edit modules')
     expect(cell()).not.toHaveAttribute('data-over-slots')
     expect(cell()).not.toHaveClass('ring-amber-500')
   })

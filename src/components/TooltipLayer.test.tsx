@@ -41,6 +41,13 @@ describe('TooltipLayer', () => {
     expect(screen.getByTestId('tooltip')).toHaveTextContent('Iron Plate')
   })
 
+  it('keeps a newline in the text as a line break', () => {
+    over(setup({ 'data-tip': 'a\nb' }))
+    const tip = screen.getByTestId('tooltip')
+    expect(tip.textContent).toBe('a\nb')
+    expect(tip.className).toContain('whitespace-pre-line')
+  })
+
   it('follows the aria-label while open', async () => {
     const chip = setup()
     over(chip)

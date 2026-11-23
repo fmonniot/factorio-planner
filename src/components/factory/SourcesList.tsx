@@ -494,7 +494,7 @@ export function SourcesList({ itemId, id, areaId }: {
               reading={
                 <>
                   {row.tag && (
-                    <span data-testid="sources-block-tag" data-tag={row.tag} title={row.tagTitle} className={`mr-2 rounded border px-1 ${row.tag === 'requested' ? 'border-teal-700 text-teal-300' : 'border-gray-600 text-gray-300'}`}>
+                    <span data-testid="sources-block-tag" data-tag={row.tag} data-tip={row.tagTitle} className={`mr-2 rounded border px-1 ${row.tag === 'requested' ? 'border-teal-700 text-teal-300' : 'border-gray-600 text-gray-300'}`}>
                       {row.tag}
                     </span>
                   )}
@@ -509,7 +509,7 @@ export function SourcesList({ itemId, id, areaId }: {
                   {area === undefined && row.canMakeProduct && (
                     <button
                       type="button" data-testid="sources-make-product" aria-describedby={rowHelpId}
-                      aria-disabled={row.productBlocked !== undefined || undefined} title={row.productBlocked}
+                      aria-disabled={row.productBlocked !== undefined || undefined} data-tip={row.productBlocked}
                       onClick={() => { if (!row.productBlocked) requestSourceProduct(c.fromBlockId) }}
                       className={MINI_BUTTON_CLASS}
                     >
@@ -534,7 +534,7 @@ export function SourcesList({ itemId, id, areaId }: {
                     : (
                       <button
                         type="button" data-testid="sources-limit" aria-label={`Limit of ${sourceName}`} aria-describedby={rowHelpId}
-                        title={limit ? 'Change or clear the limit' : 'Set a limit on what is received over this connection'}
+                        data-tip={limit ? 'Change or clear the limit' : 'Set a limit on what is received over this connection'}
                         onClick={() => setEditingLimit(c.id)}
                         className={MINI_BUTTON_CLASS}
                       >

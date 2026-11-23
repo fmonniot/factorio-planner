@@ -11,6 +11,7 @@ import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { layoutBlockGraph, edgePath, NODE_W, NODE_H, MAX_EDGE_CHIPS } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
 import { Modal } from '../Modal'
+import { TipWrap } from '../TipWrap'
 import { Icon } from '../Icon'
 import { IconButton } from '../IconButton'
 import { GraphIcon } from '../icons'
@@ -103,9 +104,6 @@ function BlockNode({
       data-active={isActive ? 'true' : 'false'}
       data-connect={role}
       data-closes-loop={closesLoop ? 'true' : undefined}
-      title={closesLoop
-        ? `Closes a loop: ${sourceName} already receives from ${block.name}, directly or through other blocks`
-        : blockedReason}
       style={{ left: x, top: y, width: NODE_W, height: NODE_H }}
       className={`absolute rounded border border-gray-600 bg-gray-800 ${ring} ${role === 'blocked' ? 'opacity-40' : ''}`}
     >
@@ -119,6 +117,10 @@ function BlockNode({
       <button
         type="button"
         aria-label={block.name}
+        data-testid="graph-node-select"
+        data-tip={closesLoop
+          ? `Closes a loop: ${sourceName} already receives from ${block.name}, directly or through other blocks`
+          : blockedReason}
         onClick={onSelect}
         className="w-full h-full flex items-center gap-2 pl-2 pr-8 text-left text-gray-100 rounded hover:bg-gray-700/60"
       >
@@ -133,26 +135,27 @@ function BlockNode({
             {shown.map(g => {
               const item = items[g.itemId]
               return item?.iconPath ? (
-                <Icon key={g.id} iconPath={item.iconPath} alt={item.name} title={item.name} className="w-4 h-4 object-contain" />
+                <Icon key={g.id} iconPath={item.iconPath} alt={item.name} data-tip={item.name} className="w-4 h-4 object-contain" />
               ) : (
-                <span key={g.id} title={item?.name ?? g.itemId}>{(item?.name ?? g.itemId).charAt(0)}</span>
+                <span key={g.id} data-tip={item?.name ?? g.itemId}>{(item?.name ?? g.itemId).charAt(0)}</span>
               )
             })}
             {more > 0 && <span>+{more}</span>}
           </span>
         </span>
       </button>
-      <button
-        type="button"
-        data-testid="graph-connect-handle"
-        aria-label={`Connect from ${block.name}`}
-        title="Send an item from this block to another"
-        disabled={!canConnect}
-        onClick={onStartConnect}
-        className="absolute right-0 top-0 h-full w-7 rounded-r border-l border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
-      >
-        →
-      </button>
+      <TipWrap tip="Send an item from this block to another" className="absolute right-0 top-0 h-full w-7">
+        <button
+          type="button"
+          data-testid="graph-connect-handle"
+          aria-label={`Connect from ${block.name}`}
+          disabled={!canConnect}
+          onClick={onStartConnect}
+          className="w-full h-full rounded-r border-l border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:pointer-events-none disabled:hover:bg-transparent"
+        >
+          →
+        </button>
+      </TipWrap>
     </div>
   )
 }
@@ -188,15 +191,15 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
       )}
       {candidates.map(({ itemId, offered, needed, request, blocker }) => {
         const item = items[itemId]
-        return (
+        const reason = blocker ? requestBlockerTitle(blocker, sourceName, item?.name ?? itemId) : undefined
+        const button = (
           <button
             key={itemId}
             type="button"
             role="menuitem"
             data-kind={request ? 'request' : 'take'}
             disabled={!!blocker}
-            title={blocker ? requestBlockerTitle(blocker, sourceName, item?.name ?? itemId) : undefined}
-            className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
+            className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:bg-transparent"
             onClick={() => {
               if (!blocker) onPick(itemId)
             }}
@@ -208,6 +211,7 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
             </span>
           </button>
         )
+        return reason ? <TipWrap key={itemId} tip={reason} className="flex flex-col">{button}</TipWrap> : button
       })}
     </div>
   )
@@ -308,7 +312,7 @@ function ConnectionChip({
       data-loop={flow?.loop ? 'true' : undefined}
       data-kind={flow?.kind}
       data-request-ignored={flow?.requestIgnored}
-      title={title}
+      data-tip={title}
       style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap ${CHIP_TONE[status]}`}
     >
@@ -359,7 +363,7 @@ function ConnectionChip({
           type="button"
           data-testid="graph-edge-limit"
           aria-label={`${connection.maxRate !== undefined ? 'Change limit of' : 'Limit'} ${itemName} from ${sourceName} to ${targetName}`}
-          title={`Most ${targetName} takes over this connection; click to edit, clear to remove`}
+          data-tip={`Most ${targetName} takes over this connection; click to edit, clear to remove`}
           onClick={e => {
             e.stopPropagation()
             onEdit()
@@ -485,7 +489,7 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove
           aria-haspopup="dialog"
           aria-controls={listId}
           aria-label={`${n} items from ${sourceName} to ${targetName}`}
-          title={edgeSummaryTitle(n, sourceName, targetName, statuses, edge.loop, connections.filter(c => ruleItems.has(c.itemId)).length)}
+          data-tip={edgeSummaryTitle(n, sourceName, targetName, statuses, edge.loop, connections.filter(c => ruleItems.has(c.itemId)).length)}
           style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
           onClick={() => setOpen(o => !o)}
           className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap hover:brightness-125 ${CHIP_TONE[status]}`}
@@ -558,7 +562,7 @@ function LoopStatus({ loops, requestLoops, blocks }: { loops: BlockLoop[]; reque
   }
   const title = loops.map(l => [...l.blockIds, l.blockIds[0]].map(name).join(' → ')).join('; ')
   return (
-    <span data-testid="graph-loop-status" data-converged="true" title={title} className="text-xs text-gray-400">
+    <span data-testid="graph-loop-status" data-converged="true" data-tip={title} className="text-xs text-gray-400">
       ↻ {loops.length} {loops.length === 1 ? 'loop' : 'loops'}
     </span>
   )
@@ -648,7 +652,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
       <div className="p-3 border-b border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 className="text-lg font-semibold text-amber-200">Block graph</h2>
         <div className="flex items-center gap-3 text-xs text-gray-400">
-          <span className="flex items-center gap-1" title="In the source block's colour">
+          <span className="flex items-center gap-1" data-tip="In the source block's colour">
             <span
               className="w-3 h-0.5"
               style={{ background: `linear-gradient(90deg, ${BLOCK_PALETTE[0]}, ${BLOCK_PALETTE[5]}, ${BLOCK_PALETTE[10]})` }}
@@ -657,7 +661,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           </span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.limited }} />Limited</span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.unused }} />Not used</span>
-          <span data-testid="graph-legend-loop" className="flex items-center gap-1" title="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
+          <span data-testid="graph-legend-loop" className="flex items-center gap-1" data-tip="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
         </div>
         {(loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
         {blocks.length < 2 && (

@@ -132,7 +132,7 @@ test('actions that would nest past 4 levels are disabled with the reason', async
   const deepMenu = await openRowMenu(page, rowOf(page, R_DEEP))
   const wrapDeep = deepMenu.getByRole('menuitem', { name: 'Wrap in subfactory…' })
   await expect(wrapDeep).toBeDisabled()
-  await expect(wrapDeep).toHaveAttribute('title', NESTING_TITLE)
+  await expect(wrapDeep.locator('xpath=ancestor-or-self::*[@data-tip][1]')).toHaveAttribute('data-tip', NESTING_TITLE)
   await page.keyboard.press('Escape')
 
   const rootMenu = await openRowMenu(page, rowOf(page, R_ROOT))
@@ -146,7 +146,7 @@ test('actions that would nest past 4 levels are disabled with the reason', async
   const areaB = page.getByRole('menuitem', { name: 'Area B', exact: true })
   await expect(areaA).toBeEnabled()
   await expect(areaB).toBeDisabled()
-  await expect(areaB).toHaveAttribute('title', NESTING_TITLE)
+  await expect(areaB.locator('xpath=ancestor-or-self::*[@data-tip][1]')).toHaveAttribute('data-tip', NESTING_TITLE)
 })
 
 test('dropping a group onto a group that is too deep does nothing', async ({ page }) => {

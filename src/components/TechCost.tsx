@@ -10,7 +10,7 @@ interface TechCostProps {
   trigger?: Technology['trigger']
   /** Trigger wording: the one-line condition (default) or the sentence form. */
   triggerText?: 'short' | 'full'
-  /** Native tooltip with the full sentence on the trigger line; for lists with no hover popup. Default false. */
+  /** Instant tooltip (`TooltipLayer`) with the full sentence on the trigger line; for lists with no hover popup. Default false. */
   tooltip?: boolean
   /** Append "· <time>s" after the count. Default true (tech-tree cards). */
   showTime?: boolean
@@ -29,7 +29,7 @@ export function TechCost({ cost, lookup, trigger, triggerText = 'short', tooltip
       <span
         data-testid="tech-cost"
         data-trigger-type={trigger?.type}
-        title={tooltip ? described.full : undefined}
+        data-tip={tooltip ? described.full : undefined}
         className="flex items-center gap-1 min-w-0 text-[11px] text-gray-400"
       >
         {described.iconPath && <Icon iconPath={described.iconPath} alt="" className="w-4 h-4 object-contain shrink-0" draggable={false} />}
@@ -47,9 +47,9 @@ export function TechCost({ cost, lookup, trigger, triggerText = 'short', tooltip
         const item = items[ing.itemId]
         const label = `${item?.name ?? ing.itemId} ×${ing.amount}`
         return item?.iconPath ? (
-          <Icon key={ing.itemId} iconPath={item.iconPath} alt={label} title={label} draggable={false} className="w-4 h-4 object-contain" />
+          <Icon key={ing.itemId} iconPath={item.iconPath} alt={label} data-tip={label} draggable={false} className="w-4 h-4 object-contain" />
         ) : (
-          <span key={ing.itemId} title={label} className="w-4 h-4 flex items-center justify-center rounded bg-gray-700 text-[9px]">
+          <span key={ing.itemId} role="img" aria-label={label} data-tip="" className="w-4 h-4 flex items-center justify-center rounded bg-gray-700 text-[9px]">
             {(item?.name ?? ing.itemId).charAt(0)}
           </span>
         )

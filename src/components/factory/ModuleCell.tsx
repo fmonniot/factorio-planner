@@ -68,7 +68,7 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
       fallback="+"
       quantity={`${usedSlots}/${machineSlots}`}
       warn={beyondHorizon || overSlots || incompatible}
-      title={fillAll ? `Fill all ${machineSlots} slots with a module` : title}
+      tip={fillAll ? `Fill all ${machineSlots} slots with a module` : title}
       data-beyond-horizon={beyondHorizon ? 'true' : undefined}
       data-over-slots={overSlots ? 'true' : undefined}
       data-incompatible={incompatible ? 'true' : undefined}

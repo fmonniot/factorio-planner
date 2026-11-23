@@ -240,7 +240,7 @@ describe('WorkspaceMenu', () => {
     expect(importGameData, 'the stored upload is abandoned').not.toHaveBeenCalled()
     await openMenu()
     expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.queryByTitle('mine.json')).toBeNull()
+    expect(screen.queryByLabelText('mine.json')).toBeNull()
   })
 
   it('reports a failed switch and keeps the previous choice checked', async () => {
@@ -249,7 +249,7 @@ describe('WorkspaceMenu', () => {
     render(<WorkspaceMenu />)
     await openMenu()
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Seablock' }))
-    expect(await screen.findByText('Error loading data')).toHaveAttribute('title', expect.stringContaining('blocked'))
+    expect(await screen.findByText('Error loading data')).toHaveAttribute('data-tip', expect.stringContaining('blocked'))
     expect(importGameDataUrl).toHaveBeenCalledTimes(1)
     expect(localStorage.getItem(KEY)).toBe('nullius')
     await openMenu()
@@ -267,7 +267,7 @@ describe('WorkspaceMenu', () => {
     expect(await screen.findByText('Error loading data')).toBeInTheDocument()
     expect(importGameDataFile).not.toHaveBeenCalled()
     await openMenu()
-    expect(screen.queryByTitle('mine.json')).toBeNull()
+    expect(screen.queryByLabelText('mine.json')).toBeNull()
   })
 
   it('opens the hidden file input from Upload file…', async () => {
@@ -303,7 +303,7 @@ describe('WorkspaceMenu', () => {
     render(<WorkspaceMenu />)
     expect(trigger()).toHaveTextContent('Error loading data')
     expect(trigger()).toHaveAccessibleName('Choose game data, error loading data')
-    expect(screen.getByText('Error loading data')).toHaveAttribute('title', 'boom')
+    expect(screen.getByText('Error loading data')).toHaveAttribute('data-tip', 'boom')
   })
 
   it('shows the data set label under the plan name once loaded', () => {

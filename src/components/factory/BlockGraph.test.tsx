@@ -112,6 +112,7 @@ function setup(opts: {
 }
 
 const node = (id: string) => document.querySelector(`[data-testid="graph-node"][data-block-id="${id}"]`) as HTMLElement
+const nodeTip = (id: string) => within(node(id)).getByTestId('graph-node-select').getAttribute('data-tip')
 const open = () => fireEvent.click(screen.getByRole('button', { name: 'Block graph' }))
 const consumerIn = () => useBlockStore.getState().blocks.find(b => b.id === 'consumer')!
 
@@ -187,6 +188,19 @@ describe('BlockGraph', () => {
     expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
   })
 
+  it('shows its hints as instant tooltips and leaves no native title in the graph', () => {
+    setup({ connected: true, extra: 11, flow: { status: 'limited' } })
+    render(<BlockGraphButton />)
+    open()
+    const handle = within(node('miner')).getByTestId('graph-connect-handle').closest('[data-tip]')
+    expect(handle, 'the connect handle or its wrapper').toHaveAttribute('data-tip', 'Send an item from this block to another')
+    expect(within(node('miner')).getByTestId('graph-connect-handle')).toHaveAttribute('aria-label', 'Connect from Miner')
+    const summary = screen.getByTestId('graph-edge-summary')
+    expect(summary.getAttribute('aria-label'), 'short accessible name').toMatch(/^\d+ items from Miner to Consumer$/)
+    expect(summary.getAttribute('data-tip'), 'long tooltip').toContain('click to list them')
+    expect(document.querySelectorAll('[title]'), 'no native title in the graph').toHaveLength(0)
+  })
+
   it('connects from the source side: handle, target, item', () => {
     setup()
     render(<BlockGraphButton />)
@@ -226,7 +240,7 @@ describe('BlockGraph', () => {
     fireEvent.click(within(node('consumer')).getByTestId('graph-connect-handle'))
     expect(node('miner').getAttribute('data-connect')).toBe('target')
     expect(node('miner').getAttribute('data-closes-loop')).toBe('true')
-    expect(node('miner').getAttribute('title')).toMatch(/Closes a loop/)
+    expect(nodeTip('miner')).toMatch(/Closes a loop/)
 
     fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
     expect(screen.getByTestId('graph-closes-loop')).toBeTruthy()
@@ -243,7 +257,7 @@ describe('BlockGraph', () => {
     open()
     fireEvent.click(within(node('consumer')).getByTestId('graph-connect-handle'))
     expect(node('miner').getAttribute('data-connect')).toBe('blocked')
-    expect(node('miner').getAttribute('title')).toMatch(/Nothing to send/)
+    expect(nodeTip('miner')).toMatch(/Nothing to send/)
   })
 
   describe('loops', () => {
@@ -260,7 +274,7 @@ describe('BlockGraph', () => {
       expect(back[0].getAttribute('data-to')).toBe('miner')
       const chip = screen.getAllByTestId('graph-edge-label').find(l => l.getAttribute('data-connection-id') === 'c2')!
       expect(chip.getAttribute('data-loop')).toBe('true')
-      expect(chip.getAttribute('title')).toMatch(/part of a loop/)
+      expect(chip.getAttribute('data-tip')).toMatch(/part of a loop/)
       expect(screen.getByTestId('graph-legend-loop')).toBeTruthy()
     })
 
@@ -270,7 +284,7 @@ describe('BlockGraph', () => {
       open()
       const status = screen.getByTestId('graph-loop-status')
       expect(status.textContent).toBe('↻ 1 loop')
-      expect(status.getAttribute('title')).toBe('Miner → Consumer → Miner')
+      expect(status.getAttribute('data-tip')).toBe('Miner → Consumer → Miner')
     })
 
     it('says in red when a loop did not settle', () => {
@@ -369,7 +383,7 @@ describe('BlockGraph', () => {
     open()
     fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
     expect(node('consumer').getAttribute('data-connect')).toBe('blocked')
-    expect(node('consumer').getAttribute('title')).toBe('Consumer has not been solved yet')
+    expect(nodeTip('consumer')).toBe('Consumer has not been solved yet')
   })
 
   it('removes a connection from its edge label', () => {
@@ -453,7 +467,7 @@ describe('BlockGraph', () => {
       setup({ connected: true, maxRate: 20, flow: { status: 'limited', capped: true, available: 20, rate: 20 } })
       render(<BlockGraphButton />)
       open()
-      expect(screen.getByTestId('graph-edge-label').getAttribute('title')).toMatch(/^Limited by this connection's limit/)
+      expect(screen.getByTestId('graph-edge-label').getAttribute('data-tip')).toMatch(/^Limited by this connection's limit/)
     })
   })
 
@@ -462,7 +476,7 @@ describe('BlockGraph', () => {
       setup({ connected: true, flow: { rate: 30, available: 50, ...(parts ? { parts } : {}) } })
       render(<BlockGraphButton />)
       open()
-      return screen.getByTestId('graph-edge-label').getAttribute('title')!
+      return screen.getByTestId('graph-edge-label').getAttribute('data-tip')!
     }
     it('lists the parts of a connection that carries two', () => {
       const title = titleWith([
@@ -499,7 +513,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
-      expect(chip().getAttribute('title')).toMatch(/ — served 2nd in Miner's list$/)
+      expect(chip().getAttribute('data-tip')).toMatch(/ — served 2nd in Miner's list$/)
     })
 
     it('shows the rank a group shares and says so in the title', () => {
@@ -509,7 +523,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#1')
-      expect(chip().getAttribute('title')).toMatch(/ — served 1st \(shared\) in Miner's list$/)
+      expect(chip().getAttribute('data-tip')).toMatch(/ — served 1st \(shared\) in Miner's list$/)
     })
 
     it('shows the place of a group that is not the first', () => {
@@ -519,7 +533,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
-      expect(chip().getAttribute('title')).toMatch(/ — served 2nd \(shared\) in Miner's list$/)
+      expect(chip().getAttribute('data-tip')).toMatch(/ — served 2nd \(shared\) in Miner's list$/)
     })
 
     it('counts the extra output line as a place of the list, as the popover does', () => {
@@ -537,7 +551,7 @@ describe('BlockGraph', () => {
       useSolverStore.setState({ served: served(['consumer', 'other']) } as never)
       render(<BlockGraphButton />)
       open()
-      expect(chip().getAttribute('title')).toBe("Iron Ore: Miner → Consumer — requested: Miner makes 30.0/m for Consumer — served 1st in Miner's list")
+      expect(chip().getAttribute('data-tip')).toBe("Iron Ore: Miner → Consumer — requested: Miner makes 30.0/m for Consumer — served 1st in Miner's list")
     })
 
     describe('a consumer drawn as areas', () => {
@@ -572,25 +586,25 @@ describe('BlockGraph', () => {
       it('shows the best rank and lists each ranked area', () => {
         areaSetup([other, areaEntry('B'), areaEntry('L')])
         expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
-        expect(chip().getAttribute('title')).toMatch(/ — served 2nd \(Consumer \/ Building\), 3rd \(Consumer \/ Logistics\) in Miner's list$/)
+        expect(chip().getAttribute('data-tip')).toMatch(/ — served 2nd \(Consumer \/ Building\), 3rd \(Consumer \/ Logistics\) in Miner's list$/)
       })
 
       it('marks shared areas', () => {
         areaSetup([other, areaEntry('L'), areaEntry('B', { tied: true })])
         expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
-        expect(chip().getAttribute('title')).toMatch(/ — served 2nd shared \(Consumer \/ Logistics\), 2nd shared \(Consumer \/ Building\) in Miner's list$/)
+        expect(chip().getAttribute('data-tip')).toMatch(/ — served 2nd shared \(Consumer \/ Logistics\), 2nd shared \(Consumer \/ Building\) in Miner's list$/)
       })
 
       it('lists only the ranked area', () => {
         areaSetup([other, areaEntry('L')])
         expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
-        expect(chip().getAttribute('title')).toMatch(/ — served 2nd \(Consumer \/ Logistics\) in Miner's list$/)
+        expect(chip().getAttribute('data-tip')).toMatch(/ — served 2nd \(Consumer \/ Logistics\) in Miner's list$/)
       })
 
       it('lists both lines of a plain block entry', () => {
         areaSetup([other, { kind: 'block', blockId: 'consumer' }])
         expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
-        const title = chip().getAttribute('title')!
+        const title = chip().getAttribute('data-tip')!
         expect(title).toContain('(Consumer / Logistics)')
         expect(title).toContain('(Consumer / Building)')
       })
@@ -602,7 +616,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(within(chip()).queryByTestId('graph-edge-rank')).toBeNull()
-      expect(chip().getAttribute('title')).not.toContain('served ')
+      expect(chip().getAttribute('data-tip')).not.toContain('served ')
     })
 
     it('shows no rank for a consumer the stored list does not name', () => {
@@ -624,7 +638,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(chip().getAttribute('data-kind')).toBe('request')
-      expect(chip().getAttribute('title')).toBe('Iron Ore: Miner → Consumer — requested: Miner makes 30.0/m for Consumer')
+      expect(chip().getAttribute('data-tip')).toBe('Iron Ore: Miner → Consumer — requested: Miner makes 30.0/m for Consumer')
     })
 
     it('does not call a take requested', () => {
@@ -632,7 +646,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(chip().getAttribute('data-kind')).toBe('take')
-      expect(chip().getAttribute('title')).not.toContain(' — requested')
+      expect(chip().getAttribute('data-tip')).not.toContain(' — requested')
       expect(chip().getAttribute('data-request-ignored')).toBeNull()
     })
 
@@ -641,7 +655,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(chip().getAttribute('data-request-ignored')).toBe('request-loop')
-      expect(chip().getAttribute('title')).toContain('taken as existing: the requests around this loop do not settle')
+      expect(chip().getAttribute('data-tip')).toContain('taken as existing: the requests around this loop do not settle')
     })
 
     it('tags a take chip as existing', () => {
@@ -708,7 +722,7 @@ describe('BlockGraph', () => {
       const item = screen.getByRole('menuitem', { name: /Iron Plate/ })
       expect(item).toBeEnabled()
       expect(item.getAttribute('data-kind')).toBe('request')
-      expect(item.getAttribute('title')).toBeNull()
+      expect(item.getAttribute('data-tip')).toBeNull()
       fireEvent.click(item)
       expect(useBlockStore.getState().blocks.find(b => b.id === 'miner')!.inputConnections).toHaveLength(1)
     })
@@ -762,7 +776,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(summary().getAttribute('data-status')).toBe('limited')
-      expect(summary().getAttribute('title')).toContain('1 limited')
+      expect(summary().getAttribute('data-tip')).toContain('1 limited')
     })
 
     it('lists every connection when the summary chip is clicked, and hides them on a second click', () => {
@@ -828,8 +842,8 @@ describe('BlockGraph', () => {
       open()
       expect(summary().getAttribute('data-pull')).toBeNull()
       expect(summary().textContent).not.toContain('⇠')
-      expect(summary().getAttribute('title')).not.toContain('pulled')
-      expect(summary().getAttribute('title')).not.toContain('requested')
+      expect(summary().getAttribute('data-tip')).not.toContain('pulled')
+      expect(summary().getAttribute('data-tip')).not.toContain('requested')
     })
 
     it('sets a limit from the list and keeps it open', () => {
@@ -993,7 +1007,7 @@ describe('BlockGraph', () => {
       const summary = screen.getByTestId('graph-edge-summary')
       // The chip is a button and keeps its name: the dot inside is out of the accessibility tree.
       expect(summary).toHaveAccessibleName('12 items from Miner to Consumer')
-      expect(summary.getAttribute('title')).toContain('; 1 with a source rule in Consumer')
+      expect(summary.getAttribute('data-tip')).toContain('; 1 with a source rule in Consumer')
       const dot = within(summary).getByTestId('source-rule-marker')
       expect(dot.tagName).toBe('SPAN')
       expect(dot.closest('[aria-hidden]')).not.toBeNull()

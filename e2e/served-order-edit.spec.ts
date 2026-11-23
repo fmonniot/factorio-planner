@@ -148,7 +148,7 @@ test('Served order: a line joins the list when dragged into it', async ({ page }
 
 test('Served order: the graph chips carry the rank of the stored list', async ({ page }, testInfo) => {
   await setup(page, testInfo)
-  const chipTo = (name: string) => page.locator(`[data-testid="graph-edge-label"][title*="→ ${name}"]`)
+  const chipTo = (name: string) => page.locator(`[data-testid="graph-edge-label"][data-tip*="→ ${name}"]`)
 
   // No stored list yet: no chip is ranked.
   await page.getByRole('button', { name: 'Block graph' }).click()
@@ -164,5 +164,5 @@ test('Served order: the graph chips carry the rank of the stored list', async ({
   await page.getByRole('button', { name: 'Block graph' }).click()
   await expect(chipTo('Belts').getByTestId('graph-edge-rank')).toHaveText('#1')
   await expect(chipTo('Gears').getByTestId('graph-edge-rank')).toHaveText('#2')
-  await expect(chipTo('Gears')).toHaveAttribute('title', /served 2nd in Plates's list/)
+  await expect(chipTo('Gears')).toHaveAttribute('data-tip', /served 2nd in Plates's list/)
 })

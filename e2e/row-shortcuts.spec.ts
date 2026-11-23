@@ -159,7 +159,7 @@ test('beacon module slots change independently', async ({ page }) => {
   await expect(panel.getByTestId('beacon-module-slot').first()).toHaveAttribute('aria-label', /^Beacon module slot 1: (?!empty)/)
   await expect(chip).toHaveText(`${slots}/${slots}`)
   const nameA = (await panel.getByTestId('beacon-module-slot').first().getAttribute('aria-label'))!.replace(/^Beacon module slot 1: /, '')
-  await expect(chip).toHaveAttribute('title', new RegExp(`${nameA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} × ${slots - 1} \\+ .+ × 1 per beacon`))
+  await expect(chip).toHaveAttribute('data-tip', new RegExp(`${nameA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} × ${slots - 1} \\+ .+ × 1 per beacon`))
 
   // Emptying the last slot removes only module B.
   await panel.getByTestId('beacon-module-slot').nth(slots - 1).click()

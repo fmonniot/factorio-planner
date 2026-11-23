@@ -173,6 +173,15 @@ describe('MenuButton with a submenu', () => {
   })
 })
 
+describe('MenuButton trigger tooltip', () => {
+  it('carries the title prop as an instant tooltip, not a native title', () => {
+    render(<Harness />)
+    const trigger = screen.getByRole('button', { name: 'Menu' })
+    expect(trigger).toHaveAttribute('data-tip', 'Menu')
+    expect(trigger).not.toHaveAttribute('title')
+  })
+})
+
 describe('MenuButton flyout with grid rows', () => {
   const tile = (name: string, checked = false) => (
     <button type="button" role="menuitemradio" aria-checked={checked} aria-label={name} tabIndex={-1} className={ITEM_CLASS} />
