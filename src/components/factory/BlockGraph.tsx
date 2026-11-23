@@ -582,7 +582,6 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
         <button type="button" onClick={onClose} className={`${btn} ml-auto`}>Close</button>
       </div>
 
-
       {view === 'graph' ? (
         <GraphView
           layout={layout}

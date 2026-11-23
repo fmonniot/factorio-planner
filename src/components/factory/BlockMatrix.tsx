@@ -127,7 +127,7 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
     const to = byId.get(c.to)?.name ?? c.to
     const statuses = c.connectionIds.map(id => connectionStatus(flowsById.get(id)))
     return [c.key, {
-      label: `${plural(c.count, 'item', 'items')} from ${from} to ${to}${c.loop ? ', loop' : ''}`,
+      label: `${plural(c.count, 'item', 'items')} from ${from} to ${to}${c.loop ? ', loop' : ''}${c.limited > 0 ? `, ${c.limited} limited` : ''}${c.unused > 0 ? `, ${c.unused} not used` : ''}${c.back ? ', runs against the order' : ''}`,
       tip: edgeSummaryTitle(c.count, from, to, statuses, c.loop, 0, 'click to list them'),
     }]
   })), [model, byId, flowsById])
@@ -145,6 +145,8 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
   const scrollRef = useRef<HTMLDivElement>(null)
   // Enter on a cell hands the focus to the panel, whose first control is the cell's first connection.
   const focusPanel = useRef(false)
+  const selectedKeyRef = useRef<string | null>(null)
+  useEffect(() => { selectedKeyRef.current = selectedKey }, [selectedKey])
   useEffect(() => {
     if (!focusPanel.current || selectedKey === null) return
     focusPanel.current = false
@@ -159,7 +161,7 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
       e.stopPropagation()
       if (panelRef.current?.contains(document.activeElement)) {
         const [from, to] = [selected?.from, selected?.to]
-        scrollRef.current?.querySelector<HTMLElement>(`[data-testid="matrix-cell"][data-from="${from}"][data-to="${to}"]`)?.focus()
+        scrollRef.current?.querySelector<HTMLElement>(`[data-testid="matrix-cell"][data-from="${CSS.escape(from ?? '')}"][data-to="${CSS.escape(to ?? '')}"]`)?.focus()
       }
       setSelectedKey(null)
     }
@@ -172,11 +174,9 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
   const onFocusCell = useCallback((row: number, col: number) => setFocusCross({ row, col }), [])
   const onBlurCell = useCallback(() => setFocusCross(null), [])
   const onToggle = useCallback((key: string, ev: MouseEvent<HTMLButtonElement>) => {
-    setSelectedKey(k => {
-      if (k === key) return null
-      if (ev.detail === 0) focusPanel.current = true
-      return key
-    })
+    const closing = selectedKeyRef.current === key
+    if (!closing && ev.detail === 0) focusPanel.current = true
+    setSelectedKey(closing ? null : key)
   }, [])
 
   const colorOf = (id: string) => byId.get(id)?.color ?? MISSING_BLOCK_COLOR
@@ -213,7 +213,7 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
               </colgroup>
               <thead className="sticky top-0 z-20 bg-gray-900">
                 <tr>
-                  <th className="bg-gray-900" />
+                  <th className="sticky left-0 z-30 bg-gray-900" />
                   {model.order.map((id, col) => {
                     const name = byId.get(id)?.name ?? id
                     const on = cross?.col === col
@@ -228,10 +228,10 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
                         style={crossStyle(on)}
                         onMouseEnter={() => setHoverCross({ col })}
                         onMouseLeave={onLeave}
-                        className={`h-32 bg-gray-900 border-b border-gray-700 align-bottom pb-1 font-normal ${headTone(on)}`}
+                        className={`h-24 bg-gray-900 border-b border-gray-700 align-bottom pb-1 font-normal ${headTone(on)}`}
                       >
                         <div className="flex flex-col items-center gap-1">
-                          <span className="[writing-mode:vertical-rl] rotate-180 max-h-[7.5rem] truncate">{name}</span>
+                          <span className="[writing-mode:vertical-rl] rotate-180 max-h-[4.5rem] truncate">{name}</span>
                           <span className="text-[10px] font-mono text-gray-500">· {model.receives[col]}</span>
                         </div>
                       </th>

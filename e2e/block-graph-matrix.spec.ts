@@ -51,6 +51,7 @@ test.describe('block graph matrix, 15 blocks', () => {
     await setView(page, 'Matrix')
     const scroll = page.getByTestId('matrix-scroll')
     expect(await scroll.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    expect(await scroll.evaluate(el => el.scrollHeight <= el.clientHeight), 'no vertical scroll for 15 blocks').toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     const modal = (await page.getByTestId('modal-panel').boundingBox())!
     const pane = (await scroll.boundingBox())!

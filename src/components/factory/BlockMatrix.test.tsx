@@ -156,6 +156,7 @@ describe('BlockMatrix', () => {
     openMatrix()
     expect(cell('miner', 'consumer').getAttribute('data-status')).toBe('limited')
     expect(cell('miner', 'consumer').className).toContain('border-amber-500')
+    expect(cell('miner', 'consumer').getAttribute('aria-label')).toBe('1 item from Miner to Consumer, 1 limited')
   })
 
   it('marks a cell whose connections are all unused', () => {
@@ -163,6 +164,8 @@ describe('BlockMatrix', () => {
     render(<BlockGraphButton />)
     openMatrix()
     expect(cell('miner', 'consumer').getAttribute('data-all-unused')).toBe('true')
+    expect(cell('miner', 'consumer').getAttribute('aria-label')).toBe('1 item from Miner to Consumer, 1 not used')
+    expect(document.querySelector('thead th:first-child')!.className).toContain('sticky left-0')
   })
 
   it('draws the solver loop with the arrow, and the cell below the diagonal hatched', () => {
@@ -174,7 +177,7 @@ describe('BlockMatrix', () => {
     expect(below).toHaveLength(1)
     expect(below[0].getAttribute('data-loop')).toBe('true')
     expect(below[0].textContent).toContain('↻')
-    expect(below[0].getAttribute('aria-label')).toContain(', loop')
+    expect(below[0].getAttribute('aria-label')).toMatch(/, loop, runs against the order$/)
     expect(screen.getByTestId('matrix-summary').textContent).toContain('1 below the diagonal')
   })
 
