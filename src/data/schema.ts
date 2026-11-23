@@ -268,7 +268,7 @@ export const ProductSchema = z
     return p
   })
 
-/** One product per item: later products of an item fold into the first (its id and position kept, extraRate summed). The same array when there is nothing to merge. */
+/** One product per item: later products of an item fold into the first (its id and position kept, extraRate summed; the later products' ids are lost, nothing outside the block store refers to a product id). The same array when there is nothing to merge. */
 export function mergeDuplicateProducts(products: Product[]): Product[] {
   const out: Product[] = []
   const indexOf = new Map<string, number>()

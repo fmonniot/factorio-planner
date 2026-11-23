@@ -15,9 +15,8 @@ test.describe('duplicate products on load', () => {
     await expect(slots).toHaveCount(2)
     await expect(pane(page, 'Products').locator(`[data-testid="summary-slot"][data-item-id="${HYDROGEN}"]`)).toHaveCount(1)
 
-    // Any change saves the plan; the merged product is what gets stored.
-    await page.getByTitle('Add product').click()
-    await page.locator('.fixed.inset-0').getByText('Cancel').click()
+    // No edit needed: the fixture is seeded under the legacy single-plan key, and migrating it into the plan list
+    // writes the (merged) plan back at load time.
     await expect.poll(async () => {
       const plan = (await readActivePlan(page, 'nullius')) as { blocks: { products?: { itemId: string; extraRate?: number }[] }[] }
       return plan.blocks[0].products?.filter(p => p.itemId === HYDROGEN).map(p => p.extraRate)

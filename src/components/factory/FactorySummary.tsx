@@ -385,6 +385,7 @@ export function FactorySummary() {
 
   function confirmPendingChange() {
     if (!pendingChange) return
+    // addProduct is a no-op when the block gained the product while the dialog was open.
     if (pendingChange.change === 'add') addProduct(pendingChange.product)
     else removeProduct(pendingChange.productId)
     setPendingChange(null)

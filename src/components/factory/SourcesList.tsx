@@ -310,6 +310,8 @@ export function SourcesList({ itemId, id, areaId }: {
 
   /** *Make it a product* on the source of a line: asks first when other blocks' connections change meaning. */
   function requestSourceProduct(sourceId: string) {
+    const source = blockById.get(sourceId)
+    if (!source || hasProduct(source, itemId)) return
     const product: Product = { id: crypto.randomUUID(), itemId }
     const effects = productChangeEffects(blocks, sourceId, itemId, 'add', flows)
     if (effects.length === 0) addProduct(product, sourceId)
@@ -729,6 +731,7 @@ export function SourcesList({ itemId, id, areaId }: {
           rateUnit={unit}
           onCancel={() => setPending(null)}
           onConfirm={() => {
+            // The store refuses a second product of the item, so a source that gained it meanwhile makes this a no-op.
             addProduct(pending.product, pending.sourceId)
             setPending(null)
           }}

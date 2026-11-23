@@ -85,6 +85,8 @@ export function blockMakesItem(block: Block, gameData: GameData, itemId: string,
  * temperature (`item[,]`) joins the product's goal and each other requested range is one more goal on that product,
  * `temp` set (see `SolverGoal.temp`).
  */
+// Invariant: `products` holds at most one product per item (BlockSchema merges duplicates on every load path), so each
+// request of an item is counted once. A Block built without BlockSchema must keep that invariant itself.
 export function productGoals(products: Product[], requested?: Map<string, number>): SolverGoal[] {
   const goals: SolverGoal[] = []
   for (const p of products) {
