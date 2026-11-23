@@ -23,6 +23,8 @@ interface BlockGraphDetailProps {
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
 }
 
+/** Items flow left to right across the strip's width, then down: a busy edge grows downward only once a row is full. */
+const FLOW = 'grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-x-3 gap-y-1 items-start'
 const HEAD = 'text-[10px] uppercase tracking-wide text-gray-400 mb-1'
 
 function BlockRows({ title, rows }: { title: string; rows: { block: Block | undefined; id: string; count: number; loop: boolean }[] }) {
@@ -30,6 +32,7 @@ function BlockRows({ title, rows }: { title: string; rows: { block: Block | unde
     <div className="min-w-0 flex-1">
       <div className={HEAD}>{title}</div>
       {rows.length === 0 && <div className="text-xs text-gray-500">None</div>}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-x-4">
       {rows.map(r => (
         <div key={r.id} data-testid="graph-detail-block" className="flex items-center gap-2 text-xs text-gray-200 py-px">
           <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: r.block?.color ?? MISSING_BLOCK_COLOR }} />
@@ -38,6 +41,7 @@ function BlockRows({ title, rows }: { title: string; rows: { block: Block | unde
           <span className="ml-auto font-mono tabular-nums text-gray-400">{r.count} {r.count === 1 ? 'item' : 'items'}</span>
         </div>
       ))}
+      </div>
     </div>
   )
 }
@@ -63,10 +67,10 @@ function EdgeItems({ edge, blocks, flowsById, items, gameData, pinned, onRemove,
         Items on this edge · {source?.name ?? edge.from} → {target?.name ?? edge.to} · {n} {n === 1 ? 'connection' : 'connections'}
         {!pinned && <span className="normal-case"> · click the edge to pin it and edit</span>}
       </div>
-      <div className="flex flex-col items-start gap-0.5">
+      <div data-testid="graph-detail-items" className={FLOW}>
         {edge.connectionIds.map(id => (
+          <div key={id} className="min-w-0">
           <ConnectionChip
-            key={id}
             connectionId={id}
             edge={edge}
             source={source}
@@ -82,6 +86,7 @@ function EdgeItems({ edge, blocks, flowsById, items, gameData, pinned, onRemove,
             onRemove={onRemove}
             onSetLimit={onSetLimit}
           />
+          </div>
         ))}
       </div>
     </div>

@@ -94,6 +94,37 @@ test.describe('block graph, 15 blocks', () => {
     }
   })
 
+  test('a busy edge fills the strip across its width before it grows downward', async ({ page }, testInfo) => {
+    const plan = await setup(page, testInfo.outputPath('scale-plan.json'))
+    const counts = new Map<string, { n: number; id: string }>()
+    for (const b of plan.blocks) {
+      for (const c of b.connections) {
+        const key = `${c.fromBlockId}>${b.id}`
+        counts.set(key, { n: (counts.get(key)?.n ?? 0) + 1, id: counts.get(key)?.id ?? c.id })
+      }
+    }
+    const busy = [...counts.values()].filter(v => v.n >= 12).sort((a, b) => b.n - a.n)[0]
+    expect(busy, 'the plan has an edge of 12 or more items').toBeTruthy()
+    const strip = await pinEdge(page, { connectionId: busy.id })
+    const stripBox = (await strip.boundingBox())!
+    const boxes = await strip.getByTestId('graph-edge-label').evaluateAll(els => els.map(el => {
+      const r = el.getBoundingClientRect()
+      return { x: r.x, y: r.y, b: r.bottom }
+    }))
+    expect(boxes).toHaveLength(busy.n)
+    // Several columns across the strip, not one narrow list on its left.
+    const columns = new Set(boxes.map(b => Math.round(b.x)))
+    expect(columns.size).toBeGreaterThanOrEqual(3)
+    expect(Math.max(...boxes.map(b => b.x)) - stripBox.x).toBeGreaterThan(stripBox.width / 2)
+    // Most of the items are on screen without scrolling the strip.
+    const scroller = (await page.getByTestId('graph-detail').evaluate(el => {
+      const r = el.parentElement!.getBoundingClientRect()
+      return { top: r.top, bottom: r.bottom }
+    }))
+    const visible = boxes.filter(b => b.y >= scroller.top && b.b <= scroller.bottom).length
+    expect(visible).toBeGreaterThanOrEqual(Math.ceil(busy.n * 0.75))
+  })
+
   test('pointing at a block lights its edges and fills the strip', async ({ page }, testInfo) => {
     await setup(page, testInfo.outputPath('scale-plan.json'))
     await page.getByTestId('graph-node').filter({ has: page.getByRole('button', { name: 'Sludge', exact: true }) }).hover()
