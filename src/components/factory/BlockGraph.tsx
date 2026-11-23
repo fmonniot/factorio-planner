@@ -11,6 +11,7 @@ import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { layoutBlockGraph, edgePath, NODE_W, NODE_H, MAX_EDGE_CHIPS } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
 import { Modal } from '../Modal'
+import { TipWrap } from '../TipWrap'
 import { Icon } from '../Icon'
 import { IconButton } from '../IconButton'
 import { GraphIcon } from '../icons'
@@ -143,17 +144,18 @@ function BlockNode({
           </span>
         </span>
       </button>
-      <button
-        type="button"
-        data-testid="graph-connect-handle"
-        aria-label={`Connect from ${block.name}`}
-        data-tip="Send an item from this block to another"
-        disabled={!canConnect}
-        onClick={onStartConnect}
-        className="absolute right-0 top-0 h-full w-7 rounded-r border-l border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
-      >
-        →
-      </button>
+      <TipWrap tip="Send an item from this block to another" className="absolute right-0 top-0 h-full w-7">
+        <button
+          type="button"
+          data-testid="graph-connect-handle"
+          aria-label={`Connect from ${block.name}`}
+          disabled={!canConnect}
+          onClick={onStartConnect}
+          className="w-full h-full rounded-r border-l border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:pointer-events-none disabled:hover:bg-transparent"
+        >
+          →
+        </button>
+      </TipWrap>
     </div>
   )
 }
@@ -189,15 +191,15 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
       )}
       {candidates.map(({ itemId, offered, needed, request, blocker }) => {
         const item = items[itemId]
-        return (
+        const reason = blocker ? requestBlockerTitle(blocker, sourceName, item?.name ?? itemId) : undefined
+        const button = (
           <button
             key={itemId}
             type="button"
             role="menuitem"
             data-kind={request ? 'request' : 'take'}
             disabled={!!blocker}
-            data-tip={blocker ? requestBlockerTitle(blocker, sourceName, item?.name ?? itemId) : undefined}
-            className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
+            className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:bg-transparent"
             onClick={() => {
               if (!blocker) onPick(itemId)
             }}
@@ -209,6 +211,7 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
             </span>
           </button>
         )
+        return reason ? <TipWrap key={itemId} tip={reason} className="flex flex-col">{button}</TipWrap> : button
       })}
     </div>
   )

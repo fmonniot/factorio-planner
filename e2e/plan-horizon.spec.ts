@@ -363,7 +363,7 @@ test.describe('Plan horizon: machines and modules', () => {
     await sidePanel(page).getByTestId('module-slot').first().click()
     await expect(page.locator('[data-testid="module-option"][data-module-id="speed-module"]')).toHaveCount(0)
     await expect(row.getByLabel('Add beacon', { exact: true })).toBeDisabled()
-    await row.getByLabel('Add beacon', { exact: true }).hover()
+    await row.getByLabel('Add beacon', { exact: true }).locator('xpath=ancestor-or-self::*[@data-tip][1]').hover()
     await expect(page.getByTestId('tooltip')).toHaveText('No beacon within the research horizon')
 
     await setHorizon(page, 'electronics', 'automation-2', 'modules')

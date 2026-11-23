@@ -15,7 +15,7 @@ export function tipText(el: Element): string {
   return el.getAttribute('data-tip') || el.getAttribute('aria-label') || ''
 }
 
-const BOX_CLASS = 'fixed z-[70] bg-black text-gray-100 text-xs border border-gray-700 rounded px-2 py-1 max-w-[280px] pointer-events-none whitespace-pre-line'
+const BOX_CLASS = 'fixed z-[70] bg-black text-gray-100 text-xs border border-gray-700 rounded px-2 py-1 max-w-[280px] pointer-events-none whitespace-pre-line max-h-[60vh] overflow-hidden'
 
 const anchorOf = (target: EventTarget | null): HTMLElement | null =>
   target instanceof Element ? target.closest<HTMLElement>('[data-tip]') : null

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useId, useMemo, type ReactNode } from 'react'
+import { TipWrap } from './TipWrap'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useUiStore } from '../store/uiStore'
 import { useBlockStore, selectAppState } from '../store/blockStore'
@@ -507,17 +508,18 @@ export function WorkspaceMenu() {
             >
               <DownloadIcon />Export plan
             </button>
-            <button
-              type="button"
-              role="menuitem"
-              disabled={status.type !== 'loaded'}
-              data-tip="Import a plan from a JSON file as a new plan"
-              tabIndex={-1}
-              className={ITEM_CLASS}
-              onClick={() => { startImport(); close(true) }}
-            >
-              <UploadIcon />Import plan…
-            </button>
+            <TipWrap tip="Import a plan from a JSON file as a new plan" className="flex flex-col">
+              <button
+                type="button"
+                role="menuitem"
+                disabled={status.type !== 'loaded'}
+                tabIndex={-1}
+                className={`${ITEM_CLASS} disabled:pointer-events-none`}
+                onClick={() => { startImport(); close(true) }}
+              >
+                <UploadIcon />Import plan…
+              </button>
+            </TipWrap>
           </>
         )}
       </MenuButton>

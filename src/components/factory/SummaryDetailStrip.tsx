@@ -1,4 +1,5 @@
 import type { Item } from '../../data/types'
+import { TipWrap } from '../TipWrap'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import { fmtFluidTag } from '../../data/flowKey'
@@ -206,22 +207,26 @@ export function SummaryDetailStrip({
       </div>
       {showActions && (
         <div className="flex items-center gap-1.5 shrink-0 h-[22px]">
-          {actions.map(a => (
+          {actions.map(a => {
+            const tip = a.title ?? (a.badge ? `${a.badge.count} ${a.badge.noun}` : undefined)
+            const button = (
             <button
               key={a.id ?? a.label}
               type="button"
               onClick={a.onSelect}
               disabled={a.disabled}
-              data-tip={a.title ?? (a.badge ? `${a.badge.count} ${a.badge.noun}` : undefined)}
+              data-tip={a.disabled ? undefined : tip}
               aria-label={a.badge ? `${a.label} · ${a.badge.count} ${a.badge.noun}` : undefined}
-              className={`bg-gray-900 border border-gray-700 rounded px-2 py-0.5 leading-4 whitespace-nowrap hover:border-gray-500 disabled:opacity-40 disabled:cursor-default disabled:hover:border-gray-700 ${a.danger ? 'text-red-400' : 'text-gray-300'}`}
+              className={`bg-gray-900 border border-gray-700 rounded px-2 py-0.5 leading-4 whitespace-nowrap hover:border-gray-500 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:border-gray-700 ${a.danger ? 'text-red-400' : 'text-gray-300'}`}
             >
               {a.label}
               {a.badge && (
                 <span aria-hidden="true" data-testid="strip-action-badge" className="ml-1 rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">{a.badge.count}</span>
               )}
             </button>
-          ))}
+            )
+            return a.disabled && tip ? <TipWrap key={a.id ?? a.label} tip={tip}>{button}</TipWrap> : button
+          })}
           {keyExtra && <span data-testid="summary-key-extra" className="inline-flex">{keyExtra}</span>}
         </div>
       )}

@@ -1,4 +1,5 @@
 import type { GameData, BeaconConfig } from '../../data/types'
+import { TipWrap } from '../TipWrap'
 import { useBlockStore } from '../../store/blockStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
@@ -63,39 +64,45 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
     return (
       <div className={`flex items-center ${gap}`}>
         <PickerTrigger
-          trigger={({ open, toggle }) => (
-            <IconChip
-              onClick={toggle}
-              aria-expanded={open}
-              size="entity"
-              empty
-              quiet={!blocked}
-              alt="Add beacon"
-              disabled={blocked}
-              data-tip={disabledTitle ?? 'Add beacon'}
-              aria-label="Add beacon"
-              className={blocked ? 'opacity-40' : ''}
-            />
-          )}
+          trigger={({ open, toggle }) => {
+            const chip = (
+              <IconChip
+                onClick={toggle}
+                aria-expanded={open}
+                size="entity"
+                empty
+                quiet={!blocked}
+                alt="Add beacon"
+                disabled={blocked}
+                data-tip={blocked ? undefined : 'Add beacon'}
+                aria-label="Add beacon"
+                className={blocked ? 'opacity-40 pointer-events-none' : ''}
+              />
+            )
+            return blocked ? <TipWrap tip={disabledTitle}>{chip}</TipWrap> : chip
+          }}
         >
           {picker}
         </PickerTrigger>
         <PickerTrigger
-          trigger={({ open, toggle }) => (
-            <IconChip
-              onClick={toggle}
-              aria-expanded={open}
-              size="entity"
-              empty
-              quiet={!blocked}
-              alt="Add beacon module"
-              quantity={newBeacon ? `0/${newBeacon.moduleSlots}` : undefined}
-              disabled={blocked}
-              data-tip={disabledTitle ?? 'Add beacon with a module'}
-              aria-label="Add beacon module"
-              className={blocked ? 'opacity-40' : ''}
-            />
-          )}
+          trigger={({ open, toggle }) => {
+            const chip = (
+              <IconChip
+                onClick={toggle}
+                aria-expanded={open}
+                size="entity"
+                empty
+                quiet={!blocked}
+                alt="Add beacon module"
+                quantity={newBeacon ? `0/${newBeacon.moduleSlots}` : undefined}
+                disabled={blocked}
+                data-tip={blocked ? undefined : 'Add beacon with a module'}
+                aria-label="Add beacon module"
+                className={blocked ? 'opacity-40 pointer-events-none' : ''}
+              />
+            )
+            return blocked ? <TipWrap tip={disabledTitle}>{chip}</TipWrap> : chip
+          }}
         >
           {picker}
         </PickerTrigger>

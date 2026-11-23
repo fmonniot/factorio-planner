@@ -1868,6 +1868,7 @@ describe('FactorySummary — products pane', () => {
       expect(miner().sourceRules).toEqual({ slag: { leftoverOff: true } })
       // The rule is on; the slot is still a leftover here (the solve is not rerun), so the action says it is done.
       expect(action()).toBeDisabled()
+      expect(action(), 'a disabled button gets no hover of its own').toHaveClass('disabled:pointer-events-none')
       expect(action().closest('[data-tip]')).toHaveAttribute('data-tip', 'Leftover is already off for this item: no row of this block can use more of it.')
 
       act(() => useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'miner' ? { ...b, sourceRules: {} } : b)) })))

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useOverlayOpen } from './sidePanel/useDismiss'
 import { createPortal } from 'react-dom'
+import { TipWrap } from '../TipWrap'
 
 // ---------------------------------------------------------------------------
 // RowActionsMenu — right-click context menu (recipe rows, byproduct tiles)
@@ -92,16 +93,15 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
       style={{ position: 'fixed', left: pos.x, top: pos.y }}
       className="z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 flex flex-col"
     >
-      {actions.map(action => (
-        <Fragment key={action.id ?? action.label}>
-          {action.separatorBefore && <div role="separator" className="my-1 border-t border-gray-700" />}
+      {actions.map(action => {
+        const item = (
           <button
             type="button"
             role={action.checked === undefined ? 'menuitem' : action.radio ? 'menuitemradio' : 'menuitemcheckbox'}
             aria-checked={action.checked}
             disabled={action.disabled}
-            data-tip={action.title}
-            className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent ${
+            data-tip={action.disabled ? undefined : action.title}
+            className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent ${
               action.danger ? 'text-red-400' : 'text-gray-200'
             }`}
             onClick={() => {
@@ -114,8 +114,14 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
             )}
             {action.label}
           </button>
-        </Fragment>
-      ))}
+        )
+        return (
+          <Fragment key={action.id ?? action.label}>
+            {action.separatorBefore && <div role="separator" className="my-1 border-t border-gray-700" />}
+            {action.disabled && action.title ? <TipWrap tip={action.title} className="flex flex-col">{item}</TipWrap> : item}
+          </Fragment>
+        )
+      })}
     </div>,
     document.body,
   )
