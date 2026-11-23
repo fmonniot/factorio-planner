@@ -1,6 +1,7 @@
 import type { FluidTag, GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { IconChip } from './IconChip'
+import { fmtFluidTag } from '../../data/flowKey'
 import { rowDisplayName } from './areaMatrix'
 import { fmtChipQuantity, fmtItemRate } from './ItemTile'
 
@@ -29,6 +30,7 @@ export function FlowChip({ itemId, temp, rate, boundary, otherEnd, direction, it
       iconPath={item?.iconPath || undefined}
       alt={name}
       fallback={item?.name ?? itemId}
+      corner={fmtFluidTag(temp) && <span data-testid="area-flow-temperature">{fmtFluidTag(temp)}</span>}
       quantity={fmtChipQuantity(itemId, rate / 60, rateUnit)}
       tone={direction === 'receives' ? 'ingredient' : 'product'}
       tip={title}

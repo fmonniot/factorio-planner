@@ -57,6 +57,19 @@ describe('AreaChipsMore', () => {
     expect(p.textContent).toContain('Also receives')
   })
 
+  it('names the temperature of a split fluid on its lines, with and without a partner', () => {
+    vi.useFakeTimers()
+    const flows = [
+      { key: 'e@165', itemId: 'e', temp: { at: 165 }, rate: 5, boundary: false, otherEnd: 'from Oil', ends: [{ partnerId: 'oil', otherEnd: 'from Oil', rate: 5 }] },
+      { key: 'e@500', itemId: 'e', temp: { at: 500 }, rate: 6, boundary: false, otherEnd: '', ends: [] },
+    ]
+    renderMore({ flows })
+    fireEvent.mouseEnter(trigger())
+    advance(HOVER_OPEN_DELAY_MS)
+    const lines = [...screen.getByRole('tooltip').querySelectorAll('[data-testid="area-chips-line"]')]
+    expect(lines.map(l => l.textContent)).toEqual([expect.stringContaining('Ernie 165°C'), expect.stringContaining('Ernie 500°C')])
+  })
+
   it('never opens when the pointer leaves before the delay', () => {
     vi.useFakeTimers()
     renderMore()

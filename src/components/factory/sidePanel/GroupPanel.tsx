@@ -20,7 +20,7 @@ function Stat({ label, value, testId }: { label: string; value: string; testId: 
   )
 }
 
-function FlowList({ lines, items, empty, testId }: {
+export function FlowList({ lines, items, empty, testId }: {
   lines: FlowLine[]
   items: GameData['items']
   empty: string

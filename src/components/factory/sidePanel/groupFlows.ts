@@ -1,4 +1,5 @@
 import type { AreaFlow, AreaRoute, FluidTag, SubPlan } from '../../../data/types'
+import { compareTags } from '../../../data/flowKey'
 import { findSubPlan } from '../../../data/subPlanTree'
 import { routeEnds } from '../areaRouteEnds'
 
@@ -15,6 +16,11 @@ export function areaEndName(rootPlan: SubPlan): (areaId: string | undefined) => 
     if (areaId === rootPlan.id) return ROOT_END
     return findSubPlan(rootPlan, areaId)?.name ?? areaId
   }
+}
+
+/** Whether two flow tags are the same temperature or range (both absent counts as the same). */
+function sameTemp(a: FluidTag | undefined, b: FluidTag | undefined): boolean {
+  return a === undefined || b === undefined ? a === b : compareTags(a, b) === 0
 }
 
 export interface FlowEnd {
@@ -56,7 +62,7 @@ export function flowLines(
   return flows.map(f => {
     // Merged by displayed text, so the popup's lines and the title agree when two partners share a name.
     const byText = new Map<string, FlowEnd>()
-    for (const e of routeEnds(routes.filter(r => r.itemId === f.itemId && JSON.stringify(r.temp) === JSON.stringify(f.temp)), areaId, direction)) {
+    for (const e of routeEnds(routes.filter(r => r.itemId === f.itemId && sameTemp(r.temp, f.temp)), areaId, direction)) {
       const otherEnd = `${word} ${nameOf(e.partnerId)}`
       const seen = byText.get(otherEnd)
       if (seen) seen.rate += e.rate
