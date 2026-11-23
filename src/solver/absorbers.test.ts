@@ -268,6 +268,27 @@ describe('absorberRoles', () => {
         ])
       })
 
+      it('25: a product another row also makes gets a row that holds the share at 0', () => {
+        const growPlate: Row = ['G', { seed: 1 }, { goal: 1, tree: 2, plate: 0.4 }]
+        const system = systemOf([growPlate, makeSaw, makePlate, mine, burn, usePlate], { goal: 10, gadget: 4 })
+        const roles = absorberRoles(system, set('K'), none, new Set(), { markedFeeders: set('H'), supplied: set('roll') })
+        expect(roles.ordinaryShare.get('H')).toEqual([
+          { itemId: 'plate', made: 4, goal: 0, ordinary: new Map(), shares: new Map() },
+        ])
+      })
+
+      it('26: two marked feeders, one taking the product of the other, are ordered', () => {
+        const sheet: Row = ['Q', { roll: 1 }, { sheet: 1 }]
+        const makePlate4: Row = ['H', { sheet: 1 }, { plate: 4 }]
+        const useSheet: Row = ['V', { sheet: 1 }, { widget: 1 }]
+        const system = systemOf([grow, makeSaw, makePlate4, sheet, mine, burn, usePlate, useSheet], { goal: 10, gadget: 4, widget: 1 })
+        const roles = absorberRoles(system, set('K'), none, new Set(), { markedFeeders: set('H', 'Q'), supplied: set('roll') })
+        expect(shares(roles), 'H first').toEqual(['H', 'Q'])
+        expect(roles.ordinaryShare.get('Q')).toEqual([
+          { itemId: 'sheet', made: 1, goal: 0, ordinary: new Map([['V', 1]]), shares: new Map([['H', 1]]) },
+        ])
+      })
+
       it('24: no share when no share column takes a supplied item', () => {
         const rod: Row = ['O', { ore: 1 }, { rod: 1 }]
         const makePlateFromRod: Row = ['H', { rod: 1 }, { plate: 1 }]

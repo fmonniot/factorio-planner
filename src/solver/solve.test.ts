@@ -848,6 +848,20 @@ describe('absorber chains', () => {
     }
   })
 
+  it('a product another row also makes gets no share: free supply must not feed the chain', () => {
+    // grow also makes 0.4 plate per run, so U's 4 plates arrive as a byproduct. Without the mark nothing runs and nothing is received;
+    // a share on make-plate would let the roll supply make 4 plates that make-saw takes for its reward.
+    const rows: Row[] = ROWS_N.map(r => r[0] === 'grow' ? ['grow', { seed: 1 }, { goal: 1, tree: 2, plate: 0.4 }] as Row : r)
+    for (const cap of [100, Infinity]) {
+      const { raw, result } = lpOf(rows, { goal: 10, gadget: 4 }, ['make-saw'], [], new Map([['roll', cap]]), ['roll'], ['make-plate'])
+      expect(raw.bounded, 'bounded').not.toBe(false)
+      expect(result.throughput.get('make-saw'), 'make-saw').toBeCloseTo(0, 6)
+      expect(result.throughput.get('make-plate'), 'make-plate').toBeCloseTo(0, 6)
+      expect(result.throughput.get('use-plate'), 'use-plate').toBeCloseTo(4, 6)
+      expect(result.supply.get('roll') ?? 0, 'roll received').toBeCloseTo(0, 6)
+    }
+  })
+
   it('the share reaches the unmarked feeder upstream of a marked feeder', () => {
     const rows: Row[] = [
       GROW, ['make-saw', { plate: 1 }, { saw: 1 }], ['make-plate', { sheet: 1 }, { plate: 4 }], ['make-sheet', { roll: 1 }, { sheet: 1 }],

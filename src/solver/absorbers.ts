@@ -38,10 +38,11 @@ export interface AbsorberRoles {
    */
   noSupply: ReadonlySet<string>
   /**
-   * The *share columns* Σ of the fallback and, for each, the rows that bound its ordinary share, in level order. Empty unless the
-   * fallback holds and some column of Σ takes a supplied item. Σ is the unflagged chain columns that are not conversions and that
-   * run for ordinary use: level 0 has a product that is a goal or that a column outside the chain takes (only marked feeders
-   * qualify), level L+1 has a product that a column of Σ takes (the unmarked feeders upstream of a marked feeder).
+   * The *share columns* of the fallback and, for each, the rows that bound its ordinary share, in level order. Empty unless the
+   * fallback holds and some share column takes a supplied item. They are the unflagged chain columns that are not conversions and that
+   * run for ordinary use: a product that is a goal or that a column outside the chain takes (only marked feeders qualify), or a product
+   * that a share column takes (the unmarked feeders upstream of a marked feeder). A column's level is one more than the highest level
+   * of the share columns taking its products. A product that another column also makes gets a row with no takers (a_j = 0).
    */
   ordinaryShare: ReadonlyMap<string, readonly ShareRow[]>
   /**
@@ -240,23 +241,47 @@ function ordinaryShareOf(
   const { goals } = system.classification
   const eligible = (id: string) => chain.has(id) && !flagged.has(id) && !conversions?.has(id)
   const outside = (id: string) => !chain.has(id) && !conversions?.has(id)
-  const level = new Map<string, number>()
+  // The share columns: the columns that run for ordinary use, then the feeders upstream of them.
+  const members = new Set<string>()
   for (const id of system.recipes) {
     if (!eligible(id)) continue
     const runsForOrdinary = (productsOf.get(id) ?? []).some(
       itemId => goals.has(itemId) || (consumersOf.get(itemId) ?? []).some(outside),
     )
-    if (runsForOrdinary) level.set(id, 0)
+    if (runsForOrdinary) members.add(id)
   }
-  for (let l = 0; level.size > 0; l++) {
-    const upper = new Set(level.keys())
-    const next = system.recipes.filter(
-      id => eligible(id) && !level.has(id)
-        && (productsOf.get(id) ?? []).some(itemId => (consumersOf.get(itemId) ?? []).some(c => upper.has(c))),
-    )
-    if (next.length === 0) break
-    for (const id of next) level.set(id, l + 1)
+  for (let changed = true; changed;) {
+    changed = false
+    for (const id of system.recipes) {
+      if (!eligible(id) || members.has(id)) continue
+      if ((productsOf.get(id) ?? []).some(itemId => (consumersOf.get(itemId) ?? []).some(c => members.has(c)))) {
+        members.add(id)
+        changed = true
+      }
+    }
   }
+  // A column's level is one more than the highest level among the share columns that take its products (0 when none do), so a column's
+  // share is always counted by the columns it feeds. Columns on a cycle of share columns share the level after the last acyclic one: a row counts
+  // only strictly lower levels, so they ignore each other.
+  const takersIn = (id: string): string[] => {
+    const takers = new Set<string>()
+    for (const itemId of productsOf.get(id) ?? []) for (const c of consumersOf.get(itemId) ?? []) if (c !== id && members.has(c)) takers.add(c)
+    return [...takers]
+  }
+  const level = new Map<string, number>()
+  for (let progress = true; progress;) {
+    progress = false
+    for (const id of members) {
+      if (level.has(id)) continue
+      const takers = takersIn(id)
+      if (takers.every(c => level.has(c))) {
+        level.set(id, takers.reduce((m, c) => Math.max(m, level.get(c)! + 1), 0))
+        progress = true
+      }
+    }
+  }
+  const cyclic = Math.max(-1, ...level.values()) + 1
+  for (const id of members) if (!level.has(id)) level.set(id, cyclic)
   const columns = [...level.keys()].sort((a, b) => level.get(a)! - level.get(b)!)
   if (!columns.some(id => (takesOf.get(id) ?? []).some(itemId => supplied.has(itemId)))) return new Map()
   const take = (itemId: string, id: string): number => -(system.S.get(itemId)?.get(id) ?? 0)
@@ -266,6 +291,12 @@ function ordinaryShareOf(
     for (const itemId of productsOf.get(id) ?? []) {
       const takers = consumersOf.get(itemId) ?? []
       if (!takers.some(c => c !== id && chain.has(c))) continue
+      // Another column that makes the item (a byproduct of an ordinary row, or a second feeder) may already cover what ordinary rows
+      // take, and what this column makes could then only feed the chain: its row has no takers, so a_j is 0 and it takes no supply.
+      if ([...system.S.get(itemId)!].some(([c, coeff]) => c !== id && coeff > 0)) {
+        rows.push({ itemId, made: system.S.get(itemId)!.get(id)!, goal: 0, ordinary: new Map(), shares: new Map() })
+        continue
+      }
       rows.push({
         itemId,
         made: system.S.get(itemId)!.get(id)!,

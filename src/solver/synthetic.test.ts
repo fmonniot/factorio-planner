@@ -157,6 +157,7 @@ function recipes(): GameRecipe[] {
     // Case 23 (an absorber chain): G grows the goal and 2 trees from a seed, S saws a tree into 8 wood and gives back 0.9 of the saw it
     // takes, K makes a saw from a plate, P makes 4 plates from a roll; U turns a plate into a gadget, B burns a roll into ash.
     recipe('case23-grow', 'smelting', 1, [item('case23-seed', 1)], [item('case23-goal', 1), item('case23-tree', 2)]),
+    recipe('case23-grow-plate', 'smelting', 1, [item('case23-seed', 1)], [item('case23-goal', 1), item('case23-tree', 2), item('case23-plate', 0.4)]),
     recipe('case23-saw-wood', 'smelting', 1, [item('case23-tree', 1), item('case23-saw', 1)], [item('case23-wood', 8), { ...item('case23-saw', 1), probability: 0.9 }]),
     recipe('case23-make-saw', 'smelting', 1, [item('case23-plate', 1)], [item('case23-saw', 1)]),
     recipe('case23-make-plate', 'smelting', 1, [item('case23-roll', 1)], [item('case23-plate', 4)]),
@@ -2999,6 +3000,26 @@ describe('solver synthetic cases', () => {
         expect(roll?.rate, 'roll leg into Plates').toBeCloseTo(1, 6)
         expect(roll?.supplied, 'roll leg supplied').toBeCloseTo(1, 6)
       })
+    })
+
+    it('n3: a plate another row makes as a byproduct gives the marked feeder no share', () => {
+      // n with a grow row that also makes 0.4 plate per run: U's 4 plates arrive as a byproduct, so a share on P would only let the roll
+      // supply make plates for K's reward. As without the mark, nothing runs and nothing is received.
+      const nodes = [
+        planNode('case23-grow-plate'), flag('case23-make-saw'), planNode('case23-make-plate', [], { absorberFeeder: true }),
+        planNode('case23-use-plate'), planNode('case23-mine-roll'), planNode('case23-burn-roll'),
+      ]
+      for (const offer of [100, Infinity]) {
+        const { result, received } = solveBlock(flattenBlock(flatBlock(nodes, 'case23-roll', [...GOAL, ['case23-gadget', 4]])), makeGameData(), new Map([['case23-roll', offer]]))
+        expect(nodeOf(result, 'case23-grow-plate').throughput, 'grow').toBeCloseTo(10, 6)
+        expect(nodeOf(result, 'case23-use-plate').throughput, 'use-plate').toBeCloseTo(4, 6)
+        expect(nodeOf(result, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(0, 6)
+        expect(nodeOf(result, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(0, 6)
+        expect(nodeOf(result, 'case23-mine-roll').throughput, 'mine-roll').toBeCloseTo(0, 6)
+        expect(received.get('case23-roll') ?? 0, `roll received (offer ${offer})`).toBeCloseTo(0, 6)
+        expect(unsat(result, 'case23-roll'), 'roll imported').toBeCloseTo(0, 6)
+        expect(feeders(result), 'feeders').toEqual([])
+      }
     })
 
     describe('l, m: a row marked to feed absorbing rows', () => {
