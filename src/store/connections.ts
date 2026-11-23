@@ -134,6 +134,7 @@ export function receivedFromSources(blocks: Block[], blockId: string, itemId: st
   const block = blocks.find(b => b.id === blockId)
   if (!block || hasProduct(block, itemId)) return []
   const byId = new Map(blocks.map(b => [b.id, b]))
+  if (!receivesItem(block, itemId, new Set(byId.keys()))) return []
   const names: string[] = []
   const seen = new Set<string>()
   for (const c of block.inputConnections) {
