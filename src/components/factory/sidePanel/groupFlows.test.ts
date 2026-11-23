@@ -6,6 +6,16 @@ const names: Record<string, string> = { oil: 'Oil', root: 'the rest of the block
 const nameOf = (id: string | undefined) => (id === undefined ? 'outside the block' : (names[id] ?? id))
 
 describe('flowLines', () => {
+  it('gives the two lines of a split fluid different keys', () => {
+    const flows = [
+      { itemId: 'steam', rate: 10, boundary: false, temp: { at: 165 } },
+      { itemId: 'steam', rate: 5, boundary: false, temp: { at: 500 } },
+      { itemId: 'gas', rate: 1, boundary: false },
+    ]
+    const keys = flowLines(flows, [], 'a', 'receives', nameOf).map(l => l.key)
+    expect(new Set(keys).size).toBe(3)
+  })
+
   const routes = [
     { itemId: 'gas', from: 'oil', to: 'a', rate: 30 },
     { itemId: 'gas', from: 'root', to: 'a', rate: 10 },

@@ -10,8 +10,8 @@ const items = {
 } as never
 
 const FLOWS = [
-  { itemId: 'e', rate: 56, boundary: true, otherEnd: '', ends: [] },
-  { itemId: 'f', rate: 55, boundary: false, otherEnd: '', ends: [] },
+  { key: 'e', itemId: 'e', rate: 56, boundary: true, otherEnd: '', ends: [] },
+  { key: 'f', itemId: 'f', rate: 55, boundary: false, otherEnd: '', ends: [] },
 ]
 
 function renderMore(props: Partial<Parameters<typeof AreaChipsMore>[0]> = {}) {
@@ -147,9 +147,9 @@ describe('AreaChipsMore', () => {
 
   it('says how many lines the popup has when a partner adds one', () => {
     const flows = [
-      { itemId: 'e', rate: 56, boundary: false, otherEnd: 'from A, B', ends: [
+      { key: 'e', itemId: 'e', rate: 56, boundary: false, otherEnd: 'from A, B', ends: [
         { partnerId: 'a', otherEnd: 'from A', rate: 30 }, { partnerId: 'b', otherEnd: 'from B', rate: 26 }] },
-      { itemId: 'f', rate: 55, boundary: false, otherEnd: '', ends: [] },
+      { key: 'f', itemId: 'f', rate: 55, boundary: false, otherEnd: '', ends: [] },
     ]
     renderMore({ flows })
     expect(trigger()).toHaveTextContent('+2')
@@ -271,6 +271,7 @@ describe('AreaChipsMore', () => {
   it('has one line per partner, with the other end under the item name', () => {
     renderMore({
       flows: [{
+        key: 'e',
         itemId: 'e',
         rate: 15,
         boundary: false,
@@ -294,7 +295,7 @@ describe('AreaChipsMore', () => {
   })
 
   it('has one line with its text for one end', () => {
-    renderMore({ flows: [{ itemId: 'f', rate: 55, boundary: true, otherEnd: 'from outside the block', ends: [{ partnerId: undefined, otherEnd: 'from outside the block', rate: 55 }] }] })
+    renderMore({ flows: [{ key: 'f', itemId: 'f', rate: 55, boundary: true, otherEnd: 'from outside the block', ends: [{ partnerId: undefined, otherEnd: 'from outside the block', rate: 55 }] }] })
     fireEvent.focus(trigger())
     const lines = screen.getByRole('tooltip').querySelectorAll('[data-testid="area-chips-line"]')
     expect(lines).toHaveLength(1)

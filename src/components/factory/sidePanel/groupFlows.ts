@@ -26,6 +26,8 @@ export interface FlowEnd {
 }
 
 export interface FlowLine {
+  /** Unique among the lines of one list: a split fluid has one line per temperature, so the item id alone is not. */
+  key: string
   itemId: string
   /** items/min */
   rate: number
@@ -60,6 +62,7 @@ export function flowLines(
     }
     const ends = [...byText.values()]
     return {
+      key: f.temp ? `${f.itemId}@${JSON.stringify(f.temp)}` : f.itemId,
       itemId: f.itemId,
       rate: f.rate,
       otherEnd: ends.length > 0 ? `${word} ${ends.map(e => e.otherEnd.slice(word.length + 1)).join(', ')}` : '',
