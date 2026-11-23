@@ -807,6 +807,21 @@ describe('FactorySummary — byproduct relative tolerance', () => {
   })
 })
 
+describe('FactorySummary — add product, item already a product', () => {
+  it('disables the item in the picker and still adds another one', async () => {
+    setupStore([ironGoal])
+    render(<FactorySummary />)
+    fireEvent.click(screen.getByTitle('Add product'))
+    await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
+    const slotOf = (id: string) => screen.getAllByTestId('item-slot').find(b => b.getAttribute('data-item-id') === id)!
+    expect(slotOf('iron-plate')).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(slotOf('iron-plate'))
+    expect(useBlockStore.getState().blocks[0].products.map(p => p.itemId)).toEqual(['iron-plate'])
+    fireEvent.click(slotOf('iron-ore'))
+    expect(useBlockStore.getState().blocks[0].products.map(p => p.itemId)).toEqual(['iron-plate', 'iron-ore'])
+  })
+})
+
 describe('FactorySummary — add product', () => {
   it('clicking + opens item picker', async () => {
     render(<FactorySummary />)
@@ -2218,8 +2233,8 @@ describe('FactorySummary — import lock', () => {
   })
 })
 
-describe('FactorySummary — two goals for the same item', () => {
-  const second: Product = { id: 'g2', itemId: 'iron-plate', extraRate: 30 }
+describe('FactorySummary — several products', () => {
+  const second: Product = { id: 'g2', itemId: 'copper-plate', extraRate: 30 }
   const slots = () => within(pane('Products')).getAllByTestId('summary-slot')
 
   beforeEach(() => setupStore([ironGoal, second]))

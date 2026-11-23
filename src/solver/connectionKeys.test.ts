@@ -38,17 +38,22 @@ const block = (id: string, products: Array<[string, number]>, nodes: GameRecipeN
 const r6 = (n: number) => Math.round(n * 1e6) / 1e6
 
 describe('productGoals with a request per range', () => {
-  const products: Product[] = [{ id: 'p0', itemId: 'steam', extraRate: 100 }, { id: 'p1', itemId: 'steam', extraRate: 5 }, { id: 'p2', itemId: 'other', extraRate: 7 }]
-  it('the request of any temperature joins the first product, each other range is a goal of its own with temp', () => {
+  const products: Product[] = [{ id: 'p0', itemId: 'steam', extraRate: 100 }, { id: 'p2', itemId: 'other', extraRate: 7 }]
+  it('the request of any temperature joins the product, each other range is a goal of its own with temp', () => {
     const goals = productGoals(products, new Map([['steam[,]', 50], ['steam[465,]', 30], ['other', 3]]))
     expect(goals).toEqual([
       { id: 'p0', itemId: 'steam', rate: 150 },
       { id: 'p0\0steam[465,]', itemId: 'steam', rate: 30, temp: { min: 465 } },
-      { id: 'p1', itemId: 'steam', rate: 5 },
       { id: 'p2', itemId: 'other', rate: 10 },
     ])
   })
-  it('a plain request is unchanged: it adds to the first product only', () => {
+  it('a request for an item the block does not produce is no goal', () => {
+    expect(productGoals([{ id: 'x', itemId: 'x' }], new Map([['y', 4]]))).toEqual([])
+  })
+  it('a product with no extra and a request of 4 has rate 4', () => {
+    expect(productGoals([{ id: 'x', itemId: 'x' }], new Map([['x', 4]]))).toEqual([{ id: 'x', itemId: 'x', rate: 4 }])
+  })
+  it('a plain request is unchanged: it adds to the product', () => {
     expect(productGoals([{ id: 'p', itemId: 'x', extraRate: 0 }], new Map([['x', 4]]))).toEqual([{ id: 'p', itemId: 'x', rate: 4 }])
     expect(productGoals([{ id: 'p', itemId: 'x', extraRate: 0 }], new Map([['x', 1e-9]]))).toEqual([])
   })

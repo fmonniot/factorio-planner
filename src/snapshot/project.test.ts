@@ -136,15 +136,15 @@ describe('projectSnapshot', () => {
 
   it('sends products with extra rate plus what other blocks request, typed item or fluid', () => {
     const a = makeBlock('a', {
-      products: [{ id: 'p1', itemId: 'plate', extraRate: 5.12345 }, { id: 'p2', itemId: 'plate' }, { id: 'p3', itemId: 'steam' }],
+      products: [{ id: 'p1', itemId: 'plate', extraRate: 5.12345 }, { id: 'p2', itemId: 'gear' }, { id: 'p3', itemId: 'steam' }],
     })
     const s = project([a, makeBlock('b')], solveOf({
       flows: [flow({ fromBlockId: 'a', toBlockId: 'b', kind: 'request', requested: 2 })],
     }))
-    // The first product of an item receives the request; the second keeps only its own extra (none).
+    // The request adds to the item's product; the others keep only their own extra (none).
     expect(s.blocks[0].products).toEqual([
       { id: 'plate', type: 'item', rate: 7.123 },
-      { id: 'plate', type: 'item', rate: 0 },
+      { id: 'gear', type: 'item', rate: 0 },
       { id: 'steam', type: 'fluid', rate: 0 },
     ])
   })

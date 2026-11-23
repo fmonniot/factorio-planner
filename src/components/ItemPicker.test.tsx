@@ -915,6 +915,27 @@ describe('ItemPicker — items mode', () => {
     expect(onSelect).not.toHaveBeenCalled()
   })
 
+  it('shows a present item disabled and ignores a click on it', () => {
+    const onSelect = vi.fn()
+    const onClose = vi.fn()
+    render(<ItemPicker source="items" presentItems={new Set(['iron-plate'])} onSelect={onSelect} onClose={onClose} />)
+    const slotOf = (id: string) => screen.getAllByTestId('item-slot').find(s => s.getAttribute('data-item-id') === id)!
+    const iron = slotOf('iron-plate')
+    expect(iron).toHaveAttribute('aria-disabled', 'true')
+    expect(iron).toHaveAttribute('data-present', 'true')
+    expect(iron).toHaveAttribute('title', 'Iron Plate (already a product of this block)')
+    expect(slotOf('copper-plate')).not.toHaveAttribute('aria-disabled')
+    fireEvent.click(iron)
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled()
+  })
+
+  it('disables nothing without presentItems', () => {
+    render(<ItemPicker source="items" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getAllByTestId('item-slot').some(s => s.hasAttribute('aria-disabled'))).toBe(false)
+  })
+
   it('hidden items are excluded from the slot grid', () => {
     render(<ItemPicker source="items" onSelect={() => {}} onClose={() => {}} />)
     const ids = screen.getAllByTestId('item-slot').map(s => s.getAttribute('data-item-id'))

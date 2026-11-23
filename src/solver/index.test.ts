@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { solve, solveBlock, solveAll, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
+import { parseAppState } from '../data/loader'
+import { solve, productGoals, solveBlock, solveAll, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
 import { coproductDrivenWarning, itemGrossFlow, pass2Plan } from './blockResult'
 import type { LoopShape } from './blockGraph'
 import type { FlowKeys } from './build'
@@ -347,6 +348,34 @@ function pinned(id: string, recipeId: string, pinnedRate: number): RecipeNode {
 function rate(items: { itemId: string; rate: number }[], itemId: string): number {
   return items.find(u => u.itemId === itemId)?.rate ?? 0
 }
+
+describe('a loaded plan with two products of one item', () => {
+  const gear = recipe('gear', 1, [{ itemId: 'iron-plate', type: 'item', amount: 2 }], [product('gear', 1)])
+  const data = makeGameData({ recipes: { 'iron-plate': ironRecipe, gear } })
+  const load = (consumerGear: number): Block[] => {
+    const supplier = makeBlock(makeSubPlan('Root', [planNode('n1', 'iron-plate')]), [{ id: 'a', itemId: 'iron-plate', extraRate: 30 }, { id: 'b', itemId: 'iron-plate', extraRate: 30 }])
+    const consumer = makeBlock(makeSubPlan('Root2', [planNode('n2', 'gear')]), [{ id: 'g', itemId: 'gear', extraRate: consumerGear }])
+    const json = JSON.parse(JSON.stringify([
+      { ...supplier, id: 'S' },
+      { ...consumer, id: 'T', inputConnections: [{ id: 'c', itemId: 'iron-plate', fromBlockId: 'S' }] },
+    ]))
+    return parseAppState({ blocks: json, activeBlockId: 'S' }).blocks
+  }
+  const made = (all: ReturnType<typeof solveAll>) => all.results.S.nodes.reduce((sum, n) => sum + (n.outputRates['iron-plate'] ?? 0), 0)
+
+  it('enforces the sum, with one goal on the item', () => {
+    const blocks = load(0)
+    expect(blocks[0].products).toHaveLength(1)
+    expect(productGoals(blocks[0].products)).toEqual([{ id: 'a', itemId: 'iron-plate', rate: 60 }])
+    expect(made(solveAll(blocks, data))).toBeGreaterThanOrEqual(60 - 1e-6)
+  })
+
+  it('adds what a consumer requests to the merged product', () => {
+    const all = solveAll(load(5), data)
+    expect(made(all)).toBeGreaterThanOrEqual(70 - 1e-6)
+    expect(all.flows.find(f => f.connectionId === 'c')).toMatchObject({ kind: 'request', requested: 10 })
+  })
+})
 
 describe('blockMakesItem', () => {
   it('is true for a product of a row, also in a sub-plan, and false for any other item', () => {

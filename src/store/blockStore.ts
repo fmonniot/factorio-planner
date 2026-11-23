@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { canConnect } from './connections'
 import { areaIdsOf, effectiveAreaRule as effectiveAreaRuleOf, findSubPlan, repeatsBlockRule, remapAreaRules, storedAreaRule as storedAreaRuleOf } from '../data/subPlanTree'
 import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
+import { hasProduct } from '../solver/blockGraph'
 import { areaRecipeIds, blockAreas, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore, selectGameData } from './gameDataStore'
@@ -1250,7 +1251,8 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
   addProduct: (product, toBlockId) =>
     set(state => {
       const targetId = toBlockId ?? state.activeBlockId
-      if (!state.blocks.some(b => b.id === targetId)) return state
+      const target = state.blocks.find(b => b.id === targetId)
+      if (!target || hasProduct(target, product.itemId)) return state
       const cmd: Command = {
         apply: b => ({ ...b, products: [...b.products, product] }),
         undo: b => ({ ...b, products: b.products.filter(p => p.id !== product.id) }),
@@ -1266,7 +1268,7 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       if (!target) return state
       const cmd: Command = {
         apply: b => ({ ...b, products: b.products.filter(p => p.id !== productId) }),
-        // Back at its old index: the first product of an item receives the requested amount.
+        // Back at its old index: the order is the display order and the first product sets an auto colour.
         undo: b => {
           const products = [...b.products]
           products.splice(index, 0, target)

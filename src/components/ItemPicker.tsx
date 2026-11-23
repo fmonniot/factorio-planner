@@ -594,11 +594,12 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
 interface ItemPickerBodyProps {
   gameData: GameData
   initialQuery: string
+  presentItems?: ReadonlySet<string>
   onSelect: (id: string, rate: number | undefined) => void
   onClose: () => void
 }
 
-function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPickerBodyProps) {
+function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClose }: ItemPickerBodyProps) {
   const [query, setQuery] = useState(initialQuery)
   const [amountText, setAmountText] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -685,6 +686,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
   }
 
   function pick(itemId: string) {
+    if (presentItems?.has(itemId)) return
     setSelectedId(itemId)
     const amount = parseAmount()
     if (amount === null) return
@@ -783,15 +785,19 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
           >
             {items.map(it => {
               const active = it.id === selectedId
+              const present = presentItems?.has(it.id) === true
               return (
                 <button
                   key={it.id}
                   type="button"
                   data-testid="item-slot"
                   data-item-id={it.id}
-                  title={it.name}
+                  data-present={present ? 'true' : undefined}
+                  // aria-disabled, not disabled: the tooltip and focus keep working.
+                  aria-disabled={present || undefined}
+                  title={present ? `${it.name} (already a product of this block)` : it.name}
                   onClick={() => pick(it.id)}
-                  className={`aspect-square flex items-center justify-center rounded border outline-none focus:ring-1 focus:ring-blue-500 ${active ? 'bg-amber-800/40 border-amber-600' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
+                  className={`aspect-square flex items-center justify-center rounded border outline-none focus:ring-1 focus:ring-blue-500 ${present ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed' : active ? 'bg-amber-800/40 border-amber-600' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
                 >
                   {it.iconPath
                     ? <Icon iconPath={it.iconPath} alt={it.name} className="w-7 h-7 object-contain" />
@@ -845,6 +851,8 @@ interface RecipeModeProps extends BasePickerProps {
 
 interface ItemModeProps extends BasePickerProps {
   source?: 'items'
+  /** Items that already are a product of the block: shown disabled ("already a product of this block"). */
+  presentItems?: ReadonlySet<string>
   /** Items mode passes the chosen rate (items/min) alongside the item id. */
   onSelect: (itemId: string, rate: number | undefined) => void
 }
@@ -882,6 +890,7 @@ export function ItemPicker(props: ItemPickerProps) {
     <ItemPickerBody
       gameData={gameData}
       initialQuery={props.initialQuery ?? ''}
+      presentItems={props.presentItems}
       onSelect={props.onSelect}
       onClose={props.onClose}
     />

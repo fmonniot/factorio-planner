@@ -268,6 +268,26 @@ export const ProductSchema = z
     return p
   })
 
+/** One product per item: later products of an item fold into the first (its id and position kept, extraRate summed). The same array when there is nothing to merge. */
+export function mergeDuplicateProducts(products: Product[]): Product[] {
+  const out: Product[] = []
+  const indexOf = new Map<string, number>()
+  let merged = false
+  for (const p of products) {
+    const at = indexOf.get(p.itemId)
+    if (at === undefined) {
+      indexOf.set(p.itemId, out.length)
+      out.push(p)
+      continue
+    }
+    merged = true
+    const kept = out[at]
+    const sum = (kept.extraRate ?? 0) + (p.extraRate ?? 0)
+    if (sum > 0) out[at] = { ...kept, extraRate: sum }
+  }
+  return merged ? out : products
+}
+
 export const ModuleConfigSchema = z.object({
   moduleId: z.string(),
   count: z.number().int().positive(),
@@ -705,8 +725,9 @@ export const BlockSchema = z.preprocess(
   // The served list is normalised here; the key stays truly absent when there is none.
   const { servedOrder, ...rest } = block
   const served = normalizeServedOrder(servedOrder)
-  if (rootPlan === block.rootPlan && served === servedOrder) return block
-  return { ...rest, rootPlan, ...(served === undefined ? {} : { servedOrder: served }) }
+  const products = mergeDuplicateProducts(block.products)
+  if (rootPlan === block.rootPlan && served === servedOrder && products === block.products) return block
+  return { ...rest, products, rootPlan, ...(served === undefined ? {} : { servedOrder: served }) }
 })
 
 export const AppStateSchema = z.preprocess(

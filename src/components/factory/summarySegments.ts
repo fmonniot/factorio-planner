@@ -97,7 +97,7 @@ export interface ProductInfo {
 }
 
 export interface SlotModel {
-  /** Unique within a pane: the product id for products (two products may share an item), the item id otherwise (a split fluid's byproduct: its flow key). */
+  /** Unique within a pane: the product id for products, the item id otherwise (a split fluid's byproduct: its flow key). */
   id: string
   itemId: string
   /** A split fluid's byproduct or import: the temperature or range the slot is for. */

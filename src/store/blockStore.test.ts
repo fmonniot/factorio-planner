@@ -918,6 +918,44 @@ describe('products', () => {
     expect(products()).toEqual([plate])
   })
 
+  it('addProduct refuses a second product of an item, with no history entry', () => {
+    store().addProduct(plate)
+    const blocks = store().blocks
+    const undo = store().history[blocks[0].id].undoStack.length
+    store().addProduct({ id: 'p2', itemId: 'iron-plate', extraRate: 5 })
+    expect(products()).toEqual([plate])
+    expect(store().blocks, 'same reference').toBe(blocks)
+    expect(store().history[blocks[0].id].undoStack).toHaveLength(undo)
+  })
+
+  it('a refused add keeps the redo stack', () => {
+    store().addProduct(plate)
+    store().addProduct({ id: 'p2', itemId: 'gear' })
+    store().undo()
+    const id = store().blocks[0].id
+    expect(store().history[id].redoStack).toHaveLength(1)
+    store().addProduct({ id: 'p3', itemId: 'iron-plate' })
+    expect(store().history[id].redoStack).toHaveLength(1)
+    store().redo()
+    expect(products().map(p => p.id)).toEqual(['p1', 'p2'])
+  })
+
+  it('undo and redo of adds and removes with a refused add in between', () => {
+    const ids = () => products().map(p => p.id)
+    const unique = () => new Set(products().map(p => p.itemId)).size === products().length
+    store().addProduct(plate)
+    store().addProduct({ id: 'p2', itemId: 'gear' })
+    store().removeProduct('p1')
+    store().addProduct({ id: 'p3', itemId: 'iron-plate' })
+    store().addProduct({ id: 'p4', itemId: 'iron-plate' })
+    expect(ids()).toEqual(['p2', 'p3'])
+    const seen = [ids()]
+    for (let i = 0; i < 3; i++) { store().undo(); seen.push(ids()); expect(unique()).toBe(true) }
+    expect(seen).toEqual([['p2', 'p3'], ['p2'], ['p1', 'p2'], ['p1']])
+    for (let i = 0; i < 3; i++) { store().redo(); expect(unique()).toBe(true) }
+    expect(ids()).toEqual(['p2', 'p3'])
+  })
+
   it('removeProduct removes and undo restores the old index', () => {
     store().addProduct(plate)
     store().addProduct({ id: 'p2', itemId: 'gear', extraRate: 5 })
@@ -1241,6 +1279,10 @@ describe('input connections', () => {
     expect(productsOf(sourceId)).toEqual([])
     store().addProduct(product, 'no-such-block')
     expect(productsOf(sourceId)).toEqual([])
+    store().addProduct({ id: 'prod-y', itemId: 'plate' }, otherId())
+    store().addProduct({ id: 'prod-z', itemId: 'plate' }, otherId())
+    expect(productsOf(otherId())).toEqual([{ id: 'prod-y', itemId: 'plate' }])
+    expect(store().history[otherId()].undoStack).toHaveLength(1)
   })
 
   describe('moveConnection', () => {

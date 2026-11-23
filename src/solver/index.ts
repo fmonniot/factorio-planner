@@ -79,28 +79,24 @@ export function blockMakesItem(block: Block, gameData: GameData, itemId: string,
 }
 
 /**
- * The solver goals of a block's products: `extraRate` (0 when absent), and for the first product
- * of each item also what other blocks `requested` of it. Rates at or below zero are dropped.
+ * The solver goals of a block's products: `extraRate` (0 when absent) plus what other blocks `requested` of the item
+ * (the store and the loader keep one product per item). Rates at or below zero are dropped.
  * `requested` is keyed by flow key (the item id for a plain item): a split fluid is requested per range, the request of any
- * temperature (`item[,]`) joins the first product's goal and each other requested range is one more goal on that product,
+ * temperature (`item[,]`) joins the product's goal and each other requested range is one more goal on that product,
  * `temp` set (see `SolverGoal.temp`).
  */
 export function productGoals(products: Product[], requested?: Map<string, number>): SolverGoal[] {
   const goals: SolverGoal[] = []
-  const first = new Set<string>()
   for (const p of products) {
     let rate = p.extraRate ?? 0
     const ranged: SolverGoal[] = []
-    if (!first.has(p.itemId)) {
-      first.add(p.itemId)
-      for (const key of requested ? keysOfItem(requested, p.itemId) : []) {
-        const r = requested!.get(key) ?? 0
-        if (!(r > FLOW_TOLERANCE)) continue
-        const tag = parseFlowKey(key).tag
-        // A plain item, or a split fluid requested at any temperature, adds to the product's own goal.
-        if (key === p.itemId || (tag && !isTemperatureTag(tag) && tag.min === undefined && tag.max === undefined)) rate += r
-        else if (tag && !isTemperatureTag(tag)) ranged.push({ id: `${p.id}\0${key}`, itemId: p.itemId, rate: r, temp: tag })
-      }
+    for (const key of requested ? keysOfItem(requested, p.itemId) : []) {
+      const r = requested!.get(key) ?? 0
+      if (!(r > FLOW_TOLERANCE)) continue
+      const tag = parseFlowKey(key).tag
+      // A plain item, or a split fluid requested at any temperature, adds to the product's own goal.
+      if (key === p.itemId || (tag && !isTemperatureTag(tag) && tag.min === undefined && tag.max === undefined)) rate += r
+      else if (tag && !isTemperatureTag(tag)) ranged.push({ id: `${p.id}\0${key}`, itemId: p.itemId, rate: r, temp: tag })
     }
     if (rate > 0) goals.push({ id: p.id, itemId: p.itemId, rate })
     goals.push(...ranged)

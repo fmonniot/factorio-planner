@@ -160,7 +160,7 @@ export interface ProductChangeEffect {
  * Connections of other blocks that change meaning when `blockId` gains (`add`) or
  * loses (`remove`) a product of `itemId`: takes that become requests, requests that
  * become takes. Empty when nothing changes (the block already has the product on add,
- * another product of the item remains on remove). Consumers in plan order.
+ * has none to lose on remove). Consumers in plan order.
  */
 export function productChangeEffects(
   blocks: Block[],
@@ -172,7 +172,7 @@ export function productChangeEffects(
   const block = blocks.find(b => b.id === blockId)
   if (!block) return []
   if (change === 'add' && hasProduct(block, itemId)) return []
-  if (change === 'remove' && block.products.filter(p => p.itemId === itemId).length !== 1) return []
+  if (change === 'remove' && !hasProduct(block, itemId)) return []
 
   const ids = new Set(blocks.map(b => b.id))
   const effects: ProductChangeEffect[] = []

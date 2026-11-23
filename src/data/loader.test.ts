@@ -1477,3 +1477,58 @@ describe('parsePlanIndex', () => {
     expect(() => parsePlanIndex({ activePlanId: 'a' })).toThrow(AppStateLoadError)
   })
 })
+
+describe('parseAppState — one product per item', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const blockJson = (id: string, extra: Record<string, unknown> = {}) => ({
+    id, name: id, noImportItems: [],
+    rootPlan: { id: `${id}-root`, name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now },
+    ...extra,
+  })
+  const load = (blocks: Record<string, unknown>[]) => parseAppState({ blocks, activeBlockId: blocks[0].id })
+  const productsOf = (products: unknown[]) => load([blockJson('b1', { products })]).blocks[0].products
+  const iron = (id: string, extraRate?: number) => ({ id, itemId: 'iron-plate', ...(extraRate === undefined ? {} : { extraRate }) })
+  const gear = { id: 'g', itemId: 'gear', extraRate: 5 }
+
+  it('folds a later product of an item into the first, keeping its id and position and summing the rates', () => {
+    expect(productsOf([iron('a', 20), gear, iron('b', 30)])).toEqual([iron('a', 50), gear])
+  })
+
+  it('sums with a product that has no extraRate', () => {
+    expect(productsOf([iron('a'), iron('b', 30)])).toEqual([iron('a', 30)])
+    expect(productsOf([iron('a', 30), iron('b')])).toEqual([iron('a', 30)])
+  })
+
+  it('keeps the extraRate key absent when nothing is extra', () => {
+    for (const products of [[iron('a'), iron('b')], [iron('a', 0), iron('b', 0)]]) {
+      const [p] = productsOf(products)
+      expect('extraRate' in p).toBe(false)
+    }
+  })
+
+  it('folds three duplicates, and keeps the first product first', () => {
+    expect(productsOf([iron('a', 1), iron('b', 2), iron('c', 3)])).toEqual([iron('a', 6)])
+    expect(productsOf([gear, iron('a', 1), { ...gear, id: 'g2', extraRate: 1 }])[0].itemId).toBe('gear')
+  })
+
+  it('folds duplicates of a legacy block-level goals list', () => {
+    const goals = [{ id: 'a', itemId: 'iron-plate', rate: 20 }, { id: 'b', itemId: 'iron-plate', rate: 30 }]
+    expect(load([blockJson('b1', { goals })]).blocks[0].products).toEqual([iron('a', 50)])
+  })
+
+  it('is idempotent', () => {
+    const first = load([blockJson('b1', { products: [iron('a', 20), gear, iron('b', 30)] })])
+    expect(parseAppState(JSON.parse(JSON.stringify(first)))).toEqual(first)
+  })
+
+  it('leaves a block without duplicates as it was', () => {
+    expect(productsOf([iron('a', 20), gear])).toEqual([iron('a', 20), gear])
+  })
+
+  it('keeps the connections that point at the merged block', () => {
+    const inputConnections = [{ id: 'c', itemId: 'iron-plate', fromBlockId: 'S' }]
+    const state = load([blockJson('T', { inputConnections }), blockJson('S', { products: [iron('a', 1), iron('b', 2)] })])
+    expect(state.blocks[0].inputConnections).toEqual(inputConnections)
+    expect(state.blocks[1].products).toEqual([iron('a', 3)])
+  })
+})
