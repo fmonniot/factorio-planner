@@ -163,6 +163,12 @@ describe('defaultMachineRowCounts with the additional-category fallback', () => 
     expect(defaultMachineRowCounts([plan(nodes)], d, h).get('crafting')).toBe(1)
     const withDefault = { defaultMachines: { crafting: 'alpha', 'recipe-fallback:rf': 'elec' } }
     expect(defaultMachineRowCounts([plan(nodes)], d, withDefault).get('crafting')).toBe(2)
+    // neither a category default nor a fallback: the row is still counted
+    expect(defaultMachineRowCounts([plan(nodes)], d, { defaultMachines: {} }).get('crafting')).toBe(2)
+    // a fallback row inside a sub-plan is left out too
+    const nested = plan([nodes[1]])
+    nested.rootPlan.subPlans = [{ id: 's', name: 'Sub', nodes: [nodes[0]], subPlans: [], createdAt: now, updatedAt: now }]
+    expect(defaultMachineRowCounts([nested], d, h).get('crafting')).toBe(1)
   })
 })
 

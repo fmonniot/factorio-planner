@@ -1,4 +1,4 @@
-import { recipeFallbackKey, withinHorizon, type Horizon } from './horizon'
+import { defaultMachineIdOf, withinHorizon, type Horizon } from './horizon'
 import type { Block, GameData, Machine, SubPlan } from './types'
 
 /**
@@ -59,7 +59,7 @@ export function defaultMachineRowCounts(
       if (node.kind !== 'game-recipe' || node.machineId !== undefined) continue
       const recipe = gameData.recipes[node.recipeId]
       if (!recipe) continue
-      if (defaults[recipe.category] === undefined && defaults[recipeFallbackKey(recipe.id)] !== undefined) continue
+      if (defaults[recipe.category] === undefined && defaultMachineIdOf(defaults, recipe.category, recipe.id) !== undefined) continue
       counts.set(recipe.category, (counts.get(recipe.category) ?? 0) + 1)
     }
     plan.subPlans.forEach(visit)
