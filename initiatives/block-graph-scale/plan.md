@@ -1,8 +1,8 @@
 # Block graph past 6–7 blocks
 
-Status: Future
+Status: Active
 
-The [block graph](../../spec/ui.md#block-graph) is practically unreadable beyond six or seven blocks. A design artifact tried four answers on a real 15-block plan; the owner kept two (a tidier layout and a dependency matrix) and dropped two. This folder holds the findings, the decisions, the reference prototype and the tickets to build the two options in the planner. Nothing under `src/` has changed yet.
+The [block graph](../../spec/ui.md#block-graph) is practically unreadable beyond six or seven blocks. A design artifact tried four answers on a real 15-block plan; the owner kept two (a tidier layout and a dependency matrix) and dropped two. This folder holds the findings, the decisions, the reference prototype and the tickets to build the two options in the planner. T1 (the tidy layout) has shipped; T2 (the matrix) has not started.
 
 ## The problem
 
@@ -64,10 +64,10 @@ A grid with one row per supplying block and one column per consuming block (15 �
 The tickets must build or decide all of these:
 
 - **Item icons** (the owner's request).
-- **Editing.** The app's chips have a limit control and a `×` that removes the connection, and a block can start connect mode from its `→` handle. The prototype lists items read-only.
+- **Editing.** The app's chips have a limit control and a `×` that removes the connection, and a block could start connect mode from its `→` handle (removed in T1). The prototype lists items read-only.
 - **Loop status text** (`↻ N loops`, "did not settle") and the loop chips' `↻` prefix.
 - **Request and take chips**, the `#N` served-order tag, ignored-request reasons and the other chip titles in [spec/ui.md](../../spec/ui.md#block-graph); the strip lists them only as `existing` / `limited` / `not used`.
-- **Clicking a block makes it active and closes the graph.** Option A's click pins the highlight instead.
+- **Clicking a block makes it active and closes the graph.** Option A's click pins the highlight instead; T1 does that and adds a **Go to** button on each block.
 - **Keyboard access to edges.** Blocks are buttons in the prototype; edges are reachable by pointer only.
 - **Fluid temperatures** in the item lines.
 - Real tooltips (the app uses `TooltipLayer`, not the native `title`), light theme, and graphs with areas.
@@ -77,7 +77,7 @@ The tickets must build or decide all of these:
 Settled with the owner on 2026-11-22. They replace the open questions of the first draft.
 
 1. **Back edges are the layout's.** The layout computes its own back-edge set, for drawing only, with the ordering that leaves the fewest; the solver and its loop entry are untouched. `data-loop` keeps meaning "member of a loop" (solver); `data-back` means "drawn right to left" (layout). The spec's Layout and Loops bullets change wording. T1 first checks that nothing else reads `BlockEdgeLayout.back` as the solver's notion (today only `BlockGraph.tsx` and its test do, for `data-back`).
-2. **Limit and remove live in the summary chip.** Every edge of the tidy layout gets the existing summary chip (`graph-edge-summary`, the count in the chip) and its list popover (`graph-edge-list`, full chips with the limit control and `×`), so editing stays one click away and no new UI is needed. `MAX_EDGE_CHIPS` stops deciding for this layout: every edge collapses.
+2. **Limit and remove live in the detail strip of a pinned edge.** Every edge of the tidy layout gets a summary chip (`graph-edge-summary`, the count badge and keyboard stop); clicking an edge, its chip or a block pins it, and the strip under the graph shows the pinned edge's connections as the existing chips with the limit control and `×`. There is no popover. Clicking a block no longer opens it: a **Go to** button on each block does, and the `→` connect handle and connect mode are gone (a connection is made from the consumer's Ingredients slot).
 3. **Text at fit is accepted.** The graph always fits the modal, at about 0.46 on the 15-block plan (block names about 6 px); the detail strip carries the readable text. Revisit only if a real plan shows it failing; the fallbacks would be a minimum scale with scrolling, or a semantic zoom.
 4. **The matrix is a second view in the Block graph modal.** A **Graph | Matrix** switch in the modal's header, not a new top-bar button. T2 reads the areas matrices in [spec/ui.md](../../spec/ui.md) first and reuses what fits.
 5. **The player picks the view, and it is remembered.** The modal opens in the view used last, stored with the other UI state; no automatic switch by block count.
@@ -87,6 +87,8 @@ Settled with the owner on 2026-11-22. They replace the open questions of the fir
 Strictly in order; the second reuses the first's ordering.
 
 ### T1. The tidy layout in the planner
+
+**Done.** Shipped in the pull request that moved this initiative to Active. Two tests read `real-plan.layout.json` by its path under `initiatives/block-graph-scale/` (`src/utils/blockGraphLayout.test.ts` and `e2e/block-graph-scale.spec.ts`): fix both paths when the initiative is archived. The ordering measured on the fixture leaves 6 edges running right to left.
 
 In `src/utils/blockGraphLayout.ts` (and `BlockGraph.tsx` for what it draws):
 

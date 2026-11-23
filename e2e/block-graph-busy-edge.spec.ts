@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, slotById } from './support/summary'
+import { pinEdge } from './support/blockGraph'
 
 /**
  * Fixture shared with summary-panes-many-items.spec.ts: "Sciences" requests 12 items
@@ -14,7 +15,7 @@ const CIRCUITS_ID = 'cccc0003-0000-0000-0000-000000000001'
 const FIRST_ITEM_ID = 'nullius-iron-sheet'
 
 const summary = (page: Page) => page.locator(`[data-testid="graph-edge-summary"][data-to="${SCIENCES_ID}"]`)
-const list = (page: Page) => page.getByTestId('graph-edge-list')
+const list = (page: Page) => page.getByTestId('graph-detail')
 const heading = (page: Page) => page.getByRole('heading', { name: 'Block graph' })
 
 async function setup(page: Page) {
@@ -32,10 +33,15 @@ test.describe('block graph, busy edge', () => {
     await expect(summary(page)).toHaveAttribute('data-from', METALS_ID)
     await expect(summary(page)).not.toHaveAttribute('data-status', 'pending', { timeout: 20000 })
 
-    // The three-item edge keeps one chip per connection.
-    await expect(page.locator(`[data-testid="graph-edge-summary"][data-to="${CIRCUITS_ID}"]`)).toHaveCount(0)
-    await expect(page.getByTestId('graph-edge-label')).toHaveCount(3)
+    // Every edge is summarised, even the three-item one; no connection chip shows until an edge is pointed at or pinned.
+    const circuits = page.locator(`[data-testid="graph-edge-summary"][data-to="${CIRCUITS_ID}"]`)
+    await expect(circuits).toHaveAttribute('data-count', '3')
+    await expect(page.getByTestId('graph-edge-summary')).toHaveCount(2)
+    await expect(page.getByTestId('graph-edge-label')).toHaveCount(0)
 
+    // One compact chip that sits clear of every node once it is shown (focus lights the edge).
+    await summary(page).focus()
+    await expect(summary(page)).toHaveAttribute('data-shown', 'true')
     // One compact chip that sits clear of every node.
     const box = (await summary(page).boundingBox())!
     expect(box.height, 'summary chip height').toBeLessThanOrEqual(32)
@@ -49,7 +55,7 @@ test.describe('block graph, busy edge', () => {
 
   test('lists and edits every connection', async ({ page }) => {
     await setup(page)
-    await summary(page).click()
+    await pinEdge(page, { to: 'Sciences' })
     await expect(list(page)).toBeVisible()
     await expect(list(page).getByTestId('graph-edge-label')).toHaveCount(12)
 
@@ -60,20 +66,20 @@ test.describe('block graph, busy edge', () => {
     await page.getByRole('spinbutton', { name: 'Connection limit' }).press('Enter')
     await expect(first.getByTestId('graph-edge-limit')).toContainText('≤ 5')
 
-    // Escape closes the list, not the graph.
+    // Escape unpins the edge, not the graph.
     await page.keyboard.press('Escape')
-    await expect(list(page)).toBeHidden()
+    await expect(list(page).getByTestId('graph-edge-label')).toHaveCount(0)
     await expect(heading(page)).toBeVisible()
 
     // Remove the first connection.
-    await summary(page).click()
+    await pinEdge(page, { to: 'Sciences' })
     await list(page).getByTestId('graph-edge-remove').first().click()
     await expect(list(page).getByTestId('graph-edge-label')).toHaveCount(11)
     await expect(summary(page)).toHaveAttribute('data-count', '11')
 
     // The Ingredients pane of Sciences no longer takes that item from Metals.
     await page.keyboard.press('Escape')
-    await expect(list(page)).toBeHidden()
+    await expect(list(page).getByTestId('graph-edge-label')).toHaveCount(0)
     await page.getByRole('button', { name: 'Close' }).click()
     await expect(heading(page)).toHaveCount(0)
     await page.locator('[data-testid="block-tab"] button[aria-label="Sciences"]').click()

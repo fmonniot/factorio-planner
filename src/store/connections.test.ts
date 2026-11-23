@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  canConnect, offeredRate, takeCandidates, requestCandidates, requestBlockerTitle, connectableItems, productChangeEffects,
+  canConnect, offeredRate, takeCandidates, requestCandidates, requestBlockerTitle, productChangeEffects,
 } from './connections'
 import { makeEmptyBlock } from './blockStore'
 import type { Block, ConnectionFlow, SolverResult } from '../data/types'
@@ -171,66 +171,6 @@ describe('requestCandidates', () => {
 describe('requestBlockerTitle', () => {
   it('words the reason with the block and item names', () => {
     expect(requestBlockerTitle('source-receives', 'S', 'Plate')).toBe('S receives Plate itself')
-  })
-})
-
-describe('connectableItems', () => {
-  const results = (needs: Record<string, number>) => ({
-    S: result({ plate: 100, gear: 5 }),
-    T: result({}, needs),
-  })
-
-  it('lists what the target imports and the source offers, in the target\'s order', () => {
-    const blocks = [block('S'), block('T')]
-    expect(connectableItems(blocks, 'S', 'T', results({ gear: 2, rod: 3, plate: 40 }), []))
-      .toEqual([
-        { itemId: 'gear', offered: 5, needed: 2, request: false },
-        { itemId: 'plate', offered: 100, needed: 40, request: false },
-      ])
-  })
-
-  it('skips goals, existing connections and negligible imports', () => {
-    const blocks = [block('S'), block('T', { products: ['gear'], from: [['plate', 'S']] })]
-    expect(connectableItems(blocks, 'S', 'T', results({ gear: 2, plate: 40 }), [])).toEqual([])
-    const plain = [block('S'), block('T')]
-    expect(connectableItems(plain, 'S', 'T', results({ plate: 1e-9 }), [])).toEqual([])
-  })
-
-  it('skips an import within the noise of the target\'s gross flow', () => {
-    const blocks = [block('S'), block('T')]
-    const big = { S: result({ plate: 100 }), T: result({ plate: 1e9 }, { plate: 5 }) }
-    expect(connectableItems(blocks, 'S', 'T', big, [])).toEqual([])
-    const small = { S: result({ plate: 100 }), T: result({ plate: 100 }, { plate: 5 }) }
-    expect(connectableItems(blocks, 'S', 'T', small, [])).toHaveLength(1)
-  })
-
-  it('lists items across a loop', () => {
-    const loop = [block('S', { from: [['plate', 'T']] }), block('T')]
-    expect(connectableItems(loop, 'S', 'T', results({ plate: 40 }), []))
-      .toEqual([{ itemId: 'plate', offered: 100, needed: 40, request: false }])
-  })
-
-  it('lists a product of the source even when it offers nothing, but not other items', () => {
-    const blocks = [block('S', { products: ['plate'] }), block('T')]
-    expect(connectableItems(blocks, 'S', 'T', { T: result({}, { plate: 40, rod: 3 }) }, []))
-      .toEqual([{ itemId: 'plate', offered: 0, needed: 40, request: true }])
-  })
-
-  it('marks items the source has as a product as requests, with a blocker when one applies', () => {
-    const plain = [block('S', { products: ['plate'] }), block('T')]
-    expect(connectableItems(plain, 'S', 'T', results({ plate: 40 }), []))
-      .toEqual([{ itemId: 'plate', offered: 100, needed: 40, request: true }])
-    // S already requests gear from T; T requesting plate from S closes a cycle, which is allowed.
-    const cycle = [block('S', { products: ['plate'], from: [['gear', 'T']] }), block('T', { products: ['gear'] })]
-    expect(connectableItems(cycle, 'S', 'T', results({ plate: 40 }), []))
-      .toEqual([{ itemId: 'plate', offered: 100, needed: 40, request: true }])
-    const receives = [block('S', { products: ['plate'], from: [['plate', 'Z']] }), block('T'), block('Z')]
-    expect(connectableItems(receives, 'S', 'T', results({ plate: 40 }), []))
-      .toEqual([{ itemId: 'plate', offered: 100, needed: 40, request: true, blocker: 'source-receives' }])
-  })
-
-  it('is empty when the target has no result', () => {
-    expect(connectableItems([block('S'), block('T')], 'S', 'T', { S: result({ plate: 1 }) }, [])).toEqual([])
   })
 })
 

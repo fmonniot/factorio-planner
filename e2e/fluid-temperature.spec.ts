@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, pane, selectSlot, slot } from './support/summary'
+import { pinEdge } from './support/blockGraph'
 
 /** One Seablock block: 12.5% semiheavy water (needs ≤30°C and ≥95°C fluids) plus the enriched H2S recipe (needs 125–165°C steam). */
 const FIXTURE = path.resolve('e2e/fixtures/fluid-temperature-seablock.json')
@@ -110,6 +111,7 @@ test('a connection delivering 465°C steam shows no import and its tooltip lists
   await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Block graph' }).click()
+  await pinEdge(page, { connectionId: HOT_STEAM_TO_TURBINES })
   const chip = page.locator(`[data-testid="graph-edge-label"][data-connection-id="${HOT_STEAM_TO_TURBINES}"]`)
   await expect(chip).toHaveAttribute('data-tip', /carries .* at ≥465°C/)
 })

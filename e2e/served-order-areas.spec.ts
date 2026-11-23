@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { detail, selectSlot } from './support/summary'
+import { pinEdge } from './support/blockGraph'
 
 /**
  * Areas in the served list (synthetic case 19). "Plates" makes 45 iron plate/min (a pinned row, 3 plates per run). "Science"
@@ -168,10 +169,15 @@ test('Served areas: a list written before the popover drew areas expands on the 
   await page.keyboard.press('Escape')
   await expect(popover(page)).toHaveCount(0)
   await page.getByRole('button', { name: 'Block graph' }).click()
-  const chipOf = (id: string) => page.locator(`[data-testid="graph-edge-label"][data-connection-id="${id}"]`)
-  await expect(chipOf(S_CONN).getByTestId('graph-edge-rank')).toHaveText('#1')
-  await expect(chipOf(H_CONN).getByTestId('graph-edge-rank')).toHaveText('#2')
-  await expect(chipOf(H_CONN)).toHaveAttribute('data-tip', /served 2nd \(Hub \/ Building\), 3rd \(Hub \/ Logistics\) in Plates's list/)
+  // One edge list is open at a time: open the list of the edge, then find the chip.
+  const chipOf = async (id: string) => {
+    await pinEdge(page, { connectionId: id })
+    return page.locator(`[data-testid="graph-edge-label"][data-connection-id="${id}"]`)
+  }
+  await expect((await chipOf(S_CONN)).getByTestId('graph-edge-rank')).toHaveText('#1')
+  const hub = await chipOf(H_CONN)
+  await expect(hub.getByTestId('graph-edge-rank')).toHaveText('#2')
+  await expect(hub).toHaveAttribute('data-tip', /served 2nd \(Hub \/ Building\), 3rd \(Hub \/ Logistics\) in Plates's list/)
 })
 
 test('Served areas: an area the list does not rank is added by hand', async ({ page }, testInfo) => {

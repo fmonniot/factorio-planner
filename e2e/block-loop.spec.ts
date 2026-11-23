@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, selectSlot, slot } from './support/summary'
+import { countRows } from './support/blockGraph'
 
 /**
  * Fixture: block "Plates" (product iron plate 60/min) and the active block "Gears"
@@ -59,7 +60,7 @@ test.describe('block loops', () => {
     await expect(edges.nth(1)).toHaveAttribute('data-loop', 'true')
     await expect(page.locator('[data-testid="graph-edge"][data-back="true"]')).toHaveAttribute('data-from', GEARS_ID)
     await expect(page.getByTestId('graph-loop-status')).toContainText('1 loop')
-    await expect(page.locator('[data-testid="graph-edge-label"][data-kind="take"]').getByTestId('graph-edge-existing')).toHaveCount(1)
-    await expect(page.locator('[data-testid="graph-edge-label"][data-kind="request"]').getByTestId('graph-edge-existing')).toHaveCount(0)
+    await expect.poll(() => countRows(page, '[data-testid="graph-edge-label"][data-kind="take"] [data-testid="graph-edge-existing"]')).toBe(1)
+    await expect.poll(() => countRows(page, '[data-testid="graph-edge-label"][data-kind="request"] [data-testid="graph-edge-existing"]')).toBe(0)
   })
 })

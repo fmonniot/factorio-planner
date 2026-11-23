@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within, waitFor, act, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, within, act, cleanup } from '@testing-library/react'
 import { BlockGraphButton } from './BlockGraph'
 import { useBlockStore, makeEmptyBlock, makeEmptySubPlan, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -112,8 +112,9 @@ function setup(opts: {
 }
 
 const node = (id: string) => document.querySelector(`[data-testid="graph-node"][data-block-id="${id}"]`) as HTMLElement
-const nodeTip = (id: string) => within(node(id)).getByTestId('graph-node-select').getAttribute('data-tip')
 const open = () => fireEvent.click(screen.getByRole('button', { name: 'Block graph' }))
+/** Click the summary chip of an edge (the first one unless `i` says so): the edge is pinned and the strip lists its chips. */
+const pinEdge = (i = 0) => fireEvent.click(screen.getAllByTestId('graph-edge-summary')[i])
 const consumerIn = () => useBlockStore.getState().blocks.find(b => b.id === 'consumer')!
 
 describe('BlockGraph', () => {
@@ -134,7 +135,13 @@ describe('BlockGraph', () => {
     const edge = screen.getByTestId('graph-edge')
     expect(edge.getAttribute('data-from')).toBe('miner')
     expect(edge.getAttribute('data-to')).toBe('consumer')
-    const label = screen.getByTestId('graph-edge-label')
+    // Every edge is one summary chip, even with a single connection; the connection's chip is in its list.
+    expect(screen.queryByTestId('graph-edge-label')).toBeNull()
+    const summary = screen.getByTestId('graph-edge-summary')
+    expect(summary.getAttribute('data-count')).toBe('1')
+    expect(summary.getAttribute('data-status')).toBe('ok')
+    pinEdge()
+    const label = within(screen.getByTestId('graph-detail')).getByTestId('graph-edge-label')
     expect(label.textContent).toContain('30.0')
     expect(label.getAttribute('data-status')).toBe('ok')
   })
@@ -163,6 +170,7 @@ describe('BlockGraph', () => {
       useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'miner' ? { ...b, color: '#60a5fa' } : b)) }))
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(screen.getByTestId('graph-edge').getAttribute('stroke')).toBe('#60a5fa')
       expect((screen.getByTestId('graph-edge-label') as HTMLElement).style.borderColor).toBe('#60a5fa')
     })
@@ -172,6 +180,7 @@ describe('BlockGraph', () => {
       useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'miner' ? { ...b, color: '#60a5fa' } : b)) }))
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(screen.getByTestId('graph-edge').getAttribute('stroke')).toBe('#f59e0b')
       const chip = screen.getByTestId('graph-edge-label') as HTMLElement
       expect(chip.style.borderColor).toBe('')
@@ -179,11 +188,53 @@ describe('BlockGraph', () => {
     })
   })
 
-  it('opens the block and closes the graph when a node is clicked', () => {
-    setup()
+  it('pins the highlight of a block on a click, moves it, and clears it on the background or a second click', () => {
+    setup({ connected: true })
     render(<BlockGraphButton />)
     open()
     fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
+    // The graph stays open and the active block does not change.
+    expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+    expect(useBlockStore.getState().activeBlockId).toBe('consumer')
+    expect(node('miner')).toHaveAttribute('data-pinned', 'true')
+    expect(node('miner')).toHaveAttribute('data-lit', 'true')
+    expect(screen.getByTestId('graph-detail').textContent).toContain('Supplies')
+    // Hover previews another block, then falls back to the pin.
+    fireEvent.mouseEnter(node('consumer'))
+    expect(screen.getByTestId('graph-detail').textContent).toContain('Receives from')
+    fireEvent.mouseLeave(node('consumer'))
+    expect(node('miner')).toHaveAttribute('data-pinned', 'true')
+    // Another block moves the pin.
+    fireEvent.click(within(node('consumer')).getByRole('button', { name: 'Consumer' }))
+    expect(node('consumer')).toHaveAttribute('data-pinned', 'true')
+    expect(node('miner')).not.toHaveAttribute('data-pinned')
+    // The same block again unpins.
+    fireEvent.click(within(node('consumer')).getByRole('button', { name: 'Consumer' }))
+    expect(document.querySelectorAll('[data-pinned]')).toHaveLength(0)
+    // The background clears a pin.
+    fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
+    fireEvent.click(screen.getByTestId('block-graph-layer'))
+    expect(document.querySelectorAll('[data-pinned], [data-lit]')).toHaveLength(0)
+  })
+
+  it('opens a block and closes the graph from its Go to button', () => {
+    setup({ connected: true })
+    render(<BlockGraphButton />)
+    open()
+    const goTo = within(node('miner')).getByTestId('graph-node-open')
+    expect(goTo).toHaveAccessibleName('Go to Miner')
+    expect(goTo.closest('[data-tip]')).toHaveAttribute('data-tip', 'Go to Miner')
+    fireEvent.click(goTo)
+    expect(useBlockStore.getState().activeBlockId).toBe('miner')
+    expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
+  })
+
+  it('offers Go to in the strip for the pinned block', () => {
+    setup({ connected: true })
+    render(<BlockGraphButton />)
+    open()
+    fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
+    fireEvent.click(within(screen.getByTestId('graph-detail')).getByTestId('graph-detail-open'))
     expect(useBlockStore.getState().activeBlockId).toBe('miner')
     expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
   })
@@ -192,72 +243,13 @@ describe('BlockGraph', () => {
     setup({ connected: true, extra: 11, flow: { status: 'limited' } })
     render(<BlockGraphButton />)
     open()
-    const handle = within(node('miner')).getByTestId('graph-connect-handle').closest('[data-tip]')
-    expect(handle, 'the connect handle or its wrapper').toHaveAttribute('data-tip', 'Send an item from this block to another')
-    expect(within(node('miner')).getByTestId('graph-connect-handle')).toHaveAttribute('aria-label', 'Connect from Miner')
+    const goTo = within(node('miner')).getByTestId('graph-node-open')
+    expect(goTo.closest('[data-tip]'), 'the Go to button or its wrapper').toHaveAttribute('data-tip', 'Go to Miner')
+    expect(goTo).toHaveAttribute('aria-label', 'Go to Miner')
     const summary = screen.getByTestId('graph-edge-summary')
     expect(summary.getAttribute('aria-label'), 'short accessible name').toMatch(/^\d+ items from Miner to Consumer$/)
-    expect(summary.getAttribute('data-tip'), 'long tooltip').toContain('click to list them')
+    expect(summary.getAttribute('data-tip'), 'long tooltip').toContain('click to pin it')
     expect(document.querySelectorAll('[title]'), 'no native title in the graph').toHaveLength(0)
-  })
-
-  it('connects from the source side: handle, target, item', () => {
-    setup()
-    render(<BlockGraphButton />)
-    open()
-    fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
-    expect(screen.getByTestId('graph-connect-hint')).toBeTruthy()
-    expect(node('consumer').getAttribute('data-connect')).toBe('target')
-
-    fireEvent.click(within(node('consumer')).getByRole('button', { name: 'Consumer' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /Iron Ore/ }))
-
-    expect(consumerIn().inputConnections).toEqual([
-      { id: expect.any(String), itemId: 'iron-ore', fromBlockId: 'miner' },
-    ])
-    expect(screen.queryByTestId('graph-connect-hint')).toBeNull()
-    // Still open, and the active block did not change.
-    expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
-    expect(useBlockStore.getState().activeBlockId).toBe('consumer')
-  })
-
-  it('highlights a target that closes a loop', () => {
-    setup({ connected: true })
-    useSolverStore.setState({
-      lastResults: {
-        miner: { ...minerResult(), unsatisfied: [{ itemId: 'iron-plate', rate: 10 }] },
-        consumer: {
-          ...consumerResult(),
-          nodes: [{
-            recipeNodeId: 'c', inputRates: {}, outputRates: { 'iron-plate': 60 },
-            throughput: 60, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
-          }],
-        },
-      },
-    })
-    render(<BlockGraphButton />)
-    open()
-    fireEvent.click(within(node('consumer')).getByTestId('graph-connect-handle'))
-    expect(node('miner').getAttribute('data-connect')).toBe('target')
-    expect(node('miner').getAttribute('data-closes-loop')).toBe('true')
-    expect(nodeTip('miner')).toMatch(/Closes a loop/)
-
-    fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
-    expect(screen.getByTestId('graph-closes-loop')).toBeTruthy()
-    fireEvent.click(screen.getByRole('menuitem', { name: /Iron Plate/ }))
-    const miner = useBlockStore.getState().blocks.find(b => b.id === 'miner')!
-    expect(miner.inputConnections).toEqual([
-      { id: expect.any(String), itemId: 'iron-plate', fromBlockId: 'consumer' },
-    ])
-  })
-
-  it('blocks a target with nothing left to send', () => {
-    setup({ connected: true })
-    render(<BlockGraphButton />)
-    open()
-    fireEvent.click(within(node('consumer')).getByTestId('graph-connect-handle'))
-    expect(node('miner').getAttribute('data-connect')).toBe('blocked')
-    expect(nodeTip('miner')).toMatch(/Nothing to send/)
   })
 
   describe('loops', () => {
@@ -272,7 +264,11 @@ describe('BlockGraph', () => {
       expect(back).toHaveLength(1)
       expect(back[0].getAttribute('data-from')).toBe('consumer')
       expect(back[0].getAttribute('data-to')).toBe('miner')
-      const chip = screen.getAllByTestId('graph-edge-label').find(l => l.getAttribute('data-connection-id') === 'c2')!
+      // The chip of the back connection is in the list of its edge (consumer > miner).
+      const summaries = screen.getAllByTestId('graph-edge-summary')
+      pinEdge(summaries.findIndex(s => s.getAttribute('data-from') === 'consumer'))
+      const chip = within(screen.getByTestId('graph-detail')).getAllByTestId('graph-edge-label')
+        .find(l => l.getAttribute('data-connection-id') === 'c2')!
       expect(chip.getAttribute('data-loop')).toBe('true')
       expect(chip.getAttribute('data-tip')).toMatch(/part of a loop/)
       expect(screen.getByTestId('graph-legend-loop')).toBeTruthy()
@@ -344,52 +340,11 @@ describe('BlockGraph', () => {
     })
   })
 
-  it('cancels connect mode', () => {
-    setup()
-    render(<BlockGraphButton />)
-    open()
-    fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByTestId('graph-connect-hint')).toBeNull()
-    expect(node('consumer').getAttribute('data-connect')).toBeNull()
-  })
-
-  it('leaves connect mode on a click anywhere on the background', () => {
-    setup()
-    render(<BlockGraphButton />)
-    for (const testId of ['block-graph-layer', 'block-graph-canvas']) {
-      open()
-      fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
-      expect(screen.getByTestId('graph-connect-hint')).toBeTruthy()
-      fireEvent.click(screen.getByTestId(testId))
-      expect(screen.queryByTestId('graph-connect-hint'), testId).toBeNull()
-      fireEvent.click(screen.getByRole('button', { name: 'Close' }))
-    }
-  })
-
-  it('stays in connect mode when a node is clicked', () => {
-    setup()
-    render(<BlockGraphButton />)
-    open()
-    fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
-    fireEvent.click(within(node('consumer')).getByRole('button', { name: 'Consumer' }))
-    expect(screen.getByTestId('graph-connect-hint')).toBeTruthy()
-  })
-
-  it('says a target has not been solved yet instead of claiming nothing to send', () => {
-    setup()
-    useSolverStore.setState({ lastResults: { miner: minerResult() } })
-    render(<BlockGraphButton />)
-    open()
-    fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
-    expect(node('consumer').getAttribute('data-connect')).toBe('blocked')
-    expect(nodeTip('consumer')).toBe('Consumer has not been solved yet')
-  })
-
   it('removes a connection from its edge label', () => {
     setup({ connected: true })
     render(<BlockGraphButton />)
     open()
+    pinEdge()
     fireEvent.click(screen.getByTestId('graph-edge-remove'))
     expect(consumerIn().inputConnections).toEqual([])
     expect(useBlockStore.getState().activeBlockId).toBe('consumer')
@@ -405,6 +360,7 @@ describe('BlockGraph', () => {
       setup({ connected: true })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       startEdit()
       type('10')
       enter()
@@ -417,6 +373,7 @@ describe('BlockGraph', () => {
       useUiStore.setState({ rateUnit: 'sec' })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       startEdit()
       type('1')
       enter()
@@ -427,6 +384,7 @@ describe('BlockGraph', () => {
       setup({ connected: true, maxRate: 20 })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(screen.getByTestId('graph-edge-limit').textContent).toContain('≤ 20')
       startEdit()
       type('')
@@ -440,6 +398,7 @@ describe('BlockGraph', () => {
       useUiStore.setState({ rateUnit: 'sec' })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       startEdit()
       const input = screen.getByRole('spinbutton', { name: 'Connection limit' })
       expect((input as HTMLInputElement).value).toBe('0.33')
@@ -455,6 +414,7 @@ describe('BlockGraph', () => {
       setup({ connected: true })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       startEdit()
       type('10')
       fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Connection limit' }), { key: 'Escape' })
@@ -467,6 +427,7 @@ describe('BlockGraph', () => {
       setup({ connected: true, maxRate: 20, flow: { status: 'limited', capped: true, available: 20, rate: 20 } })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(screen.getByTestId('graph-edge-label').getAttribute('data-tip')).toMatch(/^Limited by this connection's limit/)
     })
   })
@@ -476,6 +437,7 @@ describe('BlockGraph', () => {
       setup({ connected: true, flow: { rate: 30, available: 50, ...(parts ? { parts } : {}) } })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       return screen.getByTestId('graph-edge-label').getAttribute('data-tip')!
     }
     it('lists the parts of a connection that carries two', () => {
@@ -512,6 +474,7 @@ describe('BlockGraph', () => {
       useSolverStore.setState({ served: served(['other', 'consumer']) } as never)
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
       expect(chip().getAttribute('data-tip')).toMatch(/ — served 2nd in Miner's list$/)
     })
@@ -522,6 +485,7 @@ describe('BlockGraph', () => {
       useSolverStore.setState({ served: served(['other', 'consumer']) } as never)
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#1')
       expect(chip().getAttribute('data-tip')).toMatch(/ — served 1st \(shared\) in Miner's list$/)
     })
@@ -532,6 +496,7 @@ describe('BlockGraph', () => {
       useSolverStore.setState({ served: served(['other', 'consumer', 'third']) } as never)
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
       expect(chip().getAttribute('data-tip')).toMatch(/ — served 2nd \(shared\) in Miner's list$/)
     })
@@ -542,6 +507,7 @@ describe('BlockGraph', () => {
       useSolverStore.setState({ served: { miner: { 'iron-ore': { ...served(['consumer'])['miner']['iron-ore'], extra: { place: 0, asked: 5, got: 5 } } } } } as never)
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(within(chip()).getByTestId('graph-edge-rank').textContent).toBe('#2')
     })
 
@@ -551,6 +517,7 @@ describe('BlockGraph', () => {
       useSolverStore.setState({ served: served(['consumer', 'other']) } as never)
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(chip().getAttribute('data-tip')).toBe("Iron Ore: Miner → Consumer — requested: Miner makes 30.0/m for Consumer — served 1st in Miner's list")
     })
 
@@ -580,6 +547,7 @@ describe('BlockGraph', () => {
         useSolverStore.setState({ served: areaServed() } as never)
         render(<BlockGraphButton />)
         open()
+        pinEdge()
       }
       const other = { kind: 'block' as const, blockId: 'other' }
 
@@ -615,6 +583,7 @@ describe('BlockGraph', () => {
       useSolverStore.setState({ served: served(['other', 'consumer']) } as never)
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(within(chip()).queryByTestId('graph-edge-rank')).toBeNull()
       expect(chip().getAttribute('data-tip')).not.toContain('served ')
     })
@@ -625,6 +594,7 @@ describe('BlockGraph', () => {
       useSolverStore.setState({ served: served(['other', 'consumer']) } as never)
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(within(chip()).queryByTestId('graph-edge-rank')).toBeNull()
     })
   })
@@ -637,6 +607,7 @@ describe('BlockGraph', () => {
       setup({ connected: true, minerProducts: [ironOre], flow: { kind: 'request', requested: 30 } })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(chip().getAttribute('data-kind')).toBe('request')
       expect(chip().getAttribute('data-tip')).toBe('Iron Ore: Miner → Consumer — requested: Miner makes 30.0/m for Consumer')
     })
@@ -645,6 +616,7 @@ describe('BlockGraph', () => {
       setup({ connected: true })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(chip().getAttribute('data-kind')).toBe('take')
       expect(chip().getAttribute('data-tip')).not.toContain(' — requested')
       expect(chip().getAttribute('data-request-ignored')).toBeNull()
@@ -654,6 +626,7 @@ describe('BlockGraph', () => {
       setup({ connected: true, minerProducts: [ironOre], flow: { requestIgnored: 'request-loop' } })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(chip().getAttribute('data-request-ignored')).toBe('request-loop')
       expect(chip().getAttribute('data-tip')).toContain('taken as existing: the requests around this loop do not settle')
     })
@@ -662,6 +635,7 @@ describe('BlockGraph', () => {
       setup({ connected: true })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(within(chip()).getByTestId('graph-edge-existing').textContent).toBe('existing')
     })
 
@@ -669,6 +643,7 @@ describe('BlockGraph', () => {
       setup({ connected: true, minerProducts: [ironOre], flow: { kind: 'request', requested: 30 } })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(within(chip()).queryByTestId('graph-edge-existing')).toBeNull()
     })
 
@@ -677,21 +652,8 @@ describe('BlockGraph', () => {
       useSolverStore.setState({ flows: [] })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(within(chip()).queryByTestId('graph-edge-existing')).toBeNull()
-    })
-
-    it('lists a source product it offers nothing of, showing only what the target needs', () => {
-      setup({ minerProducts: [ironOre] })
-      useSolverStore.setState({ lastResults: { consumer: consumerResult() } })
-      render(<BlockGraphButton />)
-      open()
-      fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
-      expect(node('consumer').getAttribute('data-connect')).toBe('target')
-      fireEvent.click(within(node('consumer')).getByRole('button', { name: 'Consumer' }))
-      const item = screen.getByRole('menuitem', { name: /Iron Ore/ })
-      expect(item.getAttribute('data-kind')).toBe('request')
-      expect(item.textContent).toContain('needs 30.0')
-      expect(item.textContent).not.toContain('offers')
     })
 
     it('has no pull toggle', () => {
@@ -701,31 +663,6 @@ describe('BlockGraph', () => {
       expect(screen.queryByTestId('graph-edge-pull')).toBeNull()
     })
 
-    it('offers a connect-mode item whose request would close a cycle of requests', () => {
-      setup({ connected: true, minerProducts: [ironOre] })
-      useSolverStore.setState({
-        lastResults: {
-          miner: { ...minerResult(), unsatisfied: [{ itemId: 'iron-plate', rate: 10 }] },
-          consumer: {
-            ...consumerResult(),
-            nodes: [{
-              recipeNodeId: 'c', inputRates: {}, outputRates: { 'iron-plate': 60 },
-              throughput: 60, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
-            }],
-          },
-        },
-      })
-      render(<BlockGraphButton />)
-      open()
-      fireEvent.click(within(node('consumer')).getByTestId('graph-connect-handle'))
-      fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
-      const item = screen.getByRole('menuitem', { name: /Iron Plate/ })
-      expect(item).toBeEnabled()
-      expect(item.getAttribute('data-kind')).toBe('request')
-      expect(item.getAttribute('data-tip')).toBeNull()
-      fireEvent.click(item)
-      expect(useBlockStore.getState().blocks.find(b => b.id === 'miner')!.inputConnections).toHaveLength(1)
-    })
   })
 
   it('shows a dash for a connection that has not been solved yet', () => {
@@ -733,6 +670,7 @@ describe('BlockGraph', () => {
     useSolverStore.setState({ flows: [] })
     render(<BlockGraphButton />)
     open()
+    pinEdge()
     expect(screen.getByTestId('graph-edge-label').textContent).toContain('—')
   })
 
@@ -746,16 +684,19 @@ describe('BlockGraph', () => {
 
   describe('busy edge', () => {
     const summary = () => screen.getByTestId('graph-edge-summary')
-    const list = () => screen.queryByTestId('graph-edge-list')
-    const rows = () => within(screen.getByTestId('graph-edge-list')).getAllByTestId('graph-edge-label')
+    const rows = () => within(screen.getByTestId('graph-detail')).queryAllByTestId('graph-edge-label')
     const escape = () => fireEvent.keyDown(document.body, { key: 'Escape' })
 
-    it('keeps up to three connections as separate chips', () => {
-      setup({ connected: true, extra: 2 })
+    it('summarises even a single connection: one chip per edge, no chips until it is pinned', () => {
+      setup({ connected: true })
       render(<BlockGraphButton />)
       open()
-      expect(screen.getAllByTestId('graph-edge-label')).toHaveLength(3)
-      expect(screen.queryByTestId('graph-edge-summary')).toBeNull()
+      expect(screen.getAllByTestId('graph-edge-summary')).toHaveLength(1)
+      expect(summary().getAttribute('data-count')).toBe('1')
+      expect(summary().getAttribute('aria-label')).toBe('1 item from Miner to Consumer')
+      expect(summary().getAttribute('data-tip')).toContain('1 item from Miner to Consumer')
+      expect(summary()).not.toHaveAttribute('aria-haspopup')
+      expect(screen.queryByTestId('graph-edge-label')).toBeNull()
     })
 
     it('folds more connections into one summary chip', () => {
@@ -764,7 +705,7 @@ describe('BlockGraph', () => {
       open()
       expect(screen.getAllByTestId('graph-edge-summary')).toHaveLength(1)
       expect(summary().getAttribute('data-count')).toBe('12')
-      expect(summary().getAttribute('aria-expanded')).toBe('false')
+      expect(summary().getAttribute('aria-pressed')).toBe('false')
       expect(summary().getAttribute('aria-label')).toBe('12 items from Miner to Consumer')
       expect(summary().textContent).toContain('+9')
       expect(screen.queryByTestId('graph-edge-label')).toBeNull()
@@ -779,48 +720,55 @@ describe('BlockGraph', () => {
       expect(summary().getAttribute('data-tip')).toContain('1 limited')
     })
 
-    it('lists every connection when the summary chip is clicked, and hides them on a second click', () => {
+    it('pins the edge when its chip is clicked and lists every connection in the strip, and unpins on a second click', () => {
       setup({ connected: true, extra: 11 })
       render(<BlockGraphButton />)
       open()
       fireEvent.click(summary())
-      expect(summary().getAttribute('aria-expanded')).toBe('true')
+      expect(summary().getAttribute('aria-pressed')).toBe('true')
+      expect(summary()).toHaveAttribute('data-pinned', 'true')
       expect(rows()).toHaveLength(12)
-      expect(screen.getByTestId('graph-edge-list').textContent).toContain('Item 3')
+      expect(screen.getByTestId('graph-detail').textContent).toContain('Item 3')
       fireEvent.click(summary())
-      expect(list()).toBeNull()
+      expect(rows()).toHaveLength(0)
+      expect(summary()).not.toHaveAttribute('data-pinned')
     })
 
-    it('removes a connection from the list and keeps it open', () => {
+    it('keeps the pinned edge lit and its items in the strip when the pointer leaves it', () => {
+      setup({ connected: true, extra: 1 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      fireEvent.mouseEnter(screen.getByTestId('graph-edge-hit'))
+      fireEvent.mouseLeave(screen.getByTestId('graph-edge-hit'))
+      expect(screen.getByTestId('graph-edge')).toHaveAttribute('data-lit', 'true')
+      expect(summary()).toHaveAttribute('data-shown', 'true')
+      expect(rows()).toHaveLength(2)
+    })
+
+    it('removes a connection from the strip and keeps the edge pinned', () => {
       setup({ connected: true, extra: 11 })
       render(<BlockGraphButton />)
       open()
       fireEvent.click(summary())
-      fireEvent.click(within(screen.getByTestId('graph-edge-list')).getAllByTestId('graph-edge-remove')[0])
+      fireEvent.click(within(screen.getByTestId('graph-detail')).getAllByTestId('graph-edge-remove')[0])
       expect(consumerIn().inputConnections).toHaveLength(11)
       expect(rows()).toHaveLength(11)
     })
 
-    it('stays closed when the edge is summarised again after dropping below the threshold', () => {
-      setup({ connected: true, extra: 3 })
+    it('removes the edge and clears the pin when its last connection is removed', () => {
+      setup({ connected: true })
       render(<BlockGraphButton />)
       open()
-      fireEvent.click(summary())
-      fireEvent.click(within(screen.getByTestId('graph-edge-list')).getAllByTestId('graph-edge-remove')[0])
+      pinEdge()
+      fireEvent.click(within(screen.getByTestId('graph-detail')).getByTestId('graph-edge-remove'))
       expect(screen.queryByTestId('graph-edge-summary')).toBeNull()
-      act(() => {
-        useBlockStore.setState(st => ({
-          blocks: st.blocks.map(b => b.id === 'consumer'
-            ? { ...b, inputConnections: [...b.inputConnections, { id: 'y', itemId: 'item-9', fromBlockId: 'miner' }] }
-            : b),
-        }))
-      })
-      expect(summary().getAttribute('data-count')).toBe('4')
-      expect(summary().getAttribute('aria-expanded')).toBe('false')
-      expect(list()).toBeNull()
+      expect(screen.queryByTestId('graph-edge-label')).toBeNull()
+      expect(screen.queryByTestId('graph-edge')).toBeNull()
+      expect(screen.getByTestId('graph-detail').textContent).toContain('Point at a block')
     })
 
-    it('saves a limit being typed when the list is closed by a click outside', () => {
+    it('saves a limit being typed when the pin is cleared by a click on the background', () => {
       setup({ connected: true, extra: 11 })
       render(<BlockGraphButton />)
       open()
@@ -829,11 +777,41 @@ describe('BlockGraph', () => {
       const input = screen.getByRole('spinbutton', { name: 'Connection limit' })
       input.focus()
       fireEvent.change(input, { target: { value: '5' } })
-      fireEvent.pointerDown(document.body)
-      expect(list()).toBeNull()
+      // A real press on the background blurs the input before the click unpins and unmounts the strip.
+      input.blur()
+      fireEvent.click(screen.getByTestId('block-graph-layer'))
       expect(consumerIn().inputConnections[0].maxRate).toBe(5)
+      expect(rows()).toHaveLength(0)
+    })
+
+    it('keeps the pinned edge in the strip, with the limit being typed, while the pointer previews another block', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
       fireEvent.click(summary())
-      expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).toBeNull()
+      fireEvent.click(within(rows()[0]).getByTestId('graph-edge-limit'))
+      const input = screen.getByRole('spinbutton', { name: 'Connection limit' })
+      input.focus()
+      fireEvent.change(input, { target: { value: '5' } })
+      fireEvent.mouseEnter(screen.getAllByTestId('graph-node')[0])
+      fireEvent.mouseEnter(screen.getByTestId('graph-edge-hit'))
+      expect(screen.getByRole('spinbutton', { name: 'Connection limit' })).toBe(input)
+      expect(input).toHaveValue(5)
+      expect(rows()).toHaveLength(12)
+      input.blur()
+      expect(consumerIn().inputConnections[0].maxRate).toBe(5)
+    })
+
+    it('lets the pointer in the strip hold the pin over a preview from the graph', () => {
+      setup({ connected: true, extra: 1 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      fireEvent.mouseEnter(screen.getByTestId('graph-detail').parentElement!)
+      fireEvent.mouseEnter(screen.getAllByTestId('graph-node')[0])
+      expect(rows()).toHaveLength(2)
+      fireEvent.mouseLeave(screen.getByTestId('graph-detail').parentElement!)
+      expect(screen.getByTestId('graph-detail').textContent).not.toContain('Receives from')
     })
 
     it('shows no pull mark or count on the summary chip', () => {
@@ -846,7 +824,7 @@ describe('BlockGraph', () => {
       expect(summary().getAttribute('data-tip')).not.toContain('requested')
     })
 
-    it('sets a limit from the list and keeps it open', () => {
+    it('sets a limit from the strip and keeps the edge pinned', () => {
       setup({ connected: true, extra: 11 })
       render(<BlockGraphButton />)
       open()
@@ -857,10 +835,10 @@ describe('BlockGraph', () => {
       fireEvent.change(input, { target: { value: '10' } })
       fireEvent.keyDown(input, { key: 'Enter' })
       expect(consumerIn().inputConnections.find(c => c.id === 'x3')!.maxRate).toBe(10)
-      expect(list()).not.toBeNull()
+      expect(rows()).toHaveLength(12)
     })
 
-    it('cancels a limit edit with Escape without closing the list or the graph', () => {
+    it('cancels a limit edit with Escape without unpinning or closing the graph', () => {
       setup({ connected: true, extra: 11 })
       render(<BlockGraphButton />)
       open()
@@ -868,41 +846,222 @@ describe('BlockGraph', () => {
       fireEvent.click(within(rows()[0]).getByTestId('graph-edge-limit'))
       fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Connection limit' }), { key: 'Escape' })
       expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).toBeNull()
-      expect(list()).not.toBeNull()
+      expect(rows()).toHaveLength(12)
       expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
     })
 
-    it('closes the list with the first Escape and the graph with the second', async () => {
+    it('unpins with the first Escape and closes the graph with the second', () => {
       setup({ connected: true, extra: 11 })
       render(<BlockGraphButton />)
       open()
       fireEvent.click(summary())
       escape()
-      await waitFor(() => expect(list()).toBeNull())
-      // The list closes from a timeout outside act(): the DOM is updated before React runs the effect
-      // cleanup that removes the capture-phase Escape guard. Flush it, or the second Escape is swallowed.
-      await act(async () => {})
+      expect(rows()).toHaveLength(0)
       expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
       escape()
       expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
     })
 
-    it('closes the list on a click outside', () => {
-      setup({ connected: true, extra: 11 })
+    it('pins a block the same way, and Escape unpins it first', () => {
+      setup({ connected: true })
       render(<BlockGraphButton />)
       open()
-      fireEvent.click(summary())
-      fireEvent.pointerDown(document.body)
-      expect(list()).toBeNull()
+      fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
+      expect(node('miner')).toHaveAttribute('data-pinned', 'true')
+      escape()
+      expect(document.querySelectorAll('[data-pinned]')).toHaveLength(0)
+      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
     })
 
-    it('keeps connect mode when the summary chip is clicked', () => {
-      setup({ connected: true, extra: 11 })
+    it('replaces the pin: a block pin gives way to an edge pin and back', () => {
+      setup({ connected: true })
       render(<BlockGraphButton />)
       open()
-      fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
+      fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
       fireEvent.click(summary())
-      expect(screen.getByTestId('graph-connect-hint')).toBeTruthy()
+      expect(summary()).toHaveAttribute('data-pinned', 'true')
+      expect(node('miner')).not.toHaveAttribute('data-pinned')
+      fireEvent.click(within(node('consumer')).getByRole('button', { name: 'Consumer' }))
+      expect(summary()).not.toHaveAttribute('data-pinned')
+      expect(node('consumer')).toHaveAttribute('data-pinned', 'true')
+    })
+  })
+
+  describe('lighting and the detail strip', () => {
+    /** Miner feeds Consumer (c1, iron ore) and Other (c9, iron ore). */
+    const withOther = (flowOver: Partial<ConnectionFlow> = {}) => {
+      setup({ connected: true, flow: flowOver })
+      const other: Block = {
+        ...makeEmptyBlock('Other'), id: 'other',
+        inputConnections: [{ id: 'c9', itemId: 'iron-ore', fromBlockId: 'miner' }],
+      }
+      useBlockStore.setState(s => ({ blocks: [...s.blocks, other] }))
+      useSolverStore.setState(s => ({ flows: [...s.flows, flow({ connectionId: 'c9', toBlockId: 'other' })] }))
+      useGameDataStore.setState(s => {
+        if (s.status.type !== 'loaded') return s
+        const items = { ...s.status.gameData.items, 'iron-ore': { ...s.status.gameData.items['iron-ore'], iconPath: 'iron-ore.png' } }
+        return { status: { ...s.status, gameData: { ...s.status.gameData, items } } }
+      })
+    }
+    const edge = (to: string) => document.querySelector(`[data-testid="graph-edge"][data-to="${to}"]`) as HTMLElement
+    const hit = (to: string) => document.querySelector(`[data-testid="graph-edge-hit"][data-to="${to}"]`) as HTMLElement
+    const summaryTo = (to: string) => screen.getAllByTestId('graph-edge-summary').find(x => x.getAttribute('data-to') === to)!
+
+    it('says what to do while nothing is pointed at', () => {
+      withOther()
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getByTestId('graph-detail').textContent).toContain('Point at a block or a connection')
+      expect(document.querySelectorAll('[data-lit], [data-dim]')).toHaveLength(0)
+    })
+
+    it('lights a block, its edges and their ends and dims the rest, and lists what it supplies and receives', () => {
+      withOther()
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.mouseEnter(node('consumer'))
+      expect(node('consumer')).toHaveAttribute('data-lit', 'true')
+      expect(node('miner')).toHaveAttribute('data-lit', 'true')
+      expect(node('other')).toHaveAttribute('data-dim', 'true')
+      expect(edge('consumer')).toHaveAttribute('data-lit', 'true')
+      expect(edge('other')).toHaveAttribute('data-dim', 'true')
+      const detail = within(screen.getByTestId('graph-detail'))
+      expect(detail.getByText('Receives from')).toBeTruthy()
+      expect(detail.getByText('Supplies')).toBeTruthy()
+      expect(screen.getByTestId('graph-detail').textContent).toContain('Miner')
+      expect(screen.getByTestId('graph-detail').textContent).toContain('1 item')
+      fireEvent.mouseLeave(node('consumer'))
+      expect(document.querySelectorAll('[data-dim]')).toHaveLength(0)
+      expect(screen.getByTestId('graph-detail').textContent).toContain('Point at a block')
+
+      fireEvent.mouseEnter(node('miner'))
+      expect(within(screen.getByTestId('graph-detail')).getAllByTestId('graph-detail-block')).toHaveLength(2)
+    })
+
+    it('says a block with no edge is not connected', () => {
+      withOther()
+      useBlockStore.setState(s => ({ blocks: [...s.blocks, makeEmptyBlock('Alone')] }))
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.mouseEnter(document.querySelector('[data-testid="graph-node"]:last-of-type') as HTMLElement)
+      expect(screen.getByTestId('graph-detail').textContent).toContain('Not connected to any other block.')
+    })
+
+    it('lists the items of a pointed edge as chips with their icons and tags', () => {
+      withOther({ status: 'limited', capped: true, available: 20, rate: 20, kind: 'take' })
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => (b.id === 'consumer'
+          ? { ...b, inputConnections: b.inputConnections.map(c => ({ ...c, maxRate: 20 })) }
+          : b)),
+      }))
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.mouseEnter(hit('consumer'))
+      expect(edge('consumer')).toHaveAttribute('data-lit', 'true')
+      expect(edge('other')).toHaveAttribute('data-dim', 'true')
+      const detail = screen.getByTestId('graph-detail')
+      expect(detail.textContent).toContain('Items on this edge')
+      expect(detail.textContent).toContain('Miner → Consumer')
+      expect(detail.textContent).toContain('click the edge to pin it and edit')
+      const row = within(detail).getByTestId('graph-edge-label')
+      expect(row.querySelector('picture'), 'the icon').not.toBeNull()
+      expect(row.textContent).toContain('Iron Ore')
+      expect(within(row).getByTestId('graph-edge-existing')).toBeTruthy()
+      expect(row.textContent).toContain('20.0')
+      expect(row.getAttribute('data-tip')).toMatch(/^Limited by this connection's limit/)
+    })
+    it('shows the served place in the strip', () => {
+      setup({ connected: true, minerProducts: [{ id: 'po', itemId: 'iron-ore' }] })
+      useBlockStore.setState(st => ({
+        blocks: st.blocks.map(b => (b.id === 'miner'
+          ? { ...b, servedOrder: { 'iron-ore': [{ kind: 'block' as const, blockId: 'other' }, { kind: 'block' as const, blockId: 'consumer' }] } }
+          : b)),
+      }) as never)
+      useSolverStore.setState({
+        served: {
+          miner: { 'iron-ore': { consumers: ['other', 'consumer'].map(blockId => ({ blockId, connectionId: `c-${blockId}`, kind: 'take' as const, share: 0, got: 5 })) } },
+        },
+      } as never)
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.mouseEnter(hit('consumer'))
+      expect(within(screen.getByTestId('graph-detail')).getByTestId('graph-edge-rank').textContent).toBe('#2')
+    })
+    it('shows the chip of the edge that is pointed at, and pins the edge on a click on it', () => {
+      withOther()
+      render(<BlockGraphButton />)
+      open()
+      expect(summaryTo('consumer').closest('div.absolute')!.className).toContain('opacity-0')
+      fireEvent.mouseEnter(hit('consumer'))
+      expect(summaryTo('consumer').closest('div.absolute')!.className).toContain('opacity-100')
+      expect(summaryTo('other').closest('div.absolute')!.className).toContain('opacity-0')
+      fireEvent.click(hit('consumer'))
+      expect(summaryTo('consumer')).toHaveAttribute('data-pinned', 'true')
+      fireEvent.mouseLeave(hit('consumer'))
+      expect(within(screen.getByTestId('graph-detail')).getAllByTestId('graph-edge-label')).toHaveLength(1)
+      fireEvent.click(hit('consumer'))
+      expect(screen.queryByTestId('graph-edge-label')).toBeNull()
+    })
+    it('does not show the chips of the edges of a lit block', () => {
+      withOther()
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.mouseEnter(node('miner'))
+      for (const to of ['consumer', 'other']) expect(summaryTo(to).closest('div.absolute')!.className).toContain('opacity-0')
+    })
+
+    it('lights an edge when its summary chip takes focus, and fills the strip', () => {
+      withOther()
+      render(<BlockGraphButton />)
+      open()
+      act(() => summaryTo('other').focus())
+      expect(summaryTo('other')).toHaveAttribute('data-lit', 'true')
+      expect(edge('other')).toHaveAttribute('data-lit', 'true')
+      expect(edge('consumer')).toHaveAttribute('data-dim', 'true')
+      expect(screen.getByTestId('graph-detail').textContent).toContain('Items on this edge')
+      act(() => summaryTo('other').blur())
+      expect(document.querySelectorAll('[data-lit], [data-dim]')).toHaveLength(0)
+    })
+
+    it('lights a block when it takes focus', () => {
+      withOther()
+      render(<BlockGraphButton />)
+      open()
+      act(() => within(node('consumer')).getByTestId('graph-node-select').focus())
+      expect(node('other')).toHaveAttribute('data-dim', 'true')
+      expect(screen.getByTestId('graph-detail').textContent).toContain('Receives from')
+    })
+
+    it('keeps one pin at a time across edges', () => {
+      withOther()
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summaryTo('consumer'))
+      expect(summaryTo('consumer')).toHaveAttribute('data-pinned', 'true')
+      fireEvent.click(hit('other'))
+      expect(summaryTo('other')).toHaveAttribute('data-pinned', 'true')
+      expect(summaryTo('consumer')).not.toHaveAttribute('data-pinned')
+      expect(screen.getAllByTestId('graph-edge-label')).toHaveLength(1)
+    })
+    it('shows the source rule marker on the chip in the strip, as the list did', () => {
+      withOther()
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, sourceRules: { 'iron-ore': { importOff: true as const } }, rootPlan: { ...b.rootPlan, nodes: [makeRecipeNode('mine')] } } : b)),
+      }))
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.mouseEnter(hit('consumer'))
+      const detail = within(screen.getByTestId('graph-detail'))
+      expect(detail.getAllByTestId('graph-edge-label')).toHaveLength(1)
+      expect(detail.getAllByTestId('source-rule-marker')).toHaveLength(1)
+    })
+    it('draws a back edge dashed and says so in the legend', () => {
+      setup({ connected: true, loop: { converged: true } })
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getByTestId('graph-legend-back')).toBeTruthy()
+      const back = screen.getAllByTestId('graph-edge').find(e => e.getAttribute('data-back') === 'true')!
+      expect(back.getAttribute('stroke-dasharray')).toBe('6 5')
     })
   })
 
@@ -925,7 +1084,12 @@ describe('BlockGraph', () => {
       lockOre('consumer')
       render(<BlockGraphButton />)
       open()
+      // The summary chip shows the marker as a decorative dot; the chip of the connection has the real one.
       expect(markers()).toHaveLength(1)
+      expect(within(screen.getByTestId('graph-edge-summary')).getByTestId('source-rule-marker')).toBeTruthy()
+      expect(screen.queryByTestId('graph-edge-label')).toBeNull()
+      pinEdge()
+      expect(markers()).toHaveLength(2)
       const marker = within(label('c1')).getByTestId('source-rule-marker')
       expect(marker).toHaveAttribute('data-item-id', 'iron-ore')
       // The sentence of the item in the block that receives it.
@@ -938,6 +1102,7 @@ describe('BlockGraph', () => {
       setup({ connected: true })
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(markers()).toHaveLength(0)
       // No row of Consumer makes iron ore: the lock has no effect.
       act(() => lockOre('consumer', false))
@@ -950,6 +1115,7 @@ describe('BlockGraph', () => {
       lockOre('miner')
       render(<BlockGraphButton />)
       open()
+      pinEdge()
       expect(label('c1')).not.toBeNull()
       expect(markers()).toHaveLength(0)
     })
@@ -964,9 +1130,15 @@ describe('BlockGraph', () => {
       useBlockStore.setState(s => ({ blocks: [...s.blocks, other] }))
       render(<BlockGraphButton />)
       open()
+      const summaryTo = (id: string) => screen.getAllByTestId('graph-edge-summary').find(x => x.getAttribute('data-to') === id)!
+      expect(within(summaryTo('other')).queryByTestId('source-rule-marker')).toBeNull()
+      fireEvent.click(summaryTo('consumer'))
       expect(within(label('c1')).getAllByTestId('source-rule-marker')).toHaveLength(1)
+      // The summary's dot and the chip's marker; nothing on the other edge.
+      expect(markers()).toHaveLength(2)
+      fireEvent.click(summaryTo('other'))
       expect(within(label('c9')).queryByTestId('source-rule-marker')).toBeNull()
-      expect(markers()).toHaveLength(1)
+      expect(markers(), 'only the dot on the consumer edge\'s summary is left').toHaveLength(1)
     })
 
     it('only shows the rule, also when the block is the active one: a click opens nothing and the graph stays', () => {
@@ -1014,7 +1186,7 @@ describe('BlockGraph', () => {
       expect(markers()).toHaveLength(1)
 
       fireEvent.click(dot)
-      const list = screen.getByTestId('graph-edge-list')
+      const list = screen.getByTestId('graph-detail')
       expect(within(list).getAllByTestId('source-rule-marker')).toHaveLength(1)
       expect(within(label('c1')).getByTestId('source-rule-marker').tagName).toBe('SPAN')
     })
