@@ -1483,12 +1483,28 @@ function computeRequests(
   const uncredited = new Set<string>()
   // Takes of a take-only consumer that wait for their source (or a take above them): `deferFor` parks them, `resolveDeferred` credits them
   // once they can be. A parked take reads as not credited yet to the takes ranked below it.
-  interface DeferredTake { blockId: string; itemId: string; takes: BlockConnection[]; needed: Map<string, number> }
+  // `held`: what the unranked takes after the blocked one were set aside at their sources, so a consumer processed meanwhile cannot use it up.
+  interface Held { sourceId: string; itemId: string; amount: number }
+  interface DeferredTake { blockId: string; itemId: string; takes: BlockConnection[]; needed: Map<string, number>; held: Held[] }
   const deferred: DeferredTake[] = []
   const deferredTakes = new Set<string>()
   const deferFor = (blockId: string) => (itemId: string, takes: BlockConnection[], needed: ReadonlyMap<string, number>): boolean => {
     if (takeOf.get(blockId)?.has(itemId)) return false // takes first: the take feeds the consumer's requests, so it cannot wait
-    deferred.push({ blockId, itemId, takes, needed: new Map(needed) })
+    const held: Held[] = []
+    if (!split.has(itemId)) {
+      let need = needed.get(itemId) ?? 0
+      for (const t of takes.slice(1)) {
+        if (rankedTake.has(t.id)) continue
+        const offers = estimates.get(t.fromBlockId)
+        const left = offers?.get(itemId) ?? 0
+        const amount = Math.min(left, t.maxRate ?? Infinity, need)
+        if (!offers || amount <= 0) continue
+        offers.set(itemId, left - amount)
+        held.push({ sourceId: t.fromBlockId, itemId, amount })
+        need -= amount
+      }
+    }
+    deferred.push({ blockId, itemId, takes, needed: new Map(needed), held })
     for (const t of takes) deferredTakes.add(t.id)
     return true
   }
@@ -1606,13 +1622,24 @@ function computeRequests(
   // Credit the parked takes that can be now, in the order they were parked, until a full pass changes nothing: a take is credited
   // once its source and the takes above it are (the ones above it may be parked too). A slice that parks again at its first take is
   // unchanged; one that parks later has credited the takes before it.
-  const resolveDeferred = (): void => {
+  const unpark = (d: DeferredTake): void => {
+    for (const t of d.takes) {
+      deferredTakes.delete(t.id)
+      uncredited.delete(t.id)
+    }
+    for (const h of d.held) {
+      const offers = estimates.get(h.sourceId)
+      offers?.set(h.itemId, (offers.get(h.itemId) ?? 0) + h.amount)
+    }
+  }
+  const resolveDeferred = (last = false): void => {
     for (let progress = true; progress && deferred.length > 0;) {
       progress = false
       for (const d of deferred.splice(0)) {
-        for (const t of d.takes) {
-          deferredTakes.delete(t.id)
-          uncredited.delete(t.id)
+        unpark(d)
+        if (last) { // nothing else will come: credit the take, or flag it, now
+          applyTakeCredits(new Map([[d.itemId, d.takes]]), new Map(d.needed), estimates, credits, rankedRest, needs, splitCredit)
+          continue
         }
         const before = deferred.length
         applyTakeCredits(new Map([[d.itemId, d.takes]]), new Map(d.needed), estimates, credits, rankedRest, needs, splitCredit, deferFor(d.blockId))
@@ -2016,7 +2043,8 @@ function computeRequests(
           break
         }
         if (rounds >= roundLimit) break
-        const change = maxAbs(delta.values())
+        // A back estimate follows the source's leftover, which no extrapolation bounds: it joins the settle test, not the growth test or the extrapolation.
+        const change = maxAbs(ids.filter(id => !isEstimateId(id)).map(id => delta.get(id)!))
         let factor: number | undefined
         if (plainInput && prevDelta !== undefined && prevDelta > FLOW_TOLERANCE) {
           const q = change / prevDelta
@@ -2033,7 +2061,7 @@ function computeRequests(
         plainOut = factor === undefined ? undefined : out
         input = new Map(
           ids.map(id => {
-            const next = (out.get(id) ?? 0) + (factor === undefined ? 0 : delta.get(id)! * factor)
+            const next = (out.get(id) ?? 0) + (factor === undefined || isEstimateId(id) ? 0 : delta.get(id)! * factor)
             return [id, Math.min(Math.max(0, next), maxRateOf(id))]
           }),
         )
@@ -2103,6 +2131,7 @@ function computeRequests(
   }
   for (const g of takeGroups) if (g.status === 'pending') toListOrder(g) // unreachable: a group of a pair a cycle reads is served in list order from the start
   resolveDeferred()
+  resolveDeferred(true) // takes that wait on each other: credited in the order they were parked, or flagged
   return { goals, info, credits, loops, needs, uncredited, inListOrder, areaNeeds, creditParts, splitAlloc }
 }
 

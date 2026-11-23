@@ -3714,8 +3714,36 @@ describe('solver synthetic cases', () => {
         expect(unsatisfiedRate(all.results.C, X) ?? 0, 'C imports X').toBeCloseTo(0, 6)
         expect(unsatisfiedRate(all.results.H, X) ?? 0, 'H imports X').toBeCloseTo(0, 6)
       })
+      it('a take reached by a consumer processed meanwhile keeps what an unranked take after the parked one needs of it', () => {
+        // Q takes X from W too and is processed before T (it requests plate from T), after C: C's parked slice [c-CT, c-CW] holds W's 10
+        // for c-CW, so Q cannot use it up; C needs 25 X, c-CT covers 20, c-CW the other 5.
+        const W = (): Block => mk('W', [['case11-goal', 10]], [planNode('case11-make-goal')])
+        const Cw: Block = { ...C(), inputConnections: [C().inputConnections[0], { id: 'c-CW', itemId: X, fromBlockId: 'W' }, C().inputConnections[1]] }
+        const Qb: Block = mk('Qb', [['case11-other', 10], ['case13-gear', 5]], [planNode('case11-use-x'), planNode('case13-use-plate')], [
+          { id: 'c-QW', itemId: X, fromBlockId: 'W' },
+          { id: 'c-QP', itemId: P, fromBlockId: 'T' },
+        ])
+        const all = solveAll([T(listOf('H', 'C')), H(), Cw, Qb, W()], makeGameData())
+        expect(flowIn(all, 'c-CW').rate, 'c-CW').toBeCloseTo(5, 6)
+        expect(all.served.W[X].consumers.find(c => c.blockId === 'C')?.share, 'C is credited its 5 of W').toBeCloseTo(5, 6)
+        expect(unsatisfiedRate(all.results.C, X) ?? 0, 'C imports X').toBeCloseTo(0, 6)
+      })
+      it('takes that wait on each other are credited in the order they were parked', () => {
+        // S1 lists B then A, S2 lists A then B; both consumers take from both sources, in opposite connection orders. Each take waits on a
+        // take of the other consumer: at the end the slices are credited in the order they were parked, a take left blocked is flagged and the other takes of the consumer still cover its need.
+        const Sx = (id: string, list: ServedEntry[]): Block => mk(id, [['case11-goal', 30]], [planNode('case11-make-goal')], [], list, X)
+        const Cons = (id: string, first: string, second: string): Block =>
+          mk(id, [['case11-other', 10]], [planNode('case11-use-x')], [
+            { id: `${id}-${first}`, itemId: X, fromBlockId: first },
+            { id: `${id}-${second}`, itemId: X, fromBlockId: second },
+          ])
+        const all = solveAll([Sx('S1', listOf('B', 'A')), Sx('S2', listOf('A', 'B')), Cons('B', 'S2', 'S1'), Cons('A', 'S1', 'S2')], makeGameData())
+        for (const b of ['A', 'B']) expect(unsatisfiedRate(all.results[b], X) ?? 0, `${b} imports X`).toBeCloseTo(0, 6)
+        for (const b of ['A', 'B']) expect(['S1', 'S2'].reduce((n, src) => n + (all.served[src][X].consumers.find(c => c.blockId === b)?.share ?? 0), 0), `${b} credited`).toBeCloseTo(10, 6)
+      })
       it('a tied group below a parked take falls back to list order', () => {
-        // List: H, then C and H2 tied. H is parked when the pass reaches the group, so the group cannot be shared by need.
+        // List: H, then C and H2 tied. T is not processed when the pass reaches the group, so it is credited in list order anyway;
+        // the parked flag of H is not what decides here.
         const H2 = (): Block => mk('H2', [['case11-other', 5]], [planNode('case11-use-x')], [{ id: 'c-H2T', itemId: X, fromBlockId: 'T' }])
         const list: ServedEntry[] = [entry('H'), { kind: 'block', blockId: 'C', tied: true }, { kind: 'block', blockId: 'H2', tied: true }]
         const all = solveAll([T(list), H(), C(), H2()], makeGameData())

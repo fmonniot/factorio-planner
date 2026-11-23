@@ -1367,7 +1367,7 @@ The request pass reaches H, C, T (the edges T to H and T to C would close a cycl
 | C, H | same | 5 `limited`, H imports 5 | 25 `ok`, C imports 0 | 10 / 5 `ok` | C 25, need 25; H 5, need 10; no flags |
 | H, C, `c-CT` capped at 18 | same | 10 `ok` | 18 `limited`, C imports 7 | | H 10, need 10; C 18, need 25 |
 
-T runs make-goal 30 and make-plate 5. Before the take waited, the first row read: C 25 `ok`, H 5 `limited`, both lines `notCredited` with share 0.
+T runs make-goal 30 and make-plate 5.
 
 **a4 (areas):** H is in areas L (use-x pinned 6) and B (use-x pinned 4), use-q at the root; C has *Receive it first* on X. List H/L, H/B, C. H's credit is min(30, 10) = 10, split 6:4 by the needs of its areas; C gets 20. Lines: H/L 6 (need 6), H/B 4 (need 4), C 20 (need 25).
 
@@ -1385,10 +1385,14 @@ The cycle is S, K, V. K takes X first (it also requests it from V), so the take 
 
 - **c1, tabs S, K, V** (the source before its consumer). Round 1: S needs 10 q and leaves 15 X (its estimate, same round); K needs 20 X (10 for q, 10 for other), is credited 15 from S and asks V for 5; V makes 5 X (2.5 runs) and needs 5 plate (back request). Round 2 has the same output: settled in 2 rounds.
 - **c2, tabs K, V, S** (the source after its consumer; back connection `c-Sq` and a back estimate of (S, X)). Round 1: K has no q goal yet and needs 10 X; there is no estimate of S, so `c-KV` is 10; S outputs q 10 and an estimate of 15 X. Round 2: K needs 20 X, is credited the 15 of the back estimate and asks V for 5. The output equals the input: settled in 2 rounds.
-- **Expected in both orders:** `c-KS` 15 `ok`; `c-KV` requested 5 and rate 5; `c-Sq` 10; `c-VS` 5; V runs make-x 2.5; K imports 0 X; `requestLoops[0]` converged in 2 rounds. Before the member's estimate was read: `c-KS` 0 `unused`, `c-KV` 20, make-x 10, S's 15 X left over.
+- **Expected in both orders:** `c-KS` 15 `ok`; `c-KV` requested 5 and rate 5; `c-Sq` 10; `c-VS` 5; V runs make-x 2.5; K imports 0 X; `requestLoops[0]` converged in 2 rounds.
 - **Unsettled** (`requestRoundLimit: 1`): c1 reads the estimate of the same round, so `c-KS` is 15; c2 has no back estimate in the final round, so `c-KS` is 0 and `c-KV` is 10.
 
 ### 29d — parked slices
 
-- A parked take's consumer takes X from W too (no list on W), after `c-CT`: its slice is `c-CT, c-CW`. Once H has its 10, T has 20 left: `c-CT` covers 20 of C's 25 and `c-CW` the other 5 of W's 10 (it reads W's leftover when the slice resumes, in connection order).
-- A tied group (C, H2) below a parked take (H): the group cannot be shared by need (H is not credited when the pass reaches it), so it is credited and granted in list order: H 10, C 20, H2 0 (H2 imports its 5).
+Blocks as in 29a, plus: **W** (goal 10, row make-goal, so 10 X left over, no list), **H2** (other 5, row use-x, `c-H2T` takes X from T), **Qb** (other 10, gear 5, rows use-x and use-plate; `c-QW` takes X from W, `c-QP` requests plate from T, so Qb comes before T), and for the last case **S1**, **S2** (goal 30, row make-goal, so 30 X each), **A** and **B** (other 10, row use-x; A takes X from S1 then S2, B from S2 then S1).
+
+- **A slice resumes in connection order.** C also takes X from W after `c-CT` (list H, C on T); its parked slice is `c-CT, c-CW`. Once H has its 10, T has 20 left: `c-CT` covers 20 of C's 25 and `c-CW` the other 5 of W's 10 (it reads W's leftover when the slice resumes).
+- **What a parked slice needs of W stays set aside.** As above with Qb, processed after C and before T: while C's slice waits, W's 10 are held for `c-CW` (C needs 25 and `c-CT` cannot be known yet), so Qb's `c-QW` is credited nothing; when the slice resumes, `c-CW` is credited 5 (the other 5 of W's X stay uncredited).
+- **A tied group below a parked take.** List H, then C and H2 tied, on T: the pass reaches the group before T, so it cannot be shared by need and is credited and granted in list order: H 10, C 20, H2 0 (H2 imports its 5).
+- **Takes that wait on each other.** S1 lists B then A, S2 lists A then B; the request order is S1, S2, B, A (the edges of the second list would close a cycle with the first). B's S2 take waits for A's, A's S1 take waits for B's. Nothing else will credit them, so they are credited in the order they were parked: B's S2 take is flagged `notCredited` (A's take above it is not credited) and B's S1 take is credited 10 (B's share of S1 is first); A's S1 take then reads that credit and gets 10 of the 20 left. Each of A and B is credited 10 in all and imports 0.
