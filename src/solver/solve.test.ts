@@ -796,7 +796,7 @@ describe('absorber chains', () => {
   type Row = [id: string, ingredients: Record<string, number>, products: Record<string, number>]
   function lpOf(
     rows: Row[], goals: Record<string, number>, flagged: string[], byproductsFirst: string[] = [],
-    caps: Map<string, number> = new Map(), first: string[] = [],
+    caps: Map<string, number> = new Map(), first: string[] = [], marked: string[] = [],
   ) {
     const recipes: GameData['recipes'] = {}
     for (const [id, ing, prod] of rows) {
@@ -804,9 +804,9 @@ describe('absorber chains', () => {
     }
     const system = buildClassifiedSystem(makeGameData({ recipes }), rows.map(r => r[0]), new Map(Object.entries(goals)))
     const bf = new Set(byproductsFirst)
-    const lp = buildLPModel(system, new Map(), new Set(flagged), new Set(), caps, new Set(first), bf)
+    const lp = buildLPModel(system, new Map(), new Set(flagged), new Set(), caps, new Set(first), bf, false, new Set(), { markedFeeders: new Set(marked) })
     const raw = runLP('__obj__', lp.constraints, lp.variables)
-    const result = solveLP(system, new Map(), new Set(flagged), new Set(), caps, new Set(first), bf)
+    const result = solveLP(system, new Map(), new Set(flagged), new Set(), caps, new Set(first), bf, new Set(marked))
     return { raw, result, lp }
   }
   const GROW: Row = ['grow', { seed: 1 }, { goal: 1, tree: 2 }]
@@ -824,7 +824,52 @@ describe('absorber chains', () => {
       expect(raw.bounded, 'bounded').not.toBe(false)
       expect(result.throughput.get('make-saw'), 'make-saw').toBeCloseTo(0, 6)
       expect(result.supply.get('roll'), 'roll received').toBeUndefined()
+      expect(lp.shareVars.size, 'no share without a marked feeder').toBe(0)
     }
+  })
+
+  // Case 23 n: a marked make-plate also feeds use-plate, which makes the gadget goal; the fallback holds (the roll anchors make-plate).
+  const ROWS_N: Row[] = [
+    GROW, ['make-saw', { plate: 1 }, { saw: 1 }], ['make-plate', { roll: 1 }, { plate: 4 }], ['use-plate', { plate: 1 }, { gadget: 1 }],
+    ['mine', { rock: 1 }, { roll: 1 }], ['burn', { roll: 1 }, { ash: 1 }],
+  ]
+
+  it('the fallback still gives a marked feeder supply for its ordinary use', () => {
+    for (const cap of [100, Infinity]) {
+      const { raw, result, lp } = lpOf(ROWS_N, { goal: 10, gadget: 4 }, ['make-saw'], [], new Map([['roll', cap]]), ['roll'], ['make-plate'])
+      expect(raw.bounded, 'bounded').not.toBe(false)
+      expect(result.throughput.get('make-plate'), 'make-plate').toBeCloseTo(1, 6)
+      expect(result.throughput.get('use-plate'), 'use-plate').toBeCloseTo(4, 6)
+      expect(result.throughput.get('mine'), 'mine').toBeCloseTo(0, 6)
+      expect(result.throughput.get('make-saw'), 'make-saw').toBeCloseTo(0, 6)
+      expect(result.supply.get('roll'), 'roll received').toBeCloseTo(1, 6)
+      expect(lp.variables[lp.recipeToVar.get('make-plate')!].supuse_roll, 'the column itself').toBeUndefined()
+      expect(lp.variables[lp.shareVars.get('make-plate')!].supuse_roll, 'its share').toBe(-1)
+    }
+  })
+
+  it('the share reaches the unmarked feeder upstream of a marked feeder', () => {
+    const rows: Row[] = [
+      GROW, ['make-saw', { plate: 1 }, { saw: 1 }], ['make-plate', { sheet: 1 }, { plate: 4 }], ['make-sheet', { roll: 1 }, { sheet: 1 }],
+      ['use-plate', { plate: 1 }, { gadget: 1 }], ['mine', { rock: 1 }, { roll: 1 }], ['burn', { roll: 1 }, { ash: 1 }],
+    ]
+    const { result } = lpOf(rows, { goal: 10, gadget: 4 }, ['make-saw'], [], new Map([['roll', 100]]), ['roll'], ['make-plate'])
+    expect(result.throughput.get('make-sheet'), 'make-sheet').toBeCloseTo(1, 6)
+    expect(result.throughput.get('make-plate'), 'make-plate').toBeCloseTo(1, 6)
+    expect(result.throughput.get('mine'), 'mine').toBeCloseTo(0, 6)
+    expect(result.supply.get('roll'), 'roll received').toBeCloseTo(1, 6)
+  })
+
+  it('a goal on the marked feeder product counts as ordinary use', () => {
+    const rows: Row[] = [
+      GROW, ['make-saw', { plate: 1 }, { saw: 1 }], ['make-plate', { roll: 1 }, { plate: 4 }],
+      ['mine', { rock: 1 }, { roll: 1 }], ['burn', { roll: 1 }, { ash: 1 }],
+    ]
+    const { result } = lpOf(rows, { goal: 10, plate: 4 }, ['make-saw'], [], new Map([['roll', 100]]), ['roll'], ['make-plate'])
+    expect(result.throughput.get('make-plate'), 'make-plate').toBeCloseTo(1, 6)
+    expect(result.throughput.get('mine'), 'mine').toBeCloseTo(0, 6)
+    expect(result.supply.get('roll'), 'roll received').toBeCloseTo(1, 6)
+    expect(result.throughput.get('make-saw'), 'make-saw').toBeCloseTo(0, 6)
   })
 
   it('stays bounded when an item with a byproducts-first rule feeds the chain', () => {

@@ -225,5 +225,61 @@ describe('absorberRoles', () => {
       expect(ids(roles.noSupply), 'noSupply').toEqual(['H', 'K'])
       expect(ids(absorberRoles(system, set('K'), none).noSupply), 'no supplied item').toEqual(['K'])
     })
+
+    describe('the ordinary share of a marked feeder in the fallback', () => {
+      const burn: Row = ['B', { roll: 1 }, { ash: 1 }]
+      const shares = (roles: ReturnType<typeof absorberRoles>) => [...roles.ordinaryShare.keys()]
+
+      it('20: a marked feeder an ordinary row also uses gets a share', () => {
+        const system = systemOf([grow, makeSaw, makePlate, mine, burn, usePlate], { goal: 10, gadget: 4 })
+        const roles = absorberRoles(system, set('K'), none, new Set(), { markedFeeders: set('H'), supplied: set('roll') })
+        expect(ids(roles.noSupply), 'noSupply is unchanged').toEqual(['H', 'K'])
+        expect(shares(roles)).toEqual(['H'])
+        expect(roles.ordinaryShare.get('H')).toEqual([
+          { itemId: 'plate', made: 4, goal: 0, ordinary: new Map([['U', 1]]), shares: new Map() },
+        ])
+      })
+
+      it('21: no share without the fallback or without a supplied item', () => {
+        const system = systemOf([grow, makeSaw, makePlate, mine, burn, usePlate], { goal: 10, gadget: 4 })
+        const inputs = { markedFeeders: set('H') }
+        expect(absorberRoles(system, set('K'), none, new Set(), inputs).ordinaryShare.size, 'no supplied item').toBe(0)
+        const plate = absorberRoles(system, set('K'), none, new Set(), { ...inputs, supplied: set('plate') })
+        expect(ids(plate.noSupply), 'no fallback').toEqual(['K'])
+        expect(plate.ordinaryShare.size, 'supplied plate').toBe(0)
+      })
+
+      it('22: an unmarked feeder upstream of a marked feeder gets a share of its own', () => {
+        const sheet: Row = ['Q', { roll: 1 }, { sheet: 1 }]
+        const makePlate4: Row = ['H', { sheet: 1 }, { plate: 4 }]
+        const system = systemOf([grow, makeSaw, makePlate4, sheet, mine, burn, usePlate], { goal: 10, gadget: 4 })
+        const roles = absorberRoles(system, set('K'), none, new Set(), { markedFeeders: set('H'), supplied: set('roll') })
+        expect(shares(roles)).toEqual(['H', 'Q'])
+        expect(roles.ordinaryShare.get('Q')).toEqual([
+          { itemId: 'sheet', made: 1, goal: 0, ordinary: new Map(), shares: new Map([['H', 1]]) },
+        ])
+      })
+
+      it('23: a goal on the marked feeder product counts as ordinary use', () => {
+        const system = systemOf([grow, makeSaw, makePlate, mine, burn], { goal: 10, plate: 4 })
+        const roles = absorberRoles(system, set('K'), none, new Set(), { markedFeeders: set('H'), supplied: set('roll') })
+        expect(roles.ordinaryShare.get('H')).toEqual([
+          { itemId: 'plate', made: 4, goal: 4, ordinary: new Map(), shares: new Map() },
+        ])
+      })
+
+      it('24: no share when no share column takes a supplied item', () => {
+        const rod: Row = ['O', { ore: 1 }, { rod: 1 }]
+        const makePlateFromRod: Row = ['H', { rod: 1 }, { plate: 1 }]
+        const makeBolt: Row = ['R', { roll: 1 }, { bolt: 1 }]
+        const makeSaw2: Row = ['K2', { bolt: 1 }, { saw2: 1 }]
+        // An ordinary row (W) also takes the rod, so the row that makes it is not a feeder and the rod is bounded.
+        const wire: Row = ['W', { rod: 1 }, { wire: 1 }]
+        const system = systemOf([rod, wire, makePlateFromRod, makeSaw, usePlate, makeBolt, makeSaw2, mine, burn], { gadget: 4 })
+        const roles = absorberRoles(system, set('K', 'K2'), none, new Set(), { markedFeeders: set('H'), supplied: set('roll') })
+        expect(ids(roles.noSupply), 'the fallback holds').toEqual(['H', 'K', 'K2', 'R'])
+        expect(roles.ordinaryShare.size).toBe(0)
+      })
+    })
   })
 })

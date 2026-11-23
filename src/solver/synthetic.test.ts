@@ -2942,6 +2942,65 @@ describe('solver synthetic cases', () => {
       }
     })
 
+    describe('n: a marked feeder keeps a roll supply for the plate an ordinary row uses', () => {
+      // k plus U (use-plate) and a gadget goal of 4, with the plate row marked. Ignoring the roll supply leaves the plate row unanchored, so the
+      // fallback of k applies; the plate row still takes supply for the 4 plates U uses (1 run, 1 roll) and none for what K would need.
+      const mark = (recipeId: string): GameRecipeNode => planNode(recipeId, [], { absorberFeeder: true })
+      const goals: Array<[string, number]> = [...GOAL, ['case23-gadget', 4]]
+      const expectRates = (r: SolverResult, received: number | undefined) => {
+        expect(nodeOf(r, 'case23-grow@root').throughput, 'grow').toBeCloseTo(10, 6)
+        expect(nodeOf(r, 'case23-use-plate@root').throughput, 'use-plate').toBeCloseTo(4, 6)
+        expect(nodeOf(r, 'case23-make-plate@Plates').throughput, 'make-plate').toBeCloseTo(1, 6)
+        expect(nodeOf(r, 'case23-make-saw@Plates').throughput, 'make-saw').toBeCloseTo(0, 6)
+        expect(nodeOf(r, 'case23-mine-roll@root').throughput, 'mine-roll').toBeCloseTo(0, 6)
+        expect(nodeOf(r, 'case23-burn-roll@root').throughput, 'burn-roll').toBeCloseTo(0, 6)
+        expect(received ?? 0, 'roll received').toBeCloseTo(1, 6)
+        expect(unsat(r, 'case23-roll'), 'roll imported').toBeCloseTo(0, 6)
+        expect(r.warnings.map(w => w.type), 'no warning').toEqual([])
+        expect(feeders(r), 'feeders').toEqual(['case23-make-plate@Plates'])
+      }
+
+      it('n: no areas', () => {
+        for (const offer of [100, Infinity]) {
+          const nodes = [
+            planNode('case23-grow'), flag('case23-make-saw'), mark('case23-make-plate'), planNode('case23-use-plate'),
+            planNode('case23-mine-roll'), planNode('case23-burn-roll'),
+          ]
+          const { result, received } = solveBlock(flattenBlock(flatBlock(nodes, 'case23-roll', goals)), makeGameData(), new Map([['case23-roll', offer]]))
+          expect(nodeOf(result, 'case23-grow').throughput, 'grow').toBeCloseTo(10, 6)
+          expect(nodeOf(result, 'case23-use-plate').throughput, 'use-plate').toBeCloseTo(4, 6)
+          expect(nodeOf(result, 'case23-make-plate').throughput, 'make-plate').toBeCloseTo(1, 6)
+          expect(nodeOf(result, 'case23-make-saw').throughput, 'make-saw').toBeCloseTo(0, 6)
+          expect(nodeOf(result, 'case23-mine-roll').throughput, 'mine-roll').toBeCloseTo(0, 6)
+          expect(nodeOf(result, 'case23-burn-roll').throughput, 'burn-roll').toBeCloseTo(0, 6)
+          expect(received.get('case23-roll') ?? 0, `roll received (offer ${offer})`).toBeCloseTo(1, 6)
+          expect(unsat(result, 'case23-roll'), 'roll imported').toBeCloseTo(0, 6)
+          expect(result.warnings.map(w => w.type), 'no warning').toEqual([])
+          expect(feeders(result), 'feeders').toEqual(['case23-make-plate'])
+        }
+      })
+
+      it('n2: the plate rows in an area of their own', () => {
+        const plates = subPlan('Plates', [
+          { ...rowIn('case23-make-saw', 'Plates'), byproductConsumer: true },
+          { ...rowIn('case23-make-plate', 'Plates'), absorberFeeder: true },
+        ], [], true)
+        const block: Block = {
+          id: 'N', name: 'N', color: '#60a5fa',
+          products: goals.map(([itemId, extraRate], i) => ({ id: `p${i}`, itemId, extraRate })),
+          sourceRules: { 'case23-roll': { makeHere: 'after-blocks' } }, inputConnections: [],
+          rootPlan: subPlan('root', ['case23-grow', 'case23-use-plate', 'case23-mine-roll', 'case23-burn-roll'].map(id => rowIn(id, 'root')), [plates]),
+        }
+        const { result, received } = solveBlock(flattenBlock(block), makeGameData(), new Map([['case23-roll', 100]]))
+        expectRates(result, received.get('case23-roll'))
+        const plate = (result.areaRoutes ?? []).find(x => x.itemId === 'case23-plate' && x.from === 'Plates' && x.to === 'root')
+        expect(plate?.rate, 'plate route Plates to root').toBeCloseTo(4, 6)
+        const roll = (result.areaRoutes ?? []).find(x => x.itemId === 'case23-roll' && x.from === undefined && x.to === 'Plates')
+        expect(roll?.rate, 'roll leg into Plates').toBeCloseTo(1, 6)
+        expect(roll?.supplied, 'roll leg supplied').toBeCloseTo(1, 6)
+      })
+    })
+
     describe('l, m: a row marked to feed absorbing rows', () => {
       const mark = (recipeId: string, extra: Partial<GameRecipeNode> = {}): GameRecipeNode => planNode(recipeId, [], { absorberFeeder: true, ...extra })
       const rows = (plate: GameRecipeNode): RecipeNode[] => [

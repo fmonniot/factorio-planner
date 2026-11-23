@@ -86,6 +86,12 @@ function gd(): GameData {
     recipe('plate-11', [['ingot', 1]], [['plate', 1]]),
     recipe('make-rod', [['ore2', 1]], [['rod', 1]]),
     recipe('make-widget', [['rod', 1]], [['widget', 1]]),
+    // A marked feeder's connected supply in the fallback: q-make (marked) makes q from a roll, eat-q (flagged) absorbs q, use-q (ordinary) uses it.
+    recipe('q-make', [['roll', 1]], [['q', 4]]),
+    recipe('eat-q', [['q', 1]], [['qw', 1]]),
+    recipe('use-q', [['q', 1]], [['qg', 1]]),
+    recipe('mine-roll', [['rock', 1]], [['roll', 1]]),
+    recipe('burn-roll', [['roll', 1]], [['ash', 1]]),
   ]
   return {
     factorioVersion: '2.0.0',
@@ -596,6 +602,30 @@ describe('areas in the solve', () => {
     expect(node(plain, 'eat-x@s').throughput, 'eat-x unmarked').toBeCloseTo(0, 6)
     expect(node(plain, 'make-f@s').throughput, 'make-f unmarked').toBeCloseTo(3, 6)
     expect(node(plain, 'make-f@s').feedsAbsorber, 'unmarked row is no feeder').toBeUndefined()
+  })
+
+  it('a marked feeder keeps the supply for an ordinary row in a third area (fallback)', () => {
+    // q-make (marked, in P) feeds eat-q (flagged, in K) and use-q (ordinary, in U); mine-roll and burn-roll (root) make and burn the roll.
+    // The supply of roll would anchor q-make, so the fallback holds; the share of q-make still counts for use-q's 4 q (1 run, 1 roll).
+    const b: Block = {
+      ...blk(
+        root([row('mine-roll', 'root'), row('burn-roll', 'root')], [
+          sub('P', [row('q-make', 'P', { absorberFeeder: true })], [], true),
+          sub('K', [row('eat-q', 'K', { byproductConsumer: true })], [], true),
+          sub('U', [row('use-q', 'U')], [], true),
+        ]),
+        [['qg', 4]],
+      ),
+      sourceRules: { roll: { makeHere: 'after-blocks' } },
+    }
+    for (const cap of [100, Infinity]) {
+      const { result: r, received } = solveBlock(flattenBlock(b), gd(), new Map([['roll', cap]]))
+      expect(received.get('roll'), 'roll received').toBeCloseTo(1, 6)
+      expect(node(r, 'q-make@P').throughput, 'q-make').toBeCloseTo(1, 6)
+      expect(node(r, 'mine-roll@root').throughput, 'mine-roll').toBeCloseTo(0, 6)
+      expect(node(r, 'eat-q@K').throughput, 'eat-q').toBeCloseTo(0, 6)
+      expect(r.unsatisfied.filter(u => u.itemId === 'roll'), 'no missing roll').toEqual([])
+    }
   })
 
   describe("the pair don't make more here + Import off (area LP)", () => {

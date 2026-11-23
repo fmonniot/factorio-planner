@@ -3,6 +3,22 @@ import type { ClassifiedSystem } from './build'
 /** The objective of a live column that is not rewarded, before the weight of `feederCost`. Far below BC_BONUS. */
 export const CHAIN_COST = 1e-4
 
+/**
+ * One row of the ordinary-share bookkeeping of a share column j (see `AbsorberRoles.ordinaryShare`): for the product `itemId` that
+ * a chain column takes, what ordinary rows can use of what j makes.
+ */
+export interface ShareRow {
+  itemId: string
+  /** What one run of j makes of `itemId` (S_pj, > 0). */
+  made: number
+  /** The goal rate of `itemId`, 0 when it is not a goal. */
+  goal: number
+  /** The columns outside the chain (conversions left out) that take `itemId` → what a run of them takes. */
+  ordinary: ReadonlyMap<string, number>
+  /** The share columns of a lower level that take `itemId` → what a run of them takes. */
+  shares: ReadonlyMap<string, number>
+}
+
 export interface AbsorberRoles {
   /** Flagged byproduct consumers and the rows that only feed a live row. */
   chain: ReadonlySet<string>
@@ -17,9 +33,17 @@ export interface AbsorberRoles {
   feederCost: ReadonlyMap<string, number>
   /**
    * The columns left out of the `supuse`/`auuse` rows: the flagged columns, or the whole `chain` when a supplied item must anchor a
-   * feeder for a rewarded row to stay rewarded.
+   * feeder for a rewarded row to stay rewarded. In that fallback the columns of `ordinaryShare` still count in those rows, but only
+   * for their ordinary share.
    */
   noSupply: ReadonlySet<string>
+  /**
+   * The *share columns* Σ of the fallback and, for each, the rows that bound its ordinary share, in level order. Empty unless the
+   * fallback holds and some column of Σ takes a supplied item. Σ is the unflagged chain columns that are not conversions and that
+   * run for ordinary use: level 0 has a product that is a goal or that a column outside the chain takes (only marked feeders
+   * qualify), level L+1 has a product that a column of Σ takes (the unmarked feeders upstream of a marked feeder).
+   */
+  ordinaryShare: ReadonlyMap<string, readonly ShareRow[]>
   /**
    * The chain rows that run only for an absorber: the flagged columns and the unmarked feeders. A marked feeder also runs for
    * ordinary rows, so diagnostics that ask "what drives this row" treat it as an ordinary row.
@@ -65,11 +89,15 @@ export function isFeeder(roles: AbsorberRoles, flagged: ReadonlySet<string>, id:
  * safe while a supplied item (`inputs.supplied`) never anchors an unflagged candidate: a feeder that takes free supply is then
  * not anchored by it, costs `feederCost` and runs only as far as a rewarded row needs. If ignoring the supplied items takes a
  * reward away (a flagged row anchored only through a feeder whose bounded input is supplied), the old behaviour is kept for the
- * whole model: `noSupply` is the `chain`.
+ * whole model: `noSupply` is the `chain`. A marked feeder would then take no supply even for what ordinary rows use of its
+ * product, so `ordinaryShare` names the columns that keep the supply for that ordinary use: the solver gives each an *ordinary
+ * share* a_j (at most its runs, at most what ordinary rows, goals and lower-level shares take of its products), counted in the
+ * supply-use rows instead of x_j. The rest of its runs, the chain part, is fed without supply, as in the plain fallback.
  *
  * Why this is bounded: only rewarded columns are negative and each takes a bounded item, so its runs are limited by the
  * producers of that item; following producers back, every path ends at an ordinary column (cost 1), an import slack that
- * is not cheap, or a supply that only ordinary rows and feeders take. A flagged row never gets supply, so what it uses of an
+ * is not cheap, or a supply that only ordinary rows and feeders take (in the fallback, only ordinary rows and the ordinary share of
+ * a feeder, which ordinary activity bounds). A flagged row never gets supply, so what it uses of an
  * item is limited by the column production of that item plus slack. A column that takes only raw items, or a cheaply imported
  * one, is never anchored, so it cannot run for free forever. "Every producer" matters: if X is made by an ordinary column and
  * by a raw-fed feeder, rewarding X's consumer would let the feeder make X for nothing. What remains unbounded is a loop whose
@@ -177,7 +205,8 @@ export function absorberRoles(
   const flaggedCols = [...candidates].filter(id => flagged.has(id))
   const supplied = inputs.supplied ?? new Set<string>()
   const relaxed = supplied.size === 0 ? anchored : anchoredWith(supplied)
-  const noSupply = new Set([...rewarded].every(id => relaxed.has(id)) ? flaggedCols : chain)
+  const fallback = ![...rewarded].every(id => relaxed.has(id))
+  const noSupply = new Set(fallback ? chain : flaggedCols)
   const feederCost = new Map<string, number>()
   for (const id of live) {
     if (rewarded.has(id)) continue
@@ -191,5 +220,61 @@ export function absorberRoles(
     feederCost.set(id, CHAIN_COST * (1 + taken / (taken + made)))
   }
   const absorberOnly = new Set([...chain].filter(id => !marked.has(id)))
-  return { chain, rewarded, live, feederCost, noSupply, absorberOnly }
+  const ordinaryShare = fallback && supplied.size > 0
+    ? ordinaryShareOf(system, flagged, chain, supplied, productsOf, consumersOf, takesOf)
+    : new Map<string, readonly ShareRow[]>()
+  return { chain, rewarded, live, feederCost, noSupply, ordinaryShare, absorberOnly }
+}
+
+/** The share columns of the fallback and their rows (see `AbsorberRoles.ordinaryShare`). */
+function ordinaryShareOf(
+  system: ClassifiedSystem,
+  flagged: ReadonlySet<string>,
+  chain: ReadonlySet<string>,
+  supplied: ReadonlySet<string>,
+  productsOf: ReadonlyMap<string, string[]>,
+  consumersOf: ReadonlyMap<string, string[]>,
+  takesOf: ReadonlyMap<string, string[]>,
+): Map<string, readonly ShareRow[]> {
+  const conversions = system.flow?.conversions
+  const { goals } = system.classification
+  const eligible = (id: string) => chain.has(id) && !flagged.has(id) && !conversions?.has(id)
+  const outside = (id: string) => !chain.has(id) && !conversions?.has(id)
+  const level = new Map<string, number>()
+  for (const id of system.recipes) {
+    if (!eligible(id)) continue
+    const runsForOrdinary = (productsOf.get(id) ?? []).some(
+      itemId => goals.has(itemId) || (consumersOf.get(itemId) ?? []).some(outside),
+    )
+    if (runsForOrdinary) level.set(id, 0)
+  }
+  for (let l = 0; level.size > 0; l++) {
+    const upper = new Set(level.keys())
+    const next = system.recipes.filter(
+      id => eligible(id) && !level.has(id)
+        && (productsOf.get(id) ?? []).some(itemId => (consumersOf.get(itemId) ?? []).some(c => upper.has(c))),
+    )
+    if (next.length === 0) break
+    for (const id of next) level.set(id, l + 1)
+  }
+  const columns = [...level.keys()].sort((a, b) => level.get(a)! - level.get(b)!)
+  if (!columns.some(id => (takesOf.get(id) ?? []).some(itemId => supplied.has(itemId)))) return new Map()
+  const take = (itemId: string, id: string): number => -(system.S.get(itemId)?.get(id) ?? 0)
+  const result = new Map<string, readonly ShareRow[]>()
+  for (const id of columns) {
+    const rows: ShareRow[] = []
+    for (const itemId of productsOf.get(id) ?? []) {
+      const takers = consumersOf.get(itemId) ?? []
+      if (!takers.some(c => c !== id && chain.has(c))) continue
+      rows.push({
+        itemId,
+        made: system.S.get(itemId)!.get(id)!,
+        goal: goals.get(itemId) ?? 0,
+        ordinary: new Map(takers.filter(outside).map(c => [c, take(itemId, c)])),
+        shares: new Map(takers.filter(c => level.has(c) && level.get(c)! < level.get(id)!).map(c => [c, take(itemId, c)])),
+      })
+    }
+    result.set(id, rows)
+  }
+  return result
 }

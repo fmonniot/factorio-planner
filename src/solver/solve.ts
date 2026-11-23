@@ -108,6 +108,8 @@ export interface LPModel {
   leastShortfall?: number
   /** the absorber chains of the system: which columns cost BC_BONUS or `feederCost` and which stay out of the supply-use rows */
   absorbers: AbsorberRoles
+  /** share column id → the variable `osh<n>` of its ordinary share (empty unless the fallback of absorbers.ts gives a marked feeder one) */
+  shareVars: Map<string, string>
   /** the per-connection supply variables of the supplied keys */
   keySupplyVars: { name: string; key: string; connectionId: string; offeredKey: string }[]
 }
@@ -126,6 +128,14 @@ export interface LPBuildOptions {
 
 /** At most this many pins are probed one by one to tell which bind (see `bindingPins`). */
 export const PIN_PROBE_LIMIT = 8
+
+/**
+ * The variable that counts column `columnId` in a supply-use row (`supuse`, `supfu`, `auuse`): its own variable, its ordinary-share
+ * variable when the fallback leaves it out of the supply but it runs for ordinary rows (see `AbsorberRoles.ordinaryShare`), else none.
+ */
+export function supplyUseVar(lp: Pick<LPModel, 'absorbers' | 'recipeToVar' | 'shareVars'>, columnId: string): string | undefined {
+  return lp.absorbers.noSupply.has(columnId) ? lp.shareVars.get(columnId) : lp.recipeToVar.get(columnId)
+}
 
 /** Name of the LP row that pins the recipe column `varName`. */
 export function pinRowName(varName: string): string {
@@ -146,7 +156,9 @@ export function pinRowName(varName: string): string {
  *     - Intermediate items with a cap: Σ S_ij * x_j + s_i + u_i ≥ 0,  u_i ≤ cap_i
  *       (no cap row when the cap is infinite)
  *     - Connections-first items: u_i + Σ_{j∉N, S_ij<0} S_ij * x_j ≤ 0
- *       (supply covers at most what recipes outside N use; N = the flagged rows, or the whole chain in the fallback, see absorbers.ts)
+ *       (supply covers at most what recipes outside N use; N = the flagged rows, or the chain in the fallback, less the ordinary
+ *       share a_j ≥ 0 of its feeders that ordinary rows use, see absorbers.ts: a_j ≤ x_j and a_j ≤ what ordinary rows, goals and
+ *       lower-level shares take of the products of j)
  *     - Pinned recipes:     x_j = rate  (equality)
  *     - Leftover off (options.leftoverOff): the goal and intermediate rows of such an item become equalities
  *       Σ S_ij * x_j (+ s_i + u_i) − v_k = rhs, with v_k ≥ 0 the left-over, priced LEFTOVER_COST (no import cost, no
@@ -230,6 +242,31 @@ export function buildLPModel(
     variables[varName] = {
       __obj__: system.flow?.conversions.has(recipeId) ? conversionCost(recipeId)
         : absorbers.rewarded.has(recipeId) ? BC_BONUS : (absorbers.feederCost.get(recipeId) ?? 1),
+    }
+  }
+
+  // The ordinary shares of the fallback (absorbers.ts): one bookkeeping variable a_j per share column, bounded by what the column
+  // runs (`oshcap`) and by what ordinary rows, goals and lower-level shares take of each product (`oshuse`); counted in the supply-use rows.
+  const shareVars = new Map<string, string>()
+  const shareIds = [...absorbers.ordinaryShare.keys()]
+  for (const [n, id] of shareIds.entries()) {
+    let name = `osh${n}`
+    for (let i = 2; name in variables; i++) name = `osh${n}_${i}`
+    shareVars.set(id, name)
+    variables[name] = { __obj__: 0 }
+  }
+  for (const [n, id] of shareIds.entries()) {
+    const share = variables[shareVars.get(id)!]
+    const cap = `oshcap${n}`
+    constraints[cap] = { max: 0 }
+    share[cap] = 1
+    variables[recipeToVar.get(id)!][cap] = -1
+    for (const [m, row] of absorbers.ordinaryShare.get(id)!.entries()) {
+      const useRow = `oshuse${n}_${m}`
+      constraints[useRow] = { max: row.goal }
+      share[useRow] = row.made
+      for (const [k, take] of row.ordinary) variables[recipeToVar.get(k)!][useRow] = -take
+      for (const [k, take] of row.shares) variables[shareVars.get(k)!][useRow] = -take
     }
   }
 
@@ -366,15 +403,15 @@ export function buildLPModel(
           keySupplyVars.push({ name, key: itemId, connectionId: o.connectionId, offeredKey: suppliedKey.offeredKey })
         }
       } else if (connectionsFirst.has(itemId)) {
-        // Supply covers at most what the recipes outside the flagged rows use (the whole chain in the fallback, see absorbers.ts).
+        // Supply covers at most what the recipes outside the flagged rows use (the chain in the fallback, less the ordinary share of its feeders, see absorbers.ts).
         // Without this row a free u_i could feed a flagged row for its bonus, and be
         // unbounded when the cap is infinite.
         const useName = named('supuse_', itemId)
         constraints[useName] = { max: 0 }
         variables[supplyName][useName] = 1
         for (const [recipeId, coeff] of S.get(itemId) ?? []) {
-          if (coeff < 0 && !absorbers.noSupply.has(recipeId)) {
-            const varName = recipeToVar.get(recipeId)
+          if (coeff < 0) {
+            const varName = supplyUseVar({ absorbers, recipeToVar, shareVars }, recipeId)
             if (varName) variables[varName][useName] = coeff
           }
         }
@@ -406,8 +443,8 @@ export function buildLPModel(
       for (const name of agg.first) variables[name][row] = 1
       for (const key of rangeKeysOf(fluid)) {
         for (const [recipeId, coeff] of S.get(key) ?? []) {
-          if (coeff >= 0 || system.flow!.conversions.has(recipeId) || absorbers.noSupply.has(recipeId)) continue
-          const varName = recipeToVar.get(recipeId)
+          if (coeff >= 0 || system.flow!.conversions.has(recipeId)) continue
+          const varName = supplyUseVar({ absorbers, recipeToVar, shareVars }, recipeId)
           if (varName) variables[varName][row] = (variables[varName][row] ?? 0) + coeff
         }
       }
@@ -433,7 +470,7 @@ export function buildLPModel(
     variables[varName][cName] = 1
   }
 
-  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, itemToLeftover, goalToShort, absorbers, keySupplyVars }
+  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply, itemToLeftover, goalToShort, absorbers, shareVars, keySupplyVars }
 }
 
 type LPConstraints = LPModel['constraints']

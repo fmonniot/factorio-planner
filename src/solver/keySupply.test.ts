@@ -89,6 +89,30 @@ describe('supplied keys in one block', () => {
     expect(result.nodes.find(n => n.recipeNodeId === 'boil-165')!.throughput).toBeCloseTo(0, 6)
   })
 
+  it('Receive it first: a marked feeder keeps the supply for what an ordinary row uses of its product (fallback)', () => {
+    // press (marked) takes 60 steam of any temperature for 4 plates; saw (flagged) and use take plates. boil-165 and vent are ordinary,
+    // so boil-165 is not a feeder and the steam is bounded. The 165 offer anchors press only through supply, so the fallback holds.
+    const gd = gameData()
+    for (const r of [
+      recipe('vent', [fluid('steam', 60)], [item('ash', 1)]),
+      recipe('press', [fluid('steam', 60)], [item('plate', 4)]),
+      recipe('saw', [item('plate', 1)], [item('saw', 1)]),
+      recipe('use', [item('plate', 1)], [item('gadget', 1)]),
+    ]) gd.recipes[r.id] = r
+    const ks = supply([{ connectionId: 'c1', tag: { at: 165 }, offer: 1000 }])
+    const p = plan(
+      [['gadget', 4]],
+      [node('boil-165'), node('vent'), node('press', { absorberFeeder: true }), node('saw', { byproductConsumer: true }), node('use')],
+      { steam: { makeHere: 'after-blocks' } },
+    )
+    const { received, result } = solveBlock(p, gd, new Map(), ks)
+    const rate = (id: string) => result.nodes.find(n => n.recipeNodeId === id)!.throughput
+    expect(rate('press'), 'press').toBeCloseTo(1, 6)
+    expect(rate('boil-165'), 'boil-165').toBeCloseTo(0, 6)
+    expect(rate('saw'), 'saw').toBeCloseTo(0, 6)
+    expect(r6(received.get('steam') ?? 0)).toBe(60)
+  })
+
   it('the 26 b shape: a supplied conversion pays the depth of its range (R1)', () => {
     const ks = supply([
       { connectionId: 'c1', tag: { at: 500 }, offer: 3600 },
