@@ -128,7 +128,7 @@ export function improvesImport(least: number, todayImport: number): boolean {
  *      total received, not per item, so when two connections tie on units the runs decide (D5).
  *
  * Every supply has the `supuse` row of connections first (supply covers at most what the recipes
- * outside the flagged rows, or the whole chain in the fallback of absorbers.ts, use), so a free supply never feeds a flagged row and is bounded
+ * outside the flagged rows, or the chain less the ordinary share of its feeders in the fallback of absorbers.ts, use), so a free supply never feeds a flagged row and is bounded
  * with an unlimited offer. *Don't make more here* items get no supply in steps 2 and 3 (their slack is
  * free there) and, in step 4, a supply capped at step 4's own residual for them: one more LP, today's
  * pass 2 on the bounded model, only when such an item is short.

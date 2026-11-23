@@ -21,7 +21,7 @@ import { leftoverOffItems } from '../data/sourceRules'
 import { keySupplyPlanOf } from './keySupplyPlan'
 import { flowKey, parseFlowKey, splitFluids, productTag, rangeOf, type FluidRange } from '../data/flowKey'
 import {
-  BIG_M, BYPRODUCTS_FIRST_SLACK_COST, LEFTOVER_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP,
+  BIG_M, BYPRODUCTS_FIRST_SLACK_COST, LEFTOVER_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP, supplyUseVar,
   type LPModel, type LPResult,
 } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
@@ -524,7 +524,8 @@ function solveAreaLPOnce(
           constraints[`auuse${i}`] = { max: 0 }
           u[`auuse${i}`] = 1
           for (const { col, coeff } of cols) {
-            if (coeff < 0 && !base.absorbers.noSupply.has(col.id)) variables[colVar.get(col.id)!][`auuse${i}`] = coeff
+            const use = supplyUseVar(base, col.id)
+            if (coeff < 0 && use) variables[use][`auuse${i}`] = coeff
           }
         }
         variables[names.supply] = u
