@@ -731,6 +731,7 @@ export interface BlockStoreState {
 
   // Default machines (not undoable, like the horizon)
   setDefaultMachine: (category: string, machineId: string) => void
+  clearDefaultMachine: (category: string) => void
   resetDefaultMachines: () => void
 
   // Undo/redo (per active block)
@@ -2113,6 +2114,14 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         ? state
         : { defaultMachineOverrides: { ...state.defaultMachineOverrides, [category]: machineId } },
     ),
+
+  clearDefaultMachine: (category) =>
+    set(state => {
+      if (!Object.hasOwn(state.defaultMachineOverrides, category)) return state
+      const rest = { ...state.defaultMachineOverrides }
+      delete rest[category]
+      return { defaultMachineOverrides: rest }
+    }),
 
   resetDefaultMachines: () =>
     set(state => (Object.keys(state.defaultMachineOverrides).length === 0 ? state : { defaultMachineOverrides: {} })),

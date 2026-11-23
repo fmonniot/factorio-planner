@@ -374,6 +374,25 @@ describe('WorkspaceMenu default machines', () => {
     expect(within(flyout).getByRole('menuitemradio', { name: 'Assembler 1' })).toHaveAttribute('aria-checked', 'true')
   })
 
+  it('lists an override for an unlisted category and clears it singly', async () => {
+    useBlockStore.setState({ defaultMachineOverrides: { crafting: 'asm2', electronics: 'asm2' } })
+    const flyout = await openFlyout()
+    expect(flyout).toHaveTextContent('Not listed above')
+    await userEvent.click(within(flyout).getByRole('menuitem', { name: 'Clear default for Electronics' }))
+    expect(useBlockStore.getState().defaultMachineOverrides).toEqual({ crafting: 'asm2' })
+    expect(flyout).not.toHaveTextContent('Not listed above')
+  })
+
+  it('keeps the focus in the flyout after Clear removes the focused button', async () => {
+    useBlockStore.setState({ defaultMachineOverrides: { electronics: 'asm2' } })
+    const flyout = await openFlyout()
+    const clear = within(flyout).getByRole('menuitem', { name: 'Clear default for Electronics' })
+    clear.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(useBlockStore.getState().defaultMachineOverrides).toEqual({})
+    expect(flyout.contains(document.activeElement)).toBe(true)
+  })
+
   it('puts a category used by a default row under "Used in this plan"', async () => {
     defaultRowBlock()
     const flyout = await openFlyout()

@@ -23,12 +23,17 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
   const blocks = useBlockStore(s => s.blocks)
   const overrides = useBlockStore(s => s.defaultMachineOverrides)
   const setDefaultMachine = useBlockStore(s => s.setDefaultMachine)
+  const clearDefaultMachine = useBlockStore(s => s.clearDefaultMachine)
   const resetDefaultMachines = useBlockStore(s => s.resetDefaultMachines)
 
   const counts = useMemo(() => defaultMachineRowCounts(blocks, gameData), [blocks, gameData])
   const categories = useMemo(() => defaultMachineCategories(gameData, horizon), [gameData, horizon])
   const used = categories.filter(c => (counts.get(c) ?? 0) > 0)
   const other = categories.filter(c => (counts.get(c) ?? 0) === 0)
+  // Overrides whose category the flyout does not list (a saved plan from before it hid some, or a category the
+  // horizon left with one machine): without a row of their own they could only be dropped by Reset all.
+  const listed = new Set(categories)
+  const unlisted = Object.entries(overrides).filter(([category]) => !listed.has(category))
   const hasOverrides = Object.keys(overrides).length > 0
 
   function renderCategory(category: string) {
@@ -85,6 +90,49 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
         <>
           <div aria-hidden className={SECTION_HEADING}>Other categories</div>
           {other.map(renderCategory)}
+        </>
+      )}
+      {unlisted.length > 0 && (
+        <>
+          <div role="separator" className="my-1 border-t border-gray-700" />
+          <div aria-hidden className={SECTION_HEADING}>Not listed above</div>
+          {unlisted.map(([category, machineId]) => {
+            const label = categoryLabel(category, gameData)
+            const machineName = gameData.machines[machineId]?.name ?? machineId
+            return (
+              <div
+                key={category}
+                role="group"
+                aria-label={label}
+                data-category={category}
+                data-unlisted
+                className="flex items-center gap-2 px-3 py-1"
+              >
+                <span className="w-36 truncate text-gray-200" title={category}>{label}</span>
+                <span className="text-[11px] text-gray-400 truncate">{machineName}</span>
+                <button
+                  type="button"
+                  role="menuitem"
+                  aria-label={`Clear default for ${label}`}
+                  title={`Clear default for ${label}`}
+                  tabIndex={-1}
+                  data-clear-default
+                  onClick={e => {
+                    // The row disappears with its button: hand the focus on first, or the menu's keys stop working.
+                    const menu = e.currentTarget.closest('[role="menu"]')
+                    const clears = Array.from(menu?.querySelectorAll<HTMLElement>('[data-clear-default]') ?? [])
+                    const at = clears.indexOf(e.currentTarget)
+                    const next = clears[at + 1] ?? clears[at - 1] ?? menu?.querySelector<HTMLElement>('[aria-checked="true"]')
+                    next?.focus()
+                    clearDefaultMachine(category)
+                  }}
+                  className="ml-auto px-2 h-6 rounded text-[11px] text-gray-300 bg-gray-900 ring-1 ring-gray-600 outline-none hover:bg-gray-700 focus:bg-gray-700"
+                >
+                  Clear
+                </button>
+              </div>
+            )
+          })}
         </>
       )}
       <div role="separator" className="my-1 border-t border-gray-700" />

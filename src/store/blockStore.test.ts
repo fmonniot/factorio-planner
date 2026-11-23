@@ -1688,6 +1688,16 @@ describe('default machine overrides', () => {
     expect(useBlockStore.getState().defaultMachineOverrides).toEqual({})
   })
 
+  it('clearDefaultMachine drops one override and is a no-op for an absent one', () => {
+    useBlockStore.getState().setDefaultMachine('crafting', 'asm-1')
+    useBlockStore.getState().setDefaultMachine('electronics', 'asm-2')
+    const before = useBlockStore.getState().defaultMachineOverrides
+    useBlockStore.getState().clearDefaultMachine('missing')
+    expect(useBlockStore.getState().defaultMachineOverrides, 'unchanged when absent').toBe(before)
+    useBlockStore.getState().clearDefaultMachine('electronics')
+    expect(useBlockStore.getState().defaultMachineOverrides).toEqual({ crafting: 'asm-1' })
+  })
+
   it('setAppState and selectAppState round-trip the overrides', () => {
     const block = makeEmptyBlock('Other')
     useBlockStore.getState().setAppState({
