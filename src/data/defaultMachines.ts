@@ -25,15 +25,20 @@ export function availableMachinesFor(
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-/** Crafting categories with at least two available machines (a real choice), sorted by label. */
+/**
+ * Crafting categories with at least two available machines (a real choice), sorted by label. A category that no
+ * recipe has as its primary `category` (only ever an additional one, like Seablock's `electronics`) is left out:
+ * a default set for it would change no row.
+ */
 export function defaultMachineCategories(gameData: GameData, horizon: Horizon): string[] {
+  const primary = new Set(Object.values(gameData.recipes).map(r => r.category))
   const counts = new Map<string, number>()
   for (const m of Object.values(gameData.machines)) {
     if (m.hidden || !withinHorizon(horizon.machineIds, m.id)) continue
     for (const category of m.craftingCategories) counts.set(category, (counts.get(category) ?? 0) + 1)
   }
   return [...counts]
-    .filter(([, n]) => n >= 2)
+    .filter(([category, n]) => n >= 2 && primary.has(category))
     .map(([category]) => ({ category, label: categoryLabel(category, gameData) }))
     .sort((a, b) => a.label.localeCompare(b.label))
     .map(({ category }) => category)

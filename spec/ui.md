@@ -520,7 +520,9 @@ menu without moving focus (the workspace menu passes the `seq` of `uiStore.defau
 `menuitem` with `aria-haspopup="menu"`, `aria-expanded` and a chevron, opening a flyout menu named
 "Default machines" to its left (`absolute right-full`, `max-h-[calc(100vh-4rem)]`, scrolling
 inside). The flyout lists the crafting categories that have at least two non-hidden machines inside
-the [research horizon](#research-horizon) (`defaultMachineCategories`), in two sections: "Used in
+the [research horizon](#research-horizon) and that some recipe has as its primary category
+(`defaultMachineCategories`; a category that is only ever an additional category, like Seablock's
+`electronics`, is left out because a default there would change no row), in two sections: "Used in
 this plan" (categories with at least one row left on "Default", across all blocks) and, after a
 separator, "Other categories". Each category is a group named after its label (`categoryLabel`: the
 data set's `categoryNames` entry, else the id with `:`, `_` and `-` as spaces, first letter capitalised; the id is the tooltip) with the number

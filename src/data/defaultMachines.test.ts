@@ -21,6 +21,7 @@ function makeGameData(): GameData {
       r1: { id: 'r1', category: 'crafting' },
       r2: { id: 'r2', category: 'crafting' },
       r3: { id: 'r3', category: 'smelting' },
+      r4: { id: 'r4', category: 'mining:basic-solid' },
     } as unknown as GameData['recipes'],
     machines: {
       zeta: machine('zeta', ['crafting']),
@@ -93,6 +94,22 @@ describe('defaultMachineCategories', () => {
   it('lists categories with at least two available machines, sorted by label', () => {
     const d = makeGameData()
     expect(defaultMachineCategories(d, horizon(null))).toEqual(['crafting', 'mining:basic-solid', 'smelting'])
+  })
+  it('leaves out a category no recipe has as its primary category', () => {
+    const d = makeGameData()
+    d.machines.e1 = machine('e1', ['electronics'])
+    d.machines.e2 = machine('e2', ['electronics'])
+    expect(defaultMachineCategories(d, horizon(null))).toEqual(['crafting', 'mining:basic-solid', 'smelting'])
+  })
+  it('keeps a category that is primary for one recipe and additional for another, and hides one that is only additional', () => {
+    const d = makeGameData()
+    d.machines.e1 = machine('e1', ['electronics'])
+    d.machines.e2 = machine('e2', ['electronics'])
+    d.machines.p1 = machine('p1', ['assembling'])
+    d.machines.p2 = machine('p2', ['assembling'])
+    d.recipes.r5 = { id: 'r5', category: 'crafting', additionalCategories: ['electronics', 'assembling'] } as unknown as GameData['recipes'][string]
+    d.recipes.r6 = { id: 'r6', category: 'assembling' } as unknown as GameData['recipes'][string]
+    expect(defaultMachineCategories(d, horizon(null))).toEqual(['assembling', 'crafting', 'mining:basic-solid', 'smelting'])
   })
   it('leaves out a category whose second machine is outside the horizon', () => {
     const d = makeGameData()
