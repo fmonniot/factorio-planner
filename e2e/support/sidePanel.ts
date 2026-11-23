@@ -33,3 +33,7 @@ export async function changeSourcing(page: Page, row: Locator, itemId: string): 
   await expect(control.locator(':focus')).toHaveCount(1)
   return control
 }
+
+/** One entry of the panel's "Where outputs go" section: a product or byproduct of the selected row. */
+export const outputEntry = (page: Page, itemId: string): Locator =>
+  sidePanel(page).locator(`[data-testid="output-entry"][data-item-id="${itemId}"]`)

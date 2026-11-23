@@ -14,7 +14,38 @@ import { outsideLegParts } from '../../solver/areaRoutes'
  * set of tiles does not change with the rate-unit toggle.
  */
 export function isLeftover(ratePerMin: number, grossPerMin: number): boolean {
-  return ratePerMin > surplusTolerance(grossPerMin) && parseFloat(ratePerMin.toFixed(2)) > 0
+  return ratePerMin > surplusTolerance(grossPerMin) && showsAsPositive(ratePerMin)
+}
+
+/** The rate shows as more than 0.00/min (the finest unit, so the answer does not change with the rate-unit toggle). */
+export function showsAsPositive(ratePerMin: number): boolean {
+  return parseFloat(ratePerMin.toFixed(2)) > 0
+}
+
+/** items/min other blocks take from the block `blockId` per flow key (a split fluid's connection leaves at the keys its parts carry), above the flow tolerance. */
+export function exportedByKey(flows: readonly ConnectionFlow[], blockId: string): Map<string, number> {
+  const byKey = new Map<string, number>()
+  for (const f of flows) {
+    if (f.fromBlockId !== blockId || !(f.rate > FLOW_TOLERANCE)) continue
+    for (const share of flowShares(f)) {
+      if (share.rate > FLOW_TOLERANCE) byKey.set(share.key, (byKey.get(share.key) ?? 0) + share.rate)
+    }
+  }
+  return byKey
+}
+
+/**
+ * The block's leftover per flow key, in the order of `net`: its net surplus minus what other blocks take at that key
+ * (at most the surplus), kept when `isLeftover` says it is more than noise. Products are not excluded: the caller filters.
+ * Shared by the Byproducts pane and the side panel's "Where outputs go".
+ */
+export function leftoverByKey(net: ReadonlyMap<string, number>, gross: ReadonlyMap<string, number>, exported: ReadonlyMap<string, number>): Map<string, number> {
+  const left = new Map<string, number>()
+  for (const [key, balance] of net) {
+    const rest = balance - Math.min(Math.max(0, balance), exported.get(key) ?? 0)
+    if (isLeftover(rest, gross.get(key) ?? 0)) left.set(key, rest)
+  }
+  return left
 }
 
 export interface IngredientRow {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { BlockConnection, ConnectionFlow, FluidTag } from '../../data/types'
-import { ingredientRows, byproductRows, isLeftover, areaMissingPerMin } from './summaryRows'
+import { ingredientRows, byproductRows, isLeftover, areaMissingPerMin, exportedByKey, leftoverByKey } from './summaryRows'
 import type { AreaRoute, AreaSourceRule, SubPlan } from '../../data/types'
 
 function conn(overrides: Partial<BlockConnection> = {}): BlockConnection {
@@ -178,6 +178,29 @@ describe('isLeftover', () => {
   it('gates on the relative tolerance even when the rate would display', () => {
     expect(isLeftover(5, 1e9)).toBe(false)
     expect(isLeftover(5, 1e6)).toBe(true)
+  })
+})
+
+describe('exportedByKey and leftoverByKey', () => {
+  const flow = (over: Partial<ConnectionFlow>): ConnectionFlow => ({
+    connectionId: 'c', fromBlockId: 'b1', toBlockId: 'b2', itemId: 'x', available: 0, capped: false, rate: 10, status: 'ok', kind: 'take', ...over,
+  })
+
+  it('sums what leaves the block per key, by part for a split fluid, and skips other sources', () => {
+    const flows = [
+      flow({ rate: 10 }),
+      flow({ connectionId: 'c2', rate: 5 }),
+      flow({ connectionId: 'c3', itemId: 'steam', rate: 8, parts: [{ temp: { at: 165 }, rate: 3, available: 3 }, { temp: { at: 500 }, rate: 5, available: 5 }] }),
+      flow({ connectionId: 'c4', fromBlockId: 'other', rate: 99 }),
+    ]
+    expect(Object.fromEntries(exportedByKey(flows, 'b1'))).toEqual({ x: 15, 'steam@165': 3, 'steam@500': 5 })
+  })
+
+  it('subtracts what is taken at a key (at most the surplus) and drops noise', () => {
+    const net = new Map([['x', 100], ['y', 50], ['steam@165', 40], ['z', 0.001]])
+    const gross = new Map([['x', 120], ['y', 50], ['steam@165', 40], ['z', 1]])
+    const exported = new Map([['x', 30], ['y', 80], ['steam@500', 10]])
+    expect(Object.fromEntries(leftoverByKey(net, gross, exported))).toEqual({ x: 70, 'steam@165': 40 })
   })
 })
 

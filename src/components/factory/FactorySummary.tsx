@@ -11,7 +11,7 @@ import { ItemPicker } from '../ItemPicker'
 import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { offerByItem, parseFlowKey } from '../../data/flowKey'
-import { flowAtKey, flowShares } from './flowParts'
+import { flowAtKey } from './flowParts'
 import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
@@ -32,7 +32,7 @@ import { SummaryPane } from './SummaryPane'
 import { SummaryLine } from './SummaryLine'
 import type { StripAction } from './SummaryDetailStrip'
 import { presentRecipesFor } from './recipeAreas'
-import { ingredientRows, byproductRows, isLeftover, areaMissingOf } from './summaryRows'
+import { ingredientRows, byproductRows, areaMissingOf, exportedByKey, leftoverByKey } from './summaryRows'
 import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
 import type { ProductInfo } from './summarySegments'
 import { netBalance as computeNetBalance, grossFlow, FLOW_TOLERANCE } from '../../solver/index'
@@ -236,12 +236,7 @@ export function FactorySummary() {
     [allFlows, activeBlockId],
   )
   // By flow key: a split fluid's connection leaves the block at the keys its parts carry.
-  const exportedByKey = new Map<string, number>()
-  for (const f of outputFlows) {
-    for (const share of flowShares(f)) {
-      if (share.rate > FLOW_TOLERANCE) exportedByKey.set(share.key, (exportedByKey.get(share.key) ?? 0) + share.rate)
-    }
-  }
+  const exportedKeys = exportedByKey(outputFlows, activeBlockId ?? '')
 
   // What other blocks request from this one, by item, in solve order. Uses every flow (a request for 0 draws nothing).
   const requestsByItem = useMemo(() => {
@@ -255,18 +250,14 @@ export function FactorySummary() {
     return byItem
   }, [allFlows, activeBlockId])
 
-  // Byproducts: net positive balance of items that are not products, minus what other blocks take;
-  // a leftover that is only LP rounding noise (see isLeftover) gets no tile.
-  // What other blocks take at a key is subtracted from that key.
-  const byproductItems = [...netBalance]
-    .map(([key, net]) => ({ key, net, ...parseFlowKey(key) }))
+  // Byproducts: net positive balance of items that are not products, minus what other blocks take at that key;
+  // a leftover that is only LP rounding noise (see isLeftover) gets no tile. The maths is `leftoverByKey`, shared with the
+  // side panel's "Where outputs go".
+  const byproductItems = [...leftoverByKey(netBalance, gross, exportedKeys)]
+    .map(([key, ratePerMin]) => ({ key, ratePerMin, ...parseFlowKey(key) }))
     .filter(({ itemId }) => !productItemIds.has(itemId))
-    .map(({ key, net, itemId, tag }) => {
-      const taken = Math.min(Math.max(0, net), exportedByKey.get(key) ?? 0)
-      return { itemId, key, ...(tag ? { temp: tag } : {}), ratePerMin: net - taken }
-    })
-    .filter(({ key, ratePerMin }) => isLeftover(ratePerMin, gross.get(key) ?? 0))
-  const exportedByproducts = [...exportedByKey.keys()].filter(key => !productItemIds.has(parseFlowKey(key).itemId))
+    .map(({ key, ratePerMin, itemId, tag }) => ({ itemId, key, ...(tag ? { temp: tag } : {}), ratePerMin }))
+  const exportedByproducts = [...exportedKeys.keys()].filter(key => !productItemIds.has(parseFlowKey(key).itemId))
   const byproductRowList = byproductRows(byproductItems, exportedByproducts)
 
   // Ingredients: unsatisfied raw inputs
