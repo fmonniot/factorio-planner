@@ -139,10 +139,36 @@ describe('defaultMachineRowCounts', () => {
       block('a', [node('n1', 'r1'), node('n2', 'r2', 'alpha'), node('n3', 'unknown')], [node('n4', 'r1'), node('n5', 'r3')]),
       block('b', [node('n6', 'r1')]),
     ]
-    const counts = defaultMachineRowCounts(blocks, d)
+    const counts = defaultMachineRowCounts(blocks, d, horizon(null))
     expect(counts.get('crafting')).toBe(3)
     expect(counts.get('smelting')).toBe(1)
     expect(counts.size).toBe(2)
+  })
+})
+
+describe('defaultMachineRowCounts with the additional-category fallback', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  it('leaves out a row that uses its recipe fallback because its category has no default in the horizon', () => {
+    const d = makeGameData()
+    d.recipes.rf = { id: 'rf', category: 'crafting', additionalCategories: ['electronics'] } as unknown as GameData['recipes'][string]
+    const plan = (nodes: Block['rootPlan']['nodes']): Block => ({
+      id: 'b', name: 'b', color: '#000000', products: [], sourceRules: {}, inputConnections: [],
+      rootPlan: { id: 'p', name: 'Main', nodes, subPlans: [], createdAt: now, updatedAt: now },
+    })
+    const nodes: Block['rootPlan']['nodes'] = [
+      { kind: 'game-recipe', id: 'n1', recipeId: 'rf', modules: [], byproductPolicy: {} },
+      { kind: 'game-recipe', id: 'n2', recipeId: 'r1', modules: [], byproductPolicy: {} },
+    ]
+    const h = { defaultMachines: { 'recipe-fallback:rf': 'elec' } as Record<string, string> }
+    expect(defaultMachineRowCounts([plan(nodes)], d, h).get('crafting')).toBe(1)
+    const withDefault = { defaultMachines: { crafting: 'alpha', 'recipe-fallback:rf': 'elec' } }
+    expect(defaultMachineRowCounts([plan(nodes)], d, withDefault).get('crafting')).toBe(2)
+    // neither a category default nor a fallback: the row is still counted
+    expect(defaultMachineRowCounts([plan(nodes)], d, { defaultMachines: {} }).get('crafting')).toBe(2)
+    // a fallback row inside a sub-plan is left out too
+    const nested = plan([nodes[1]])
+    nested.rootPlan.subPlans = [{ id: 's', name: 'Sub', nodes: [nodes[0]], subPlans: [], createdAt: now, updatedAt: now }]
+    expect(defaultMachineRowCounts([nested], d, h).get('crafting')).toBe(1)
   })
 })
 
