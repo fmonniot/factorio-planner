@@ -204,7 +204,7 @@ function warningBody(
     }
     case 'unbounded-source': {
       const names = w.blockIds.map(id => `"${blockName(id)}"`)
-      return `${names.join(', ')} ${names.length === 1 ? 'has' : 'have'} no limit on an absorbing row (or take${names.length === 1 ? 's' : ''} from a block that has), so what this block receives is arbitrary and its rates are not reliable.`
+      return `${names.join(', ')} ${names.length === 1 ? 'has' : 'have'} no limit on an absorbing row (or take${names.length === 1 ? 's' : ''} from a block that has), so what this block receives is arbitrary and its rates may not be reliable.`
     }
     case 'overconstrained': {
       const names = w.surplusItems.map(si => withTemp(gameData.items[si.itemId]?.name ?? si.itemId, si.temp))
@@ -274,7 +274,7 @@ function warningHint(w: SolverWarning): string {
         : 'Remove the duplicate nodes from the production table.'
     case 'infeasible-pins': return w.conflict ? 'Unpin it, or change which recipes are active.' : 'Raise the pin, unpin it, or change which recipes are active.'
     case 'unbounded-absorber': return 'Right-click the row and choose Stop absorbing byproduct, or make fewer of the items it takes per run in the recipe that makes them.'
-    case 'unbounded-source': return 'Fix the absorbing row in the block it names; the rates here follow.'
+    case 'unbounded-source': return 'Open the block it names and follow its own warning upstream to the absorbing row; the rates here follow once that is fixed.'
     case 'area-shortfall': return 'Unpin that row, or turn Import on for its inputs.'
     case 'area-cut-off': return 'Switch a supplying area back on, or turn Import on for it.'
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'

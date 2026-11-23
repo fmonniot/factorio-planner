@@ -218,6 +218,16 @@ describe('solveAll — unbounded-source warning', () => {
     expect(sources(all, 'T')).toEqual([{ type: 'unbounded-source', blockIds: ['S'] }])
   })
 
+  it('terminates on a loop, names every delivering source once, and never re-marks an absorber block', () => {
+    const all = solveAll([
+      forest(),
+      block('S', [{ id: 'ps', itemId: 'plank', extraRate: 5 }], [planNode('p', 'plank')], [{ id: 'c1', itemId: 'wood', fromBlockId: 'F' }]),
+      block('T', [{ id: 'pt', itemId: 'beam', extraRate: 5 }], [planNode('b', 'beam')], [{ id: 'c2', itemId: 'plank', fromBlockId: 'S' }]),
+    ].map(b => b.id === 'F' ? { ...b, inputConnections: [{ id: 'c3', itemId: 'beam', fromBlockId: 'T' }] } : b), gd)
+    expect(sources(all, 'F'), 'absorber not re-marked').toEqual([])
+    expect(sources(all, 'S')).toEqual([{ type: 'unbounded-source', blockIds: ['F'] }])
+  })
+
   it('leaves a block alone that takes nothing from the unbounded block', () => {
     const all = solveAll([
       forest(),
