@@ -184,6 +184,59 @@ describe('solveBlock — unbounded-absorber warning', () => {
   })
 })
 
+describe('solveAll — unbounded-source warning', () => {
+  function block(id: string, products: Product[], nodes: RecipeNode[], connections: Block['inputConnections'] = []): Block {
+    return { ...makeBlock(makeSubPlan(`root-${id}`, nodes), products), id, name: id, inputConnections: connections }
+  }
+  const gd = makeGameData({ recipes: {
+    grow: recipe('grow', 1, [product('seed', 1)], [product('goal', 1), product('tree', 150)]),
+    chop: recipe('chop', 1, [product('tree', 1)], [product('wood', 1)]),
+    plank: recipe('plank', 1, [product('wood', 1)], [product('plank', 1)]),
+    beam: recipe('beam', 1, [product('plank', 1)], [product('beam', 1)]),
+  } })
+  const forest = (): Block => block('F', [{ id: 'pg', itemId: 'goal', extraRate: 10 }, { id: 'pw', itemId: 'wood', extraRate: 5 }],
+    [planNode('g', 'grow'), { ...planNode('c', 'chop'), byproductConsumer: true }])
+  const sources = (all: ReturnType<typeof solveAll>, id: string) =>
+    all.results[id].warnings.filter(w => w.type === 'unbounded-source')
+
+  it('marks a block that takes from an unbounded block, and not the unbounded block itself', () => {
+    const all = solveAll([
+      forest(),
+      block('S', [{ id: 'ps', itemId: 'plank', extraRate: 5 }], [planNode('p', 'plank')], [{ id: 'c1', itemId: 'wood', fromBlockId: 'F' }]),
+    ], gd)
+    expect(all.results.F.warnings.some(w => w.type === 'unbounded-absorber')).toBe(true)
+    expect(sources(all, 'F')).toEqual([])
+    expect(sources(all, 'S')).toEqual([{ type: 'unbounded-source', blockIds: ['F'] }])
+  })
+
+  it('travels down a chain of connections', () => {
+    const all = solveAll([
+      forest(),
+      block('S', [{ id: 'ps', itemId: 'plank', extraRate: 5 }], [planNode('p', 'plank')], [{ id: 'c1', itemId: 'wood', fromBlockId: 'F' }]),
+      block('T', [{ id: 'pt', itemId: 'beam', extraRate: 5 }], [planNode('b', 'beam')], [{ id: 'c2', itemId: 'plank', fromBlockId: 'S' }]),
+    ], gd)
+    expect(sources(all, 'T')).toEqual([{ type: 'unbounded-source', blockIds: ['S'] }])
+  })
+
+  it('terminates on a loop, names every delivering source once, and never re-marks an absorber block', () => {
+    const all = solveAll([
+      forest(),
+      block('S', [{ id: 'ps', itemId: 'plank', extraRate: 5 }], [planNode('p', 'plank')], [{ id: 'c1', itemId: 'wood', fromBlockId: 'F' }]),
+      block('T', [{ id: 'pt', itemId: 'beam', extraRate: 5 }], [planNode('b', 'beam')], [{ id: 'c2', itemId: 'plank', fromBlockId: 'S' }]),
+    ].map(b => b.id === 'F' ? { ...b, inputConnections: [{ id: 'c3', itemId: 'beam', fromBlockId: 'T' }] } : b), gd)
+    expect(sources(all, 'F'), 'absorber not re-marked').toEqual([])
+    expect(sources(all, 'S')).toEqual([{ type: 'unbounded-source', blockIds: ['F'] }])
+  })
+
+  it('leaves a block alone that takes nothing from the unbounded block', () => {
+    const all = solveAll([
+      forest(),
+      block('S', [{ id: 'ps', itemId: 'plank', extraRate: 5 }], [planNode('p', 'plank')]),
+    ], gd)
+    expect(sources(all, 'S')).toEqual([])
+  })
+})
+
 describe('solveBlock — unbounded pass 1', () => {
   it('keeps pass 1 and its warning: pass 2 would be planned from an arbitrary vertex', () => {
     const base = connectionGameData()

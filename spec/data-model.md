@@ -888,6 +888,7 @@ type SolverWarning =
   | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }  // areaId only with areas
   | { type: 'infeasible-pins'; recipeIds: string[]; conflict?: true }  // conflict: the elastic solve failed too (the pins conflict, or a locked item cannot be made whatever the pins), values arbitrary; absent: the pins hold and products fall short, recipeIds are the pins that bind where the solver can tell, else all
   | { type: 'unbounded-absorber'; recipeIds: string[] }  // a feasible solve came back unbounded: a rewarded row earns more per run than what it takes costs, values arbitrary; recipeIds are the block's rewarded rows (may be empty)
+  | { type: 'unbounded-source'; blockIds: string[] }  // added by solveAll: the block receives from these blocks, whose rates are arbitrary (unbounded-absorber, or fed by one)
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number; temp?: FluidTag }[] }
   | { type: 'coproduct-driven'; drivers: { recipeId: string; itemIds: string[]; throughput: number; needed: number }[] }  // executions/min summed over the recipe's rows: its rate, and what its other outputs need
   | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number; temp?: FluidTag }[] }
