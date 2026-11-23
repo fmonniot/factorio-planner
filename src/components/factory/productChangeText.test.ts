@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { productChangeTitle, productChangeRateText, productChangeLine } from './productChangeText'
+import { productChangeTitle, productChangeRateText, productChangeLine, receivedLine } from './productChangeText'
 import type { ProductChangeEffect } from '../../store/connections'
 
 const effect = (over: Partial<ProductChangeEffect> = {}): ProductChangeEffect => ({
@@ -51,5 +51,12 @@ describe('productChangeLine', () => {
     expect(productChangeLine('remove', effect(), 'Iron plate', '30.0/m')).toBe(
       'Gears requests Iron plate from this block (30.0/m). It will only take what is left over and no longer drive this block.',
     )
+  })
+})
+
+describe('receivedLine', () => {
+  it('names one source or lists several', () => {
+    expect(receivedLine(['Plates'], 'Iron plate')).toContain('already receives Iron plate from Plates.')
+    expect(receivedLine(['A', 'B', 'C'], 'Iron plate')).toContain('from A, B and C.')
   })
 })

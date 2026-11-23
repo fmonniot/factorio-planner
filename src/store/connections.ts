@@ -123,6 +123,28 @@ export function requestCandidates(blocks: Block[], targetId: string, itemId: str
     })
 }
 
+/**
+ * Names of the blocks `blockId` takes `itemId` from, when it gains a product of that
+ * item (`add`): the block would make and receive the same item, so a request for it to
+ * this block is ignored (`source-receives`). Empty when the block already has the
+ * product, takes the item from nobody else, or does not exist. Connection order, one
+ * name per source block.
+ */
+export function receivedFromSources(blocks: Block[], blockId: string, itemId: string): string[] {
+  const block = blocks.find(b => b.id === blockId)
+  if (!block || hasProduct(block, itemId)) return []
+  const byId = new Map(blocks.map(b => [b.id, b]))
+  const names: string[] = []
+  const seen = new Set<string>()
+  for (const c of block.inputConnections) {
+    const from = byId.get(c.fromBlockId)
+    if (c.itemId !== itemId || !from || from.id === blockId || seen.has(from.id)) continue
+    seen.add(from.id)
+    names.push(from.name)
+  }
+  return names
+}
+
 export interface ProductChangeEffect {
   connectionId: string
   consumerId: string

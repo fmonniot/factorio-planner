@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  canConnect, offeredRate, takeCandidates, requestCandidates, requestBlockerTitle, productChangeEffects,
+  canConnect, offeredRate, takeCandidates, requestCandidates, requestBlockerTitle, productChangeEffects, receivedFromSources,
 } from './connections'
 import { makeEmptyBlock } from './blockStore'
 import type { Block, ConnectionFlow, SolverResult } from '../data/types'
@@ -239,5 +239,19 @@ describe('productChangeEffects', () => {
     const blocks = [block('S'), block('T', { from: [['plate', 'S']] })]
     expect(effects(blocks, 'add')[0].rate).toBeUndefined()
     expect(productChangeEffects(blocks, 'ghost', 'plate', 'add', [])).toEqual([])
+  })
+})
+
+describe('receivedFromSources', () => {
+  it('names the blocks the block already takes the item from, once each, in connection order', () => {
+    const blocks = [block('S', { from: [['plate', 'B'], ['plate', 'A'], ['plate', 'B']] }), block('A'), block('B')]
+    expect(receivedFromSources(blocks, 'S', 'plate')).toEqual([blocks[2].name, blocks[1].name])
+  })
+
+  it('is empty for other items, a missing source, a block that has the product, or an unknown block', () => {
+    const blocks = [block('S', { from: [['gear', 'A'], ['plate', 'GONE']] }), block('A'), block('P', { products: ['plate'], from: [['plate', 'A']] })]
+    expect(receivedFromSources(blocks, 'S', 'plate')).toEqual([])
+    expect(receivedFromSources(blocks, 'P', 'plate')).toEqual([])
+    expect(receivedFromSources(blocks, 'nope', 'plate')).toEqual([])
   })
 })
