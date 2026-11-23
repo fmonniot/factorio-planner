@@ -245,7 +245,7 @@ export interface ServedConsumer {
   areaId?: string
   /** items/min of the consumer's need of the item still uncovered when the request pass reached this take (the need less what the takes before it covered); absent for a take the pass never reached (the need was already covered) or never probed. */
   need?: number
-  /** A listed or takes-first take the request pass reached before it could credit it (its source or a higher-ranked take not processed yet, or the source in the same cycle of requests): `share` is 0 whatever the list says. */
+  /** A takes-first take the request pass reached before it could credit it (its source or a higher-ranked take not credited yet), or, inside a cycle of requests, a take below an outside take not credited yet, or one that reads a back estimate in the final round of a cycle that does not settle: `share` is 0 whatever the list says. A listed take of a consumer that requests nothing of the item is never left uncredited. */
   notCredited?: true
   /** A member of a group of takes the request pass could not share by need (a member's need, its source or the ranks above were not known when the group was reached, a member's group take is not its first take of the item, or the source's item also feeds a member of a cycle of requests): the group was credited and served in list order, not by its weights. */
   groupInListOrder?: true

@@ -891,8 +891,8 @@ interface SplitCredit {
   ranges: ReadonlyMap<string, FluidRange[]>
   /** take connection id → the flow keys it was credited (the parts of `credits`) */
   creditParts: Map<string, Map<string, number>>
-  /** The credit of a take of a ranked pair (the list's allocation, or the take alone from what the entries above left); `blocked` when its ledger is not final yet. */
-  rankedCredit?: (take: BlockConnection, itemId: string, needed: Map<string, number>) => { parts: Map<string, number>; covered: Map<string, number> } | undefined
+  /** The credit of a take of a ranked pair (the list's allocation, or the take alone from what the entries above left); `null` when its ledger is not final yet (blocked). */
+  rankedCredit?: (take: BlockConnection, itemId: string, needed: Map<string, number>) => { parts: Map<string, number>; covered: Map<string, number> } | null | undefined
 }
 
 /** The keys of `itemId` of a per-key map, as the allocator takes them: offers with their tags and versatility. */
@@ -931,24 +931,31 @@ function creditAlone(itemId: string, take: BlockConnection, offers: ReadonlyMap<
  * (the ledger of a ranked pair is `credits`, read by `rankedRest`). A split fluid's take covers per key: the source's
  * keys go to the consumer's ranges (a one-member allocation: a key only to a range it fits, the least versatile first), the
  * parts are recorded in `split.creditParts`.
+ *
+ * A ranked take that is blocked (`rankedRest` or `rankedCredit` says `null`: its source, or a take above it, is not credited yet) is
+ * credited 0, unless `defer` accepts it: `defer(itemId, takes, needed)` gets the consumer's takes of the item from the blocked one
+ * on and the need still left, keeps them to credit later, and the consumer's takes of that item stop here.
  */
 function applyTakeCredits(
   takes: Map<string, BlockConnection[]> | undefined,
   needed: Map<string, number>,
   estimates: Map<string, Offers>,
   credits: Map<string, number>,
-  rankedRest?: (take: BlockConnection, itemId: string) => number | undefined,
+  rankedRest?: (take: BlockConnection, itemId: string) => number | null | undefined,
   needs?: Map<string, number>,
   split?: SplitCredit,
+  defer?: (itemId: string, rest: BlockConnection[], needed: ReadonlyMap<string, number>) => boolean,
 ): void {
   for (const [itemId, list] of takes ?? []) {
     if (split?.items.has(itemId)) {
       let need = sumOfItem(needed, itemId)
-      for (const t of list) {
+      for (let i = 0; i < list.length; i++) {
+        const t = list[i]
         if (need <= 0) break
         needs?.set(t.id, need) // what is left to cover when this take is reached
         const ranked = split.rankedCredit?.(t, itemId, needed)
-        const credit = ranked ?? creditAlone(itemId, t, estimates.get(t.fromBlockId), needed, split.ranges.get(itemId) ?? [])
+        if (ranked === null && defer?.(itemId, list.slice(i), new Map(keysOfItem(needed, itemId).map(k => [k, needed.get(k) ?? 0])))) break
+        const credit = ranked === null ? { parts: new Map<string, number>(), covered: new Map<string, number>() } : ranked ?? creditAlone(itemId, t, estimates.get(t.fromBlockId), needed, split.ranges.get(itemId) ?? [])
         let total = 0
         for (const v of credit.parts.values()) total += v
         if (total <= 0) continue
@@ -964,11 +971,13 @@ function applyTakeCredits(
       continue
     }
     let need = needed.get(itemId) ?? 0
-    for (const t of list) {
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i]
       if (need <= 0) break
       needs?.set(t.id, need) // what is left to cover when this take is reached
       const r = rankedRest?.(t, itemId)
-      const left = r ?? estimates.get(t.fromBlockId)?.get(itemId) ?? 0
+      if (r === null && defer?.(itemId, list.slice(i), new Map([[itemId, need]]))) break
+      const left = r === null ? 0 : r ?? estimates.get(t.fromBlockId)?.get(itemId) ?? 0
       const cover = Math.min(left, t.maxRate ?? Infinity, need)
       if (cover <= 0) continue
       if (r === undefined) estimates.get(t.fromBlockId)!.set(itemId, left - cover)
@@ -1004,13 +1013,16 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
  * takes will not cover, and what a take is credited is reserved for it at its source like a
  * request share. The estimate of a take source is what it has left after the amounts
  * requested of it; sources are processed before their take consumers where the request order
- * allows it, and a take whose source is not processed yet gets no credit.
+ * allows it. A takes-first take whose source is not processed yet gets no credit; a take of a consumer
+ * that requests nothing of the item waits for its source instead (`deferFor`, `resolveDeferred`): that
+ * credit feeds no request, so it can be given later, once its source and the takes above it are done.
  *
  * A pair the source's served list ranks (`ranked`; see `rankedPairs`) is credited by rank: a listed
  * take is credited what is left of the source's estimate after the extra (when listed above it) and
  * the credits of the takes above it, so a take that requests nothing is probed too, and the listed
- * consumers are ordered by extra edges (never one that would close a cycle). A listed take whose higher-ranked
- * takes are not credited yet (the request order reached it first) gets no credit, and takes-first consumers the
+ * consumers are ordered by extra edges (never one that would close a cycle). A listed take of a consumer that requests nothing of
+ * the item, whose source or higher-ranked takes are not credited yet (the request order reached it first), is parked and credited once they
+ * are; a takes-first take in that position gets no credit and is flagged. Takes-first consumers the
  * list does not name are credited after the listed ones. The takes of a `tied` group are credited together, by need, when the first
  * member is reached (`creditGroups`: the other members are probed ahead, the source's leftover is water-filled by weight; readiness
  * edges put the blocks that request of a member before the members), unless the pass cannot know every need in time, or a consumer of
@@ -1029,8 +1041,10 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
  * take belongs to a later member reads that member's previous-round credit (a back credit, 0 in round 1) and joins the
  * back requests in the settle test and the extrapolation. A cycle's member order comes from the graph before the
  * lists' edges are added (`unrankedShapes`): a list only changes who is served. The memo key holds the lists
- * of the pairs the members take from and the credits of their takes outside the cycle. A take of a source in the same
- * cycle still gets no credit.
+ * of the pairs the members take from and the credits of their takes outside the cycle (and whether one is parked). A take of
+ * a member source reads that source's leftover estimate: of the same round when the source comes first in member order, else of the
+ * previous round (a back estimate, which joins the back requests in the round's input and output and is absent in the final round of a
+ * cycle that does not settle: those takes get no credit there).
  */
 function computeRequests(
   blocks: Block[],
@@ -1450,8 +1464,8 @@ function computeRequests(
     }
     return Math.max(0, rest)
   }
-  // `blocked` collects the takes that get 0 because the request pass is not done with the source (or a higher take) yet.
-  const restOf = (t: BlockConnection, itemId: string, est: Map<string, Offers>, creditOf: CreditOf, blocked?: Set<string>): number | undefined => {
+  // `blocked` collects the takes that are blocked (null) because the request pass is not done with the source (or a higher take) yet.
+  const restOf = (t: BlockConnection, itemId: string, est: Map<string, Offers>, creditOf: CreditOf, blocked?: Set<string>): number | null | undefined => {
     const at = rankedTake.get(t.id)
     if (!at) return undefined
     const g = groupOfTake.get(t.id)
@@ -1461,13 +1475,24 @@ function computeRequests(
     const r = restAt(at.pair, itemId, at.position < 0 ? at.pair.listed.length : at.position, at.position < 0, t.id, est, creditOf)
     if (r === undefined) {
       blocked?.add(t.id)
-      return 0
+      return null
     }
     return r
   }
   const needs = new Map<string, number>()
   const uncredited = new Set<string>()
-  const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) ? (credits.get(id) ?? 0) : undefined)
+  // Takes of a take-only consumer that wait for their source (or a take above them): `deferFor` parks them, `resolveDeferred` credits them
+  // once they can be. A parked take reads as not credited yet to the takes ranked below it.
+  interface DeferredTake { blockId: string; itemId: string; takes: BlockConnection[]; needed: Map<string, number> }
+  const deferred: DeferredTake[] = []
+  const deferredTakes = new Set<string>()
+  const deferFor = (blockId: string) => (itemId: string, takes: BlockConnection[], needed: ReadonlyMap<string, number>): boolean => {
+    if (takeOf.get(blockId)?.has(itemId)) return false // takes first: the take feeds the consumer's requests, so it cannot wait
+    deferred.push({ blockId, itemId, takes, needed: new Map(needed) })
+    for (const t of takes) deferredTakes.add(t.id)
+    return true
+  }
+  const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) && !deferredTakes.has(id) ? (credits.get(id) ?? 0) : undefined)
   const rankedRest = (t: BlockConnection, itemId: string) => restOf(t, itemId, estimates, outerCreditOf, uncredited)
   const estimateTakeSource = (block: Block, probe?: { nodes: SolvedNode[]; conversions?: FluidConversion[] }): void => {
     if (!takeSources.has(block.id)) return
@@ -1561,7 +1586,7 @@ function computeRequests(
   }
   // The credit of a ranked take of a split fluid: its part of the list's allocation, or alone from what is left of the source for it.
   // `blocked` collects the takes that get nothing because the pass is not done with the source (or a higher take) yet.
-  const splitCreditOf = (t: BlockConnection, itemId: string, needed: Map<string, number>, est: Map<string, Offers>, creditPartsOf: CreditPartsOf, blocked?: Set<string>) => {
+  const splitCreditOf = (t: BlockConnection, itemId: string, needed: Map<string, number>, est: Map<string, Offers>, creditPartsOf: CreditPartsOf, blocked?: Set<string>): { parts: Map<string, number>; covered: Map<string, number> } | null | undefined => {
     const at = rankedTake.get(t.id)
     const sp = at && splitPairs.get(at.pair)
     if (!at || !sp) return undefined
@@ -1569,14 +1594,32 @@ function computeRequests(
     const rest = restKeysAt(sp, at.position < 0 ? at.pair.listed.length : at.position, at.position < 0, t.id, est, creditPartsOf)
     if (rest === undefined) {
       blocked?.add(t.id)
-      return { parts: new Map<string, number>(), covered: new Map<string, number>() }
+      return null
     }
     return creditAlone(itemId, t, rest, needed, ranges.get(itemId) ?? [])
   }
-  const outerCreditPartsOf: CreditPartsOf = (blockId, id) => (processed.has(blockId) ? (creditParts.get(id) ?? new Map<string, number>()) : undefined)
+  const outerCreditPartsOf: CreditPartsOf = (blockId, id) => (processed.has(blockId) && !deferredTakes.has(id) ? (creditParts.get(id) ?? new Map<string, number>()) : undefined)
   const splitCredit: SplitCredit = {
     items: split, ranges, creditParts,
     rankedCredit: (t, itemId, needed) => splitCreditOf(t, itemId, needed, estimates, outerCreditPartsOf, uncredited),
+  }
+  // Credit the parked takes that can be now, in the order they were parked, until a full pass changes nothing: a take is credited
+  // once its source and the takes above it are (the ones above it may be parked too). A slice that parks again at its first take is
+  // unchanged; one that parks later has credited the takes before it.
+  const resolveDeferred = (): void => {
+    for (let progress = true; progress && deferred.length > 0;) {
+      progress = false
+      for (const d of deferred.splice(0)) {
+        for (const t of d.takes) {
+          deferredTakes.delete(t.id)
+          uncredited.delete(t.id)
+        }
+        const before = deferred.length
+        applyTakeCredits(new Map([[d.itemId, d.takes]]), new Map(d.needed), estimates, credits, rankedRest, needs, splitCredit, deferFor(d.blockId))
+        const again = deferred.length > before ? deferred[deferred.length - 1] : undefined
+        if (!again || again.takes.length < d.takes.length) progress = true
+      }
+    }
   }
   // Allocate the pairs `block` has a listed take in, once, when the first member is reached: the source's keys go to the members' ranges
   // by rank (a group by weight), a key only to a range it fits, then every member's credit is known. A pair whose needs are not all
@@ -1688,7 +1731,7 @@ function computeRequests(
       creditSplitPairs(block, probe)
       if (requests || rankedTakes) {
         const needed = new Map(probe.received) // flow key → what the block would import
-        applyTakeCredits(takesOf(block.id), needed, estimates, credits, rankedRest, needs, splitCredit)
+        applyTakeCredits(takesOf(block.id), needed, estimates, credits, rankedRest, needs, splitCredit, deferFor(block.id))
         if (requests) {
           shareOut(requests, needed, (c, amount, parts) => {
             info.set(c.id, { requested: amount, ...(parts ? { parts } : {}) })
@@ -1698,6 +1741,7 @@ function computeRequests(
       }
       processed.add(block.id)
       estimateTakeSource(block, probe)
+      resolveDeferred()
       continue
     }
 
@@ -1733,9 +1777,25 @@ function computeRequests(
         }
       }
     }
+    // Member sources: a member some other member takes from. The consumer reads the source's leftover estimate of the round (the source
+    // comes first in member order), or of the previous round (a back estimate: the source comes later, round 1 has none).
+    const memberSources = new Map<string, Map<string, boolean>>() // source id → item id → is it a back estimate for some consumer?
+    for (const m of members) {
+      for (const [itemId, takes] of takesOf(m.id) ?? []) {
+        for (const t of takes) {
+          if (!memberSet.has(t.fromBlockId) || t.fromBlockId === m.id) continue
+          const items = memberSources.get(t.fromBlockId) ?? new Map<string, boolean>()
+          items.set(itemId, (items.get(itemId) ?? false) || memberPos.get(t.fromBlockId)! > memberPos.get(m.id)!)
+          memberSources.set(t.fromBlockId, items)
+        }
+      }
+    }
     // The ids the rounds carry from one round to the next: a back connection (or back credit) of a plain item is one id; a split
-    // fluid's is one id per range key it carries (`part`), known once a round has run.
+    // fluid's is one id per range key it carries (`part`), known once a round has run. A back estimate is one id per flow key too.
+    // Its leading NUL keeps it clear of `connectionOfInput`, `requestById` and `maxRateOf`.
     const backIds = [...loop.backConnectionIds, ...backCredits.keys()]
+    const estimateId = (sourceId: string, key: string) => `\0est\0${sourceId}\0${key}`
+    const isEstimateId = (id: string) => id.startsWith('\0est\0')
     const part = (id: string, key: string) => `${id}\0${key}`
     const connectionOfInput = (id: string) => id.split('\0')[0]
     const maxRateOf = (id: string) => (requestById.get(connectionOfInput(id)) ?? backCredits.get(connectionOfInput(id)))?.maxRate ?? Infinity
@@ -1785,7 +1845,7 @@ function computeRequests(
             // Only the credits a member's take reads: the listed takes above it, and the unlisted ones for a takes-first take.
             [...pair.listed.slice(0, read.listedEnd).flatMap(e => (e.kind === 'block' ? [e] : [])), ...(read.unlisted ? pair.unlisted : [])]
               .filter(e => rankedTake.has(e.connection.id) && !memberSet.has(e.blockId))
-              .map(e => [e.connection.id, processed.has(e.blockId), credits.get(e.connection.id) ?? null, [...(creditParts.get(e.connection.id) ?? [])].sort()]),
+              .map(e => [e.connection.id, processed.has(e.blockId), deferredTakes.has(e.connection.id), credits.get(e.connection.id) ?? null, [...(creditParts.get(e.connection.id) ?? [])].sort()]),
           ]),
         ])
       : ''
@@ -1807,6 +1867,18 @@ function computeRequests(
         const roundBlocked = new Set<string>()
         const forward = new Map<string, Map<string, number>>() // member id → flow key → shares from earlier members
         const est = cloneRemaining(estimates)
+        // The back estimates of member sources the previous round left (`seeded` keeps what they were before this round's takes used them).
+        const seeded = new Map<string, Offers>()
+        for (const [id, v] of input) {
+          if (!isEstimateId(id)) continue
+          const rest = id.slice('\0est\0'.length)
+          const at = rest.indexOf('\0')
+          const offers = est.get(rest.slice(0, at)) ?? new Map<string, number>()
+          offers.set(rest.slice(at + 1), v)
+          est.set(rest.slice(0, at), offers)
+          seeded.set(rest.slice(0, at), new Map(offers))
+        }
+        const freshEstimates = new Map<string, Offers>() // member source id → what it has left after this round's probe
         const roundProcessed = new Set<string>()
         // What a back credit of a split fluid carried into this round, per key.
         const inputParts = (id: string): Map<string, number> => {
@@ -1817,12 +1889,12 @@ function computeRequests(
         // What a ranked take of a member is left: the credits above it, read from this round (earlier members), from
         // the input (a back credit) or from outside the cycle.
         const roundRest = (t: BlockConnection, itemId: string) => restOf(t, itemId, est, (blockId, id, listed) => {
-          if (!memberSet.has(blockId)) return processed.has(blockId) ? (credits.get(id) ?? 0) : undefined
+          if (!memberSet.has(blockId)) return processed.has(blockId) && !deferredTakes.has(id) ? (credits.get(id) ?? 0) : undefined
           if (roundProcessed.has(blockId)) return roundCredits.get(id) ?? 0
           return listed ? (input.get(id) ?? 0) : undefined // a back credit; an unlisted later member is credited after
         }, roundBlocked)
         const roundCreditPartsOf: CreditPartsOf = (blockId, id, listed) => {
-          if (!memberSet.has(blockId)) return processed.has(blockId) ? (creditParts.get(id) ?? new Map<string, number>()) : undefined
+          if (!memberSet.has(blockId)) return processed.has(blockId) && !deferredTakes.has(id) ? (creditParts.get(id) ?? new Map<string, number>()) : undefined
           if (roundProcessed.has(blockId)) return roundCreditParts.get(id) ?? new Map<string, number>()
           return listed ? inputParts(id) : undefined
         }
@@ -1844,6 +1916,14 @@ function computeRequests(
           const probe = probeBlock(block, productGoals(block.products, asked), gameData, connectedCaps(block, byId, selfConnectionIds), memo)
           roundFailed ||= probe.failed
           if (probe.areaNeeds) roundAreaNeeds.set(block.id, probe.areaNeeds)
+          if (memberSources.has(block.id)) {
+            // What the members that took from the back estimate already used of it stays used.
+            const fresh = leftoverEstimate(probe.nodes, asked, probe.conversions)
+            freshEstimates.set(block.id, fresh)
+            const before = seeded.get(block.id)
+            const now = est.get(block.id)
+            est.set(block.id, new Map([...fresh].map(([k, v]) => [k, Math.max(0, v - Math.max(0, (before?.get(k) ?? 0) - (now?.get(k) ?? 0)))])))
+          }
           const needed = new Map(probe.received)
           applyTakeCredits(takesOf(block.id), needed, est, roundCredits, roundRest, roundNeeds, roundSplitCredit)
           const requests = (requestsOf.get(block.id) ?? []).filter(c => !(skipBack && back.has(c.id)))
@@ -1878,7 +1958,7 @@ function computeRequests(
           }
         }
         failed ||= roundFailed
-        return { shares, shareParts, credits: roundCredits, creditParts: roundCreditParts, credited, needs: roundNeeds, areaNeeds: roundAreaNeeds, blocked: roundBlocked, failed: roundFailed }
+        return { shares, shareParts, credits: roundCredits, creditParts: roundCreditParts, credited, needs: roundNeeds, areaNeeds: roundAreaNeeds, blocked: roundBlocked, failed: roundFailed, estimates: freshEstimates }
       }
       // What a round passes on to the next: per back connection (request or credit) its amount, a split fluid's per range key.
       const outputOf = (r: ReturnType<typeof runRound>): Map<string, number> => {
@@ -1889,6 +1969,14 @@ function computeRequests(
           if (c && split.has(c.itemId)) {
             for (const [k, v] of (credit ? r.creditParts : r.shareParts).get(id) ?? []) out.set(part(id, k), v)
           } else out.set(id, credit ? (r.credits.get(id) ?? 0) : (r.shares.get(id) ?? 0))
+        }
+        for (const [sourceId, items] of memberSources) {
+          const fresh = r.estimates.get(sourceId)
+          for (const [itemId, isBack] of items) {
+            if (!isBack) continue
+            if (split.has(itemId)) for (const k of keysOfItem(fresh ?? new Map(), itemId)) out.set(estimateId(sourceId, k), fresh?.get(k) ?? 0)
+            else out.set(estimateId(sourceId, itemId), fresh?.get(itemId) ?? 0)
+          }
         }
         return out
       }
@@ -1951,8 +2039,9 @@ function computeRequests(
         )
         // The parts of one connection (a split fluid) share its `maxRate`: scaled down together when the extrapolation pushed them over it.
         const total = new Map<string, number>()
-        for (const [id, v] of input) if (id.includes('\0')) total.set(connectionOfInput(id), (total.get(connectionOfInput(id)) ?? 0) + v)
+        for (const [id, v] of input) if (id.includes('\0') && !isEstimateId(id)) total.set(connectionOfInput(id), (total.get(connectionOfInput(id)) ?? 0) + v)
         for (const [id, v] of input) {
+          if (isEstimateId(id)) continue
           const c = connectionOfInput(id)
           const sum = total.get(c)
           const max = maxRateOf(id)
@@ -2001,15 +2090,19 @@ function computeRequests(
     for (const m of members) {
       if (requested.has(m.id)) goals.set(m.id, productGoals(m.products, requested.get(m.id)))
     }
+    // A member source's estimate first, then the credited leftovers on top: what the members took of it stays out of what the blocks after the cycle read.
+    for (const m of members) estimateTakeSource(m)
     for (const [sourceId, itemId, left] of solved.credited) {
+      if (memberSet.has(sourceId) && !takeSources.has(sourceId)) continue
       const items: Offers = estimates.get(sourceId) ?? new Map()
       items.set(itemId, left)
       estimates.set(sourceId, items)
     }
-    for (const m of members) estimateTakeSource(m)
     loops.push({ ...loop, rounds: solved.rounds, converged: solved.converged })
+    resolveDeferred()
   }
   for (const g of takeGroups) if (g.status === 'pending') toListOrder(g) // unreachable: a group of a pair a cycle reads is served in list order from the start
+  resolveDeferred()
   return { goals, info, credits, loops, needs, uncredited, inListOrder, areaNeeds, creditParts, splitAlloc }
 }
 

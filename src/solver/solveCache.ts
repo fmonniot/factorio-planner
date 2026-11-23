@@ -31,7 +31,7 @@ export interface RequestLoopSolve {
   shares: Map<string, number>
   /** take connection id → items/min credited, for the members' takes credited more than 0. */
   credits: Map<string, number>
-  /** [take source, flow key (the item id for a plain item), leftover estimate after the members' takes]. */
+  /** [take source, flow key (the item id for a plain item), leftover estimate after the members' takes]; a member source too (applied only when a take outside the cycle reads it). */
   credited: [string, string, number][]
   /** A split fluid: request connection id → items/min requested per range key. Optional so a hand-built outcome stays valid. */
   shareParts?: Map<string, Map<string, number>>

@@ -1,9 +1,9 @@
 # Solver Synthetic Test Cases
 
-Twenty-eight recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Twenty-nine recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 28 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 29 use plain made-up item ids.
 
 Cases 11 to 25 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
@@ -1346,3 +1346,49 @@ g, h (derived by hand, not measured): with t twin runs, the cost of h is t + max
 ```
 
 Two observations, not derived: a pair item (case b with a second `cool-b` in an area that takes no warm from the area of `cool-a`) gives b's result with the second `cool-b` at 0; and an area's own rule for hot (Import off) does not drop the block's rule: b's result with all rows in that area.
+
+## Case 29 — A take credited after its consumer
+
+**Exercises:** a listed take whose consumer requests nothing of the item, reached by the request pass before its source (it waits and is credited once its source and the takes above it are), with the source in a cycle of requests, with a consumer shown as areas, and a take of a member source inside a cycle (the member's leftover estimate, of the same round or the previous one).
+
+**Recipes:** cases 11's (X = `case11-x`), 13's (plate = `case13-plate`, with `case13-use-plate` making a gear) and 17's (q = `case17-q`, r = `case17-r`), time 1, category smelting.
+
+### 29a — no cycle (the shape of the stone take)
+
+- **T**: goal 30, plate 0; rows make-goal and make-plate. Its list is on X.
+- **C**: q 0, other 15, gear 5; rows make-q, use-x and use-plate. Connections, in this order: `c-CT` takes X from T, `c-CP` requests plate from T.
+- **H**: r 10, other 10; rows use-q and use-x. Connections: `c-HT` takes X from T, `c-HC` requests q from C.
+
+The request pass reaches H, C, T (the edges T to H and T to C would close a cycle). H needs 10 X, C needs 25 X (10 for the q H requests, 15 for other); neither requests X, so both takes wait. T leaves 30 X, and `c-CP` asks for 5 plate.
+
+| List on X | Tabs | `c-HT` | `c-CT` | `c-HC` / `c-CP` | Lines (share/got, need) |
+|---|---|---|---|---|---|
+| H, C | T,H,C / H,C,T / C,H,T | 10 `ok`, H imports 0 | 20 `limited`, C imports 5 | 10 / 5 `ok` | H 10, need 10; C 30 - 10 = 20, need 25; no `notCredited` |
+| C, H | same | 5 `limited`, H imports 5 | 25 `ok`, C imports 0 | 10 / 5 `ok` | C 25, need 25; H 5, need 10; no flags |
+| H, C, `c-CT` capped at 18 | same | 10 `ok` | 18 `limited`, C imports 7 | | H 10, need 10; C 18, need 25 |
+
+T runs make-goal 30 and make-plate 5. Before the take waited, the first row read: C 25 `ok`, H 5 `limited`, both lines `notCredited` with share 0.
+
+**a4 (areas):** H is in areas L (use-x pinned 6) and B (use-x pinned 4), use-q at the root; C has *Receive it first* on X. List H/L, H/B, C. H's credit is min(30, 10) = 10, split 6:4 by the needs of its areas; C gets 20. Lines: H/L 6 (need 6), H/B 4 (need 4), C 20 (need 25).
+
+### 29b — the source in a cycle of requests (the real path)
+
+29a plus: T also has product r 5 and row use-q, and `c-Tq` requests q from **M** (q 0, gear 5; rows make-q and use-plate), which requests plate from T with `c-MP`. X is raw in M, so M imports 5. `requestLoops[0]` has the blocks T and M, `rounds: 2` and `converged: true`. T's plate goal is 10 (C's 5 and M's 5). H and C wait for T through the cycle: the flows and lines of 29a. A warm solve through one `SolveCache` equals a cold one, when the list, a need or the credit of a take changes.
+
+### 29c — a take of a member source (the shape of the sulfur take)
+
+- **S**: goal 15, r 10, plate 0; rows make-goal, use-q and make-plate. `c-Sq` requests q from K.
+- **K**: q 0, other 10; rows make-q and use-x. Connections, in this order: `c-KS` takes X from S, `c-KV` requests X from V.
+- **V**: X 0, gear 5; rows make-x and use-plate. `c-VS` requests plate from S.
+
+The cycle is S, K, V. K takes X first (it also requests it from V), so the take feeds K's request and cannot wait: it reads S's leftover estimate inside the demand rounds.
+
+- **c1, tabs S, K, V** (the source before its consumer). Round 1: S needs 10 q and leaves 15 X (its estimate, same round); K needs 20 X (10 for q, 10 for other), is credited 15 from S and asks V for 5; V makes 5 X (2.5 runs) and needs 5 plate (back request). Round 2 has the same output: settled in 2 rounds.
+- **c2, tabs K, V, S** (the source after its consumer; back connection `c-Sq` and a back estimate of (S, X)). Round 1: K has no q goal yet and needs 10 X; there is no estimate of S, so `c-KV` is 10; S outputs q 10 and an estimate of 15 X. Round 2: K needs 20 X, is credited the 15 of the back estimate and asks V for 5. The output equals the input: settled in 2 rounds.
+- **Expected in both orders:** `c-KS` 15 `ok`; `c-KV` requested 5 and rate 5; `c-Sq` 10; `c-VS` 5; V runs make-x 2.5; K imports 0 X; `requestLoops[0]` converged in 2 rounds. Before the member's estimate was read: `c-KS` 0 `unused`, `c-KV` 20, make-x 10, S's 15 X left over.
+- **Unsettled** (`requestRoundLimit: 1`): c1 reads the estimate of the same round, so `c-KS` is 15; c2 has no back estimate in the final round, so `c-KS` is 0 and `c-KV` is 10.
+
+### 29d — parked slices
+
+- A parked take's consumer takes X from W too (no list on W), after `c-CT`: its slice is `c-CT, c-CW`. Once H has its 10, T has 20 left: `c-CT` covers 20 of C's 25 and `c-CW` the other 5 of W's 10 (it reads W's leftover when the slice resumes, in connection order).
+- A tied group (C, H2) below a parked take (H): the group cannot be shared by need (H is not credited when the pass reaches it), so it is credited and granted in list order: H 10, C 20, H2 0 (H2 imports its 5).
