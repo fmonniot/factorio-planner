@@ -1033,7 +1033,19 @@ Sections in order, each a `section` with a heading:
 
 A chip shortcut (the filled module or beacon chips) selects the row and highlights one section of its panel: it scrolls into view and shows a teal ring (`data-highlighted="true"`) for about two seconds. The highlight (`uiStore.panelHighlight`) is transient, belongs to the row that asked for it, and ends when another row is selected.
 
-7. **Research needed.** Only when the data set has technology data (`panel-research`). The technologies that unlock the row's recipe (`research-tech`, `data-tech-id`), in the order of the recipe picker's **Unlocked by:** section (`recipeUnlock`): the technology icon, its name and its science pack icons, with no pack count and no research time (a research-trigger technology shows its short trigger condition). Starting, extraction and power recipes read "Available from the start"; a recipe no technology unlocks reads "No technology unlocks this recipe". Read-only, and not limited by the research horizon.
+7. <a id="outputs"></a>**Where outputs go.** One entry per product and byproduct of the row (`data-testid="output-entry"`, `data-item-id`, `data-byproduct="true"` on a co-product): the item's icon, name, a Product or Byproduct tag, its gross rate (none before a solve) and one sentence (`data-testid="output-sentence"`). The item the row is built for comes first, then the recipe's order. The section is read-only: it has no control and sets nothing. A row with no output reads "This row makes no outputs." The sentence is built by the pure function in `outputsText.ts` from the solve (no generated text; rates go through `fmtItemRateText`). The first rule that applies decides:
+
+   | Condition | Sentence |
+   |---|---|
+   | No solve | "Not solved yet." |
+   | The row's `byproductPolicy` for the item is Discard (its output is not counted, though the solver still reports it) | "Discarded: this row's {item} is not counted, so no row or block takes it from here." |
+   | The row makes none (rate 0) | "Not produced: this row makes no {item} at the moment." |
+   | Otherwise | The clauses that apply, in this order, joined with "; " and ended with ".": "A product of this block" (the item is a product of the block); "Used here by {rows}" where each row is "{recipe} (takes {rate})", "{recipe} (absorber, takes {rate})" for an Absorbs-byproduct row, and "{recipe} in {area} (takes {rate})" for a row of another area (only in a block with areas); "Sent to {blocks}" where each block is "{block} ({rate})"; "{rate} left over". |
+   | Otherwise, no clause and a leftover | "Left over: no row or block uses it ({rate})." |
+   | Otherwise, no clause | "Not used by any row or block." |
+
+   The rows listed are every other row of the block that takes the item at a rate above 0; the solve does not say which row feeds which, so a row is not attributed to one maker. When another row of the block also makes the item at the moment, the last two sentences and the clause form end with " Also made by {n} other row(s)." ("1 other row", "2 other rows"). The blocks are the connections that deliver the item from this block above the flow tolerance (a sub-factory is not named). The leftover is the block's, computed as in the Byproducts pane (the net surplus of the item minus what other blocks take) and never set for a product of the block. Several names are joined with commas and a final "and". A fluid is read by its base item, over all its temperatures.
+8. **Research needed.** Only when the data set has technology data (`panel-research`). The technologies that unlock the row's recipe (`research-tech`, `data-tech-id`), in the order of the recipe picker's **Unlocked by:** section (`recipeUnlock`): the technology icon, its name and its science pack icons, with no pack count and no research time (a research-trigger technology shows its short trigger condition). Starting, extraction and power recipes read "Available from the start"; a recipe no technology unlocks reads "No technology unlocks this recipe". Read-only, and not limited by the research horizon.
 
 #### Group panel
 
@@ -1269,7 +1281,6 @@ items. Other props (`title`, `tabIndex`, …) go to the button.
 ## Not in the UI
 
 Some store capabilities have no UI: undo/redo (`blockStore` keeps a per-block
-history) and the per-product `byproductPolicy`
-(`'discard'`). There is no URL sharing, settings panel, totals bar,
+history). There is no URL sharing, settings panel, totals bar,
 or responsive layout. Planned work lives in
 [initiatives/backlog.md](../initiatives/backlog.md).

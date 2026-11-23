@@ -23,6 +23,10 @@ function makeGameData(): GameData {
     recipes: {
       'r-plate': recipe('r-plate', 'Iron Plate', 'ore', 'plate'),
       'r-gear': recipe('r-gear', 'Gear', 'plate', 'gear'),
+      'r-split': {
+        ...recipe('r-split', 'Splitter', 'ore', 'gear'),
+        products: [{ itemId: 'gear', type: 'item' as const, amount: 1 }, { itemId: 'plate', type: 'item' as const, amount: 1 }],
+      },
     },
     machines: {
       furnace: {
@@ -79,7 +83,7 @@ describe('SidePanel — selection', () => {
     const panel = screen.getByTestId('side-panel')
     expect(within(panel).getByTestId('panel-title')).toHaveTextContent('Iron Plate')
     expect(within(panel).getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual([
-      'Rate', 'Machine', 'Beacons', 'Where inputs come from',
+      'Rate', 'Machine', 'Beacons', 'Where inputs come from', 'Where outputs go',
     ])
   })
 
@@ -108,7 +112,7 @@ describe('SidePanel — selection', () => {
     select('n1')
     renderPanel()
     expect(within(screen.getByTestId('side-panel')).getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual([
-      'Rate', 'Machine', 'Beacons', 'Effects on this row', 'Where inputs come from',
+      'Rate', 'Machine', 'Beacons', 'Effects on this row', 'Where inputs come from', 'Where outputs go',
     ])
   })
 
@@ -407,6 +411,111 @@ describe('SidePanel — where inputs come from', () => {
     select('n1')
     renderWithSolve()
     expect(within(entry('ore')).getByTestId('sourcing-change')).toBeEnabled()
+  })
+})
+
+describe('SidePanel — where outputs go', () => {
+  const result = (): SolverResult => ({
+    nodes: [{ ...solvedRow('n2', 1, 90, { plate: 120 }), outputRates: { gear: 120 } }, { ...solvedRow('n1', 2, 180, { ore: 120 }), outputRates: { plate: 120 } }],
+    unsatisfied: [], warnings: [],
+  })
+  const renderWithSolve = (r: SolverResult = result()) => {
+    useSolverStore.setState({ lastResults: { [block.id]: r } })
+    renderPanel(r)
+  }
+  const entries = () => screen.getAllByTestId('output-entry')
+  const entry = (itemId: string) => entries().find(e => e.getAttribute('data-item-id') === itemId)!
+  const sentence = (itemId: string) => within(entry(itemId)).getByTestId('output-sentence').textContent
+
+  it('lists an entry per output with the rate and a sentence built from the solve, and no control', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n1')
+    renderWithSolve()
+    const e = entry('plate')
+    expect(e).toHaveTextContent('Iron Plate')
+    expect(e).toHaveTextContent('120/m')
+    expect(sentence('plate')).toBe('Used here by Gear (takes 120/m).')
+    expect(within(screen.getByTestId('panel-outputs')).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('says what is left over when no row or block uses the output', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n2')
+    renderWithSolve()
+    expect(sentence('gear')).toMatch(/^Left over: no row or block uses it \(120\/m\)\./)
+  })
+
+  it('lists the item the row is built for first and tags the byproduct', () => {
+    setPlan([row('n4', 'r-split')])
+    select('n4')
+    renderWithSolve({
+      nodes: [{ ...solvedRow('n4', 1, 90, { ore: 40 }), outputRates: { plate: 40, gear: 40 } }], unsatisfied: [], warnings: [],
+    })
+    expect(entries().map(e => e.getAttribute('data-item-id'))).toEqual(['gear', 'plate'])
+    expect(entry('plate')).toHaveAttribute('data-byproduct', 'true')
+    expect(entry('gear')).not.toHaveAttribute('data-byproduct')
+    expect(entry('plate')).toHaveTextContent('Byproduct')
+    expect(entry('gear')).toHaveTextContent('Product')
+  })
+
+  it('says a discarded output is not counted', () => {
+    setPlan([{ ...row('n1', 'r-plate'), byproductPolicy: { plate: 'discard' } }, row('n2', 'r-gear')])
+    select('n1')
+    renderWithSolve()
+    expect(sentence('plate')).toMatch(/^Discarded: this row's Iron Plate is not counted/)
+  })
+
+  it('says an output the row does not make at the moment is not produced', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n1')
+    renderWithSolve({ nodes: [{ ...solvedRow('n1', 0, 0, {}), outputRates: { plate: 0 } }], unsatisfied: [], warnings: [] })
+    expect(sentence('plate')).toMatch(/^Not produced/)
+  })
+
+  it('names the blocks that receive the output', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    const other = makeEmptyBlock('Gears')
+    useBlockStore.setState(s => ({ blocks: [...s.blocks, other] }))
+    useSolverStore.setState({
+      flows: [{ connectionId: 'c1', fromBlockId: block.id, toBlockId: other.id, itemId: 'gear', available: 30, capped: false, rate: 30, status: 'ok', kind: 'take' }],
+    })
+    select('n2')
+    renderWithSolve()
+    expect(sentence('gear')).toContain('Sent to Gears (30.0/m)')
+  })
+
+  it('marks a row that absorbs the byproduct', () => {
+    setPlan([row('n1', 'r-plate'), { ...row('n2', 'r-gear'), byproductConsumer: true }])
+    select('n1')
+    renderWithSolve()
+    expect(sentence('plate')).toContain('Gear (absorber, takes 120/m)')
+  })
+
+  it('names the area of a row that sits in another area only', () => {
+    setPlan([], [
+      sub('sp-a', 'Line', [row('n1', 'r-plate'), row('n2', 'r-gear')], { area: true }),
+      sub('sp-b', 'Other', [row('n3', 'r-gear')], { area: true }),
+    ])
+    select('n1')
+    const r: SolverResult = {
+      nodes: [
+        { ...solvedRow('n1', 2, 180, { ore: 120 }), outputRates: { plate: 120 } },
+        { ...solvedRow('n2', 1, 90, { plate: 60 }), outputRates: { gear: 60 } },
+        { ...solvedRow('n3', 1, 90, { plate: 60 }), outputRates: { gear: 60 } },
+      ],
+      unsatisfied: [], warnings: [],
+    }
+    renderWithSolve(r)
+    expect(sentence('plate')).toBe('Used here by Gear (takes 60.0/m) and Gear in Other (takes 60.0/m).')
+  })
+
+  it('lists the outputs without a rate before there is a solve', () => {
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    renderPanel(undefined)
+    expect(entry('plate')).toHaveTextContent('Iron Plate')
+    expect(entry('plate')).not.toHaveTextContent('/m')
+    expect(sentence('plate')).toBe('Not solved yet.')
   })
 })
 

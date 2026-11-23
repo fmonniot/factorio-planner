@@ -27,11 +27,11 @@ test.describe('docked panel', () => {
     await load(page, FIXTURE)
     const panel = await selectRow(page, row(page))
     const headings = panel.getByRole('heading', { level: 3 })
-    await expect(headings).toHaveText(['Rate', 'Machine', 'Beacons', 'Where inputs come from'])
+    await expect(headings).toHaveText(['Rate', 'Machine', 'Beacons', 'Where inputs come from', 'Where outputs go'])
     await expect(panel.getByText('Effects on this row')).toHaveCount(0)
 
     await panel.getByTestId('add-beacon-config').click()
-    await expect(headings).toHaveText(['Rate', 'Machine', 'Beacons', 'Effects on this row', 'Where inputs come from'])
+    await expect(headings).toHaveText(['Rate', 'Machine', 'Beacons', 'Effects on this row', 'Where inputs come from', 'Where outputs go'])
     await expect(panel.getByTestId('panel-effects')).toBeVisible()
 
     await panel.getByRole('button', { name: 'Remove beacon configuration' }).click()

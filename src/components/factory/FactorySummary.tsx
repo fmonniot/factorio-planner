@@ -258,6 +258,7 @@ export function FactorySummary() {
   // Byproducts: net positive balance of items that are not products, minus what other blocks take;
   // a leftover that is only LP rounding noise (see isLeftover) gets no tile.
   // What other blocks take at a key is subtracted from that key.
+  // The side panel's "Where outputs go" repeats this maths per item (`itemLeftover` in outputsText.ts): keep the two in step.
   const byproductItems = [...netBalance]
     .map(([key, net]) => ({ key, net, ...parseFlowKey(key) }))
     .filter(({ itemId }) => !productItemIds.has(itemId))
