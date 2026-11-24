@@ -45,8 +45,8 @@ async function waitForRows(page: import('@playwright/test').Page) {
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
 }
 
-// Find the recipe row whose icon has title="Nitric acid".
-// Recipe names live in title attributes, not text content, so we use filter({ has }).
+// Find the recipe row named "Nitric acid".
+// The name is the tooltip (`data-tip`) of the name span, so we filter on that.
 function nitricAcidRow(page: import('@playwright/test').Page) {
   return page
     .locator('main table tbody tr')
