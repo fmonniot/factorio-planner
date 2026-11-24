@@ -13,7 +13,7 @@ import { MachinePicker } from './MachinePicker'
 import { FuelPicker } from './FuelPicker'
 import { ModuleSlotRow } from './ModuleSlotRow'
 import { setSlot, slotsOf } from './moduleSlots'
-import { describeMisfit, machineModuleOptions } from './moduleOptions'
+import { describeMisfit, machineModuleOptions, misfitNote } from './moduleOptions'
 import { describedTip } from '../../tipProps'
 
 /** "X exact · Y% busy" of a row's machines. */
@@ -52,16 +52,22 @@ export function MachineSection({ node, solved, gameData }: {
   const moduleOptions = machineModuleOptions(gameData, horizon, machine, node.recipeId)
   const slots = slotsOf(node.modules, slotCount)
   // Stored modules the game refuses (the machine's rules, then the recipe's): the planner still counts them. No machine, no verdict.
-  const allowProductivity = recipe?.allowProductivity ?? false
+  // The solver skips a machine without slots, and an unknown recipe gets no recipe-level verdict.
   const misfit = (mod: GameData['modules'][string]) => {
-    const reason = machine ? moduleMisfitInMachineRow(mod, machine, node.recipeId, allowProductivity) : undefined
+    const reason = machine && machine.moduleSlots > 0
+      ? moduleMisfitInMachineRow(mod, machine, node.recipeId, recipe?.allowProductivity)
+      : undefined
     return reason && { reason, text: describeMisfit(reason, mod.name, machine?.name ?? '', recipe?.name ?? node.recipeId) }
   }
-  const misfitReasons = new Set(node.modules.flatMap(m => {
-    const mod = gameData.modules[m.moduleId]
-    const reason = mod && machine ? moduleMisfitInMachineRow(mod, machine, node.recipeId, allowProductivity) : undefined
-    return reason ? [reason === 'recipe' ? 'recipe' : 'entity'] : []
-  }))
+  const note = misfitNote(
+    node.modules.flatMap(m => {
+      const mod = gameData.modules[m.moduleId]
+      const verdict = mod && misfit(mod)
+      return verdict ? [verdict.reason] : []
+    }),
+    machine?.name ?? '',
+    recipe?.name ?? node.recipeId,
+  )
   const util = utilisation(solved)
 
   return (
@@ -145,13 +151,7 @@ export function MachineSection({ node, solved, gameData }: {
             label="Machine module slot"
             misfit={misfit}
           />
-          {misfitReasons.size > 0 && (
-            <div data-testid="machine-module-not-allowed" className="text-xs text-amber-400 mt-1.5">
-              {misfitReasons.has('entity') && `Ringed modules cannot be inserted in ${machine?.name}; pick other modules.`}
-              {misfitReasons.size > 1 && ' '}
-              {misfitReasons.has('recipe') && `Ringed modules cannot be used for ${recipe?.name ?? node.recipeId}; pick other modules.`}
-            </div>
-          )}
+          {note && <div data-testid="machine-module-not-allowed" className="text-xs text-amber-400 mt-1.5">{note}</div>}
         </div>
       )}
 

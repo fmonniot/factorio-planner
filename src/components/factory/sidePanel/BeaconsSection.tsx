@@ -6,7 +6,7 @@ import { withinHorizon } from '../../../data/horizon'
 import { Icon } from '../../Icon'
 import { countRecipeRows } from '../recipeAreas'
 import { moduleMisfitInBeaconRow } from '../../../data/moduleRules'
-import { beaconModuleOptions, describeMisfit } from './moduleOptions'
+import { beaconModuleOptions, describeMisfit, misfitNote } from './moduleOptions'
 import { Picker, PickerRow, PickerEmpty } from '../Picker'
 import { PickerTrigger } from '../PickerTrigger'
 import { PanelSection, BeyondTag, Chevron } from './PanelParts'
@@ -43,17 +43,21 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
   const entity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
   const hasBeaconData = Object.keys(gameData.beacons).length > 0
   const beacons = availableBeacons(gameData, horizon)
-  // The UI judges the recipe's rules even without a beacon entity (legacy data); the solver's warning skips such a beacon.
+  // Like the solver's warning: no verdict without a resolvable beacon entity, none from the recipe when it is unknown.
   const misfit = (m: GameData['modules'][string]) => {
-    const reason = moduleMisfitInBeaconRow(m, entity, node.recipeId, allowProductivity)
+    const reason = entity ? moduleMisfitInBeaconRow(m, entity, node.recipeId, recipe?.allowProductivity) : undefined
     return reason && { reason, text: describeMisfit(reason, m.name, entity?.name ?? 'this beacon', recipe?.name ?? node.recipeId) }
   }
   const moduleOptions = beaconModuleOptions(gameData, horizon, entity, node.recipeId)
-  const misfitReasons = new Set(beacon.modules.flatMap(m => {
-    const mod = gameData.modules[m.moduleId]
-    const reason = mod && moduleMisfitInBeaconRow(mod, entity, node.recipeId, allowProductivity)
-    return reason ? [reason === 'recipe' ? 'recipe' : 'entity'] : []
-  }))
+  const note = misfitNote(
+    beacon.modules.flatMap(m => {
+      const mod = gameData.modules[m.moduleId]
+      const verdict = mod && misfit(mod)
+      return verdict ? [verdict.reason] : []
+    }),
+    entity?.name ?? 'this beacon',
+    recipe?.name ?? node.recipeId,
+  )
 
   const slotCount = entity?.moduleSlots ?? beacon.modulesPerBeacon
   const slots = slotsOf(beacon.modules, slotCount)
@@ -163,13 +167,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
         label="Beacon module slot"
         misfit={misfit}
       />
-      {misfitReasons.size > 0 && (
-        <div data-testid="module-not-allowed" className="text-xs text-amber-400">
-          {misfitReasons.has('entity') && `Ringed modules cannot be inserted in ${entity?.name ?? 'this beacon'}; pick other modules.`}
-          {misfitReasons.size > 1 && ' '}
-          {misfitReasons.has('recipe') && `Ringed modules cannot be used for ${recipe?.name ?? node.recipeId}; pick other modules.`}
-        </div>
-      )}
+      {note && <div data-testid="module-not-allowed" className="text-xs text-amber-400">{note}</div>}
 
       {!hasBeaconData && (
         <div className="space-y-1.5 pt-1 border-t border-gray-700">

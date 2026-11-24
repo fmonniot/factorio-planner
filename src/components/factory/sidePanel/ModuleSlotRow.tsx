@@ -38,9 +38,11 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
           const overflow = i >= slotCount
           const outside = id !== undefined && !withinHorizon(moduleIds, id)
           const misfitOf = mod ? misfit?.(mod) : undefined
+          // The misfit text names the module itself, so it is not repeated after the name.
           const tip = id === undefined
             ? 'Empty slot'
-            : (mod?.name ?? `Unknown module "${id}"`) + (overflow ? ' (more modules than slots)' : '') + (misfitOf ? ` (${misfitOf.text})` : '')
+            : (mod?.name ?? `Unknown module "${id}"`) + (overflow ? ' (more modules than slots)' : '')
+          const fullTip = misfitOf ? `${tip}: ${misfitOf.text}` : tip
           return (
             <PickerTrigger
               key={i}
@@ -53,8 +55,8 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
                   fallback={id !== undefined && !mod ? '?' : undefined}
                   warn={overflow || outside || (id !== undefined && !mod) || !!misfitOf}
                   onClick={toggle}
-                  data-tip={tip}
-                  aria-description={overflow || misfitOf ? tip : undefined}
+                  data-tip={fullTip}
+                  aria-description={misfitOf ? misfitOf.text : overflow ? tip : undefined}
                   aria-label={`${label} ${i + 1}: ${id === undefined ? 'empty' : (mod?.name ?? id)}`}
                   aria-expanded={open}
                   data-testid={`${testIdPrefix}-slot`}

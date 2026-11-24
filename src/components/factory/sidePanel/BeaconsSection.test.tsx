@@ -289,6 +289,14 @@ describe('BeaconsSection — module picker and productivity', () => {
     expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('cannot be used for')
   })
 
+  it('gives no verdict for a beacon without a resolvable entity', () => {
+    const gd = makeGameData()
+    gd.recipes['iron-plate'].allowProductivity = false
+    renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ beaconId: undefined, modules: [{ moduleId: 'prod-3', count: 1 }] })] }))
+    expect(screen.getAllByTestId('beacon-module-slot')[0]).not.toHaveAttribute('data-misfit')
+    expect(screen.queryByTestId('module-not-allowed')).toBeNull()
+  })
+
   it('rejects a module by category: options omit it and a stored one is noted', () => {
     const gd = makeGameData()
     gd.beacons.beacon.allowedModuleCategories = ['speed']

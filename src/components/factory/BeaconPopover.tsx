@@ -7,7 +7,7 @@ import { IconChip, MoreBadge } from './IconChip'
 import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
 import { mostUsedModule } from '../../data/mostUsedModule'
-import { isModuleAllowedInBeacon } from '../../data/moduleRules'
+import { moduleMisfitInBeaconRow } from '../../data/moduleRules'
 import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig, DEFAULT_BEACON_COUNT } from './sidePanel/beaconDefaults'
 import { beaconModuleOptions } from './sidePanel/moduleOptions'
 
@@ -117,12 +117,14 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   const moduleData = shown ? gameData.modules[shown] : undefined
   // A module id the loaded data set does not know (after switching data sets): the solver still counts it.
   const unknownModule = beacon.modules.some(m => !gameData.modules[m.moduleId])
-  // A stored module its beacon type rejects (effects or category): the game would refuse it, the planner still counts it.
+  // A stored module its beacon type (effects or category) or the recipe rejects: the game would refuse it, the planner still counts it.
+  // Like the solver, a configuration without a resolvable beacon entity gets no verdict, nor does an unknown recipe's rules.
+  const allowProductivity = gameData.recipes[recipeId]?.allowProductivity
   const incompatible = beacons.some(b => {
     const entity = b.beaconId ? gameData.beacons[b.beaconId] : undefined
     return entity !== undefined && b.modules.some(m => {
       const mod = gameData.modules[m.moduleId]
-      return mod !== undefined && !isModuleAllowedInBeacon(mod, entity)
+      return mod !== undefined && moduleMisfitInBeaconRow(mod, entity, recipeId, allowProductivity) !== undefined
     })
   })
   // Any configuration with a beacon type or module outside the horizon rings the chip.
@@ -157,12 +159,12 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
       fallback={shown ? '?' : '+'}
       quantity={`${used}/${slots}`}
       data-tip={
-        beacon.modules.length > 0
+        (beacon.modules.length > 0
           ? `${beacon.modules.map(m => {
               const name = gameData.modules[m.moduleId]?.name
               return `${name ?? `Unknown module "${m.moduleId}"`} × ${m.count}`
             }).join(' + ')} per beacon`
-          : 'Beacon without a module'
+          : 'Beacon without a module') + (incompatible ? ' (a module does not fit its beacon or the recipe)' : '')
       }
       aria-label="Edit beacon modules"
       data-testid="beacon-module-chip"

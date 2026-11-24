@@ -89,6 +89,17 @@ describe('ModuleCell', () => {
     expect(cell()).not.toHaveAttribute('data-incompatible')
   })
 
+  it('gives no verdict for a machine without slots or a recipe missing from the data', () => {
+    const gd = makeData()
+    gd.modules['prod'] = { ...makeSpeedModule(), id: 'prod', name: 'Prod', category: 'productivity', iconPath: '', effects: { productivity: 0.1 } }
+    gd.recipes['r'] = { ...(gd.recipes['r'] ?? ({} as GameData['recipes'][string])), allowProductivity: false }
+    const props = { nodeId: 'n1', modules: [{ moduleId: 'prod', count: 1 }], gameData: gd, onOpenEdit: noop, machine: { allowedEffects: ['speed', 'productivity'] } }
+    const { rerender } = render(<ModuleCell {...props} recipeId="r" machineSlots={0} />)
+    expect(cell()).not.toHaveAttribute('data-incompatible')
+    rerender(<ModuleCell {...props} recipeId="ghost" machineSlots={2} />)
+    expect(cell()).not.toHaveAttribute('data-incompatible')
+  })
+
   it('is not flagged when the modules fit', () => {
     render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 2 }]} machineSlots={2} gameData={makeData()} onOpenEdit={noop} />)
     expect(cell()).toHaveAttribute('aria-label', 'Edit modules')

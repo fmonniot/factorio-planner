@@ -53,13 +53,15 @@ type RowModule = {
 
 /**
  * Why a module cannot serve a recipe, or undefined when it can: the module's recipe limitation lists leave the recipe out,
- * or it carries productivity and the recipe does not allow productivity.
+ * or it carries productivity and the recipe does not allow productivity. An undefined `allowProductivity` means the recipe is
+ * unknown (not in the data set): no recipe-level verdict.
  */
 export function moduleMisfitForRecipe(
   module: RowModule,
   recipeId: string,
-  allowProductivity: boolean,
+  allowProductivity: boolean | undefined,
 ): 'recipe' | undefined {
+  if (allowProductivity === undefined) return undefined
   return isModuleAllowedForRecipe(module, recipeId) && isModuleAllowedByProductivity(module, allowProductivity)
     ? undefined
     : 'recipe'
@@ -70,7 +72,7 @@ export function moduleMisfitInMachineRow(
   module: RowModule,
   machine: ModuleEntity | undefined,
   recipeId: string,
-  allowProductivity: boolean,
+  allowProductivity: boolean | undefined,
 ): ModuleMisfitReason | undefined {
   return (machine && moduleMisfitInMachine(module, machine)) || moduleMisfitForRecipe(module, recipeId, allowProductivity)
 }
@@ -80,7 +82,7 @@ export function moduleMisfitInBeaconRow(
   module: RowModule,
   beacon: ModuleEntity | undefined,
   recipeId: string,
-  allowProductivity: boolean,
+  allowProductivity: boolean | undefined,
 ): ModuleMisfitReason | undefined {
   return (beacon && moduleMisfitInBeacon(module, beacon)) || moduleMisfitForRecipe(module, recipeId, allowProductivity)
 }

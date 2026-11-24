@@ -147,6 +147,13 @@ describe('moduleNotAllowedWarning', () => {
       expect(warn(row('n', { recipeId: 'nopro', modules: [{ moduleId: 'prod', count: 1 }] }), gd)?.misfits.map(m => m.reason)).toEqual(['effect'])
     })
 
+    it('gives no recipe-level verdict for a recipe missing from the data', () => {
+      const gd = makeGameData()
+      expect(warn(row('n', { recipeId: 'ghost', modules: [{ moduleId: 'prod', count: 1 }] }), gd)).toBeUndefined()
+      gd.machines['assembling-machine-2'].allowedEffects = ['speed']
+      expect(warn(row('n', { recipeId: 'ghost', modules: [{ moduleId: 'prod', count: 1 }] }), gd)?.misfits.map(m => m.reason)).toEqual(['effect'])
+    })
+
     it('skips a machine without slots and lists duplicate rows once', () => {
       const gd = makeGameData()
       const rows = [row('a', { recipeId: 'nopro', modules: [{ moduleId: 'prod', count: 1 }] }), row('b', { recipeId: 'nopro', modules: [{ moduleId: 'prod', count: 2 }] })]

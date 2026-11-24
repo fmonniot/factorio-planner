@@ -257,6 +257,21 @@ describe('MachineSection — productivity modules', () => {
     expect(screen.queryByTestId('machine-module-not-allowed')).toBeNull()
   })
 
+  it('puts the module name once in the tooltip and only the misfit text in the description', () => {
+    renderModal(gameDataWithProdModule(false), { modules: [{ moduleId: 'prod', count: 1 }] })
+    const slot = screen.getAllByTestId('module-slot')[0]
+    expect(slot.getAttribute('data-tip')).toMatch(/^Prod: Prod cannot be used for /)
+    expect(slot.getAttribute('aria-description')).toMatch(/^Prod cannot be used for /)
+  })
+
+  it('rings nothing on a machine without module slots', () => {
+    const gd = gameDataWithProdModule(false)
+    gd.machines['assembler-2'].moduleSlots = 0
+    renderModal(gd, { modules: [{ moduleId: 'prod', count: 1 }] })
+    expect(screen.getAllByTestId('module-slot')[0]).not.toHaveAttribute('data-misfit')
+    expect(screen.queryByTestId('machine-module-not-allowed')).toBeNull()
+  })
+
   it('rings a module the recipe blacklists', () => {
     const gd = gameDataWithProdModule(true)
     gd.modules.prod.limitationBlacklist = ['plate']

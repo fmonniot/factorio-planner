@@ -33,8 +33,9 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
   const beyondHorizon = noMachine || modules.some(m => !withinHorizon(horizon.moduleIds, m.moduleId))
   const overSlots = !noMachine && usedSlots > machineSlots
   // A stored module the game would refuse (the machine's rules, then the recipe's): the planner still counts it.
-  const allowProductivity = gameData.recipes[recipeId]?.allowProductivity ?? false
-  const incompatible = !noMachine && machine !== undefined && modules.some(m => {
+  // Like the solver: not for a machine without slots, and no recipe-level verdict for an unknown recipe.
+  const allowProductivity = gameData.recipes[recipeId]?.allowProductivity
+  const incompatible = !noMachine && machine !== undefined && machineSlots > 0 && modules.some(m => {
     const mod = gameData.modules[m.moduleId]
     return mod !== undefined && moduleMisfitInMachineRow(mod, machine, recipeId, allowProductivity) !== undefined
   })
