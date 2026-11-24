@@ -68,12 +68,39 @@ test.describe('summary panes with many items', () => {
     const ingredient = slots(page, 'Ingredients').first()
     await ingredient.click()
     await expect(detail(page, 'Ingredients')).toHaveAttribute('data-tall', 'true')
-    // The strip gains 84px (156 - 72); the Products grid takes it up to its content or its larger cap.
-    await expect.poll(async () => (await grid(page, 'Products').boundingBox())!.height).toBeGreaterThan(before + 40)
+    // The strip is content-sized now (it gains 21 to 36px over its 72px); the Products grid takes up exactly what it gains.
+    const gained = (await detail(page, 'Ingredients').boundingBox())!.height - 72
+    expect(gained).toBeGreaterThan(15)
+    expect(gained).toBeLessThan(45)
+    await expect.poll(async () => (await grid(page, 'Products').boundingBox())!.height).toBeCloseTo(before + gained, 0)
     expect((await grid(page, 'Ingredients').boundingBox())!.height, 'the Ingredients grid keeps its cap').toBe(ownBefore)
     await ingredient.click()
     await expect.poll(async () => (await grid(page, 'Products').boundingBox())!.height).toBe(before)
   })
+
+  for (const width of [820, 1440]) {
+    test(`the selected Ingredients strip is content-sized, keeps its height under a preview and fits its pane at ${width} px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await setup(page)
+      await slots(page, 'Ingredients').first().click()
+      const strip = detail(page, 'Ingredients')
+      await expect(strip).toHaveAttribute('data-state', 'selected')
+      const box = (await strip.boundingBox())!
+      expect(box.height, 'less than the 156 px of the old layout').toBeLessThan(125)
+      expect(box.height).toBeGreaterThan(72)
+      const toolbar = strip.getByTestId('strip-toolbar')
+      for (const b of await toolbar.getByRole('button').all()) {
+        const r = (await b.boundingBox())!
+        expect(r.x).toBeGreaterThanOrEqual(box.x - 0.5)
+        expect(r.x + r.width).toBeLessThanOrEqual(box.x + box.width + 0.5)
+      }
+      expect(await toolbar.evaluate(e => e.scrollWidth <= e.clientWidth), 'nothing overflows the row').toBe(true)
+      // Previewing another slot keeps the height, so nothing below moves.
+      await slots(page, 'Ingredients').nth(1).hover()
+      await expect(strip).toHaveAttribute('data-state', 'preview')
+      expect((await strip.boundingBox())!.height).toBe(box.height)
+    })
+  }
 
   test('each export segment sits on the slot of its own item', async ({ page }) => {
     await setup(page)

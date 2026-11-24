@@ -1231,7 +1231,7 @@ describe('FactorySummary — connections', () => {
       expect(within(strip('Ingredients')).queryByTestId('comes-from')).not.toBeInTheDocument()
       select('Ingredients', 'Iron Ore')
       expect(group()).toHaveAccessibleName('Comes from')
-      expect(within(group()).getAllByRole('radio').map(r => [r.textContent, r.getAttribute('data-sourcing-choice')])).toEqual([
+      expect(within(group()).getAllByRole('radio').map(r => [r.getAttribute('aria-label'), r.getAttribute('data-sourcing-choice')])).toEqual([
         ['Make it here', 'own'],
         ['Receive it first', 'connections-first'],
         ["Don't make more here", 'byproducts-first'],

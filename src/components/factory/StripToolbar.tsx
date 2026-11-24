@@ -17,6 +17,10 @@ export interface StripAction {
   onSelect: (e: React.MouseEvent<HTMLButtonElement>) => void
   danger?: boolean
   disabled?: boolean
+  /** `data-testid` of the button, for an action a test already reaches by id (Sources…). */
+  testId?: string
+  /** `aria-haspopup` of an action that opens a dialog. */
+  hasPopup?: 'dialog' | 'menu'
   /** Shown as the instant tooltip (`data-tip`) in place of the name; on a disabled action it says why. */
   title?: string
 }
@@ -35,6 +39,8 @@ function ActionButton({ action, position }: { action: StripAction; position: 'al
       disabled={action.disabled}
       data-tip={action.disabled ? undefined : tip}
       aria-label={name}
+      aria-haspopup={action.hasPopup}
+      data-testid={action.testId}
       className={`${BUTTON} ${shape} ${action.danger ? 'text-red-400' : 'text-gray-300'}`}
     >
       <StripIcon name={action.icon} />
@@ -71,16 +77,25 @@ function Cluster({ actions }: { actions: StripAction[] }) {
   )
 }
 
+export const Separator = () => <span aria-hidden="true" className="h-4 w-px shrink-0 bg-gray-700" />
+
 /**
  * The one row of icon buttons under a selected strip: 22 px high, 24 × 22 px buttons 4 px apart, no text, never
  * wrapping. The left cluster makes or supplies the item; after the spacer come information, then changes to the block.
+ * `middle` is a group between the two (the Ingredients rule group), set off by a separator.
  */
-export function StripToolbar({ actions }: { actions: StripAction[] }) {
+export function StripToolbar({ actions, middle }: { actions: StripAction[]; middle?: React.ReactNode }) {
   const left = actions.filter(a => a.side === 'left')
   const right = actions.filter(a => a.side !== 'left')
   return (
     <div data-testid="strip-toolbar" className="flex items-center gap-1 shrink-0 h-[22px]">
       <Cluster actions={left} />
+      {middle && (
+        <>
+          <Separator />
+          {middle}
+        </>
+      )}
       <span className="flex-1 min-w-0" />
       <Cluster actions={right} />
     </div>
