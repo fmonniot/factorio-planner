@@ -78,7 +78,7 @@ describe('the Sources button', () => {
   it('shows and hides the list in place, and reports it with aria-expanded', () => {
     render(<ComesFrom itemId="ore" />)
     const button = screen.getByTestId('sources-button')
-    expect(button).toHaveTextContent('Sources…')
+    expect(button).toHaveAccessibleName('Sources…')
     expect(button).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByTestId('sources-list')).toBeNull()
     fireEvent.click(button)
@@ -474,7 +474,7 @@ describe('the block lines', () => {
     expect(within(row('c2')).getByTestId('sources-block-name')).toHaveTextContent('Beta')
     expect(within(row('c1')).getByTestId('sources-block-color')).toHaveStyle({ background: '#112233' })
     expect(within(row('c2')).getByRole('tooltip')).toHaveTextContent("Receive it from a connected block, up to the connection's limit.")
-    expect(line('add-block')).toHaveTextContent('Receive from…')
+    expect(within(line('add-block')).getByTestId('sources-receive-from')).toHaveAccessibleName('Receive from…')
     expect(line('add-block')).not.toHaveTextContent('No connection')
   })
 
@@ -499,7 +499,7 @@ describe('the block lines', () => {
       expect(within(row('c2')).getByTestId('sources-block-tag')).toHaveAttribute('data-tag', 'existing')
       expect(within(row('c2')).getByTestId('sources-block-tag')).toHaveAttribute('data-tip', 'Beta only gives what it has left over.')
       expect(within(row('c1')).queryByTestId('sources-make-product')).toBeNull()
-      expect(within(row('c2')).getByTestId('sources-make-product')).toHaveTextContent('Make it a product')
+      expect(within(row('c2')).getByTestId('sources-make-product')).toHaveAccessibleName('Make it a product')
       expect(within(row('c1')).getByTestId('sources-block-rate')).toHaveTextContent('—')
     })
 

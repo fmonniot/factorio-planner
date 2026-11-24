@@ -23,9 +23,17 @@ export interface StripAction {
   hasPopup?: 'dialog' | 'menu'
   /** Shown as the instant tooltip (`data-tip`) in place of the name; on a disabled action it says why. */
   title?: string
+  /** Dimmed and inert but still focusable and described (`aria-disabled`): a move at the end of its list, an action that says why it cannot run. The tooltip stays (`title`). */
+  ariaDisabled?: boolean
+  /** `aria-expanded` of an action that opens something in place (the Sources list). It reads lit while open. */
+  expanded?: boolean
+  /** `aria-controls` of an action that opens something in place. */
+  controls?: string
+  /** `aria-describedby` of the action: the id of the text that says what it acts on (a line of the Sources list). */
+  describedBy?: string
 }
 
-const BUTTON = 'relative inline-flex h-[22px] w-6 shrink-0 items-center justify-center border border-gray-700 bg-gray-900 hover:border-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:border-gray-700'
+const BUTTON = 'relative inline-flex h-[22px] w-6 shrink-0 items-center justify-center border border-gray-700 bg-gray-900 hover:border-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:border-gray-700 aria-disabled:opacity-40 aria-disabled:cursor-default aria-disabled:hover:border-gray-700 aria-expanded:border-teal-600 aria-expanded:bg-teal-900/60 aria-expanded:text-teal-200'
 
 function ActionButton({ action, position }: { action: StripAction; position: 'alone' | 'first' | 'middle' | 'last' }) {
   const name = action.badge ? `${action.label} · ${action.badge.count} ${action.badge.noun}` : action.label
@@ -35,11 +43,15 @@ function ActionButton({ action, position }: { action: StripAction; position: 'al
   const button = (
     <button
       type="button"
-      onClick={action.onSelect}
+      onClick={action.ariaDisabled ? undefined : action.onSelect}
       disabled={action.disabled}
       data-tip={action.disabled ? undefined : tip}
       aria-label={name}
       aria-haspopup={action.hasPopup}
+      aria-disabled={action.ariaDisabled}
+      aria-expanded={action.expanded}
+      aria-controls={action.controls}
+      aria-describedby={action.describedBy}
       data-testid={action.testId}
       className={`${BUTTON} ${shape} ${action.danger ? 'text-red-400' : 'text-gray-300'}`}
     >
@@ -53,8 +65,8 @@ function ActionButton({ action, position }: { action: StripAction; position: 'al
   return action.disabled ? <TipWrap tip={tip}>{button}</TipWrap> : button
 }
 
-/** Draws a cluster, joined buttons as one group. */
-function Cluster({ actions }: { actions: StripAction[] }) {
+/** Draws a cluster of icon buttons, joined ones as one group: the toolbar's, and the controls of a line of the Sources list. */
+export function Cluster({ actions }: { actions: StripAction[] }) {
   const groups: StripAction[][] = []
   for (const a of actions) {
     if (a.joined && groups.length > 0) groups[groups.length - 1].push(a)
@@ -92,7 +104,7 @@ export function StripToolbar({ actions, middle }: { actions: StripAction[]; midd
       <Cluster actions={left} />
       {middle && (
         <>
-          <Separator />
+          {left.length > 0 && <Separator />}
           {middle}
         </>
       )}
