@@ -3,7 +3,7 @@ import { useBlockStore, selectActiveBlock } from '../../../store/blockStore'
 import { useHorizon } from '../../../store/horizon'
 import { resolveRowMachine } from '../../../data/horizon'
 import { burnsFuel } from '../../../data/fuel'
-import { isModuleAllowedInMachine } from '../../../data/moduleRules'
+import { moduleMisfitInMachineRow } from '../../../data/moduleRules'
 import { Icon } from '../../Icon'
 import { NeighbourSection } from '../NeighbourSection'
 import { countRecipeRows } from '../recipeAreas'
@@ -13,7 +13,7 @@ import { MachinePicker } from './MachinePicker'
 import { FuelPicker } from './FuelPicker'
 import { ModuleSlotRow } from './ModuleSlotRow'
 import { setSlot, slotsOf } from './moduleSlots'
-import { machineModuleOptions } from './moduleOptions'
+import { describeMisfit, machineModuleOptions } from './moduleOptions'
 import { describedTip } from '../../tipProps'
 
 /** "X exact · Y% busy" of a row's machines. */
@@ -51,13 +51,17 @@ export function MachineSection({ node, solved, gameData }: {
   // The modules a slot of this machine takes: the machine's allowed effects, the recipe's limits and productivity flag, the research horizon.
   const moduleOptions = machineModuleOptions(gameData, horizon, machine, node.recipeId)
   const slots = slotsOf(node.modules, slotCount)
-  // Stored modules the machine rejects (effects or category): the game refuses them, the planner still counts them.
-  const rejected = machine
-    ? [...new Set(node.modules.flatMap(m => {
-        const mod = gameData.modules[m.moduleId]
-        return mod && !isModuleAllowedInMachine(mod, machine) ? [mod.name] : []
-      }))]
-    : []
+  // Stored modules the game refuses (the machine's rules, then the recipe's): the planner still counts them. No machine, no verdict.
+  const allowProductivity = recipe?.allowProductivity ?? false
+  const misfit = (mod: GameData['modules'][string]) => {
+    const reason = machine ? moduleMisfitInMachineRow(mod, machine, node.recipeId, allowProductivity) : undefined
+    return reason && { reason, text: describeMisfit(reason, mod.name, machine?.name ?? '', recipe?.name ?? node.recipeId) }
+  }
+  const misfitReasons = new Set(node.modules.flatMap(m => {
+    const mod = gameData.modules[m.moduleId]
+    const reason = mod && machine ? moduleMisfitInMachineRow(mod, machine, node.recipeId, allowProductivity) : undefined
+    return reason ? [reason === 'recipe' ? 'recipe' : 'entity'] : []
+  }))
   const util = utilisation(solved)
 
   return (
@@ -139,10 +143,13 @@ export function MachineSection({ node, solved, gameData }: {
             moduleIds={horizon.moduleIds}
             onSelect={(i, id) => updateNodeModules(node.id, setSlot(node.modules, slotCount, i, id))}
             label="Machine module slot"
+            misfit={misfit}
           />
-          {rejected.length > 0 && (
+          {misfitReasons.size > 0 && (
             <div data-testid="machine-module-not-allowed" className="text-xs text-amber-400 mt-1.5">
-              {rejected.join(', ')} cannot be inserted in {machine?.name}; pick another module.
+              {misfitReasons.has('entity') && `Ringed modules cannot be inserted in ${machine?.name}; pick other modules.`}
+              {misfitReasons.size > 1 && ' '}
+              {misfitReasons.has('recipe') && `Ringed modules cannot be used for ${recipe?.name ?? node.recipeId}; pick other modules.`}
             </div>
           )}
         </div>

@@ -337,7 +337,7 @@ describe('WarningsPopover — module-not-allowed', () => {
     useBlockStore.setState({ blocks: [empty], activeBlockId: empty.id, history: {} })
   })
 
-  function setup(reason: 'category' | 'effect') {
+  function setup(reason: 'category' | 'effect' | 'recipe') {
     setupAreaBlock()
     useGameDataStore.setState({
       status: {
@@ -371,7 +371,13 @@ describe('WarningsPopover — module-not-allowed', () => {
     expect(screen.getByText(
       '"Boiler Recipe": Agriculture module cannot be inserted in Assembling machine 2 (the game does not accept its category, angels-bio-yield, there). The planner still counts its effects.',
     )).toBeInTheDocument()
-    expect(screen.getByText(/Replace the module with one the machine accepts/)).toBeInTheDocument()
+    expect(screen.getByText(/Replace the module, or pick another machine, beacon or recipe/)).toBeInTheDocument()
+  })
+
+  it('says the recipe does not accept the module (recipe)', () => {
+    setup('recipe')
+    expect(screen.getByText(/"Boiler Recipe": Agriculture module cannot be inserted in Assembling machine 2 \(the recipe does not accept it: .*except productivity on a recipe that disallows it\.$/)).toBeInTheDocument()
+    expect(screen.getByText(/Replace the module, or pick another machine, beacon or recipe\./)).toBeInTheDocument()
   })
 
   it('says the planner counts only the allowed effects (effect)', () => {

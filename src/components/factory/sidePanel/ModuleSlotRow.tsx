@@ -1,5 +1,6 @@
 import type { GameData } from '../../../data/types'
 import { withinHorizon } from '../../../data/horizon'
+import type { ModuleMisfitReason } from '../../../data/moduleRules'
 import { IconChip } from '../IconChip'
 import { BeyondTag } from './PanelParts'
 import { Picker, PickerRow } from '../Picker'
@@ -10,9 +11,9 @@ type Module = GameData['modules'][string]
 /**
  * One button per module slot. A slot opens a list of the modules it accepts (and "Empty slot");
  * the caller decides what choosing does. Slots past `slotCount` are overflow (more modules than slots)
- * and drawn with an amber ring.
+ * and drawn with an amber ring, as is a slot whose module `misfit` rejects.
  */
-export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, onSelect, testIdPrefix = 'module', label }: {
+export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, onSelect, testIdPrefix = 'module', label, misfit }: {
   slots: readonly (string | undefined)[]
   slotCount: number
   /** The modules a slot may take (already filtered by the machine, the recipe and the research horizon). */
@@ -24,6 +25,8 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
   testIdPrefix?: string
   /** Accessible name prefix of the slot buttons. */
   label: string
+  /** Why the game would not accept this module here (the entity's or the recipe's rules), with the text for the tooltip; undefined when it fits. */
+  misfit?: (module: Module) => { reason: ModuleMisfitReason; text: string } | undefined
 }) {
   const beyond = slots.some(id => id !== undefined && !withinHorizon(moduleIds, id))
 
@@ -34,7 +37,10 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
           const mod = id ? gameData.modules[id] : undefined
           const overflow = i >= slotCount
           const outside = id !== undefined && !withinHorizon(moduleIds, id)
-          const tip = id === undefined ? 'Empty slot' : (mod?.name ?? `Unknown module "${id}"`) + (overflow ? ' (more modules than slots)' : '')
+          const misfitOf = mod ? misfit?.(mod) : undefined
+          const tip = id === undefined
+            ? 'Empty slot'
+            : (mod?.name ?? `Unknown module "${id}"`) + (overflow ? ' (more modules than slots)' : '') + (misfitOf ? ` (${misfitOf.text})` : '')
           return (
             <PickerTrigger
               key={i}
@@ -45,15 +51,16 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
                   iconPath={mod?.iconPath || undefined}
                   alt={mod?.name ?? id ?? 'empty slot'}
                   fallback={id !== undefined && !mod ? '?' : undefined}
-                  warn={overflow || outside || (id !== undefined && !mod)}
+                  warn={overflow || outside || (id !== undefined && !mod) || !!misfitOf}
                   onClick={toggle}
                   data-tip={tip}
-                  aria-description={overflow ? tip : undefined}
+                  aria-description={overflow || misfitOf ? tip : undefined}
                   aria-label={`${label} ${i + 1}: ${id === undefined ? 'empty' : (mod?.name ?? id)}`}
                   aria-expanded={open}
                   data-testid={`${testIdPrefix}-slot`}
                   data-slot-index={i}
                   data-overflow={overflow ? 'true' : undefined}
+                  data-misfit={misfitOf?.reason}
                 />
               )}
             >

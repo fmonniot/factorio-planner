@@ -1,7 +1,7 @@
 import type { GameData } from '../../../data/types'
 import { withinHorizon } from '../../../data/horizon'
 import type { Horizon } from '../../../data/horizon'
-import { type ModuleEntity, isModuleAllowedByProductivity, isModuleAllowedForBeaconRow, isModuleAllowedForRecipe, isModuleAllowedInMachine } from '../../../data/moduleRules'
+import { type ModuleEntity, type ModuleMisfitReason, isModuleAllowedForBeaconRow, isModuleAllowedForMachineRow } from '../../../data/moduleRules'
 
 type Module = GameData['modules'][string]
 
@@ -21,10 +21,7 @@ export function machineModuleOptions(
   const allowProductivity = gameData.recipes[recipeId]?.allowProductivity ?? false
   return Object.values(gameData.modules)
     .filter(m =>
-      isModuleAllowedInMachine(m, machine) &&
-      isModuleAllowedForRecipe(m, recipeId) &&
-      isModuleAllowedByProductivity(m, allowProductivity) &&
-      withinHorizon(horizon.moduleIds, m.id))
+      isModuleAllowedForMachineRow(m, machine, recipeId, allowProductivity) && withinHorizon(horizon.moduleIds, m.id))
     .sort(byName)
 }
 
@@ -39,4 +36,9 @@ export function beaconModuleOptions(
   return Object.values(gameData.modules)
     .filter(m => withinHorizon(horizon.moduleIds, m.id) && isModuleAllowedForBeaconRow(m, beacon, recipeId, allowProductivity))
     .sort(byName)
+}
+
+/** The tooltip and note wording for a module that does not fit: the entity's rules or the recipe's. */
+export function describeMisfit(reason: ModuleMisfitReason, moduleName: string, entityName: string, recipeName: string): string {
+  return reason === 'recipe' ? `${moduleName} cannot be used for ${recipeName}` : `${moduleName} cannot be inserted in ${entityName}`
 }

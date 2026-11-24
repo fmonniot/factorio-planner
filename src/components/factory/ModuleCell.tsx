@@ -6,7 +6,7 @@ import { IconChip } from './IconChip'
 import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
 import { mostUsedModule } from '../../data/mostUsedModule'
-import { isModuleAllowedInMachine } from '../../data/moduleRules'
+import { moduleMisfitInMachineRow } from '../../data/moduleRules'
 import type { ModuleEntity } from '../../data/moduleRules'
 import { machineModuleOptions } from './sidePanel/moduleOptions'
 
@@ -32,10 +32,11 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
   const usedSlots = modules.reduce((sum, m) => sum + m.count, 0)
   const beyondHorizon = noMachine || modules.some(m => !withinHorizon(horizon.moduleIds, m.moduleId))
   const overSlots = !noMachine && usedSlots > machineSlots
-  // A stored module the machine rejects (effects or category): the game would refuse it, the planner still counts it.
+  // A stored module the game would refuse (the machine's rules, then the recipe's): the planner still counts it.
+  const allowProductivity = gameData.recipes[recipeId]?.allowProductivity ?? false
   const incompatible = !noMachine && machine !== undefined && modules.some(m => {
     const mod = gameData.modules[m.moduleId]
-    return mod !== undefined && !isModuleAllowedInMachine(mod, machine)
+    return mod !== undefined && moduleMisfitInMachineRow(mod, machine, recipeId, allowProductivity) !== undefined
   })
 
   const title = noMachine
@@ -47,7 +48,7 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
           ? 'Edit modules (this machine has no module slots)'
           : 'Edit modules (more modules than slots)'
         : incompatible
-          ? 'Edit modules (a module does not fit this machine)'
+          ? 'Edit modules (a module does not fit this machine or recipe)'
           : 'Edit modules'
   const shown = mostUsedModule(modules)
   const shownModule = shown ? gameData.modules[shown] : undefined

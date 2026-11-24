@@ -36,7 +36,7 @@ test('a module the machine does not accept by category is flagged, listed nowher
 
   // The Machine section says so, and its slot pickers no longer offer the module.
   const panel = await selectRow(page, row)
-  await expect(panel.getByTestId('machine-module-not-allowed')).toContainText('Agriculture module cannot be inserted in Assembling machine 2')
+  await expect(panel.getByTestId('machine-module-not-allowed')).toContainText('Ringed modules cannot be inserted in Assembling machine 2')
   const machine = panel.getByTestId('panel-machine')
   const option = (id: string) => page.locator(`[data-testid="module-option"][data-module-id="${id}"]`)
 
@@ -61,4 +61,36 @@ test('a module the machine does not accept by category is flagged, listed nowher
   expect(await page.getByTestId('module-fill-option').count()).toBeGreaterThan(0)
   await expect(page.locator(`[data-testid="module-fill-option"][data-module-id="${AGRICULTURE}"]`)).toHaveCount(0)
   await expect(page.locator('[data-testid="module-fill-option"][data-module-id="productivity-module"]')).toHaveCount(1)
+})
+
+/** One Seablock block: Wooden chest (it disallows productivity) in an Assembling machine 2, holding two Productivity modules. */
+const RECIPE_FIXTURE = path.resolve('e2e/fixtures/not-in-golden/module-recipe-misfit-seablock.json')
+
+test('a productivity module on a recipe that disallows productivity is flagged, ringed per slot and still stored', async ({ page }) => {
+  await loadPlanFixture(page, RECIPE_FIXTURE, 'kompetenz-seablock')
+  const row = page.locator('main table tbody tr').first()
+  await expect(row).toBeVisible({ timeout: 10000 })
+  await expect(row.getByTestId('module-chip')).toHaveAttribute('data-incompatible', 'true')
+
+  const pill = page.locator('[data-tip="Show solver warnings"]')
+  await expect(pill).toContainText('1 warning')
+  await pill.click()
+  const popover = page.getByTestId('warnings-popover')
+  await expect(popover).toContainText('Module not accepted')
+  await expect(popover).toContainText('does not accept it')
+  await page.keyboard.press('Escape')
+
+  const panel = await selectRow(page, row)
+  const machine = panel.getByTestId('panel-machine')
+  const ringed = machine.locator('[data-testid="module-slot"][data-misfit="recipe"]')
+  await expect(ringed).toHaveCount(2)
+  await expect(panel.getByTestId('machine-module-not-allowed')).toContainText('Ringed modules cannot be used for')
+
+  await machine.getByTestId('module-slot').first().click()
+  await page.locator('[data-testid="module-option"][data-module-id="speed-module"]').click()
+  await expect(ringed).toHaveCount(1)
+
+  await ringed.click()
+  await page.getByTestId('module-option-empty').click()
+  await expect(pill).toHaveCount(0)
 })

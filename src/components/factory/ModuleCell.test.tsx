@@ -70,11 +70,23 @@ describe('ModuleCell', () => {
     const props = { nodeId: 'n1', recipeId: 'r', modules: [{ moduleId: 'agri', count: 1 }], machineSlots: 2, gameData: gd, onOpenEdit: noop }
     const { rerender } = render(<ModuleCell {...props} machine={{ allowedEffects: ['speed'], allowedModuleCategories: ['speed'] }} />)
     expect(cell()).toHaveAttribute('data-incompatible', 'true')
-    expect(cell()).toHaveAttribute('aria-label', 'Edit modules (a module does not fit this machine)')
+    expect(cell()).toHaveAttribute('aria-label', 'Edit modules (a module does not fit this machine or recipe)')
     expect(cell()).toHaveClass('ring-amber-500')
     rerender(<ModuleCell {...props} machine={{ allowedEffects: ['speed'] }} />)
     expect(cell()).not.toHaveAttribute('data-incompatible')
     expect(cell()).toHaveAttribute('aria-label', 'Edit modules')
+  })
+
+  it('flags a productivity module on a recipe that disallows productivity, and not on one that allows it', () => {
+    const gd = makeData()
+    gd.modules['prod'] = { ...makeSpeedModule(), id: 'prod', name: 'Prod', category: 'productivity', iconPath: '', effects: { productivity: 0.1 } }
+    gd.recipes['r'] = { ...(gd.recipes['r'] ?? ({} as GameData['recipes'][string])), allowProductivity: false }
+    const props = { nodeId: 'n1', recipeId: 'r', modules: [{ moduleId: 'prod', count: 1 }], machineSlots: 2, gameData: gd, onOpenEdit: noop, machine: { allowedEffects: ['speed', 'productivity'] } }
+    const { rerender } = render(<ModuleCell {...props} />)
+    expect(cell()).toHaveAttribute('data-incompatible', 'true')
+    gd.recipes['r'] = { ...gd.recipes['r'], allowProductivity: true }
+    rerender(<ModuleCell {...props} gameData={{ ...gd }} />)
+    expect(cell()).not.toHaveAttribute('data-incompatible')
   })
 
   it('is not flagged when the modules fit', () => {

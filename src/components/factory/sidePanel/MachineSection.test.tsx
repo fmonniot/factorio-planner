@@ -239,6 +239,30 @@ describe('MachineSection — productivity modules', () => {
     openSlot(0)
     expect(moduleOptionIds()).toEqual(['prod', 'speed'])
   })
+
+  it('rings a stored productivity module the recipe disallows, and only that slot', () => {
+    renderModal(gameDataWithProdModule(false), { modules: [{ moduleId: 'speed', count: 1 }, { moduleId: 'prod', count: 1 }] })
+    const slots = screen.getAllByTestId('module-slot')
+    expect(slots[1]).toHaveAttribute('data-misfit', 'recipe')
+    expect(slots[1]).toHaveClass('ring-amber-500')
+    expect(slots[1].getAttribute('data-tip')).toContain('Prod cannot be used for')
+    expect(slots[0]).not.toHaveAttribute('data-misfit')
+    expect(slots[0]).not.toHaveClass('ring-amber-500')
+    expect(screen.getByTestId('machine-module-not-allowed')).toHaveTextContent(/^Ringed modules cannot be used for .+; pick other modules\.$/)
+  })
+
+  it('rings nothing when the recipe allows productivity', () => {
+    renderModal(gameDataWithProdModule(true), { modules: [{ moduleId: 'prod', count: 1 }] })
+    expect(screen.getAllByTestId('module-slot')[0]).not.toHaveAttribute('data-misfit')
+    expect(screen.queryByTestId('machine-module-not-allowed')).toBeNull()
+  })
+
+  it('rings a module the recipe blacklists', () => {
+    const gd = gameDataWithProdModule(true)
+    gd.modules.prod.limitationBlacklist = ['plate']
+    renderModal(gd, { modules: [{ moduleId: 'prod', count: 1 }] })
+    expect(screen.getAllByTestId('module-slot')[0]).toHaveAttribute('data-misfit', 'recipe')
+  })
 })
 
 describe('MachineSection — module categories', () => {
@@ -254,7 +278,8 @@ describe('MachineSection — module categories', () => {
 
   it('names a stored module the machine does not accept by category, and leaves it out of the slot picker', () => {
     renderModal(gameDataWithAgriModule(true), { modules: [{ moduleId: 'agri', count: 1 }] })
-    expect(screen.getByTestId('machine-module-not-allowed')).toHaveTextContent('Agriculture module cannot be inserted in Assembler 2')
+    expect(screen.getByTestId('machine-module-not-allowed')).toHaveTextContent('Ringed modules cannot be inserted in Assembler 2')
+    expect(screen.getAllByTestId('module-slot')[0]).toHaveAttribute('data-misfit', 'category')
     openSlot(1)
     expect(moduleOptionIds()).toEqual(['speed'])
   })
@@ -262,6 +287,7 @@ describe('MachineSection — module categories', () => {
   it('shows no message and offers the module when the machine lists no categories', () => {
     renderModal(gameDataWithAgriModule(false), { modules: [{ moduleId: 'agri', count: 1 }] })
     expect(screen.queryByTestId('machine-module-not-allowed')).toBeNull()
+    expect(screen.getAllByTestId('module-slot')[0]).not.toHaveAttribute('data-misfit')
     openSlot(1)
     expect(moduleOptionIds()).toEqual(['agri', 'speed'])
   })

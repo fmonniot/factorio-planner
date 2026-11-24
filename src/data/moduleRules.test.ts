@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   isModuleAllowedInMachine, isModuleAllowedForRecipe, isModuleAllowedByProductivity,
   isModuleAllowedInBeacon, isModuleAllowedForBeaconRow, moduleMisfitInMachine, moduleMisfitInBeacon,
+  moduleMisfitForRecipe, moduleMisfitInMachineRow, moduleMisfitInBeaconRow,
 } from './moduleRules'
 
 describe('isModuleAllowedInMachine', () => {
@@ -128,5 +129,47 @@ describe('module categories', () => {
     const module = { ...agri, limitation: [], limitationBlacklist: [] }
     expect(isModuleAllowedForBeaconRow(module, { ...machine, allowedModuleCategories: ['speed'] }, 'r', true)).toBe(false)
     expect(isModuleAllowedForBeaconRow(module, undefined, 'r', true)).toBe(true)
+  })
+})
+
+describe('moduleMisfitForRecipe', () => {
+  const mod = (over: Partial<{ effects: Record<string, number>; limitation: string[]; limitationBlacklist: string[] }> = {}) =>
+    ({ effects: {}, category: 'speed', limitation: [], limitationBlacklist: [], ...over })
+
+  it('rejects a recipe the limitation list leaves out, accepts one it names', () => {
+    expect(moduleMisfitForRecipe(mod({ limitation: ['a'] }), 'b', true)).toBe('recipe')
+    expect(moduleMisfitForRecipe(mod({ limitation: ['b'] }), 'b', true)).toBeUndefined()
+  })
+
+  it('rejects a recipe the blacklist names', () => {
+    expect(moduleMisfitForRecipe(mod({ limitationBlacklist: ['b'] }), 'b', true)).toBe('recipe')
+  })
+
+  it('rejects positive productivity on a recipe that disallows it, not zero or negative', () => {
+    expect(moduleMisfitForRecipe(mod({ effects: { productivity: 0.1 } }), 'b', false)).toBe('recipe')
+    expect(moduleMisfitForRecipe(mod({ effects: { productivity: 0 } }), 'b', false)).toBeUndefined()
+    expect(moduleMisfitForRecipe(mod({ effects: { productivity: -0.1 } }), 'b', false)).toBeUndefined()
+  })
+})
+
+describe('moduleMisfitInMachineRow / moduleMisfitInBeaconRow', () => {
+  const prod = { effects: { productivity: 0.1 }, category: 'productivity', limitation: [], limitationBlacklist: [] }
+
+  it('lets the entity win over the recipe', () => {
+    expect(moduleMisfitInMachineRow(prod, { allowedEffects: ['speed'] }, 'r', false)).toBe('effect')
+    expect(moduleMisfitInBeaconRow(prod, { allowedEffects: ['speed'] }, 'r', false)).toBe('effect')
+    expect(moduleMisfitInMachineRow(prod, { allowedEffects: ['productivity'], allowedModuleCategories: ['speed'] }, 'r', false)).toBe('category')
+  })
+
+  it('judges the recipe alone without an entity', () => {
+    expect(moduleMisfitInMachineRow(prod, undefined, 'r', false)).toBe('recipe')
+    expect(moduleMisfitInBeaconRow(prod, undefined, 'r', false)).toBe('recipe')
+    expect(moduleMisfitInBeaconRow(prod, undefined, 'r', true)).toBeUndefined()
+  })
+
+  it('reports the recipe when the entity accepts the module', () => {
+    expect(moduleMisfitInMachineRow(prod, { allowedEffects: ['productivity'] }, 'r', false)).toBe('recipe')
+    expect(isModuleAllowedForBeaconRow(prod, { allowedEffects: ['productivity'] }, 'r', true)).toBe(true)
+    expect(isModuleAllowedForBeaconRow(prod, { allowedEffects: ['productivity'] }, 'r', false)).toBe(false)
   })
 })
