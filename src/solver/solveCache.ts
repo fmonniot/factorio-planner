@@ -3,11 +3,13 @@
  * plan, the game data object or the caps on offer to it changed. Errors are
  * never stored. Up to `SLOTS_PER_BLOCK` entries are kept per block (most
  * recently used first), so the request probe, the first-round solve and the
- * settled solve of a block in a loop all survive.
+ * settled solve of a block in a loop all survive, and so do the capped probe
+ * and the second supply solve of a block with a short connections-first item.
  *
- * It also memoises the outcome of a whole cycle of requests (one entry per member list), so a
+ * It also memoises the outcome of a whole cycle of requests (`LOOP_SLOTS` entries per member list,
+ * most recently used first: a second request pass may key the same cycle differently), so a
  * warm solve runs none of the demand rounds; those entries are not counted by `size` or `has`,
- * and `retain` drops the ones the solve since the last `retain` did not use.
+ * and `retain` drops the member lists the solves since the last `retain` did not use.
  */
 import type { AreaSourceRule, GameData, SolverGoal, RecipeNode, SolverResult, SourceRule } from '../data/types'
 import type { AreaNeeds } from './servedAreas'
@@ -23,7 +25,10 @@ export interface BlockSolve {
 }
 
 /** Entries kept per block. */
-export const SLOTS_PER_BLOCK = 3
+export const SLOTS_PER_BLOCK = 6
+
+/** Cycle outcomes kept per member list. */
+export const LOOP_SLOTS = 2
 
 /** What the demand rounds of one cycle of requests decided. */
 export interface RequestLoopSolve {
@@ -43,6 +48,8 @@ export interface RequestLoopSolve {
   uncredited: Set<string>
   /** member id → item id → the member's areas that need the item (its request probe in the last round); only members with areas. Optional so a hand-built outcome stays valid. */
   areaNeeds?: Map<string, AreaNeeds>
+  /** member id → flow key → what the member's probe in the last round imported (`computeRequests`' `probes`); absent in a hand-built outcome (no short-supply check). */
+  probes?: Map<string, Map<string, number>>
   rounds: number
   converged: boolean
 }
@@ -143,19 +150,30 @@ export function keySupplyKey(keySupply: KeySupply): string {
 
 export function createSolveCache(): SolveCache {
   const entries = new Map<string, Entry[]>() // most recently used first
-  const loops = new Map<string, { blockIds: string[]; gameData: GameData; key: string; solved: RequestLoopSolve }>()
+  type LoopEntry = { blockIds: string[]; gameData: GameData; key: string; solved: RequestLoopSolve }
+  const loops = new Map<string, LoopEntry[]>() // most recently used first
   const usedLoops = new Set<string>() // member lists read or written since the last retain
   return {
     getRequestLoop(blockIds, gameData, key) {
       const k = blockIds.join('\0')
       usedLoops.add(k)
-      const hit = loops.get(k)
-      return hit && hit.gameData === gameData && hit.key === key ? hit.solved : undefined
+      const list = loops.get(k)
+      const i = list?.findIndex(e => e.gameData === gameData && e.key === key) ?? -1
+      if (!list || i < 0) return undefined
+      const [hit] = list.splice(i, 1)
+      list.unshift(hit)
+      return hit.solved
     },
     setRequestLoop(blockIds, gameData, key, solved) {
       const k = blockIds.join('\0')
       usedLoops.add(k)
-      loops.set(k, { blockIds, gameData, key, solved })
+      const entry: LoopEntry = { blockIds, gameData, key, solved }
+      const list = loops.get(k) ?? []
+      const i = list.findIndex(e => e.gameData === gameData && e.key === key)
+      if (i >= 0) list.splice(i, 1)
+      list.unshift(entry)
+      list.length = Math.min(list.length, LOOP_SLOTS)
+      loops.set(k, list)
     },
     get(blockId, gameData, key, caps, supplyKey = '') {
       const list = entries.get(blockId)
@@ -185,7 +203,7 @@ export function createSolveCache(): SolveCache {
     },
     retain(blockIds) {
       for (const id of [...entries.keys()]) if (!blockIds.has(id)) entries.delete(id)
-      for (const [k, e] of [...loops]) if (!usedLoops.has(k) || e.blockIds.some(id => !blockIds.has(id))) loops.delete(k)
+      for (const [k, list] of [...loops]) if (!usedLoops.has(k) || list.some(e => e.blockIds.some(id => !blockIds.has(id)))) loops.delete(k)
       usedLoops.clear()
     },
     clear() {

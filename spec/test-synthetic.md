@@ -1,9 +1,9 @@
 # Solver Synthetic Test Cases
 
-Twenty-nine recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Thirty recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 29 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 30 use plain made-up item ids.
 
 Cases 11 to 25 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
@@ -1406,3 +1406,35 @@ Blocks as in 29a, plus: **W** (goal 10, row make-goal, so 10 X left over, no lis
 - **What a parked slice needs of W stays set aside.** As above with Qb, processed after C and before T: while C's slice waits, W's 10 are held for `c-CW` (C needs 25 and `c-CT` cannot be known yet), so Qb's `c-QW` is credited nothing; when the slice resumes, `c-CW` is credited 5 (the other 5 of W's X stay uncredited).
 - **A tied group below a parked take.** List H, then C and H2 tied, on T: the pass reaches the group before T, so it cannot be shared by need and is credited and granted in list order: H 10, C 20, H2 0 (H2 imports its 5).
 - **Takes that wait on each other.** S1 lists B then A, S2 lists A then B; the request order is S1, S2, B, A (the edges of the second list would close a cycle with the first). B's S2 take waits for A's, A's S1 take waits for B's. Nothing else will credit them, so they are credited in the order they were parked: B's S2 take is flagged `notCredited` (A's take above it is not credited) and B's S1 take is credited 10 (B's share of S1 is first); A's S1 take then reads that credit and gets 10 of the 20 left. Each of A and B is credited 10 in all and imports 0.
+
+## Case 30 — Receive it first with a short supply
+
+**Exercises:** a connected item whose block has *Receive it first* on it, when the connection delivers less than the block needs and a row of the block makes the rest: the request pass runs a second time with the item capped at the first pass's offer, so what the top-up rows need (the feed) is requested rather than imported.
+
+**Recipes:** case 11's (X = `case11-x`; make-x turns 1 feed into 2 X), plus `case30-make-feed` (1 `case30-ore` makes 1 `case11-feed`) and `case30-use-other` (1 `case11-other` makes 1 `case30-junk`), time 1, category smelting.
+
+### Blocks
+
+- **T**: goal 30; row make-goal (30 runs, so 30 X on the side; X is not a product of T, so a connection to T for X is a take).
+- **C**: feed 0; row `case30-make-feed`.
+- **B**: other 50; rows use-x and make-x. Connections: `c-BT` takes X from T, `c-BC` requests feed from C. Rule on X: *Receive it first* (`makeHere: 'after-blocks'`).
+
+### Derivation
+
+B uses 50 X. Supply costs 0 and a make-x run costs 1, so X comes from supply first. In the request pass X is probed unlimited: u_X = 50, make-x runs 0, B needs no feed and `c-BC` asks 0. In the supply phase T offers only 30 X: make-x runs (50 - 30) / 2 = 10 and the 10 feed it needs are imported (the defect). 30 < 50 and a row of B makes X, so the request pass runs again with X capped at 30 for B: the unlimited probe still gives X 50 (X's own request, credit and need are unchanged), the capped probe gives make-x 10 and feed 10, so `c-BC` asks 10, C runs make-feed 10 and B imports nothing.
+
+| Row | Setup | `c-BC` requested / rate / status | C make-feed | B make-x | B imports | X flow |
+|---|---|---|---|---|---|---|
+| a | as above | 10 / 10 / `ok` | 10 | 10 | nothing | `c-BT` 30 `ok` |
+| b | T goal 60 (measured) | 0 / 0 / `unused` | no nodes | 0 | nothing | `c-BT` 50 `ok` |
+| c | `c-BA` requests X from **A** (X 0, row make-goal), `maxRate` 30, instead of `c-BT` | 10 / 10 / `ok` | 10 | 10 | nothing | `c-BA` requested 30, rate 30, `ok`, `capped` |
+| d | no rule (measured) | 25 / 25 / `ok` | 25 | 25 | nothing | `c-BT` 0 `unused` |
+| e | a, with B's rows in an area L whose rule on X is *Receive it first* (block rule none) | as a | | | | |
+| f | T goal 0 | 25 / 25 / `ok` | 25 | 25 | nothing | `c-BT` 0 |
+| g | a in tabs T, B, C / B, C, T / C, B, T | as a | | | | |
+| h | C also has use-other and product junk 5, and requests other from B (`c-CB`): a cycle {B, C} | 12.5 / 12.5 / `ok`; `c-CB` 5 | 12.5 | 12.5 | nothing | `c-BT` 30; `requestLoops[0].converged` |
+| i | warm: a, then T goal 40, through one `SolveCache` | equals a cold solve: make-x 5, feed 5 | | | | |
+
+Row c: A runs make-goal min(50, 30) = 30 for the capped request. Row f: T offers 0, so the cap is 0, make-x runs 25 and feed is 25. Row h: B's goal is 50 + 5 = 55, X need 55, the top-up is 25 and make-x runs 12.5. Row i: T goal 40 offers 40, B needs 50, the top-up is 10, make-x runs 5, feed 5.
+
+Rows b and d are controls. In b no pair is short, so one pass runs. In d (measured) the item has no rule, so B makes X itself before taking from connections and the correction does not apply.

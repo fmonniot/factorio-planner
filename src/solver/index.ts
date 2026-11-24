@@ -18,7 +18,7 @@ import type {
   SolverWarning,
   SubPlan,
 } from '../data/types'
-import { blockAreas, explicitMainProduct, solveAreaBlock, withAreaRules } from './areas'
+import { areaRuleOf, blockAreas, explicitMainProduct, solveAreaBlock, withAreaRules } from './areas'
 import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount, type FluidKeySupply, type KeySupply } from './build'
 import { hasUnreliableRates, isUnbounded, keepIdleWarning, solveLP, withOrdinaryFallback } from './solve'
 import { isFeeder } from './absorbers'
@@ -903,14 +903,20 @@ interface RequestPlan {
   creditParts: Map<string, Map<string, number>>
   /** split fluid: a ranked pair's allocation: entry index (of `splitByArea(listed)`) → key → amount, and the extra's amount per key. */
   splitAlloc: Map<RankedPair, { entryKeys: Map<number, Map<string, number>>; extra: Map<string, number> }>
+  /** block id → flow key → what the block's request probe would import; only probed blocks (the short-supply check reads it). */
+  probes: Map<string, Map<string, number>>
 }
 
-/** Items the block connects to existing, non-self sources, each with unlimited supply (a request probe). */
-function connectedCaps(block: Block, byId: Map<string, Block>, selfConnectionIds: Set<string>): Map<string, number> {
+/**
+ * Items the block connects to existing, non-self sources, each with unlimited supply (a request probe). `short` overrides
+ * the cap of an item already in the map (the second request pass: a short connections-first item is probed at its first-pass offer).
+ */
+function connectedCaps(block: Block, byId: Map<string, Block>, selfConnectionIds: Set<string>, short?: ReadonlyMap<string, number>): Map<string, number> {
   const caps = new Map<string, number>()
   for (const c of block.inputConnections) {
     if (byId.has(c.fromBlockId) && !selfConnectionIds.has(c.id)) caps.set(c.itemId, Infinity)
   }
+  if (short) for (const [itemId, cap] of short) if (caps.has(itemId)) caps.set(itemId, cap)
   return caps
 }
 
@@ -931,7 +937,7 @@ function probeBlock(
   if (plan.goals.length === 0 || plan.nodes.length === 0) return { received: new Map(), nodes: [], failed: false }
   const key = cache ? planKey(plan) : ''
   if (cache instanceof Map) {
-    const memoKey = `${block.id}\0${key}`
+    const memoKey = `${block.id}\0${key}\0${exactKey([...caps])}`
     let probe = cache.get(memoKey)
     if (!probe) {
       probe = probeBlock(block, goals, gameData, caps)
@@ -961,6 +967,32 @@ interface Probe {
   areaNeeds?: AreaNeeds
   /** A split fluid: item id → area id → range key → what the area takes of it from outside; defined iff the block has areas. */
   areaKeyNeeds?: ReadonlyMap<string, ReadonlyMap<string, ReadonlyMap<string, number>>>
+}
+
+/**
+ * The probe of a block with a short connections-first item (second request pass): what the block needs of the other items
+ * and its solved nodes come from `capped` (the item at its first-pass offer), what it needs of the short `items` themselves
+ * (their request, credit and served need) from `unlimited`, as in the first pass.
+ */
+function withShortNeeds(capped: Probe, unlimited: Probe, items: ReadonlySet<string>): Probe {
+  if (unlimited.failed) return unlimited
+  const received = new Map(capped.received)
+  for (const item of items) {
+    const need = unlimited.received.get(item)
+    if (need === undefined) received.delete(item)
+    else received.set(item, need)
+  }
+  let areaNeeds = capped.areaNeeds
+  if (capped.areaNeeds || unlimited.areaNeeds) {
+    const merged = new Map(capped.areaNeeds ?? [])
+    for (const item of items) {
+      const need = unlimited.areaNeeds?.get(item)
+      if (need === undefined) merged.delete(item)
+      else merged.set(item, need)
+    }
+    areaNeeds = merged
+  }
+  return { received, nodes: capped.nodes, conversions: capped.conversions, failed: capped.failed, areaNeeds, areaKeyNeeds: capped.areaKeyNeeds }
 }
 
 /** What `applyTakeCredits` needs to credit the takes of a split fluid. */
@@ -1132,8 +1164,10 @@ function computeRequests(
   roundLimit: number,
   ranked: RankedPairs,
   ranges: ReadonlyMap<string, FluidRange[]>,
+  short: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map(),
 ): RequestPlan {
   const split = splitFluids(gameData)
+  const probes = new Map<string, Map<string, number>>()
   const creditParts = new Map<string, Map<string, number>>()
   const splitAlloc: RequestPlan['splitAlloc'] = new Map()
   const byId = new Map(blocks.map(b => [b.id, b]))
@@ -1162,7 +1196,7 @@ function computeRequests(
       else applicable.push({ consumer, connection: c })
     }
   }
-  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), inListOrder: new Set(), areaNeeds: new Map(), creditParts, splitAlloc }
+  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), inListOrder: new Set(), areaNeeds: new Map(), creditParts, splitAlloc, probes }
 
   const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
   for (const { consumer, connection } of applicable) {
@@ -1588,12 +1622,17 @@ function computeRequests(
   }
   const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) && !deferredTakes.has(id) ? (credits.get(id) ?? 0) : undefined)
   const rankedRest = (t: BlockConnection, itemId: string) => restOf(t, itemId, estimates, outerCreditOf, uncredited)
+  // A request probe: every connected item unlimited. A block with a short connections-first item (second pass) is probed twice and
+  // merged: the unlimited probe gives what it needs of that item, the capped one everything else (see `withShortNeeds`).
+  const probeFor = (block: Block, goals: SolverGoal[], memo: SolveCache | Map<string, Probe> | undefined = cache): Probe => {
+    const unlimited = probeBlock(block, goals, gameData, connectedCaps(block, byId, selfConnectionIds), memo)
+    const caps = short.get(block.id)
+    if (!caps) return unlimited
+    return withShortNeeds(probeBlock(block, goals, gameData, connectedCaps(block, byId, selfConnectionIds, caps), memo), unlimited, new Set(caps.keys()))
+  }
   const estimateTakeSource = (block: Block, probe?: { nodes: SolvedNode[]; conversions?: FluidConversion[] }): void => {
     if (!takeSources.has(block.id)) return
-    const solved = probe ?? probeBlock(
-      block, productGoals(block.products, requested.get(block.id)), gameData,
-      connectedCaps(block, byId, selfConnectionIds), cache,
-    )
+    const solved = probe ?? probeFor(block, productGoals(block.products, requested.get(block.id)))
     estimates.set(block.id, leftoverEstimate(solved.nodes, requested.get(block.id), solved.conversions))
   }
 
@@ -1607,7 +1646,7 @@ function computeRequests(
     const aheadGoals = productGoals(b.products, requested.get(id))
     const kept = ahead.get(id)
     if (kept !== undefined && kept.goals === exactKey(aheadGoals)) return kept.probe // a block in several groups is solved once
-    const probe = probeBlock(b, aheadGoals, gameData, connectedCaps(b, byId, selfConnectionIds), cache)
+    const probe = probeFor(b, aheadGoals)
     ahead.set(id, { goals: exactKey(aheadGoals), probe })
     return probe
   }
@@ -1830,7 +1869,8 @@ function computeRequests(
       ahead.delete(block.id)
       const probe = kept !== undefined && kept.goals === exactKey(effectiveGoals)
         ? kept.probe
-        : probeBlock(block, effectiveGoals, gameData, connectedCaps(block, byId, selfConnectionIds), cache)
+        : probeFor(block, effectiveGoals)
+      probes.set(block.id, probe.received)
       if (probe.areaNeeds) areaNeeds.set(block.id, probe.areaNeeds)
       creditGroups(block, probe)
       creditSplitPairs(block, probe)
@@ -1920,6 +1960,7 @@ function computeRequests(
               flat.nodes,
               sourcingKey(flat.sourceRules),
               [...connectedCaps(m, byId, selfConnectionIds).keys()],
+              ...(short.has(m.id) ? [['short', [...short.get(m.id)!]]] : []),
               (requestsOf.get(m.id) ?? []).map(c => [c.id, c.itemId, c.fromBlockId, c.maxRate ?? null]),
               [...(takesOf(m.id) ?? [])].map(([itemId, takes]) => [
                 itemId,
@@ -1970,6 +2011,7 @@ function computeRequests(
         const roundNeeds = new Map<string, number>()
         const roundAreaNeeds = new Map<string, AreaNeeds>()
         const roundBlocked = new Set<string>()
+        const roundProbes = new Map<string, Map<string, number>>()
         const forward = new Map<string, Map<string, number>>() // member id → flow key → shares from earlier members
         const est = cloneRemaining(estimates)
         // The back estimates of member sources the previous round left (`seeded` keeps what they were before this round's takes used them).
@@ -2018,7 +2060,8 @@ function computeRequests(
             const c = requestById.get(connectionOfInput(id))
             if (c && c.fromBlockId === block.id) add(id.includes('\0') ? id.slice(id.indexOf('\0') + 1) : c.itemId, amount)
           }
-          const probe = probeBlock(block, productGoals(block.products, asked), gameData, connectedCaps(block, byId, selfConnectionIds), memo)
+          const probe = probeFor(block, productGoals(block.products, asked), memo)
+          roundProbes.set(block.id, probe.received)
           roundFailed ||= probe.failed
           if (probe.areaNeeds) roundAreaNeeds.set(block.id, probe.areaNeeds)
           if (memberSources.has(block.id)) {
@@ -2063,7 +2106,7 @@ function computeRequests(
           }
         }
         failed ||= roundFailed
-        return { shares, shareParts, credits: roundCredits, creditParts: roundCreditParts, credited, needs: roundNeeds, areaNeeds: roundAreaNeeds, blocked: roundBlocked, failed: roundFailed, estimates: freshEstimates }
+        return { shares, shareParts, credits: roundCredits, creditParts: roundCreditParts, credited, needs: roundNeeds, areaNeeds: roundAreaNeeds, probes: roundProbes, blocked: roundBlocked, failed: roundFailed, estimates: freshEstimates }
       }
       // What a round passes on to the next: per back connection (request or credit) its amount, a split fluid's per range key.
       const outputOf = (r: ReturnType<typeof runRound>): Map<string, number> => {
@@ -2168,7 +2211,7 @@ function computeRequests(
       }
       const kept = converged ? last : runRound(keptInput(), true)
       solved = {
-        shares: kept.shares, credits: kept.credits, credited: kept.credited, needs: kept.needs, areaNeeds: kept.areaNeeds, uncredited: kept.blocked, rounds, converged,
+        shares: kept.shares, credits: kept.credits, credited: kept.credited, needs: kept.needs, areaNeeds: kept.areaNeeds, probes: kept.probes, uncredited: kept.blocked, rounds, converged,
         shareParts: kept.shareParts, creditParts: kept.creditParts,
       }
       if (!failed) cache?.setRequestLoop(loop.blockIds, gameData, key, solved)
@@ -2190,6 +2233,7 @@ function computeRequests(
     for (const [id, credit] of solved.credits) credits.set(id, credit)
     for (const [id, parts] of solved.creditParts ?? []) creditParts.set(id, parts)
     for (const [id, n] of solved.needs) needs.set(id, n)
+    for (const [id, rec] of solved.probes ?? []) probes.set(id, rec)
     for (const [id, n] of solved.areaNeeds ?? []) areaNeeds.set(id, n) // not in the memo key: the key holds every plan, and a member's probe follows from its plan and goals
     for (const id of solved.uncredited) uncredited.add(id)
     for (const m of members) processed.add(m.id)
@@ -2210,41 +2254,22 @@ function computeRequests(
   for (const g of takeGroups) if (g.status === 'pending') toListOrder(g) // unreachable: a group of a pair a cycle reads is served in list order from the start
   resolveDeferred()
   resolveDeferred(true) // takes that wait on each other: credited in the order they were parked, or flagged
-  return { goals, info, credits, loops, needs, uncredited, inListOrder, areaNeeds, creditParts, splitAlloc }
+  return { goals, info, credits, loops, needs, uncredited, inListOrder, areaNeeds, creditParts, splitAlloc, probes }
 }
 
-/**
- * Solve every block, feeding each the net output its sources still have on
- * offer. Blocks are grouped into components of mutually supplying blocks and
- * solved in dependency order; a block outside any loop is solved once. A loop
- * is solved in rounds (members in loop order, a back connection reading its
- * source's offer from the previous round, zero in round 1) until the offers
- * carried by back connections stop changing. Several consumers of one source
- * are served in solve order; several sources of one item are drained in
- * connection order, every connection's reserved share before the rest. A connection
- * to a product of its source is a request: it first adds the consumer's need (less what its takes
- * are credited) to the source's goals, cycles of requests being solved in demand rounds of
- * their own (see `computeRequests`); that amount, like a take's credit,
- * is reserved for the consumer while others are served; when the source is short, the
- * extra gives way first, then the shares served last. A source with a stored served list for an item
- * (see `rankedPairs`) hands its offer down the list when it is solved (groups split what is left by weight): the
- * list's order, not the solve order, then decides who is short, and a listed extra holds its place. With a `cache`, a block whose
- * flattened plan, game data and caps are unchanged reuses its previous result
- * (same object) instead of solving again. `served` lists, per source and item, the consumers in the
- * order they were served (the list's order for a ranked pair) and the source's own extra output (see `buildServed`).
- */
-export function solveAll(
+function solvePass(
   blocks: Block[],
   gameData: GameData,
-  cache?: SolveCache,
-  options: SolveAllOptions = {},
-): MultiBlockSolve {
+  cache: SolveCache | undefined,
+  options: SolveAllOptions,
+  short: ReadonlyMap<string, ReadonlyMap<string, number>>,
+): { solve: MultiBlockSolve; probes: ReadonlyMap<string, ReadonlyMap<string, number>> } {
   const { order, components, selfConnectionIds } = orderBlocks(blocks)
   const requestRoundLimit = Math.max(1, options.requestRoundLimit ?? REQUEST_ROUND_LIMIT)
   const ranked = rankedPairs(blocks)
   const split = splitFluids(gameData)
   const ranges = fluidRanges(blocks, gameData)
-  const requestPlan = computeRequests(blocks, gameData, selfConnectionIds, cache, requestRoundLimit, ranked, ranges)
+  const requestPlan = computeRequests(blocks, gameData, selfConnectionIds, cache, requestRoundLimit, ranked, ranges, short)
   const solvePos = new Map(order.map((b, i) => [b.id, i]))
   const grants = new Map<string, number>()               // connection id → what a ranked source's list grants it
   const keyGrants = new Map<string, Map<string, number>>() // split fluid: connection id → key → what a ranked source's list grants it
@@ -2521,6 +2546,86 @@ export function solveAll(
     id => keyShares.get(id),
   )
 
-  cache?.retain(blockIds)
-  return { results, flows, errors, loops, requestLoops: requestPlan.loops, served }
+  return { solve: { results, flows, errors, loops, requestLoops: requestPlan.loops, served }, probes: requestPlan.probes }
+}
+
+/** The items a block has *Receive it first* on: in its block rules, or in the rules of an area (the item counts when some area's effective rule is first). */
+function firstRuleItems(block: Block): string[] {
+  const plan = flattenBlock(block)
+  const ids = new Set([...Object.keys(plan.sourceRules ?? {}), ...(plan.areas ?? []).flatMap(a => Object.keys(a.rules ?? {}))])
+  return [...ids].filter(id => (plan.areas
+    ? plan.areas.some(a => areaRuleOf(a, plan.sourceRules, id).makeHere === 'after-blocks')
+    : plan.sourceRules?.[id]?.makeHere === 'after-blocks'))
+}
+
+/**
+ * The (block, item) pairs a first pass left short: the block was probed, the item is a plain item (not a split fluid) it has
+ * *Receive it first* on, it has connections that count for it, a row of it makes the item, and its connections offered less than the probe's need
+ * (the probe took everything from supply, so the rows that top the item up ran at 0 and what they need was never requested).
+ * blockId → item → the cap the block's supply solve got (the sum of what its connections had available).
+ */
+export function shortFirstSupply(
+  blocks: Block[],
+  gameData: GameData,
+  probes: ReadonlyMap<string, ReadonlyMap<string, number>>,
+  flows: ConnectionFlow[],
+): Map<string, Map<string, number>> {
+  const offered = new Map<string, number>() // `${block}\0${item}` → Σ available
+  for (const f of flows) {
+    if (f.status === 'missing-source' || f.status === 'self') continue
+    const k = `${f.toBlockId}\0${f.itemId}`
+    offered.set(k, (offered.get(k) ?? 0) + f.available)
+  }
+  const split = splitFluids(gameData)
+  const out = new Map<string, Map<string, number>>()
+  for (const block of blocks) {
+    const probe = probes.get(block.id)
+    if (!probe) continue
+    for (const itemId of firstRuleItems(block)) {
+      if (split.has(itemId)) continue
+      const cap = offered.get(`${block.id}\0${itemId}`)
+      if (cap === undefined) continue
+      const need = probe.get(itemId) ?? 0
+      if (!(need - cap > surplusTolerance(need))) continue
+      if (!blockMakesItem(block, gameData, itemId)) continue
+      const items = out.get(block.id) ?? new Map<string, number>()
+      items.set(itemId, cap)
+      out.set(block.id, items)
+    }
+  }
+  return out
+}
+
+/**
+ * Solve every block, feeding each the net output its sources still have on
+ * offer. Blocks are grouped into components of mutually supplying blocks and
+ * solved in dependency order; a block outside any loop is solved once. A loop
+ * is solved in rounds (members in loop order, a back connection reading its
+ * source's offer from the previous round, zero in round 1) until the offers
+ * carried by back connections stop changing. Several consumers of one source
+ * are served in solve order; several sources of one item are drained in
+ * connection order, every connection's reserved share before the rest. A connection
+ * to a product of its source is a request: it first adds the consumer's need (less what its takes
+ * are credited) to the source's goals, cycles of requests being solved in demand rounds of
+ * their own (see `computeRequests`); that amount, like a take's credit,
+ * is reserved for the consumer while others are served; when the source is short, the
+ * extra gives way first, then the shares served last. A source with a stored served list for an item
+ * (see `rankedPairs`) hands its offer down the list when it is solved (groups split what is left by weight): the
+ * list's order, not the solve order, then decides who is short, and a listed extra holds its place. With a `cache`, a block whose
+ * flattened plan, game data and caps are unchanged reuses its previous result
+ * (same object) instead of solving again. `served` lists, per source and item, the consumers in the
+ * order they were served (the list's order for a ranked pair) and the source's own extra output (see `buildServed`).
+ */
+export function solveAll(
+  blocks: Block[],
+  gameData: GameData,
+  cache?: SolveCache,
+  options: SolveAllOptions = {},
+): MultiBlockSolve {
+  const first = solvePass(blocks, gameData, cache, options, new Map())
+  // A connections-first item the first pass left short gets one corrective pass (see `shortFirstSupply`); never a third.
+  const short = shortFirstSupply(blocks, gameData, first.probes, first.solve.flows)
+  const solve = short.size === 0 ? first.solve : solvePass(blocks, gameData, cache, options, short).solve
+  cache?.retain(new Set(blocks.map(b => b.id)))
+  return solve
 }
