@@ -82,7 +82,7 @@ research horizon uses it to gate machines and beacons (see
 
 Item fuels carry `fuelValueKj` and `fuelCategory` together; fluid fuels carry `fuelValueKj` only (no category, no burnt result). A burner row burns an item whose `fuelCategory` is in the machine's `fuelCategories`; a fluid-burner row burns a non-hidden fluid with a `fuelValueKj`, or the machine's `fuelFluid` (even if hidden) when set; see [Burner fuel](#burner-fuel) in the solver spec.
 
-Fluids carry `defaultTemperature` and `maxTemperature` together (bundles exported before they existed have neither). `power:electricity` and `power:heat` have none (heat's temperatures live on the recipes that make and take it). The LP's flow keys read them (see [spec/solver.md](solver.md#fluid-temperatures)), and so does the heat `temperature-mismatch` warning (see [spec/solver.md](solver.md#warnings-and-unsatisfied-items)). An item id must not contain `@`, `[` or `]`, which the flow keys reserve: `GameDataSchema` rejects a data set that does.
+Fluids carry `defaultTemperature` and `maxTemperature` together (bundles exported before they existed have neither). `power:electricity` and `power:heat` have none (heat's temperatures live on the recipes that make and take it). The LP's flow keys read them (see [spec/solver.md](solver.md#fluid-temperatures)). An item id must not contain `@`, `[` or `]`, which the flow keys reserve: `GameDataSchema` rejects a data set that does.
 
 A bundle with power generation recipes also holds the pseudo-item `power:electricity` (`type: 'fluid'`, name "Electricity", subgroup `power:electricity`). One unit is 1 MJ, so 1 unit/s is 1 MW and 10 MW is 600 units/min. It is a fluid only because it is a continuous fractional quantity with no stack size; `src/` never branches on `type`. The pseudo-item `power:heat` (`type: 'fluid'`, name "Heat", subgroup `power:electricity`, order `b`; electricity is `a`) is added the same way, only when some recipe uses it, with the game's heat sprite as icon. Same unit: 1 unit = 1 MJ, so units/s = MW. See [Power generation recipes](#power-generation-recipes).
 
@@ -114,7 +114,7 @@ interface Ingredient {
   itemId: string
   type: 'item' | 'fluid'
   amount: number                // > 0
-  minimumTemperature?: number   // shown on the recipe row's ingredient tile and in the recipe picker's detail panel; read by the solver (the flow keys of the LP, see [solver.md](solver.md#fluid-temperatures)) and the `temperature-mismatch` warning
+  minimumTemperature?: number   // shown on the recipe row's ingredient tile and in the recipe picker's detail panel; read by the solver (the flow keys of the LP, see [solver.md](solver.md#fluid-temperatures))
   maximumTemperature?: number
 }
 
@@ -126,14 +126,14 @@ interface RecipeProduct {
   amountMin?: number            // informational, see below
   amountMax?: number
   ignoredByProductivity?: number
-  temperature?: number          // fluid products only: explicit output temperature; absent means the fluid's defaultTemperature. Boiler and heat-exchanger steam carries the machine's target_temperature and reactor heat its heat buffer `max_temperature`, to be compared with the generator ingredient's minimumTemperature
+  temperature?: number          // fluid products only: explicit output temperature; absent means the fluid's defaultTemperature. Boiler and heat-exchanger steam carries the machine's target_temperature and reactor heat its heat buffer `max_temperature`, the hottest it delivers, which the LP's heat keys compare with the exchanger's `minimumTemperature`
 }
 ```
 
 Recipe ingredients carry optional temperature bounds. Fluid items carry
 `defaultTemperature` / `maxTemperature`. A fluid product carries `temperature` only when
 the recipe sets one; otherwise the fluid is at its `defaultTemperature`. All of these are
-shown in the UI, read by the LP (a fluid with a bounded consumer is split into one key per temperature made and per range taken, so a balance cannot be met with a temperature no consumer accepts, see [solver.md](solver.md#fluid-temperatures)) and by the heat `temperature-mismatch` warning after the solve. The *effective temperature* of a product is `temperature` if set, else its fluid's `defaultTemperature`, and is unknown when neither exists. The generated extraction recipes set no product
+shown in the UI, read by the LP (a fluid with a bounded consumer is split into one key per temperature made and per range taken, so a balance cannot be met with a temperature no consumer accepts, see [solver.md](solver.md#fluid-temperatures)). The *effective temperature* of a product is `temperature` if set, else its fluid's `defaultTemperature`, and is unknown when neither exists. The generated extraction recipes set no product
 `temperature`; the power recipes set it only on boiler and heat-exchanger steam (the machine's
 `target_temperature`) and on reactor heat (the reactor's `heat_buffer.max_temperature`, left absent when the
 prototype has none).
@@ -443,7 +443,7 @@ the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
   (production-statistics display flag) are dropped; neither affects flow rates.
 - `allow_decomposition` (recycling) is not exported.
 - Item fuel data (`fuel_value`, `fuel_category`, `burnt_result`) and burner `fuel_categories` / `effectivity` of crafting machines are exported as the optional fields above; fluid fuel values (`fuelValueKj` on fluids) and the `burns_fluid` sources of crafting machines (`energyType: 'fluid-burner'`, `effectivity`, `fuelFluid`) are exported the same way; fluid `heat_capacity` is read only to build power recipes. A fluid-burning drill keeps its real `energyUsageKw` like a burner drill (only `void` drills are zeroed), so without fluid fuel data its row draws that power. Other fluid sources stay `void`. Burnt results are not modelled as outputs of a burner row.
-- Heat pipes (transport only), void or electric reactors, `electric-energy-interface` entities (wind turbines, Stirling engines), accumulators and fusion equipment are not exported. Heat pipe tiers are not modelled either: a pipe's `max_temperature` can cap the heat between a reactor and an exchanger, but only the reactor's own maximum is compared with the exchanger's minimum.
+- Heat pipes (transport only), void or electric reactors, `electric-energy-interface` entities (wind turbines, Stirling engines), accumulators and fusion equipment are not exported. Heat pipe tiers are not modelled either: a pipe's `max_temperature` can cap the heat between a reactor and an exchanger, but the LP compares only the reactor's own maximum with the exchanger's minimum (tiers and gradients are layout, not modelled).
 - `place_result` is kept only as `Item.placeResult`, and only when it names an
   exported machine (drills and pumps included) or beacon; other entities are not recorded.
 - Technologies that are disabled (`enabled: false`) are dropped, with references
@@ -898,7 +898,6 @@ type SolverWarning =
   | { type: 'area-cut-off'; cutOffs: { areaId: string; itemId: string; temp?: FluidTag }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
-  | { type: 'temperature-mismatch'; recipeId: string; itemId: string; supplied: number[]; minimum?: number; maximum?: number }  // heat only
   | { type: 'no-fitting-temperature'; itemId: string; min?: number; max?: number; recipeIds: string[] }  // a range of a locked split fluid that nothing in the block makes (critical)
   | { type: 'connection-temperature'; connections: { connectionId: string; itemId: string; offered: { temperature: number; rate: number }[]; needed: { min?: number; max?: number; rate: number }[] }[] }  // a connection of a split fluid offers only known temperatures that fit none of the ranges the block still imports (not critical)
 ```

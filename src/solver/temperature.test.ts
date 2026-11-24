@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { solveAll, solveBlock, flattenBlock } from './index'
+import { solveAll, solveBlock, flattenBlock, netBalance } from './index'
 import { HEAT_ITEM_ID } from '../data/electricity'
-import { temperatureWarnings } from './temperature'
-import { createSolveCache } from './solveCache'
-import type { AreaSourceRule, Block, ConnectionFlow, GameData, GameRecipeNode, Product, RecipeNode, SolverResult, SolverWarning } from '../data/types'
+import type { AreaSourceRule, Block, GameData, GameRecipeNode, Product, RecipeNode, SolverResult } from '../data/types'
 
 type GameRecipe = GameData['recipes'][string]
 
@@ -61,10 +59,6 @@ function block(id: string, nodes: RecipeNode[], products: Product[] = [{ id: `g-
   }
 }
 
-function mismatches(warnings: SolverWarning[]) {
-  return warnings.filter((w): w is Extract<SolverWarning, { type: 'temperature-mismatch' }> => w.type === 'temperature-mismatch')
-}
-
 /** A reactor: no ingredients, 1 heat per run at `temperature` (absent: unknown). */
 function reactor(id: string, temperature?: number): GameRecipe {
   return recipe(id, [], [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: 1, ...(temperature === undefined ? {} : { temperature }) }])
@@ -74,145 +68,133 @@ function exchanger(id: string, min: number): GameRecipe {
   return recipe(id, [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: 1, minimumTemperature: min }], [{ itemId: 'electricity', type: 'item', amount: 1 }])
 }
 
-describe('heat', () => {
-  it('warns, without changing the plan, when the reactor is cooler than the exchanger needs', () => {
-    const gd = gameData([reactor('r750', 750), exchanger('x765', 765)])
-    const all = solveAll([block('A', [node('r', 'r750'), node('x', 'x765')])], gd)
-    expect(mismatches(all.results.A.warnings)).toEqual([
-      expect.objectContaining({ recipeId: 'x765', itemId: HEAT_ITEM_ID, supplied: [750], minimum: 765 }),
-    ])
+describe('heat temperature in the LP', () => {
+  const rate = (r: SolverResult, id: string) => r.nodes.find(n => n.recipeNodeId === id)!.throughput
+  const heatUnsat = (r: SolverResult) => r.unsatisfied.filter(u => u.itemId === HEAT_ITEM_ID)
+  const heatConv = (r: SolverResult) => (r.conversions ?? []).filter(c => c.itemId === HEAT_ITEM_ID)
+  const solve = (nodes: RecipeNode[], gd: GameData, products?: Product[], sourceRules: Block['sourceRules'] = {}) => {
+    const b = block('A', nodes, products)
+    b.sourceRules = sourceRules
+    return solveAll([b], gd).results.A
+  }
+
+  it('does not run a reactor cooler than the exchanger minimum: the block imports heat at the range', () => {
+    const r = solve([node('r', 'r750'), node('x', 'x765')], gameData([reactor('r750', 750), exchanger('x765', 765)]))
+    expect(rate(r, 'r')).toBeCloseTo(0, 6)
+    expect(rate(r, 'x')).toBeCloseTo(60, 6)
+    expect(heatUnsat(r)).toEqual([{ itemId: HEAT_ITEM_ID, rate: expect.closeTo(60, 6), temp: { min: 765 } }])
+    expect(r.warnings).toEqual([])
   })
 
-  it('accepts a reactor exactly at the exchanger minimum or above it', () => {
+  it('runs a reactor exactly at the minimum or above it', () => {
     const gd = gameData([reactor('r765', 765), reactor('r1000', 1000), exchanger('x765', 765)])
-    for (const r of ['r765', 'r1000']) {
-      const all = solveAll([block('A', [node('r', r), node('x', 'x765')])], gd)
-      expect(mismatches(all.results.A.warnings), r).toHaveLength(0)
+    for (const [id, t] of [['r765', 765], ['r1000', 1000]] as const) {
+      const r = solve([node('r', id), node('x', 'x765')], gd)
+      expect(rate(r, 'r'), id).toBeCloseTo(60, 6)
+      expect(heatUnsat(r), id).toEqual([])
+      expect(heatConv(r), id).toEqual([{ itemId: HEAT_ITEM_ID, from: { at: t }, to: { min: 765 }, rate: expect.closeTo(60, 6) }])
+      expect(r.warnings, id).toEqual([])
     }
   })
 
-  it('stays silent when one of several reactors is hot enough', () => {
-    const gd = gameData([reactor('r750', 750), reactor('r1000', 1000), exchanger('x765', 765)])
-    const all = solveAll([block('A', [node('r1', 'r750', 5), node('r2', 'r1000', 5), node('x', 'x765')])], gd)
-    expect(mismatches(all.results.A.warnings)).toHaveLength(0)
+  it('runs the hot reactor and leaves the cold one idle', () => {
+    const r = solve([node('r1', 'r750'), node('r2', 'r1000'), node('x', 'x765')], gameData([reactor('r750', 750), reactor('r1000', 1000), exchanger('x765', 765)]))
+    expect(rate(r, 'r2')).toBeCloseTo(60, 6)
+    expect(rate(r, 'r1')).toBeCloseTo(0, 6)
   })
 
-  it('stays silent when the reactor has no temperature', () => {
-    const gd = gameData([reactor('rx'), exchanger('x765', 765)])
-    const all = solveAll([block('A', [node('r', 'rx'), node('x', 'x765')])], gd)
-    expect(mismatches(all.results.A.warnings)).toHaveLength(0)
+  it('keeps a pinned cold reactor, its heat left over at its own temperature', () => {
+    const r = solve([node('r1', 'r750', 5), node('r2', 'r1000'), node('x', 'x765')], gameData([reactor('r750', 750), reactor('r1000', 1000), exchanger('x765', 765)]))
+    expect(rate(r, 'r1')).toBeCloseTo(5, 6)
+    expect(rate(r, 'r2')).toBeCloseTo(60, 6)
+    expect(netBalance(r.nodes, r.conversions).get('power:heat@750')).toBeCloseTo(5, 6)
   })
 
-  it('warns on the exchanger block of a connection, not on the reactor block', () => {
-    const gd = gameData([reactor('r750', 750), exchanger('x765', 765)])
-    const heatGoal: Product[] = [{ id: 'gh', itemId: HEAT_ITEM_ID, extraRate: 1 }]
-    const all = solveAll([
-      block('A', [node('r', 'r750')], heatGoal),
-      block('B', [node('x', 'x765')], undefined, [{ id: 'c1', itemId: HEAT_ITEM_ID, fromBlockId: 'A' }]),
-    ], gd)
-    expect(mismatches(all.results.A.warnings)).toHaveLength(0)
-    const w = mismatches(all.results.B.warnings)
-    expect(w).toHaveLength(1)
-    expect(w[0].supplied).toEqual([750])
-  })
-})
-
-/**
- * The solver only offers a block's own net output, so a source that both makes heat and hands on
- * what it received cannot be built from real blocks; these call `temperatureWarnings` with hand-made results.
- */
-describe('temperatureWarnings on connections', () => {
-  const gd = gameData([reactor('r165', 165), reactor('r500', 500), exchanger('x465', 465)])
-  const solved = (id: string, outputs: Record<string, number>, inputs: Record<string, number> = {}, unsatisfied: SolverResult['unsatisfied'] = []): SolverResult => ({
-    nodes: [{ recipeNodeId: id, inputRates: inputs, outputRates: outputs, throughput: 1, machineCountExact: 0, machineCountCeil: 0, powerKw: 0 }],
-    unsatisfied,
-    warnings: [],
-  })
-  const flow = (id: string, from: string, to: string): ConnectionFlow => ({
-    connectionId: id, fromBlockId: from, toBlockId: to, itemId: HEAT_ITEM_ID, available: 40, capped: false, rate: 40, status: 'ok', kind: 'take',
-  })
-  const blocks = ['A', 'B', 'C'].map(id => block(id, []))
-  const recipes = (m: Record<string, string>) => new Map(Object.entries(m).map(([block, r]) => [block, new Map([[block.toLowerCase(), r]])]))
-  const heat = (n: number) => ({ [HEAT_ITEM_ID]: n })
-
-  it('warns when the source makes the heat only below the bound', () => {
-    const results = { A: solved('b', heat(40)), B: solved('b', heat(40)), C: solved('c', { electricity: 1 }, heat(40)) }
-    const out = temperatureWarnings(blocks, results, [flow('c1', 'B', 'C')], gd, recipes({ A: 'r500', B: 'r165', C: 'x465' }))
-    expect(out.get('C'), 'warned').toHaveLength(1)
+  it('an unknown heat temperature fits every range', () => {
+    const r = solve([node('r', 'rx'), node('x', 'x765')], gameData([reactor('rx'), exchanger('x765', 765)]))
+    expect(rate(r, 'r')).toBeCloseTo(60, 6)
+    expect(heatUnsat(r)).toEqual([])
+    expect(heatConv(r)).toEqual([{ itemId: HEAT_ITEM_ID, from: { at: null }, to: { min: 765 }, rate: expect.closeTo(60, 6) }])
   })
 
-  it('stays silent when the source also receives the heat over a connection', () => {
-    const results = { A: solved('a', heat(60)), B: solved('b', heat(100)), C: solved('c', { electricity: 1 }, heat(40)) }
-    const flows = [flow('c1', 'A', 'B'), flow('c2', 'B', 'C')]
-    const out = temperatureWarnings(blocks, results, flows, gd, recipes({ A: 'r500', B: 'r165', C: 'x465' }))
-    expect(out.has('C'), 'B may forward A heat at 500°C').toBe(false)
+  it('keeps ranges apart: a 750 reactor feeds the 315 exchanger only', () => {
+    const gd = gameData([reactor('r750', 750), exchanger('x315', 315), exchanger('x765', 765)])
+    gd.recipes.x315.products = [{ itemId: 'e1', type: 'item', amount: 1 }]
+    gd.recipes.x765.products = [{ itemId: 'e2', type: 'item', amount: 1 }]
+    const r = solve([node('r', 'r750'), node('a', 'x315'), node('b', 'x765')], gd, [
+      { id: 'g1', itemId: 'e1', extraRate: 60 }, { id: 'g2', itemId: 'e2', extraRate: 60 },
+    ])
+    expect(rate(r, 'r')).toBeCloseTo(60, 6)
+    expect(heatUnsat(r)).toEqual([{ itemId: HEAT_ITEM_ID, rate: expect.closeTo(60, 6), temp: { min: 765 } }])
   })
 
-  it('judges a source that also imports the heat by its own rows', () => {
-    // The LP never imports what a block then has left over, so what B offers is its own 165° heat.
-    const results = { A: solved('a', {}), B: { ...solved('b', heat(100)), unsatisfied: [{ itemId: HEAT_ITEM_ID, rate: 20 }] }, C: solved('c', { electricity: 1 }, heat(40)) }
-    const out = temperatureWarnings(blocks, results, [flow('c2', 'B', 'C')], gd, recipes({ A: 'r500', B: 'r165', C: 'x465' }))
-    expect(out.get('C')?.map(w => w.supplied), 'B offers its 165° heat').toEqual([[165]])
+  it('with Import off the exchanger falls short and warns no-fitting-temperature', () => {
+    const r = solve([node('r', 'r750'), node('x', 'x765')], gameData([reactor('r750', 750), exchanger('x765', 765)]), undefined, { [HEAT_ITEM_ID]: { importOff: true } })
+    expect(rate(r, 'x')).toBeCloseTo(0, 6)
+    expect(r.warnings).toContainEqual({ type: 'no-fitting-temperature', itemId: HEAT_ITEM_ID, min: 765, recipeIds: ['x765'] })
+    expect(r.unsatisfied).toContainEqual({ itemId: 'electricity', rate: expect.closeTo(60, 6) })
   })
 
-  it('stays silent when the source has no producer of the heat', () => {
-    const results = { A: solved('a', { widget: 1 }), B: solved('b', { widget: 1 }), C: solved('c', { electricity: 1 }, heat(40)) }
-    const out = temperatureWarnings(blocks, results, [flow('c2', 'B', 'C')], gd, recipes({ A: 'r500', B: 'r165', C: 'x465' }))
-    expect(out.has('C'), 'no producer').toBe(false)
-  })
-
-  it('never warns about steam: a fluid with flow keys is checked by the LP', () => {
-    const steam = gameData([boiler('b165', 165), generator('turbine', 465)], STEAM_ITEMS())
-    const results = { A: solved('b', { steam: 40 }), B: solved('b', { steam: 40 }), C: solved('c', { electricity: 1 }, { steam: 40 }) }
-    const flows = [{ ...flow('c1', 'B', 'C'), itemId: 'steam' }]
-    expect(temperatureWarnings(blocks, results, flows, steam, recipes({ A: 'b165', B: 'b165', C: 'turbine' })).size).toBe(0)
-  })
-})
-
-describe('temperature-mismatch warning on heat (more)', () => {
-  const heatGd = () => gameData([reactor('r165', 165), reactor('r465', 465), exchanger('x465', 465)])
-
-  it('stays silent when the connection carries nothing', () => {
-    const gd = heatGd()
-    const heatGoal: Product[] = [{ id: 'gh', itemId: HEAT_ITEM_ID, extraRate: 60 }]
-    const all = solveAll([
-      block('A', [node('r', 'r165')], heatGoal),
-      block('B', [node('x', 'x465')], [{ id: 'g', itemId: 'electricity', extraRate: 0 }], [{ id: 'c1', itemId: HEAT_ITEM_ID, fromBlockId: 'A' }]),
-    ], gd)
-    expect(mismatches(all.results.B.warnings)).toHaveLength(0)
-  })
-
-  it('warns once for duplicate rows of a recipe', () => {
-    const all = solveAll([block('A', [node('r', 'r165'), node('x1', 'x465'), node('x2', 'x465')])], heatGd())
-    expect(mismatches(all.results.A.warnings)).toHaveLength(1)
-  })
-
-  it('keeps result identity across solves with the same cache', () => {
-    const blocks = [
-      block('Bad', [node('r', 'r165'), node('x', 'x465')]),
-      block('Good', [node('r', 'r465'), node('x', 'x465')]),
-    ]
-    const cache = createSolveCache()
-    const gd = heatGd()
-    const first = solveAll(blocks, gd, cache)
-    const second = solveAll(blocks, gd, cache)
-    expect(mismatches(first.results.Bad.warnings)).toHaveLength(1)
-    expect(second.results.Bad, 'warned block keeps identity').toBe(first.results.Bad)
-    expect(second.results.Good, 'clean block keeps identity').toBe(first.results.Good)
-  })
-})
-
-describe('module-not-allowed after temperature-mismatch', () => {
-  it('emits the module warning after the temperature one', () => {
-    const gd = gameData([reactor('r165', 165), exchanger('x465', 465)])
-    gd.machines.asm = {
-      id: 'asm', name: 'Asm', type: 'assembling-machine', craftingSpeed: 1, energyUsageKw: 1, energyType: 'electric', drainKw: 0,
-      moduleSlots: 2, allowedEffects: ['productivity'], allowedModuleCategories: ['speed'], craftingCategories: ['crafting'], iconPath: '', hidden: false,
+  describe('over a connection', () => {
+    const run = (exchangerId: string) => {
+      // A makes a widget as its goal, and its pinned reactor's heat is the surplus on offer.
+      const gd = gameData([reactor('r750', 750), exchanger('x765', 765), exchanger('x465', 465), recipe('w', [], [{ itemId: 'widget', type: 'item', amount: 1 }])])
+      return solveAll([
+        block('A', [node('r', 'r750', 60), node('w', 'w')], [{ id: 'gw', itemId: 'widget', extraRate: 1 }]),
+        block('B', [node('x', exchangerId)], undefined, [{ id: 'c1', itemId: HEAT_ITEM_ID, fromBlockId: 'A' }]),
+      ], gd)
     }
-    gd.modules.agri = { id: 'agri', name: 'Agriculture', category: 'angels-bio-yield', tier: 1, effects: { productivity: 0.1 }, limitation: [], limitationBlacklist: [], iconPath: '' }
-    const exchangerNode = { ...node('x', 'x465'), machineId: 'asm', modules: [{ moduleId: 'agri', count: 1 }] }
-    const types = solveAll([block('A', [node('r', 'r165'), exchangerNode])], gd).results.A.warnings.map(w => w.type)
-    expect(types.filter(t => t === 'temperature-mismatch' || t === 'module-not-allowed')).toEqual(['temperature-mismatch', 'module-not-allowed'])
+
+    it('warns connection-temperature and imports when the offered heat is too cold', () => {
+      const all = run('x765')
+      expect(all.results.B.warnings).toEqual([{
+        type: 'connection-temperature',
+        connections: [{ connectionId: 'c1', itemId: HEAT_ITEM_ID, offered: [{ temperature: 750, rate: expect.closeTo(60, 6) }], needed: [{ min: 765, rate: expect.closeTo(60, 6) }] }],
+      }])
+      expect(heatUnsat(all.results.B)).toEqual([{ itemId: HEAT_ITEM_ID, rate: expect.closeTo(60, 6), temp: { min: 765 } }])
+      expect(all.flows.find(f => f.connectionId === 'c1')?.status).toBe('unused')
+    })
+
+    it('uses the offered heat when it is hot enough', () => {
+      const all = run('x465')
+      expect(all.flows.find(f => f.connectionId === 'c1')?.rate).toBeCloseTo(60, 6)
+      expect(heatUnsat(all.results.B)).toEqual([])
+      expect(all.results.B.warnings).toEqual([])
+    })
+  })
+
+  describe('between areas', () => {
+    const now = new Date().toISOString()
+    const twoAreas = (reactorId: string): Block => {
+      const area = (id: string, nodes: RecipeNode[]) => ({ id, name: id, nodes, subPlans: [], area: true as const, createdAt: now, updatedAt: now })
+      return {
+        id: 'A', name: 'A', color: '#60a5fa', products: [{ id: 'g', itemId: 'electricity', extraRate: 60 }], sourceRules: {}, inputConnections: [],
+        rootPlan: { id: 'root-A', name: 'root-A', nodes: [], createdAt: now, updatedAt: now, subPlans: [area('L', [node('r', reactorId)]), area('B', [node('x', 'x765')])] },
+      }
+    }
+    const gd = () => gameData([reactor('r750', 750), reactor('r1000', 1000), exchanger('x765', 765)])
+
+    it('a hot enough reactor in another area feeds the exchanger without an import', () => {
+      const r = solveAll([twoAreas('r1000')], gd()).results.A
+      expect(heatUnsat(r)).toEqual([])
+      expect(rate(r, 'r')).toBeCloseTo(60, 6)
+    })
+
+    it('a too cold one is idle and the leg into the exchanger area is a range import', () => {
+      const r = solveAll([twoAreas('r750')], gd()).results.A
+      expect(rate(r, 'r')).toBeCloseTo(0, 6)
+      expect((r.areaRoutes ?? []).filter(l => l.itemId === HEAT_ITEM_ID && l.from === undefined)).toEqual([
+        expect.objectContaining({ to: 'B', temp: { min: 765 } }),
+      ])
+    })
+  })
+})
+
+describe('steam temperature in the LP', () => {
+  it('a block with cold steam imports the hot range, never warning mismatch', () => {
+    const gd = gameData([boiler('b165', 165), generator('turbine', 465)], STEAM_ITEMS())
+    const r = solveAll([block('A', [node('b', 'b165'), node('t', 'turbine')])], gd).results.A
+    expect(r.warnings).toEqual([])
   })
 })
 
@@ -268,7 +250,7 @@ describe('flow keys of a fluid two areas touch', () => {
       { itemId: 'steam', temp: { at: 465 }, from: 'L', to: 'B', rate: expect.closeTo(10, 6) },
       { itemId: 'steam', temp: { min: 465 }, to: 'B', rate: expect.closeTo(50, 6) },
     ])
-    expect(mismatches(r.warnings)).toHaveLength(0)
+    expect(r.warnings).toHaveLength(0)
   })
 
   it('T4, a connection offers 30: the 60 of the outside leg name 30 as connected supply', () => {

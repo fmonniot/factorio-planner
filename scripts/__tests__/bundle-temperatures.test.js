@@ -98,5 +98,11 @@ describe('bundled temperatures', () => {
       const usesHeat = r.ingredients.find(i => i.itemId === 'power:heat')
       if (usesHeat) expect(usesHeat.minimumTemperature, `${r.id} heat bound`).toEqual(expect.any(Number))
     }
+    // Heat bounds are minimums only: the solver compares a reactor's cap with the minimum and never with a maximum.
+    for (const r of Object.values(bundle.recipes)) {
+      for (const i of r.ingredients) {
+        if (i.itemId === 'power:heat') expect(i, `${r.id} heat`).not.toHaveProperty('maximumTemperature')
+      }
+    }
   })
 })

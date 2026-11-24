@@ -67,11 +67,12 @@ describe('rangeOf and productTag', () => {
     expect(rangeOf({ minimumTemperature: -1e30 })).toStrictEqual({})
   })
 
-  it('a product is made at its temperature, else the default, else unknown; heat is unknown', () => {
+  it('a product is made at its temperature, else the default, else unknown; reactor heat carries its temperature', () => {
     expect(productTag({ itemId: 'steam', temperature: 500 }, { defaultTemperature: 165 })).toStrictEqual({ at: 500 })
     expect(productTag({ itemId: 'steam' }, { defaultTemperature: 165 })).toStrictEqual({ at: 165 })
     expect(productTag({ itemId: 'steam' }, undefined)).toStrictEqual({ at: null })
-    expect(productTag({ itemId: 'power:heat', temperature: 500 }, undefined)).toStrictEqual({ at: null })
+    expect(productTag({ itemId: 'power:heat', temperature: 500 }, undefined)).toStrictEqual({ at: 500 })
+    expect(productTag({ itemId: 'power:heat' }, undefined)).toStrictEqual({ at: null })
   })
 })
 

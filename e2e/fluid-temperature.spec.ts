@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
-import { detail, pane, selectSlot, slot } from './support/summary'
+import { detail, pane, selectSlot, slot, slotById } from './support/summary'
 import { pinEdge } from './support/blockGraph'
 
 /** One Seablock block: 12.5% semiheavy water (needs ≤30°C and ≥95°C fluids) plus the enriched H2S recipe (needs 125–165°C steam). */
@@ -52,27 +52,27 @@ test('a steam engine on boiler steam raises no warning', async ({ page }) => {
 /** Two Seablock blocks making electricity from reactor heat on a heat exchanger 4 (needs heat of at least 765°C): a burner reactor (750°C) and a burner reactor 2 (1000°C). */
 const HEAT_FIXTURE = path.resolve('e2e/fixtures/heat-temperature-seablock.json')
 
-test('a burner reactor under a heat exchanger 4 warns, and shows the heat bound', async ({ page }) => {
+test('a burner reactor under a heat exchanger 4 is not run: the block imports heat at ≥765°C, with no warning', async ({ page }) => {
   await loadPlanFixture(page, HEAT_FIXTURE, 'kompetenz-seablock')
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
 
   await expect(page.locator('[data-testid="block-tab"] button[aria-label="Too cold"]').first()).toHaveAttribute('aria-current', 'true')
   await expect(page.locator('main [aria-label^="Heat (≥765°C)"]').first()).toContainText('≥765°C')
 
-  const pill = page.getByRole('button', { name: /1 warning/ })
-  await expect(pill).toBeVisible()
-  await pill.click()
-  const body = page.getByText(/needs Heat at/)
-  await expect(body).toContainText('≥765°C')
-  await expect(body).toContainText('750°C')
+  // The 750°C reactor cannot feed the exchanger, so the block imports the heat at the range and the reactor's fuel is not needed.
+  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+  await expect(pane(page, 'Ingredients').locator('[data-testid="summary-slot"][data-item-id="power:heat"] [data-testid="summary-slot-temperature"]')).toHaveText('≥765°C')
+  await expect(slotById(page, 'Ingredients', 'wood')).toHaveCount(0)
 })
 
-test('a burner reactor 2 under a heat exchanger 4 raises no warning', async ({ page }) => {
+test('a burner reactor 2 under a heat exchanger 4 runs it with no warning', async ({ page }) => {
   await loadPlanFixture(page, HEAT_FIXTURE, 'kompetenz-seablock')
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
   await page.locator('[data-testid="block-tab"] button[aria-label="Hot enough"]').click()
   await expect(page.locator('main [aria-label^="Heat (≥765°C)"]').first()).toBeVisible()
   await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+  await expect(slotById(page, 'Ingredients', 'power:heat')).toHaveCount(0)
+  await expect(slotById(page, 'Ingredients', 'wood')).toHaveCount(1)
 })
 
 /**

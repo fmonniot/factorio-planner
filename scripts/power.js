@@ -322,7 +322,7 @@ export async function exportPower(raw, opts) {
       continue
     }
     const eff = source.effectivity ?? 1
-    // The reactor's heat buffer cap is the temperature of the heat it produces.
+    // The heat buffer cap is the hottest heat the reactor can deliver; the solver keys its heat by it.
     const maxHeat = proto.heat_buffer?.max_temperature
     const entries = fuels.map(fuel => {
       const fuelPerSec = heatKw / (fuel.kj * eff)

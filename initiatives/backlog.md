@@ -14,8 +14,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Bugs
 
 
-- [ ] **Reactor heat temperature is not in the LP.** Heat counts as an unknown temperature (the key `power:heat@?`, which fits every range), because a reactor's `temperature` is its heat buffer's maximum, not what it settles at under load; a heat exchanger whose minimum the reactor cannot reach is only flagged by the warning, and heat pipe tiers are not considered at all. Needs a model of the reactor's working temperature first.
-
 ## Sharing
 
 - [ ] **Share a plan by URL.** Encode a plan in a link so it can be shared without exchanging a file; import would open it as a new plan, with the same data-set check as a file import. Size measurements and a proposed design are in [share-by-url/](share-by-url/plan.md).

@@ -10,7 +10,7 @@ import { blockAreas } from '../../solver/areas'
 import { areaName } from '../../data/subPlanTree'
 import type { FluidTag, SolvedNode, SubPlan, SolverWarning, GameData } from '../../data/types'
 import { fmtPower, fmtItemRateText } from './ItemTile'
-import { fmtConnectionTemperature, type ConnectionLink, fmtNoFittingTemperature, fmtTemperatureWarning } from './temperature'
+import { fmtConnectionTemperature, type ConnectionLink, fmtNoFittingTemperature } from './temperature'
 import { fmtFluidTag } from '../../data/flowKey'
 import { countSubPlanContents } from './subPlanContents'
 import { warningTargets } from './warningTargets'
@@ -159,7 +159,6 @@ function warningTitle(w: SolverWarning): string {
     case 'area-cut-off': return 'Area cut off from its supply'
     case 'loop-not-converged': return 'Loop between blocks did not settle'
     case 'request-loop-not-converged': return 'Requests around a loop do not settle'
-    case 'temperature-mismatch': return 'Fluid temperature does not fit'
     case 'no-fitting-temperature': return 'No fluid at a fitting temperature'
     case 'connection-temperature': return 'Connected fluid is at the wrong temperature'
     case 'module-not-allowed': return 'Module not accepted'
@@ -250,7 +249,6 @@ function warningBody(
       const names = [...w.blockIds, w.blockIds[0]].map(blockName)
       return `The supply around the loop ${names.join(' → ')} still changed after ${w.rounds} rounds. Rates are from the last round and may not add up.`
     }
-    case 'temperature-mismatch': return fmtTemperatureWarning(w, gameData)
     case 'no-fitting-temperature': return fmtNoFittingTemperature(w, gameData)
     case 'connection-temperature': return fmtConnectionTemperature(w, gameData, id => blockName(connections.find(c => c.id === id)?.fromBlockId ?? id))
     case 'module-not-allowed': {
@@ -291,7 +289,6 @@ function warningHint(w: SolverWarning): string {
     case 'coproduct-driven': return "Add an extraction or other row that supplies the co-product, set it to Don't make more here (right-click its ingredient chip, then Comes from…), or pin the recipe's rate."
     case 'loop-not-converged': return "Remove one of the loop's connections, or set a limit on one."
     case 'request-loop-not-converged': return "Set a limit on one of the loop's requests, or remove one."
-    case 'temperature-mismatch': return 'Use a boiler or recipe whose output is in range, or connect a block that makes it at the right temperature.'
     case 'no-fitting-temperature': return 'Add a row that makes it at a fitting temperature, turn Import on for it, or connect a block that makes it.'
     case 'connection-temperature': return 'Connect a block that makes it at a fitting temperature, or add a row here that makes it.'
     case 'module-not-allowed': return 'Replace the module with one the machine accepts, or pick another machine or beacon.'
