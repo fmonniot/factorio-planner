@@ -310,10 +310,8 @@ export function FactorySummary() {
   // Slots: one per item, each split into allocation segments.
   const exportsOf = (itemId: string) => outputFlows.filter(f => f.itemId === itemId)
   const blockIds = new Set(blocks.map(b => b.id))
-  // The solver adds a requested amount to the first product of the item.
-  const requestedItemIds = new Set(productItemIds)
   const productSlots = products.map(p => {
-    const requests = requestedItemIds.delete(p.itemId) ? (requestsByItem.get(p.itemId) ?? []) : []
+    const requests = requestsByItem.get(p.itemId) ?? []
     return productSlot(
       p,
       // No node makes the item: the product is fully short, not unknown.
@@ -339,7 +337,7 @@ export function FactorySummary() {
   const fmtFor = (itemId: string, perMin: number) => fmtItemRate(itemId, perMin / 60, rateUnit)
 
   function requestAddProduct(itemId: string, extraRate?: number) {
-    if (!activeBlock) return
+    if (!activeBlock || hasProduct(activeBlock, itemId)) return
     const product: Product = { id: crypto.randomUUID(), itemId, ...(extraRate !== undefined ? { extraRate } : {}) }
     const effects = productChangeEffects(blocks, activeBlock.id, itemId, 'add', allFlows)
     const received = receivedFromSources(blocks, activeBlock.id, itemId)
@@ -387,6 +385,7 @@ export function FactorySummary() {
 
   function confirmPendingChange() {
     if (!pendingChange) return
+    // addProduct is a no-op when the block gained the product while the dialog was open.
     if (pendingChange.change === 'add') addProduct(pendingChange.product)
     else removeProduct(pendingChange.productId)
     setPendingChange(null)
@@ -720,6 +719,7 @@ export function FactorySummary() {
       {showProductPicker && (
         <ItemPicker
           source="items"
+          presentItems={productItemIds}
           onSelect={handleAddProduct}
           onClose={() => setShowProductPicker(false)}
         />

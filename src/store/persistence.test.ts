@@ -1362,6 +1362,14 @@ describe('plan import', () => {
       expect(blocks[0].servedOrder?.plate[0]).toEqual({ kind: 'block', blockId: blocks[1].id })
     })
 
+    it('merges the duplicate products of an imported plan', () => {
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      const imported = JSON.parse(JSON.stringify(makeState()))
+      imported.blocks[0].products = [{ id: 'x', itemId: 'iron-plate', extraRate: 10 }, { id: 'y', itemId: 'iron-plate', extraRate: 5 }]
+      expect(importPlanAsNew(parseAppState(imported), 'nullius', 'dup.json')).toEqual({ type: 'ok' })
+      expect(useBlockStore.getState().blocks[0].products).toEqual([{ id: expect.any(String), itemId: 'iron-plate', extraRate: 15 }])
+    })
+
     it('adds a plan named after the file, makes it active and leaves the previous plan alone', () => {
       useGameDataStore.setState({ status: loadedStatus('nullius') })
       useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })

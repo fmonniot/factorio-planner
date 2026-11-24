@@ -79,6 +79,21 @@ test.describe('Item picker (goal)', () => {
     await expect(page.locator(`[data-testid="summary-slot"][data-item-id="${itemId}"]`).first()).toHaveAccessibleName(/nothing requested yet/)
   })
 
+  test('an item that is already a product is disabled', async ({ page }) => {
+    const overlay = page.locator('.fixed.inset-0')
+    await page.getByTitle('Add product').click()
+    const itemId = await overlay.locator('[data-testid="item-slot"]').first().getAttribute('data-item-id')
+    await overlay.locator(`[data-testid="item-slot"][data-item-id="${itemId}"]`).click()
+    await expect(overlay).not.toBeVisible()
+
+    await page.getByTitle('Add product').click()
+    const again = overlay.locator(`[data-testid="item-slot"][data-item-id="${itemId}"]`)
+    await expect(again).toHaveAttribute('aria-disabled', 'true')
+    await again.click({ force: true })
+    await expect(overlay).toBeVisible()
+    await expect(page.locator(`[data-testid="summary-slot"][data-item-id="${itemId}"]`)).toHaveCount(1)
+  })
+
   test('Cancel button closes the picker without adding a goal', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
     await page.getByTitle('Add product').click()

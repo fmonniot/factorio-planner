@@ -229,10 +229,8 @@ describe('productChangeEffects', () => {
     expect(effects(blocks, 'remove', [takeFlow('T', 0, { requestIgnored: 'request-loop' })])).toEqual([])
   })
 
-  it('is empty on removal while another product of the item remains', () => {
-    const s = block('S', { products: ['plate'] })
-    s.products.push({ id: 'second', itemId: 'plate' })
-    expect(effects([s, block('T', { from: [['plate', 'S']] })], 'remove')).toEqual([])
+  it('is empty on removal when the block has no product of the item', () => {
+    expect(effects([block('S'), block('T', { from: [['plate', 'S']] })], 'remove')).toEqual([])
   })
 
   it('leaves the rate undefined without a flow, and is empty for an unknown block', () => {

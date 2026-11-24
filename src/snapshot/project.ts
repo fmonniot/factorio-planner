@@ -157,17 +157,8 @@ export function projectSnapshot(
     const error = solve.errors[block.id]
     const result = solve.results[block.id] ?? EMPTY_RESULT
 
-    // The first product of an item receives the requested amount, as the solver does.
     const requested = requestedOf(block.id)
-    const seen = new Set<string>()
-    const products = block.products.map(p => {
-      let r = p.extraRate ?? 0
-      if (!seen.has(p.itemId)) {
-        seen.add(p.itemId)
-        r += requested.get(p.itemId) ?? 0
-      }
-      return withRate(p.itemId, r)
-    })
+    const products = block.products.map(p => withRate(p.itemId, (p.extraRate ?? 0) + (requested.get(p.itemId) ?? 0)))
 
     const solved = new Map(result.nodes.map(n => [n.recipeNodeId, n]))
     const rows: SnapshotRow[] = []
