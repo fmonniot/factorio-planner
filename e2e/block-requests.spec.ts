@@ -172,7 +172,7 @@ test.describe('requests between blocks', () => {
     await expect(rodProduct).toHaveAttribute('data-tip', 'Iron rod — nothing requested yet')
     await rodProduct.click()
     await expect(detail(page, 'Products')).toContainText('nothing requested yet')
-    await expect(detail(page, 'Products').getByRole('button', { name: '+ Extra output' })).toBeVisible()
+    await expect(detail(page, 'Products').getByRole('button', { name: 'Add extra output' })).toBeVisible()
 
     // Gears requests its 15 rods from Plates, which has no recipe for them.
     await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
@@ -208,7 +208,7 @@ test.describe('requests between blocks', () => {
     await expect(page.getByTestId('graph-loop-status')).toHaveAttribute('data-converged', 'true')
   })
 
-  test('+ Extra output and Remove extra change what a product makes', async ({ page }) => {
+  test('Add extra output and Remove extra change what a product makes', async ({ page }) => {
     await setup(page)
     await requestPlates(page)
     await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
@@ -221,7 +221,7 @@ test.describe('requests between blocks', () => {
     await expect(productEntry(page, 'kept')).toHaveCount(0)
     await expect(productEntry(page, 'export')).toHaveText('Gears requests 30.0')
 
-    await detail(page, 'Products').getByRole('button', { name: '+ Extra output' }).click()
+    await detail(page, 'Products').getByRole('button', { name: 'Add extra output' }).click()
     await page.getByLabel('Extra output rate').fill('10')
     await page.getByLabel('Extra output rate').press('Enter')
     await expect(detail(page, 'Products').getByRole('button', { name: 'extra 10.0' })).toBeVisible()

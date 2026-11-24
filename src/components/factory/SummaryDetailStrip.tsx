@@ -1,9 +1,10 @@
 import type { Item } from '../../data/types'
-import { TipWrap } from '../TipWrap'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import { fmtFluidTag } from '../../data/flowKey'
 import { StackedBar } from './StackedBar'
+import { StripToolbar } from './StripToolbar'
+import type { StripAction } from './StripToolbar'
 import type { BarSegment } from './StackedBar'
 import { segmentLook } from './segmentLooks'
 import { fmtRate, fmtItemRateText, fmtEnergyText } from './ItemTile'
@@ -11,20 +12,8 @@ import { isEnergyItem } from '../../data/electricity'
 import { barName, keyEntryText, segmentLabel, segmentTitle } from './summarySegments'
 import type { Overlay, OverviewRow, Segment, SegmentKind, OverlayKind, SlotModel } from './summarySegments'
 
+export type { StripAction }
 export type StripState = 'overview' | 'preview' | 'selected' | 'editing'
-
-export interface StripAction {
-  /** Stable React key and test handle, for an action whose label changes while it stays open (default: the label). */
-  id?: string
-  label: string
-  /** A count drawn as a small chip after the label; the button's accessible name is `${label} · ${badge.count} ${badge.noun}`. */
-  badge?: { count: number; noun: string }
-  onSelect: (e: React.MouseEvent<HTMLButtonElement>) => void
-  danger?: boolean
-  disabled?: boolean
-  /** Shown as the instant tooltip (`data-tip`); used to say why the action is disabled. */
-  title?: string
-}
 
 interface SummaryDetailStripProps {
   state: StripState
@@ -41,8 +30,6 @@ interface SummaryDetailStripProps {
   /** The slot's header rates (the pane decides what they say and whether they are editable). */
   rates: React.ReactNode
   actions: StripAction[]
-  /** Editable states only: one more entry at the end of the actions line. */
-  keyExtra?: React.ReactNode
   /** Selected state only: a block of controls under the actions line (the Ingredients pane's Comes from). */
   controls?: React.ReactNode
   /** The pane holds controls for its selected slot: the strip keeps room for them while another slot is previewed. */
@@ -69,7 +56,6 @@ export function SummaryDetailStrip({
   onToggleTrace,
   rates,
   actions,
-  keyExtra,
   controls,
   tall = false,
   onBack,
@@ -178,7 +164,7 @@ export function SummaryDetailStrip({
         : undefined,
     }
   })
-  const showActions = editable && (actions.length > 0 || !!keyExtra)
+  const showActions = editable && actions.length > 0
 
   return (
     <div data-testid="summary-detail" data-state={state} data-tall={tall ? 'true' : undefined} className={`${root} pt-[5px] pb-[3px] gap-[3px]`}>
@@ -205,31 +191,7 @@ export function SummaryDetailStrip({
       <div className="shrink-0">
         <StackedBar segments={segments} tickAt={slot.product?.tickAt ?? null} label={`${shownName} allocation`} />
       </div>
-      {showActions && (
-        <div className="flex items-center gap-1.5 shrink-0 h-[22px]">
-          {actions.map(a => {
-            const tip = a.title ?? (a.badge ? `${a.badge.count} ${a.badge.noun}` : undefined)
-            const button = (
-            <button
-              key={a.id ?? a.label}
-              type="button"
-              onClick={a.onSelect}
-              disabled={a.disabled}
-              data-tip={a.disabled ? undefined : tip}
-              aria-label={a.badge ? `${a.label} · ${a.badge.count} ${a.badge.noun}` : undefined}
-              className={`bg-gray-900 border border-gray-700 rounded px-2 py-0.5 leading-4 whitespace-nowrap hover:border-gray-500 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:border-gray-700 ${a.danger ? 'text-red-400' : 'text-gray-300'}`}
-            >
-              {a.label}
-              {a.badge && (
-                <span aria-hidden="true" data-testid="strip-action-badge" className="ml-1 rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">{a.badge.count}</span>
-              )}
-            </button>
-            )
-            return a.disabled && tip ? <TipWrap key={a.id ?? a.label} tip={tip}>{button}</TipWrap> : button
-          })}
-          {keyExtra && <span data-testid="summary-key-extra" className="inline-flex">{keyExtra}</span>}
-        </div>
-      )}
+      {showActions && <StripToolbar actions={actions} />}
       {state === 'selected' && controls}
     </div>
   )

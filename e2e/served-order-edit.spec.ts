@@ -119,7 +119,7 @@ test('Served order: move, add and reset with the buttons', async ({ page }, test
   await expect(popover(page).getByTestId('served-divider')).toHaveCount(0)
   await expect.poll(() => rankedNames(page)).toEqual(['Belts', 'Gears', 'Late'])
   await expect(lineOf(page, 'Late').getByTestId('served-short')).toContainText('short 30.0')
-  await expect(servedButton(page)).toHaveText('Served order…')
+  await expect(servedButton(page)).toHaveAccessibleName('Served order…')
 
   // Late up twice: first in line, so Gears goes short.
   await lineOf(page, 'Late').getByTestId('served-move-up').click()
@@ -142,7 +142,7 @@ test('Served order: a line joins the list when dragged into it', async ({ page }
   await lineOf(page, 'Late').dragTo(lineOf(page, 'Belts'), { targetPosition: { x: 20, y: 2 } })
   await expect(popover(page).getByTestId('served-divider')).toHaveCount(0)
   await expect.poll(() => rankedNames(page)).toEqual(['Late', 'Belts', 'Gears'])
-  await expect(servedButton(page)).toHaveText('Served order…')
+  await expect(servedButton(page)).toHaveAccessibleName('Served order…')
   await expect(lineOf(page, 'Late')).toContainText('got 30.0')
   await expect(lineOf(page, 'Gears').getByTestId('served-short')).toContainText('short 30.0')
 })

@@ -15,7 +15,7 @@ import type { SlotModel, SummaryPaneKind } from './summarySegments'
 const EDGE_PX = 12
 const EDGE_STEP_PX = 4
 
-interface SlotEdit {
+export interface SlotEdit {
   editing: boolean
   start: () => void
   stop: () => void
@@ -33,9 +33,8 @@ interface SummaryPaneProps {
   editable?: boolean
   onSlotContextMenu: (slot: SlotModel, e: React.MouseEvent<HTMLButtonElement>) => void
   renderRates: (slot: SlotModel, edit: SlotEdit) => React.ReactNode
-  actionsFor: (slot: SlotModel) => StripAction[]
-  /** Products: an entry added to the end of the colour key while the slot is selected. */
-  renderKeyExtra?: (slot: SlotModel, edit: SlotEdit) => React.ReactNode
+  /** The toolbar of the strip for a slot; `edit` lets Products offer Extra output only while the field is not open. */
+  actionsFor: (slot: SlotModel, edit: SlotEdit) => StripAction[]
   /** Ingredients: controls under the actions line of the selected slot's strip. */
   renderControls?: (slot: SlotModel) => React.ReactNode
   onOpenBlock: (blockId: string) => void
@@ -67,7 +66,6 @@ export function SummaryPane({
   onSlotContextMenu,
   renderRates,
   actionsFor,
-  renderKeyExtra,
   renderControls,
   onOpenBlock,
   onConnectionContextMenu,
@@ -355,8 +353,7 @@ export function SummaryPane({
         traceKey={activeTrace}
         onToggleTrace={key => setTraceKey(prev => (prev === key ? null : key))}
         rates={shown && renderRates(shown, editOf(shown))}
-        actions={shown ? actionsFor(shown) : []}
-        keyExtra={shown && renderKeyExtra?.(shown, editOf(shown))}
+        actions={shown ? actionsFor(shown, editOf(shown)) : []}
         controls={shown && renderControls && <div data-summary-controls className="contents">{renderControls(shown)}</div>}
         tall={renderControls !== undefined && selected !== undefined}
         onBack={() => {
