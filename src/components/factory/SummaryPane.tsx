@@ -84,7 +84,7 @@ export function SummaryPane({
     setEditing(false)
     setHoveredId(null)
   }
-  // Once per request, when its slot is on screen: bring the slot into view and focus the first control of the strip.
+  // Once per request, when its slot is on screen: bring the slot into view and focus Sources… in the strip.
   const rootRef = useRef<HTMLElement>(null)
   const focusedSeq = useRef<number | undefined>(undefined)
   // The pointer may rest where a slot now is (the request came from a popover that covered the grid): a slot it
@@ -97,7 +97,7 @@ export function SummaryPane({
     document.addEventListener('mousemove', () => { hoverHeld.current = false }, { once: true })
     const root = rootRef.current
     root?.querySelector('[data-testid="summary-slot"][aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest' })
-    root?.querySelector<HTMLElement>('[data-summary-controls] :is(button, input, select, [tabindex]):not([tabindex="-1"], :disabled)')?.focus()
+    root?.querySelector<HTMLElement>('[data-testid="comes-from"] [data-testid="sources-button"]')?.focus()
   })
   const [traceKey, setTraceKey] = useState<string | null>(null)
   // The dragged slot: the ref is set at once (drag handlers read it), the state later, so the

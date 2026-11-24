@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { makeEmptyBlock } from '../../store/blockStore'
-import { areaRuleLabel, ruleLabel, sourcesLineOrder, ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL, SOURCE_RULE_NAMES, SOURCES_BUTTON_LABEL, SOURCES_LINES } from './itemSourcing'
+import { areaRuleLabel, ruleLabel, sourcesLineOrder, ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL, SOURCE_RULE_NAMES, SOURCES_BUTTON_LABEL, SOURCES_LINES, ruleChipOf } from './itemSourcing'
 
 describe('the vocabulary', () => {
   it('names the three presets and gives each its help text', () => {
@@ -78,5 +78,23 @@ describe('ruleLabel', () => {
     expect(ruleLabel({ kind: 'leftover-off' }, plan)).toBe('Leftover off')
     expect(ruleLabel({ kind: 'connections-first', areaId: 'L' }, plan)).toBe('Line L: Receive it first')
     expect(ruleLabel({ kind: 'takes-nothing', areaId: 'L', otherAreaId: 'M1' }, plan)).toBe('Line L: takes nothing from Line M1')
+  })
+})
+
+describe('ruleChipOf', () => {
+  it('reads the preset at block scope', () => {
+    expect(ruleChipOf(undefined, { ownRule: false })).toEqual({ text: 'Make it here', owner: 'block', preset: undefined })
+    expect(ruleChipOf({ makeHere: 'after-blocks' }, { ownRule: false })).toEqual({ text: 'Receive it first', owner: 'block', preset: 'connections-first' })
+    expect(ruleChipOf({ makeHere: 'off' }, { ownRule: false })).toEqual({ text: "Don't make more here", owner: 'block', preset: 'byproducts-first' })
+  })
+
+  it('adds Import off', () => {
+    expect(ruleChipOf({ importOff: true }, { ownRule: false }).text).toBe('Make it here · Import off')
+    expect(ruleChipOf({ makeHere: 'off', importOff: true }, { ownRule: false }).text).toBe("Don't make more here · Import off")
+  })
+
+  it('prefixes whose rule it is at area scope', () => {
+    expect(ruleChipOf({ makeHere: 'after-blocks' }, { area: 'A', ownRule: false })).toEqual({ text: "Block's rule · Receive it first", owner: 'follows', preset: 'connections-first' })
+    expect(ruleChipOf({ importOff: true }, { area: 'A', ownRule: true })).toEqual({ text: 'Own rule · Make it here · Import off', owner: 'own', preset: undefined })
   })
 })

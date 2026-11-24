@@ -1,5 +1,6 @@
 import { MISSING_BLOCK_COLOR, withAlpha } from '../../data/blockColors'
 import type { OverlayKind, SegmentKind } from './summarySegments'
+import type { LineLook } from './sourcesModel'
 
 export const AMBER = '#fbbf24'
 
@@ -66,4 +67,28 @@ export function segmentLook(
 /** Swatch / bar style of a look: fill plus a 1px border of the look's style. */
 export function lookStyle(look: SegmentLook): React.CSSProperties {
   return { background: look.bg, border: `1px ${look.borderStyle} ${look.border}`, boxSizing: 'border-box' }
+}
+
+const MADE_TEAL = '#14b8a6'
+
+/** The look of what this block makes itself (the Sources list's made-here, make-more and other-area lines): teal. */
+export function madeLook(): SegmentLook {
+  return {
+    bg: withAlpha(MADE_TEAL, 0.32),
+    border: withAlpha(MADE_TEAL, 0.75),
+    borderStyle: 'solid',
+    text: '#f3f4f6',
+    legend: '#d1d5db',
+    mini: MADE_TEAL,
+  }
+}
+
+/** The segment look of a line of the Sources list. */
+export function lookOfLine(look: LineLook): SegmentLook {
+  switch (look.kind) {
+    case 'block': return segmentLook('source', look.color, look.limited)
+    case 'made': return madeLook()
+    case 'import': return segmentLook('import', undefined)
+    case 'missing': return segmentLook('short', undefined)
+  }
 }

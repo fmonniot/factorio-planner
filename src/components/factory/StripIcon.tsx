@@ -127,6 +127,8 @@ const ICONS = {
   'make-product': m => corner(SLOT, RAISE, m),
   /** Receive from…: a train with a plus. */
   receive: m => corner(<g transform="translate(-1.1 -.3)">{TRAIN}</g>, PLUS, m),
+  /** Make more here, in the Sources list: an assembler with a plus. */
+  'make-more': m => corner(MACHINE, PLUS, m),
   /** Preset Make it here: an assembler. */
   make: () => MACHINE,
   /** Preset Don't make more here: the assembler, struck. */

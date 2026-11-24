@@ -5,6 +5,7 @@ import { loadPlanFixture } from './support/loadPlan'
 import { detail, pane, selectSlot, slot } from './support/summary'
 import { exportPlan } from './support/appMenu'
 import { changeSourcing, comesFromPopover, selectRow, sidePanel } from './support/sidePanel'
+import { expectPreset, importSwitch, setPreset, type Preset } from './support/sourcesList'
 
 /**
  * Fixture: the active block "Acid" makes hydrogen 800 and nitric acid 125 with steam electrolysis
@@ -41,10 +42,14 @@ const popoverControl = (page: Page) => comesFromPopover(page).getByTestId('comes
  * Choose a preset for oxygen ('own' | 'byproducts-first' | 'connections-first'): Change… on the side panel's oxygen
  * entry opens the Comes from popover, which sets it. The popover stays open.
  */
-async function choose(page: Page, mode: string) {
+async function choose(page: Page, mode: Preset) {
   const control = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
-  await control.locator(`[data-sourcing-choice="${mode}"]`).click()
+  await setPreset(control, mode)
 }
+
+/** The sentence of oxygen in the side panel, which reads the rule the popover sets. */
+const panelSentence = (page: Page) =>
+  sidePanel(page).locator('[data-testid="sourcing-entry"][data-item-id="nullius-oxygen"]').getByTestId('sourcing-sentence')
 
 async function exportedAcid(page: Page) {
   const download = await exportPlan(page)
@@ -66,8 +71,8 @@ test.describe('item sourcing', () => {
     await expect(page.getByRole('menuitem')).toHaveText(['Comes from…'])
     await page.getByRole('menuitem', { name: 'Comes from…' }).click()
     await expect(comesFromPopover(page)).toBeVisible()
-    await expect(comesFromPopover(page)).toContainText('Applies to every row of this block')
-    await expect(comesFromPopover(page).getByRole('radio', { name: 'Make it here' })).toBeFocused()
+    await expect(comesFromPopover(page)).toContainText('Every row of this block')
+    await expect(comesFromPopover(page).getByTestId('sources-line-toggle').first()).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(comesFromPopover(page)).toHaveCount(0)
 
@@ -80,12 +85,11 @@ test.describe('item sourcing', () => {
 
     await choose(page, 'byproducts-first')
     const control = popoverControl(page)
-    await expect(control.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
-    await expect(control.getByTestId('import-switch')).not.toHaveAttribute('aria-disabled')
-    await expect(control.getByTestId('import-switch')).toBeChecked()
-    await expect(control.getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes (')
-    // The panel behind it says the same (a press on the row would close the popover, so the entry is read where it is).
-    await expect(sidePanel(page).locator('[data-testid="sourcing-entry"][data-item-id="nullius-oxygen"]').getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes (')
+    await expectPreset(control, 'byproducts-first')
+    await expect(importSwitch(control)).not.toHaveAttribute('aria-disabled')
+    await expect(importSwitch(control)).toBeChecked()
+    // The panel behind it reads the rule (a press on the row would close the popover, so the entry is read where it is).
+    await expect(panelSentence(page)).toContainText('Uses what this block already makes (')
 
     // Oxygen is imported now, so its slot is there in its own right, and the popover links to it.
     await expect(oxygenSlot(page)).toContainText('100')
@@ -103,8 +107,8 @@ test.describe('item sourcing', () => {
 
     // The export menu closed the popover (a press outside it); Change… opens it again, with the rule.
     const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
-    await expect(again.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
-    await again.getByRole('radio', { name: 'Make it here' }).click()
+    await expectPreset(again, 'byproducts-first')
+    await setPreset(again, 'own')
     await expect(compressedSlot(page)).toContainText('25.0')
     await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveCount(0)
     await expect(comesFromPopover(page).getByTestId('comes-from-show-slot')).toHaveCount(0)
@@ -117,13 +121,11 @@ test.describe('item sourcing', () => {
 
     // The switch is free while the preset is chosen: both stay chosen.
     const control = popoverControl(page)
-    await expect(control.getByTestId('import-switch').locator('svg')).toHaveAttribute('data-icon', 'import')
-    await control.getByTestId('import-switch').click()
-    await expect(control.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
-    await expect(control.getByTestId('import-switch')).not.toBeChecked()
-    // Off draws the struck icon as well as the unlit button.
-    await expect(control.getByTestId('import-switch').locator('svg')).toHaveAttribute('data-icon', 'import-off')
-    await expect(control.getByTestId('sourcing-sentence')).toContainText('The rest is missing: Import is off.')
+    await importSwitch(control).click()
+    await expectPreset(control, 'byproducts-first')
+    await expect(importSwitch(control)).not.toBeChecked()
+    await expect(control.getByTestId('sources-rule-chip')).toHaveText("Don't make more here · Import off")
+    await expect(panelSentence(page)).toContainText('The rest is missing: Import is off.')
     // Nothing is imported or made for it: the slot reads short, with the missing amount.
     await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'short')
     await expect(oxygenSlot(page)).toHaveAccessibleName(/^Oxygen, 100 per minute, short, has a source rule$/)
@@ -134,10 +136,10 @@ test.describe('item sourcing', () => {
 
     // Choosing the preset first, from the other side: Make it here keeps Import off, and the pair comes back by the preset.
     const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
-    await again.getByRole('radio', { name: 'Make it here' }).click()
-    await expect(again.getByTestId('import-switch')).not.toBeChecked()
-    await again.getByRole('radio', { name: "Don't make more here" }).click()
-    await expect(again.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
+    await setPreset(again, 'own')
+    await expect(importSwitch(again)).not.toBeChecked()
+    await setPreset(again, 'byproducts-first')
+    await expectPreset(again, 'byproducts-first')
     await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'short')
 
     // Its strip names what is missing and why.
@@ -181,16 +183,15 @@ test.describe('item sourcing', () => {
       await expect(page.getByTestId('summary-line')).toHaveCount(0)
       await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
       await expect(detail(page, 'Ingredients')).toHaveAttribute('data-state', 'selected')
-      // Focus is on the chosen preset, and stays there: a drawer closes instead of taking it back.
-      await expect(comesFrom(page).getByRole('radio', { name: "Don't make more here" })).toBeFocused()
+      // Focus is on the strip's Sources…, and stays there: a drawer closes instead of taking it back.
+      await expect(comesFrom(page).getByTestId('sources-button')).toBeFocused()
       await expect(sidePanel(page)).toHaveCount(layout === 'drawer' ? 0 : 1)
       await page.waitForTimeout(300)
-      await expect(comesFrom(page).getByRole('radio', { name: "Don't make more here" })).toBeFocused()
+      await expect(comesFrom(page).getByTestId('sources-button')).toBeFocused()
 
-      // The keyboard goes on from there: the arrow chooses the next preset.
-      await page.keyboard.press('ArrowLeft')
-      await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeChecked()
-      await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeFocused()
+      // The keyboard goes on from there: Enter opens the popover with the rule's list.
+      await page.keyboard.press('Enter')
+      await expectPreset(popoverControl(page), 'byproducts-first')
     })
   }
 
@@ -212,9 +213,9 @@ test.describe('item sourcing', () => {
     await page.keyboard.press('Escape')
     await expect(comesFromPopover(page)).toHaveCount(0)
     const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
-    await expect(again.getByRole('radio', { name: 'Receive it first' })).toBeChecked()
+    await expectPreset(again, 'connections-first')
     await again.getByTestId('no-effect').getByRole('button', { name: 'Remove' }).click()
-    await expect(again.getByRole('radio', { name: 'Make it here' })).toBeChecked()
+    await expectPreset(again, 'own')
     await expect(oxygenSlot(page)).toHaveCount(0)
     await expect(pane(page, 'Ingredients').getByTestId('summary-slot')).toHaveCount(count)
     expect((await exportedAcid(page)).sourceRules).toEqual({})
@@ -245,7 +246,8 @@ test.describe('item sourcing', () => {
     // The popover stays open and now says what the rule does; the item is connected, so it has a slot.
     await expect(comesFromPopover(page)).toBeVisible()
     await expect(control.getByTestId('no-effect')).toHaveCount(0)
-    await expect(control.getByTestId('sourcing-sentence')).toContainText('Taken from O2 maker first')
+    await expect(control.locator('[data-line="block"]')).toHaveCount(1)
+    await expect(control.locator('[data-line="block"]')).toContainText('O2 maker')
     await expect(oxygenSlot(page)).toBeVisible()
     await expect(comesFromPopover(page).getByTestId('comes-from-show-slot')).toBeVisible()
     await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveCount(1)

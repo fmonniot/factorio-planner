@@ -323,8 +323,6 @@ describe('Comes from popover and connection menu', () => {
     expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'iron-ore', areaId: 'L' })
     useUiStore.getState().openComesFrom('iron-ore', anchor)
     expect(useUiStore.getState().comesFromPopover).not.toHaveProperty('areaId')
-    useUiStore.getState().openComesFrom('iron-ore', anchor, { list: true })
-    expect(useUiStore.getState().comesFromPopover).not.toHaveProperty('areaId')
   })
 
   it('opens the connection menu for an item at a point, and closes it', () => {

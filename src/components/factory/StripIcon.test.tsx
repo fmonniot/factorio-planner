@@ -24,4 +24,11 @@ describe('StripIcon', () => {
     expect(container.querySelectorAll('g[mask] circle')).toHaveLength(0)
     expect(container.querySelectorAll('circle')).toHaveLength(3)
   })
+
+  it('draws Make more here as the assembler with a plus in the corner', () => {
+    const { container } = render(<StripIcon name="make-more" />)
+    expect(container.querySelector('svg')).toHaveAttribute('data-icon', 'make-more')
+    expect(container.querySelector('g[mask] rect')).not.toBeNull()
+    expect(container.querySelector('path[d="M9.3 7.4v3.8M7.4 9.3h3.8"]')).not.toBeNull()
+  })
 })

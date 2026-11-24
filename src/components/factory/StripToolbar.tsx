@@ -33,7 +33,8 @@ export interface StripAction {
   describedBy?: string
 }
 
-const BUTTON = 'relative inline-flex h-[22px] w-6 shrink-0 items-center justify-center border border-gray-700 bg-gray-900 hover:border-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:border-gray-700 aria-disabled:opacity-40 aria-disabled:cursor-default aria-disabled:hover:border-gray-700 aria-expanded:border-teal-600 aria-expanded:bg-teal-900/60 aria-expanded:text-teal-200'
+/** The class set of an icon button of the strip, which the Sources toggle of the Comes from header shares. */
+export const STRIP_BUTTON_CLASS = 'relative inline-flex h-[22px] w-6 shrink-0 items-center justify-center border border-gray-700 bg-gray-900 hover:border-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:border-gray-700 aria-disabled:opacity-40 aria-disabled:cursor-default aria-disabled:hover:border-gray-700 aria-expanded:border-teal-600 aria-expanded:bg-teal-900/60 aria-expanded:text-teal-200'
 
 function ActionButton({ action, position }: { action: StripAction; position: 'alone' | 'first' | 'middle' | 'last' }) {
   const name = action.badge ? `${action.label} · ${action.badge.count} ${action.badge.noun}` : action.label
@@ -53,7 +54,7 @@ function ActionButton({ action, position }: { action: StripAction; position: 'al
       aria-controls={action.controls}
       aria-describedby={action.describedBy}
       data-testid={action.testId}
-      className={`${BUTTON} ${shape} ${action.danger ? 'text-red-400' : 'text-gray-300'}`}
+      className={`${STRIP_BUTTON_CLASS} ${shape} ${action.danger ? 'text-red-400' : 'text-gray-300'}`}
     >
       <StripIcon name={action.icon} />
       {action.badge && (
@@ -89,25 +90,16 @@ export function Cluster({ actions }: { actions: StripAction[] }) {
   )
 }
 
-export const Separator = () => <span aria-hidden="true" className="h-4 w-px shrink-0 bg-gray-700" />
-
 /**
  * The one row of icon buttons under a selected strip: 22 px high, 24 × 22 px buttons 4 px apart, no text, never
  * wrapping. The left cluster makes or supplies the item; after the spacer come information, then changes to the block.
- * `middle` is a group between the two (the Ingredients rule group), set off by a separator.
  */
-export function StripToolbar({ actions, middle }: { actions: StripAction[]; middle?: React.ReactNode }) {
+export function StripToolbar({ actions }: { actions: StripAction[] }) {
   const left = actions.filter(a => a.side === 'left')
   const right = actions.filter(a => a.side !== 'left')
   return (
     <div data-testid="strip-toolbar" className="flex items-center gap-1 shrink-0 h-[22px]">
       <Cluster actions={left} />
-      {middle && (
-        <>
-          {left.length > 0 && <Separator />}
-          {middle}
-        </>
-      )}
       <span className="flex-1 min-w-0" />
       <Cluster actions={right} />
     </div>

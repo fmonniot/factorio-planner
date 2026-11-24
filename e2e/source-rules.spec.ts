@@ -119,7 +119,7 @@ test.describe('source rules', () => {
     await expect(detail(page, 'Ingredients')).not.toHaveAttribute('data-state', 'selected')
     await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'false')
     // The switch is the rule: turning Import on takes the entry away, and the control goes with it.
-    await row.getByTestId('import-switch').click()
+    await row.getByTestId('sources-import-switch').click()
     await expect(row).toHaveCount(0)
     await expect(rulesButton(page)).toHaveText('Source rules (1)')
   })
@@ -157,7 +157,7 @@ test.describe('source rules', () => {
     // Its item shows its Comes from control in the row, with the way forward; no slot appears, in the pane or anywhere.
     await only.getByTestId('source-rule-item').click()
     await expect(popover(page)).toBeVisible()
-    await expect(only.getByTestId('comes-from').getByRole('radio', { name: 'Receive it first' })).toBeChecked()
+    await expect(only.getByTestId('comes-from').getByTestId('sources-rule-chip')).toHaveAttribute('data-preset', 'connections-first')
     await expect(only.getByTestId('receive-from')).toBeVisible()
     await expect(oxygenSlot(page)).toHaveCount(0)
     await expect(slots).toHaveCount(count)

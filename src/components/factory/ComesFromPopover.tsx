@@ -3,8 +3,6 @@ import { createPortal } from 'react-dom'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
-import { scopeAreasOf } from './sourceRules'
-import { Icon } from '../Icon'
 import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
 import { keepTabInside } from './keepTabInside'
@@ -63,7 +61,8 @@ export function ComesFromPopover({ hasSlot }: {
       const el = ref.current
       if (!el || !anchor) return
       const w = el.offsetWidth
-      const h = el.offsetHeight
+      // Taller than the window: it scrolls (the cap is in the class), and is placed as tall as the window allows.
+      const h = Math.min(el.offsetHeight, document.documentElement.clientHeight - 2 * MARGIN)
       const vw = document.documentElement.clientWidth
       const vh = document.documentElement.clientHeight
       const { rect, avoid } = liveAnchor(anchor)
@@ -94,17 +93,15 @@ export function ComesFromPopover({ hasSlot }: {
     }
   }, [shown, anchor])
 
-  // Focus goes to the chosen preset of the control when the popover opens (a new item gets it again).
+  // Focus goes to the first line of the Sources list when the popover opens (a new item gets it again).
   const itemId = popover?.itemId
   useLayoutEffect(() => {
     if (!shown) return
     origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    ref.current?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]')?.focus()
+    ref.current?.querySelector<HTMLElement>('[data-testid="sources-line-toggle"]')?.focus()
   }, [shown, itemId])
 
   if (!popover || !gameData) return null
-  const item = gameData.items[popover.itemId]
-  const name = item?.name ?? popover.itemId
 
   return createPortal(
     <div
@@ -115,28 +112,14 @@ export function ComesFromPopover({ hasSlot }: {
       data-item-id={popover.itemId}
       onKeyDown={keepTabInside}
       style={{ position: 'fixed', top: 0, left: 0 }}
-      className="z-50 flex w-[340px] max-w-[calc(100vw-1rem)] flex-col gap-2 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl px-3 py-2.5 text-left"
+      className="z-50 flex w-[340px] max-h-[calc(100vh-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto gap-2 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl px-3 py-2.5 text-left"
     >
-      <div className="flex items-center gap-2">
-        {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />}
-        <div className="min-w-0 flex-1 leading-tight">
-          <div id={titleId} className="text-xs font-semibold text-gray-100 truncate">{name}</div>
-          <div className="text-[11px] text-gray-400">
-            {activeBlock && !popover.list && scopeAreasOf(activeBlock, popover.itemId, popover.areaId, undefined).length > 0 ? 'For the whole block or for one area' : 'Applies to every row of this block'}
-          </div>
-        </div>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={() => { close(); returnFocus() }}
-          className="shrink-0 inline-flex text-gray-400 hover:text-gray-100 pl-1 outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
-      <ComesFrom key={`${popover.itemId}:${popover.seq ?? 0}`} itemId={popover.itemId} areaId={popover.areaId} initialListOpen={popover.list} />
+      <ComesFrom
+        key={`${popover.itemId}:${popover.seq ?? 0}`}
+        itemId={popover.itemId}
+        areaId={popover.areaId}
+        heading={{ titleId, onClose: () => { close(); returnFocus() } }}
+      />
       {hasSlot(popover.itemId) && (
         <button
           type="button"

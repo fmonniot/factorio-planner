@@ -3,7 +3,8 @@ import fs from 'fs'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, pane, slot } from './support/summary'
-import { changeSourcing, comesFromPopover } from './support/sidePanel'
+import { changeSourcing, comesFromPopover, sidePanel } from './support/sidePanel'
+import { importSwitch, setPreset } from './support/sourcesList'
 import { pinEdge } from './support/blockGraph'
 
 const FIXTURE = path.resolve('e2e/fixtures/item-sourcing.json')
@@ -56,6 +57,21 @@ const oxygenSlot = (page: Page) => slot(page, 'Ingredients', 'Oxygen')
 const picker = (page: Page) => page.getByPlaceholder('Search…')
 const comesFrom = (page: Page) => detail(page, 'Ingredients').getByTestId('comes-from')
 
+/** Sources… of the selected slot's strip opens the Comes from popover; the control of its list is returned. */
+async function openRules(page: Page): Promise<Locator> {
+  await comesFrom(page).getByTestId('sources-button').click()
+  const control = comesFromPopover(page).getByTestId('comes-from')
+  await expect(control.getByTestId('sources-list')).toBeVisible()
+  return control
+}
+
+/** Escape closes the popover and, pressed again, deselects the slot. */
+async function closeRules(page: Page) {
+  await page.keyboard.press('Escape')
+  await expect(comesFromPopover(page)).toHaveCount(0)
+  await page.keyboard.press('Escape')
+}
+
 async function open(page: Page, fixture: string) {
   await loadPlanFixture(page, fixture)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
@@ -73,12 +89,12 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
 
   // Receive it first with no connection: a rule with no effect, so no marker.
   const control = await changeSourcing(page, acidRow(page), OXYGEN)
-  await control.locator('[data-sourcing-choice="connections-first"]').click()
+  await setPreset(control, 'connections-first')
   await expect(control.getByTestId('no-effect')).toContainText('No connection for Oxygen.')
   await expect(markers(table(page))).toHaveCount(0)
 
   // Don't make more here has an effect: one marker per ingredient chip, the row in the sub-factory included.
-  await control.locator('[data-sourcing-choice="byproducts-first"]').click()
+  await setPreset(control, 'byproducts-first')
   await expect(markers(table(page))).toHaveCount(2)
   for (const row of await userRows(page).all()) {
     const frame = row.locator('[data-chip-frame]')
@@ -95,7 +111,7 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   // Wait for the solve this rule triggers (the solver is debounced): until it lands, the sentence is the new rule read
   // against the previous solve, which still has the oxygen decompression running. Reading it earlier compares a
   // sentence that is about to change with the marker's, and fails when the solve lands in between.
-  const sentenceEl = control.getByTestId('sourcing-sentence')
+  const sentenceEl = sidePanel(page).locator(`[data-testid="sourcing-entry"][data-item-id="${OXYGEN}"]`).getByTestId('sourcing-sentence')
   await expect(sentenceEl).toHaveText(/^Uses what this block already makes \(Steam electrolysis [^,)]+\)\./)
   const sentence = (await sentenceEl.textContent())!
   expect(sentence).toContain('Uses what this block already makes (')
@@ -107,7 +123,7 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   await expect(table(page).locator('[title*="first)"]')).toHaveCount(0)
 
   // Back to the default: no rule, no marker.
-  await control.locator('[data-sourcing-choice="own"]').click()
+  await setPreset(control, 'own')
   await expect(markers(page)).toHaveCount(0)
 })
 
@@ -145,7 +161,8 @@ test('the marker only shows the rule: a click on it opens nothing, and a right-c
   // The chip keeps its click (the producer picker) and has a right-click: its Comes from popover, with the rule set.
   await chip.click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Comes from…' }).click()
-  await expect(comesFromPopover(page).getByRole('radio', { name: "Don't make more here" })).toBeFocused()
+  await expect(comesFromPopover(page).getByTestId('sources-line-toggle').first()).toBeFocused()
+  await expect(comesFromPopover(page).getByTestId('sources-rule-chip')).toHaveAttribute('data-preset', 'byproducts-first')
   await page.keyboard.press('Escape')
   await expect(comesFromPopover(page)).toHaveCount(0)
   await chip.click()
@@ -181,7 +198,8 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
 
   // Receive it first, with a connection, has an effect. The slot shows the marker while it is selected...
   await oxygenSlot(page).click()
-  await comesFrom(page).locator('[data-sourcing-choice="connections-first"]').click()
+  const rules = await openRules(page)
+  await setPreset(rules, 'connections-first')
   await expect(comesFrom(page).getByTestId('no-effect')).toHaveCount(0)
   await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
   await expect(markers(oxygenSlot(page))).toHaveCount(1)
@@ -190,7 +208,7 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(comesFrom(page).getByTestId('sourcing-sentence')).toHaveText(/^Taken from O2 maker first \((?!0\.00)\S+ offered\)\.$/)
   const sentence = (await comesFrom(page).getByTestId('sourcing-sentence').textContent())!
   // ...and when it is not. It is the only marker of the summary: no other slot, and none in Products or Byproducts.
-  await page.keyboard.press('Escape')
+  await closeRules(page)
   await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'false')
   const slotMarker = markers(oxygenSlot(page))
   await expect(slotMarker).toHaveCount(1)
@@ -210,16 +228,16 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
 
   // Import off as well: the locked slot keeps its status badge, with the marker after it in the corner.
-  await comesFrom(page).getByTestId('import-switch').click()
-  await page.keyboard.press('Escape')
+  await importSwitch(await openRules(page)).click()
+  await closeRules(page)
   await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'locked')
   await expect(oxygenSlot(page)).toHaveAccessibleName(/^Oxygen, .*, locked, has a source rule$/)
   const badge = (await oxygenSlot(page).getByText('⊘').boundingBox())!
   const lockedDot = (await markers(oxygenSlot(page)).locator('span').boundingBox())!
   expect(badge.x + badge.width, 'the badge ends before the dot starts').toBeLessThanOrEqual(lockedDot.x + 0.5)
   await oxygenSlot(page).click()
-  await comesFrom(page).getByTestId('import-switch').click()
-  await page.keyboard.press('Escape')
+  await importSwitch(await openRules(page)).click()
+  await closeRules(page)
   await expect(oxygenSlot(page)).not.toHaveAttribute('data-status', 'locked')
 
   // The areas matrix of the block: on the row header of oxygen, and of no other item.
@@ -285,7 +303,7 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await oxygenSlot(page).click()
 
   // Back to the default: the marker goes from every surface.
-  await comesFrom(page).locator('[data-sourcing-choice="own"]').click()
+  await setPreset(await openRules(page), 'own')
   await expect(markers(page)).toHaveCount(0)
   await openMatrix()
   await expect(matrixHeader).toBeVisible()

@@ -75,4 +75,22 @@ describe('StackedBar', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(a.querySelector('[aria-hidden="true"]:not([data-testid])')!.className).toContain('hidden')
   })
+
+  it('draws a thin bar 8px high with no text and no stop for the keyboard, keeping the name and the tooltip', () => {
+    render(<StackedBar thin label="Sources of Ore" segments={[seg('a', { name: '', tipAmount: '5.0', amount: '5' }), seg('b', { name: '' })]} />)
+    const bar = screen.getByRole('group', { name: 'Sources of Ore' })
+    expect(bar).toHaveClass('h-2')
+    expect(bar).not.toHaveClass('h-4')
+    const [a] = screen.getAllByTestId('seg')
+    expect(a).not.toHaveAttribute('tabindex')
+    expect(a).toHaveAccessibleName('a · 5.0')
+    expect(a.querySelector('.relative.font-mono, .relative.truncate')).toBeNull()
+    expect(screen.getAllByTestId('summary-segment-tip')[0]).toHaveTextContent('a 5.0')
+  })
+
+  it('keeps the 16px bar and the focusable segments without thin', () => {
+    render(<StackedBar label="x" segments={[seg('a')]} />)
+    expect(screen.getByRole('group', { name: 'x' })).toHaveClass('h-4')
+    expect(screen.getByTestId('seg')).toHaveAttribute('tabindex', '0')
+  })
 })

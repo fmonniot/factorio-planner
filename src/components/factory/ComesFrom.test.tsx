@@ -47,7 +47,14 @@ function setup(opts: { block?: Block['sourceRules']; L?: Record<string, AreaSour
 
 const mainBlock = () => useBlockStore.getState().blocks.find(b => b.id === 'main')!
 const areaRules = (id: string) => mainBlock().rootPlan.subPlans.find(sp => sp.id === id)?.sourceRules
-const preset = (name: string) => screen.getByRole('radio', { name })
+/** The preset the rule chip of the list reads ('own' is Make it here). */
+const chipPreset = () => screen.getByTestId('sources-rule-chip').getAttribute('data-preset')
+const makeHereLine = () => screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-line') === 'make-here')!
+/** Receive it first, Make it here: Make more here below the block lines, or above them, through its detail. */
+const makeAfter = () => { fireEvent.click(within(makeHereLine()).getByTestId('sources-line-toggle')); fireEvent.click(screen.getByTestId('sources-make-after')) }
+const makeBefore = () => { fireEvent.click(within(makeHereLine()).getByTestId('sources-line-toggle')); fireEvent.click(screen.getByTestId('sources-make-before')) }
+/** Don't make more here: the switch of the Make more here line. */
+const makeOff = () => fireEvent.click(screen.getByTestId('sources-make-here-switch'))
 const scope = (name: string) => within(screen.getByTestId('comes-from-scope')).getByRole('button', { name })
 
 afterEach(() => vi.restoreAllMocks())
@@ -66,7 +73,8 @@ describe('ComesFrom, scope', () => {
     expect(scope('Whole block')).toHaveAttribute('aria-pressed', 'true')
     expect(scope('Line L')).toHaveAttribute('aria-pressed', 'false')
     expect(within(screen.getByTestId('comes-from-scope')).queryByRole('button', { name: 'Line B' })).not.toBeInTheDocument()
-    expect(screen.getByTestId('scope-hint')).toHaveTextContent('Every row of the block, unless an area has its own rule')
+    expect(screen.getByTestId('comes-from-scope')).toHaveAttribute('data-tip', 'Every row of the block, unless an area has its own rule')
+    expect(screen.queryByTestId('scope-hint')).not.toBeInTheDocument()
   })
 
   it('has no scope control without an area to offer, but the whole block', () => {
@@ -79,16 +87,16 @@ describe('ComesFrom, scope', () => {
     render(<ComesFrom itemId="plate" areaId="L" />)
     expect(scope('Line L')).toHaveAttribute('aria-pressed', 'true')
     expect(scope('Line B')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByTestId('scope-hint')).toHaveTextContent('Rows of Line L')
-    expect(preset("Don't make more here")).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('comes-from-scope')).toHaveAttribute('data-tip', 'Rows of Line L')
+    expect(chipPreset()).toBe('byproducts-first')
   })
 
   it('moves between the scopes and shows the rule of each', () => {
     setup({ block: { plate: { makeHere: 'after-blocks' } }, L: { plate: { makeHere: 'off' } } })
     render(<ComesFrom itemId="plate" areaId="L" />)
-    expect(preset("Don't make more here")).toHaveAttribute('aria-checked', 'true')
+    expect(chipPreset()).toBe('byproducts-first')
     fireEvent.click(scope('Whole block'))
-    expect(preset('Receive it first')).toHaveAttribute('aria-checked', 'true')
+    expect(chipPreset()).toBe('connections-first')
     expect(screen.queryByTestId('use-block-rule')).not.toBeInTheDocument()
   })
 })
@@ -103,106 +111,96 @@ describe('ComesFrom, an area with no rule', () => {
 
   it("follows the block's rule and shows it", () => {
     openOnArea()
-    expect(screen.getByTestId('follows-block-rule')).toHaveTextContent("Follows the block's rule")
-    expect(preset('Receive it first')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'follows')
+    expect(chipPreset()).toBe('connections-first')
     expect(screen.queryByTestId('use-block-rule')).not.toBeInTheDocument()
   })
 
-  it('writes a rule on that area only when a preset is chosen', () => {
+  it('writes a rule on that area only when the list changes the rule', () => {
     openOnArea()
-    fireEvent.click(preset("Don't make more here"))
+    makeOff()
     expect(areaRules('L')).toEqual({ plate: { makeHere: 'off' } })
     expect(areaRules('B')).toBeUndefined()
     expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'after-blocks' } })
-    expect(screen.queryByTestId('follows-block-rule')).not.toBeInTheDocument()
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'own')
   })
 
   it('writes the block\'s rule as the start of the area rule when only Import is switched', () => {
     openOnArea()
-    fireEvent.click(screen.getByTestId('import-switch'))
+    fireEvent.click(screen.getByTestId('sources-import-switch'))
     expect(areaRules('L')).toEqual({ plate: { makeHere: 'after-blocks', importOff: true } })
     expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'after-blocks' } })
   })
 
   it('writes a keyless rule when Make it here is chosen over the block\'s rule', () => {
     openOnArea()
-    fireEvent.click(preset('Make it here'))
+    makeBefore()
     expect(areaRules('L')).toEqual({ plate: {} })
     expect(screen.getByTestId('use-block-rule')).toBeInTheDocument()
   })
 
-  it("removes the area's rule with Use the block's rule", () => {
+  it("removes the area's rule with Use the block's", () => {
     openOnArea()
-    fireEvent.click(preset("Don't make more here"))
+    makeOff()
     fireEvent.click(screen.getByTestId('use-block-rule'))
     expect(areaRules('L')).toBeUndefined()
-    expect(screen.getByTestId('follows-block-rule')).toBeInTheDocument()
-    expect(preset('Receive it first')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'follows')
+    expect(chipPreset()).toBe('connections-first')
   })
 
-  it('has the Sources… button and a list of the area at area scope', () => {
+  it('draws the list of the area at area scope, and the list of the block when the scope changes back', () => {
     render(<ComesFrom itemId="plate" areaId="L" />)
     fireEvent.click(scope('Line L'))
-    fireEvent.click(screen.getByTestId('sources-button'))
     const list = screen.getByTestId('sources-list')
     expect(within(list).getAllByTestId('sources-line').map(l => l.getAttribute('data-line'))).toContain('other-area')
     expect(list.querySelector('[data-line="other-area"]')).toHaveAttribute('data-area-id', 'B')
-    // The list stays open when the scope changes back to the block.
     fireEvent.click(scope('Whole block'))
     expect(within(screen.getByTestId('sources-list')).queryByTestId('sources-area-switch')).not.toBeInTheDocument()
   })
 
-  it('writes the area rule from a switch, and says what the area takes nothing from', () => {
+  it('writes the area rule from a switch', () => {
     openOnArea()
-    fireEvent.click(screen.getByTestId('sources-button'))
-    expect(screen.getByTestId('follows-block-rule')).toBeInTheDocument()
-    expect(screen.getByTestId('sourcing-sentence').textContent).not.toContain('Takes nothing')
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'follows')
     fireEvent.click(screen.getByTestId('sources-area-switch'))
     expect(areaRules('L')).toEqual({ plate: { makeHere: 'after-blocks', areasOff: ['B'] } })
     expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'after-blocks' } })
-    expect(screen.queryByTestId('follows-block-rule')).not.toBeInTheDocument()
-    expect(screen.getByTestId('sourcing-sentence').textContent).toMatch(/^Line L: .* Takes nothing from Line B\.$/)
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'own')
     fireEvent.click(screen.getByTestId('use-block-rule'))
     expect(areaRules('L')).toBeUndefined()
-    expect(screen.getByTestId('follows-block-rule')).toBeInTheDocument()
-    expect(screen.getByTestId('sourcing-sentence').textContent).not.toContain('Takes nothing')
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'follows')
   })
 
   it('writes the block rule again from the whole block scope', () => {
     render(<ComesFrom itemId="plate" areaId="L" />)
-    fireEvent.click(preset("Don't make more here"))
+    makeOff()
     expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'off' } })
     expect(areaRules('L')).toBeUndefined()
-  })
-
-  it('starts the sentence with the name of the area', () => {
-    openOnArea()
-    expect(screen.getByTestId('sourcing-sentence').textContent).toMatch(/^Line L: /)
-    fireEvent.click(scope('Whole block'))
-    expect(screen.getByTestId('sourcing-sentence').textContent).not.toMatch(/^Line L: /)
   })
 })
 
 describe('ComesFrom, in the Comes from popover', () => {
-  it('draws the sentence, then one toolbar: the rule group, then Sources…, with no text buttons', () => {
+  it('draws the header, the bar, the list and the Leftover row: no sentence, no icon toolbar, no Sources toggle', () => {
     setup()
     render(<ComesFrom itemId="plate" />)
     const root = screen.getByTestId('comes-from')
-    expect(root.firstElementChild).toBe(screen.getByTestId('sourcing-sentence'))
-    const toolbar = within(root).getByTestId('strip-toolbar')
-    expect([...toolbar.querySelectorAll('button')].map(b => b.getAttribute('aria-label')))
-      .toEqual(['Make it here', 'Receive it first', "Don't make more here", 'Import', 'Leftover', 'Sources…'])
-    expect(toolbar.firstElementChild).toBe(within(toolbar).getByRole('radiogroup'))
+    expect(root.children[0]).toBe(screen.getByTestId('comes-from-header'))
+    expect(root.children[1]).toBe(screen.getByTestId('comes-from-bar'))
+    expect(within(root).getByTestId('sources-list')).toBeInTheDocument()
+    expect(root.lastElementChild).toBe(screen.getByTestId('leftover-row'))
+    expect(screen.queryByTestId('sourcing-sentence')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('strip-toolbar')).not.toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('sources-button')).not.toBeInTheDocument()
   })
 
-  it('shows the scope control above the sentence, and the area rule writes through the icons', () => {
+  it('shows the scope control in the header, above the list, and the area rule writes through the list', () => {
     setup({ L: { plate: {} } })
     render(<ComesFrom itemId="plate" areaId="L" />)
-    const root = screen.getByTestId('comes-from')
-    expect(root.firstElementChild).toBe(screen.getByTestId('comes-from-scope'))
-    fireEvent.click(within(root).getByRole('radio', { name: "Don't make more here" }))
+    expect(within(screen.getByTestId('comes-from-header')).getByTestId('comes-from-scope')).toBe(screen.getByTestId('comes-from-scope'))
+    expect(screen.getByTestId('comes-from-scope').compareDocumentPosition(screen.getByTestId('sources-list')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    makeOff()
     expect(areaRules('L')).toEqual({ plate: { makeHere: 'off' } })
-    fireEvent.click(screen.getByTestId('import-switch'))
+    fireEvent.click(screen.getByTestId('sources-import-switch'))
     expect(areaRules('L')).toEqual({ plate: { makeHere: 'off', importOff: true } })
     expect(mainBlock().sourceRules).toEqual({})
   })
@@ -216,38 +214,26 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     expect(screen.getByTestId('areas-have-rules')).toHaveTextContent('2 areas have their own rule')
   })
 
-  it('draws the sentence, then one toolbar: the given actions, the rule group, then Sources…', () => {
+  it('draws the sentence, then one toolbar: the given actions, then Sources…, with no rule group', () => {
     setup()
     render(<ComesFrom itemId="plate" listInPopover actions={[{ label: 'Find recipe', icon: 'find', side: 'left', onSelect: () => {} }]} />)
     const root = screen.getByTestId('comes-from')
     expect(root.firstElementChild).toBe(screen.getByTestId('sourcing-sentence'))
     const toolbar = within(root).getByTestId('strip-toolbar')
     expect([...toolbar.querySelectorAll('button')].map(b => b.getAttribute('aria-label')))
-      .toEqual(['Find recipe', 'Make it here', 'Receive it first', "Don't make more here", 'Import', 'Leftover', 'Sources…'])
-    expect(within(toolbar).getByRole('radiogroup')).toHaveAccessibleName('Where Plate comes from')
+      .toEqual(['Find recipe', 'Sources…'])
+    expect(within(root).queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(within(root).queryByRole('switch')).not.toBeInTheDocument()
     expect(within(toolbar).getByTestId('sources-button')).toHaveAttribute('aria-haspopup', 'dialog')
     expect(screen.queryByText('Comes from', { selector: 'span' })).not.toBeInTheDocument()
   })
 
-  it('lights the chosen preset and the switches that are on, and tells the state in the tooltip', () => {
+  it('opens the popover from Sources…, which has the list', () => {
     setup()
-    render(<ComesFrom itemId="plate" listInPopover />)
-    expect(screen.getByRole('radio', { name: 'Make it here' })).toBeChecked()
-    expect(screen.getByRole('radio', { name: 'Make it here' })).toHaveAttribute('tabindex', '0')
-    expect(screen.getByRole('radio', { name: 'Receive it first' })).toHaveAttribute('tabindex', '-1')
-    // Each preset has its own icon.
-    expect(screen.getByRole('radio', { name: 'Make it here' }).querySelector('svg')).toHaveAttribute('data-icon', 'make')
-    expect(screen.getByRole('radio', { name: 'Receive it first' }).querySelector('svg')).toHaveAttribute('data-icon', 'receive-first')
-    expect(screen.getByRole('radio', { name: "Don't make more here" }).querySelector('svg')).toHaveAttribute('data-icon', 'dont-make')
-    expect(screen.getByTestId('import-switch')).toHaveAttribute('data-tip', expect.stringMatching(/^Import on\. /))
-    fireEvent.click(screen.getByTestId('leftover-switch'))
-    expect(screen.getByTestId('leftover-switch')).not.toBeChecked()
-    expect(screen.getByTestId('leftover-switch')).toHaveAttribute('data-tip', expect.stringMatching(/^Leftover off\. /))
-    // A switch that is off draws the struck icon as well as the unlit button.
-    expect(screen.getByTestId('leftover-switch').querySelector('svg')).toHaveAttribute('data-icon', 'leftover-off')
-    expect(screen.getByTestId('import-switch').querySelector('svg')).toHaveAttribute('data-icon', 'import')
-    fireEvent.click(screen.getByTestId('import-switch'))
-    expect(screen.getByTestId('import-switch').querySelector('svg')).toHaveAttribute('data-icon', 'import-off')
+    render(<><ComesFrom itemId="plate" listInPopover /><ComesFromPopover hasSlot={() => true} /></>)
+    fireEvent.click(screen.getByTestId('sources-button'))
+    expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'plate' })
+    expect(within(screen.getByTestId('comes-from-popover')).getByTestId('sources-list')).toBeInTheDocument()
   })
 
   it('says it for one area, and says nothing without one', () => {
@@ -266,7 +252,7 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     fireEvent.click(screen.getByTestId('areas-have-rules'))
     expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'plate', areaId: 'L' })
     const popover = screen.getByTestId('comes-from-popover')
-    expect(popover).toHaveTextContent('For the whole block or for one area')
+    expect(within(popover).getByTestId('comes-from-scope')).toHaveAttribute('data-tip', 'Rows of Line L')
     expect(within(within(popover).getByTestId('comes-from-scope')).getByRole('button', { name: 'Line L' })).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -274,6 +260,119 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     setup({ L: { ore: {} } })
     render(<ComesFrom itemId="plate" listInPopover />)
     expect(screen.queryByTestId('areas-have-rules')).not.toBeInTheDocument()
+  })
+})
+
+describe('ComesFrom, the one view', () => {
+  it('is the list, with no toggle: the sentence, the toolbar and the presets are the strip\'s', () => {
+    setup()
+    render(<ComesFrom itemId="plate" areaId="L" />)
+    expect(screen.getByTestId('sources-list')).toBeInTheDocument()
+    expect(screen.queryByTestId('sources-button')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('sourcing-sentence')).not.toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('strip-toolbar')).not.toBeInTheDocument()
+    expect(screen.getByTestId('comes-from-bar')).toBeInTheDocument()
+  })
+
+  it('keeps the takers and no-effect notes in the list view', () => {
+    setup({ areas: false, block: { plate: { leftoverOff: true }, ore: { importOff: true } } })
+    const taker: Block = { ...makeEmptyBlock('Cooler'), id: 'cooler', inputConnections: [{ id: 'c1', itemId: 'plate', fromBlockId: 'main' }] }
+    useBlockStore.setState(s => ({ blocks: [...s.blocks, taker] }))
+    render(<ComesFrom itemId="plate" />)
+    expect(screen.getByTestId('leftover-take-note')).toBeInTheDocument()
+    expect(screen.getByTestId('sources-list')).toBeInTheDocument()
+  })
+
+  it('has no need in the header before the first solve', () => {
+    setup({ areas: false })
+    render(<ComesFrom itemId="plate" />)
+    expect(screen.queryByTestId('comes-from-need')).not.toBeInTheDocument()
+  })
+
+  it('says "Every row of this block" when no area is offered, and has no heading without one', () => {
+    setup({ areas: false })
+    render(<ComesFrom itemId="plate" />)
+    expect(screen.getByTestId('comes-from-header')).toHaveTextContent('Every row of this block')
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ComesFrom, the rule chip and the Leftover row of the list view', () => {
+  it('reads the block\'s rule as the chip, with Import off', () => {
+    setup({ areas: false, block: { plate: { makeHere: 'after-blocks', importOff: true } } })
+    render(<ComesFrom itemId="plate" />)
+    const chip = screen.getByTestId('sources-rule-chip')
+    expect(chip).toHaveTextContent('Receive it first · Import off')
+    expect(chip).toHaveAttribute('data-preset', 'connections-first')
+    expect(chip).toHaveAttribute('data-owner', 'block')
+    expect(chip).toHaveAttribute('data-tip', expect.stringContaining('Move Make more here'))
+  })
+
+  it('prefixes the chip at area scope, and Use the block\'s clears the area rule', () => {
+    setup({ block: { plate: { makeHere: 'after-blocks' } } })
+    render(<ComesFrom itemId="plate" areaId="L" />)
+    fireEvent.click(scope('Line L'))
+    expect(screen.getByTestId('sources-rule-chip')).toHaveTextContent("Block's rule · Receive it first")
+    expect(screen.queryByTestId('use-block-rule')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('sources-make-here-switch'))
+    expect(areaRules('L')).toEqual({ plate: { makeHere: 'off' } })
+    expect(screen.getByTestId('sources-rule-chip')).toHaveTextContent("Own rule · Don't make more here")
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'own')
+    const clear = screen.getByTestId('use-block-rule')
+    expect(clear).toHaveTextContent("Use the block's")
+    expect(clear).toHaveAccessibleName("Use the block's rule")
+    fireEvent.click(clear)
+    expect(areaRules('L')).toBeUndefined()
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'follows')
+  })
+
+  it('offers each area with its own rule at block scope, and a click switches to it', () => {
+    setup({ L: { plate: { makeHere: 'off' } }, B: { plate: {} } })
+    render(<ComesFrom itemId="plate" />)
+    const links = screen.getAllByTestId('area-own-rule')
+    expect(links.map(l => l.textContent)).toEqual(['Line L has its own', 'Line B has its own'])
+    expect(links.map(l => l.getAttribute('data-area-id'))).toEqual(['L', 'B'])
+    fireEvent.click(links[1])
+    expect(scope('Line B')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByTestId('area-own-rule')).not.toBeInTheDocument()
+  })
+
+  it('has no such link when no area has a rule', () => {
+    setup()
+    render(<ComesFrom itemId="plate" />)
+    expect(screen.queryByTestId('area-own-rule')).not.toBeInTheDocument()
+  })
+
+  it('has the Leftover row at the foot, with the block\'s switch', () => {
+    setup({ areas: false })
+    render(<ComesFrom itemId="plate" />)
+    const row = screen.getByTestId('leftover-row')
+    expect(row).toHaveTextContent("Leftover")
+    expect(row).toHaveTextContent("what the rows don't use stays spare")
+    const sw = within(row).getByTestId('leftover-switch')
+    expect(sw).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(sw)
+    expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
+    expect(row).toHaveTextContent('the rows use all they can')
+  })
+
+  it('is read-only at area scope, shows the block\'s value, and "change" switches to the whole block', () => {
+    setup({ block: { plate: { leftoverOff: true } }, L: { plate: {} } })
+    render(<ComesFrom itemId="plate" areaId="L" />)
+    const sw = screen.getByTestId('leftover-switch')
+    expect(sw).toHaveAttribute('aria-disabled', 'true')
+    expect(sw).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(sw)
+    expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
+    const row = screen.getByTestId('leftover-row')
+    expect(row).toHaveTextContent('whole block only')
+    const change = within(row).getByTestId('leftover-whole-block')
+    expect(change).toHaveTextContent('change')
+    expect(change).toHaveAccessibleName('Whole block: change Leftover')
+    fireEvent.click(change)
+    expect(scope('Whole block')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('leftover-switch')).not.toHaveAttribute('aria-disabled')
   })
 })
 
@@ -286,7 +385,7 @@ describe('ComesFrom, the area flag', () => {
     // The rule went with the flag (D3); no area is left to offer, so no scope control either.
     expect(screen.queryByTestId('comes-from-scope')).not.toBeInTheDocument()
     expect(mainBlock().rootPlan.subPlans.find(sp => sp.id === 'L')?.sourceRules).toBeUndefined()
-    expect(preset('Make it here')).toHaveAttribute('aria-checked', 'true')
+    expect(chipPreset()).toBe('own')
     act(() => useBlockStore.getState().undo())
     expect(areaRules('L')).toEqual({ plate: { makeHere: 'off' } })
     expect(scope('Line L')).toBeInTheDocument()
@@ -301,13 +400,13 @@ describe('ComesFrom, the Leftover switch', () => {
     useBlockStore.setState(s => ({ blocks: [...s.blocks, taker] }))
   }
 
-  it('is on by default, under Import, and turns off and on with the block\'s rule (undoable)', () => {
+  it('is on by default, under the lines, and turns off and on with the block\'s rule (undoable)', () => {
     setup({ areas: false })
     render(<ComesFrom itemId="plate" />)
     expect(leftover()).toHaveAttribute('role', 'switch')
     expect(leftover()).toHaveAccessibleName('Leftover')
     expect(leftover()).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByTestId('import-switch').compareDocumentPosition(leftover()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByTestId('sources-import-switch').compareDocumentPosition(leftover()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     fireEvent.click(leftover())
     expect(leftover()).toHaveAttribute('aria-checked', 'false')
     expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
@@ -330,8 +429,10 @@ describe('ComesFrom, the Leftover switch', () => {
     render(<ComesFrom itemId="plate" />)
     fireEvent.click(leftover())
     expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'off', importOff: true, leftoverOff: true } })
-    fireEvent.click(screen.getByTestId('import-switch'))
-    fireEvent.click(preset('Receive it first'))
+    fireEvent.click(screen.getByTestId('sources-import-switch'))
+    // Make more here is off: its switch turns it on again, then it moves below the block lines.
+    makeOff()
+    makeAfter()
     expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'after-blocks', leftoverOff: true } })
   })
 
@@ -343,7 +444,7 @@ describe('ComesFrom, the Leftover switch', () => {
       // The area's own rule replaces the block's whole, but the switch still reads the block's.
       expect(leftover()).toHaveAttribute('aria-checked', 'false')
       expect(leftover()).toHaveAttribute('aria-disabled', 'true')
-      expect(screen.getByTestId('leftover-block-note')).toHaveTextContent('Set for the whole block')
+      expect(document.getElementById(leftover().getAttribute('aria-describedby')!)).toHaveTextContent('Set for the whole block')
       fireEvent.click(leftover())
       expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
     })
@@ -354,14 +455,12 @@ describe('ComesFrom, the Leftover switch', () => {
       expect(scope('Line L')).toHaveAttribute('aria-pressed', 'true')
       fireEvent.click(screen.getByTestId('leftover-whole-block'))
       expect(scope('Whole block')).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.queryByTestId('leftover-block-note')).not.toBeInTheDocument()
       expect(leftover()).not.toHaveAttribute('aria-disabled')
     })
 
-    it('has neither the note nor the button at the whole-block scope', () => {
+    it('has no button to the whole block at the whole-block scope', () => {
       setup({ L: { plate: {} } })
       render(<ComesFrom itemId="plate" />)
-      expect(screen.queryByTestId('leftover-block-note')).not.toBeInTheDocument()
       expect(screen.queryByTestId('leftover-whole-block')).not.toBeInTheDocument()
     })
 
@@ -369,7 +468,7 @@ describe('ComesFrom, the Leftover switch', () => {
       setup({ block: { plate: { leftoverOff: true } } })
       render(<ComesFrom itemId="plate" areaId="L" />)
       fireEvent.click(scope('Line L'))
-      fireEvent.click(preset("Don't make more here"))
+      makeOff()
       expect(areaRules('L')).toEqual({ plate: { makeHere: 'off' } })
       expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
     })

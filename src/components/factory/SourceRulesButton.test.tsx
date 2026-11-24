@@ -360,17 +360,17 @@ describe('Source rules — a rule\'s item', () => {
 
   it('changes the rule from the row, also for an item that has no slot of its own', () => {
     // Ore is made and used inside the block: not imported, not connected, not locked.
-    setup({ sourcing: { ore: 'byproducts-first' } })
+    setup({ sourcing: { ore: 'connections-first' } })
     render(<FactorySummary />)
     const pane = screen.getByRole('region', { name: 'Ingredients' })
     expect(within(pane).queryAllByTestId('summary-slot').map(s => s.getAttribute('data-item-id'))).not.toContain('ore')
     openPopover()
-    fireEvent.click(within(entry('ore', 'byproducts-first')).getByTestId('source-rule-item'))
-    const row = entry('ore', 'byproducts-first')
-    fireEvent.click(within(row).getByRole('radio', { name: 'Receive it first' }))
-    expect(mainBlock().sourceRules).toEqual({ ore: { makeHere: 'after-blocks' } })
-    // The control is still open on the same item, now for its new rule (which has no connection to act on).
-    expect(within(entry('ore', 'connections-first')).getByTestId('comes-from')).toBeInTheDocument()
+    fireEvent.click(within(entry('ore', 'connections-first')).getByTestId('source-rule-item'))
+    const row = entry('ore', 'connections-first')
+    fireEvent.click(within(row).getByTestId('sources-make-here-switch'))
+    expect(mainBlock().sourceRules).toEqual({ ore: { makeHere: 'off' } })
+    // The control is still open on the same item, now for its new rule.
+    expect(within(entry('ore', 'byproducts-first')).getByTestId('comes-from')).toBeInTheDocument()
   })
 
   it('does not close on a press inside the expanded control, and Tab stays inside the list', () => {

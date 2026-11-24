@@ -63,12 +63,6 @@ Follow-ups of the [surplus rule initiative](archive/surplus-rule/plan.md), which
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective. Two real plans show the objective matters more than the unit: the solver leaves rows at zero and lets an unwanted output pile up. The options (machines, priced surplus, required rows) and the measurements are in [surplus-aware-objective/](surplus-aware-objective/plan.md).
 - [ ] **Module warnings: recipe-level misfits and per-slot rings.** `module-not-allowed` judges the machine or beacon only. A module the recipe refuses (its limitation lists, or productivity on a recipe that disallows it) is not warned about, and the Machine section names the misfit modules in one message instead of ringing the slot that holds each.
 
-## Summary strip icons
-
-Follow-ups of the [summary strip icons initiative](archive/summary-strip-icons/plan.md), which shipped.
-
-- [ ] **Improve the popover that *Sources…* opens.** The popover built for the summary strip's Sources action still reads as a first draft; rework its layout and hierarchy so it fits the rest of the strip.
-
 ## UI / UX
 
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph). **Make in a new block…** records the request in the consumer's history while the new block becomes active, so undo then acts on the new block (nothing to undo) until the user switches back.

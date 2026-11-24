@@ -5,6 +5,8 @@ import { loadPlanFixture } from './support/loadPlan'
 import { detail, selectSlot, slot, slotById } from './support/summary'
 import { exportPlan } from './support/appMenu'
 import { countRows } from './support/blockGraph'
+import { comesFromPopover } from './support/sidePanel'
+import { expectPreset, setPreset } from './support/sourcesList'
 
 /**
  * Fixture: block "Plates" (product iron plate 60/min) and the active block "Gears"
@@ -42,6 +44,21 @@ async function requestPlates(page: Page) {
 async function ensureSelected(page: Page) {
   if ((await plateSlot(page).getAttribute('aria-pressed')) !== 'true') await plateSlot(page).click()
   await expect(detail(page, 'Ingredients')).toHaveAttribute('data-state', 'selected')
+}
+
+/** Sources… of the selected slot opens the Comes from popover; the control of its list is returned. */
+async function openRules(page: Page) {
+  await ensureSelected(page)
+  await detail(page, 'Ingredients').getByTestId('sources-button').click()
+  const control = comesFromPopover(page).getByTestId('comes-from')
+  await expect(control.getByTestId('sources-list')).toBeVisible()
+  return control
+}
+
+/** Escape closes the popover, and only it. */
+async function closeRules(page: Page) {
+  await page.keyboard.press('Escape')
+  await expect(comesFromPopover(page)).toHaveCount(0)
 }
 
 /** Add a product through the item picker; `amount` '' clears the field (no extra output). */
@@ -325,10 +342,10 @@ test.describe('requests between blocks', () => {
     await expect(sourceSegment(page)).toHaveCount(0)
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
 
-    await ensureSelected(page)
-    const first = detail(page, 'Ingredients').getByRole('radio', { name: 'Receive it first' })
-    await expect(first).not.toBeChecked()
-    await first.click()
+    const rules = await openRules(page)
+    await expectPreset(rules, 'own')
+    await setPreset(rules, 'connections-first')
+    await closeRules(page)
 
     await ensureSelected(page)
     await expect(sourceEntry(page)).toContainText('30.0')
@@ -338,8 +355,8 @@ test.describe('requests between blocks', () => {
     await expect(page.locator('[data-tip^="Actual: 90.0"]')).toBeVisible()
     await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
 
-    await ensureSelected(page)
-    await expect(detail(page, 'Ingredients').getByRole('radio', { name: 'Receive it first' })).toBeChecked()
+    await expectPreset(await openRules(page), 'connections-first')
+    await closeRules(page)
     const download = await exportPlan(page)
     const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
     const gears = exported.blocks.find((b: { name: string }) => b.name === 'Gears')
@@ -347,7 +364,7 @@ test.describe('requests between blocks', () => {
     expect(gears.connectionsFirstItems).toBeUndefined()
     expect(gears.itemSourcing).toBeUndefined()
 
-    await detail(page, 'Ingredients').getByRole('radio', { name: 'Make it here' }).click()
+    await setPreset(await openRules(page), 'own')
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
   })
 })

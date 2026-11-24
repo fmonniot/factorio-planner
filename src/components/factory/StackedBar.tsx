@@ -62,9 +62,11 @@ interface StackedBarProps {
   tickAt?: number | null
   /** Accessible name of the bar as a group. */
   label?: string
+  /** An 8px bar with no text in it and no stop for the keyboard: a reading aid under a heading (the Sources popover), not a control. */
+  thin?: boolean
 }
 
-export function StackedBar({ segments, tickAt = null, label }: StackedBarProps) {
+export function StackedBar({ segments, tickAt = null, label, thin = false }: StackedBarProps) {
   const { ref, width } = useWidth<HTMLDivElement>()
   const measured = width > 0
   const baseId = useId()
@@ -106,7 +108,7 @@ export function StackedBar({ segments, tickAt = null, label }: StackedBarProps) 
   }
 
   return (
-    <div ref={ref} role="group" aria-label={label} className="relative flex w-full h-4 gap-px">
+    <div ref={ref} role="group" aria-label={label} className={`relative flex w-full ${thin ? 'h-2' : 'h-4'} gap-px`}>
       {segments.map((s, i) => {
         const part = layout?.[i]
         // Before the first measure (and without layout) the bar is plain proportions with no text.
@@ -150,8 +152,8 @@ export function StackedBar({ segments, tickAt = null, label }: StackedBarProps) 
               className="absolute inset-0 rounded-[3px] pointer-events-none"
               style={{ ...lookStyle(s.pressed ? { ...s.look, border: '#f3f4f6' } : s.look), opacity: s.faded ? 0.5 : undefined }}
             />
-            {part?.name && <span className="relative min-w-0 flex-1 truncate text-left">{s.name}</span>}
-            {part?.amount !== undefined && (
+            {!thin && part?.name && <span className="relative min-w-0 flex-1 truncate text-left">{s.name}</span>}
+            {!thin && part?.amount !== undefined && (
               <span className="relative shrink-0 font-mono font-bold">{part.amount}</span>
             )}
             <span
@@ -185,8 +187,8 @@ export function StackedBar({ segments, tickAt = null, label }: StackedBarProps) 
           )
         }
         return (
-          // Focusable so the tooltip opens from the keyboard and on a tap, like the buttons.
-          <div key={i} role="img" tabIndex={0} {...common} onClick={tapped(i)} onContextMenu={s.onContextMenu}>
+          // Focusable so the tooltip opens from the keyboard and on a tap, like the buttons (a thin bar is not a stop).
+          <div key={i} role="img" tabIndex={thin ? undefined : 0} {...common} onClick={tapped(i)} onContextMenu={s.onContextMenu}>
             {body}
           </div>
         )
