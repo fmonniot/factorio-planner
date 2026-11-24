@@ -538,7 +538,7 @@ export function SourcesList({ itemId, id, areaId }: {
                     actions={[
                       ...(area === undefined && row.canMakeProduct
                         ? [{
-                            label: 'Make it a product', icon: 'flag', testId: 'sources-make-product', describedBy: rowHelpId,
+                            label: 'Make it a product', icon: 'make-product', testId: 'sources-make-product', describedBy: rowHelpId,
                             ariaDisabled: row.productBlocked !== undefined, title: row.productBlocked,
                             onSelect: () => requestSourceProduct(c.fromBlockId),
                           } satisfies StripAction]
@@ -580,7 +580,7 @@ export function SourcesList({ itemId, id, areaId }: {
             <span className="flex shrink-0 items-center">
               <Cluster
                 actions={[{
-                  label: 'Receive from…', icon: 'arrowL', testId: 'sources-receive-from', describedBy: `${helpId}-add`, hasPopup: 'menu',
+                  label: 'Receive from…', icon: 'receive', testId: 'sources-receive-from', describedBy: `${helpId}-add`, hasPopup: 'menu',
                   onSelect: e => {
                     const r = e.currentTarget.getBoundingClientRect()
                     openConnectionMenu(itemId, r.left, r.bottom)

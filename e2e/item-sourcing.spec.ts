@@ -117,9 +117,12 @@ test.describe('item sourcing', () => {
 
     // The switch is free while the preset is chosen: both stay chosen.
     const control = popoverControl(page)
+    await expect(control.getByTestId('import-switch').locator('svg')).toHaveAttribute('data-icon', 'import')
     await control.getByTestId('import-switch').click()
     await expect(control.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
     await expect(control.getByTestId('import-switch')).not.toBeChecked()
+    // Off draws the struck icon as well as the unlit button.
+    await expect(control.getByTestId('import-switch').locator('svg')).toHaveAttribute('data-icon', 'import-off')
     await expect(control.getByTestId('sourcing-sentence')).toContainText('The rest is missing: Import is off.')
     // Nothing is imported or made for it: the slot reads short, with the missing amount.
     await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'short')

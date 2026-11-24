@@ -218,7 +218,7 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
 
   it('draws the sentence, then one toolbar: the given actions, the rule group, then Sources…', () => {
     setup()
-    render(<ComesFrom itemId="plate" listInPopover actions={[{ label: 'Find recipe', icon: 'search', side: 'left', onSelect: () => {} }]} />)
+    render(<ComesFrom itemId="plate" listInPopover actions={[{ label: 'Find recipe', icon: 'find', side: 'left', onSelect: () => {} }]} />)
     const root = screen.getByTestId('comes-from')
     expect(root.firstElementChild).toBe(screen.getByTestId('sourcing-sentence'))
     const toolbar = within(root).getByTestId('strip-toolbar')
@@ -235,10 +235,19 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     expect(screen.getByRole('radio', { name: 'Make it here' })).toBeChecked()
     expect(screen.getByRole('radio', { name: 'Make it here' })).toHaveAttribute('tabindex', '0')
     expect(screen.getByRole('radio', { name: 'Receive it first' })).toHaveAttribute('tabindex', '-1')
+    // Each preset has its own icon.
+    expect(screen.getByRole('radio', { name: 'Make it here' }).querySelector('svg')).toHaveAttribute('data-icon', 'make')
+    expect(screen.getByRole('radio', { name: 'Receive it first' }).querySelector('svg')).toHaveAttribute('data-icon', 'receive-first')
+    expect(screen.getByRole('radio', { name: "Don't make more here" }).querySelector('svg')).toHaveAttribute('data-icon', 'dont-make')
     expect(screen.getByTestId('import-switch')).toHaveAttribute('data-tip', expect.stringMatching(/^Import on\. /))
     fireEvent.click(screen.getByTestId('leftover-switch'))
     expect(screen.getByTestId('leftover-switch')).not.toBeChecked()
     expect(screen.getByTestId('leftover-switch')).toHaveAttribute('data-tip', expect.stringMatching(/^Leftover off\. /))
+    // A switch that is off draws the struck icon as well as the unlit button.
+    expect(screen.getByTestId('leftover-switch').querySelector('svg')).toHaveAttribute('data-icon', 'leftover-off')
+    expect(screen.getByTestId('import-switch').querySelector('svg')).toHaveAttribute('data-icon', 'import')
+    fireEvent.click(screen.getByTestId('import-switch'))
+    expect(screen.getByTestId('import-switch').querySelector('svg')).toHaveAttribute('data-icon', 'import-off')
   })
 
   it('says it for one area, and says nothing without one', () => {

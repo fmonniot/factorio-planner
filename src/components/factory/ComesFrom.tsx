@@ -47,20 +47,23 @@ function moveWithArrows(e: React.KeyboardEvent<HTMLDivElement>) {
 }
 
 /** The icon of each preset of the strip's rule group, in the order of `ITEM_SOURCING_CHOICES`. */
-const PRESET_ICONS: StripIconName[] = ['factory', 'inbox', 'branch']
+const PRESET_ICONS: StripIconName[] = ['make', 'receive-first', 'dont-make']
 
 const ICON_BUTTON = 'relative inline-flex h-[22px] w-6 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-inset'
 const LIT = 'bg-teal-900/60 text-teal-200'
 const UNLIT = 'text-gray-300 hover:bg-gray-800'
 
 /** An on/off icon button of the strip (`role="switch"`), lit when on; its tooltip says the state, then the rule's help text. */
-function IconSwitch({ id, on, label, help, icon, testId, onToggle, disabled = false }: {
+function IconSwitch({ id, on, label, help, icon, offIcon, testId, onToggle, disabled = false }: {
   /** Id of the hidden help text that describes the switch. */
   id: string
   on: boolean
   label: string
   help: string
+  /** The icon of the switch while it is on. */
   icon: StripIconName
+  /** The icon while it is off: the same shape, struck. */
+  offIcon: StripIconName
   testId: string
   onToggle: () => void
   /** Dimmed and inert, still focusable and described (the Leftover switch at area scope: it is the block's rule). */
@@ -79,7 +82,7 @@ function IconSwitch({ id, on, label, help, icon, testId, onToggle, disabled = fa
       onClick={disabled ? undefined : onToggle}
       className={`${ICON_BUTTON} rounded border ${on ? 'border-teal-600' : 'border-gray-700 bg-gray-900'} ${on ? LIT : UNLIT} ${disabled ? 'opacity-40' : ''}`}
     >
-      <StripIcon name={icon} />
+      <StripIcon name={on ? icon : offIcon} />
       <span id={id} className="sr-only">{help}</span>
     </button>
   )
@@ -208,14 +211,14 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
   const sourcesAction: StripAction = listInPopover
     ? {
         label: SOURCES_BUTTON_LABEL,
-        icon: 'layers',
+        icon: 'sources',
         testId: 'sources-button',
         hasPopup: 'dialog',
         onSelect: e => openComesFrom(itemId, anchorOf(e.currentTarget), { list: true }),
       }
     : {
         label: SOURCES_BUTTON_LABEL,
-        icon: 'layers',
+        icon: 'sources',
         testId: 'sources-button',
         expanded: listOpen,
         controls: listOpen ? `${baseId}-sources` : undefined,
@@ -255,8 +258,8 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
         })}
       </div>
       <Separator />
-      <IconSwitch id={`${baseId}-import`} on={importOn} label={IMPORT_SWITCH.label} help={IMPORT_SWITCH.title} icon="tray" testId="import-switch" onToggle={() => area !== undefined ? toggleAreaImportOff(area, itemId) : toggleImportOff(itemId)} />
-      <IconSwitch id={`${baseId}-leftover`} on={leftoverOn} label={LEFTOVER_SWITCH.label} help={LEFTOVER_SWITCH.title} icon="out" testId="leftover-switch" disabled={area !== undefined} onToggle={() => toggleLeftoverOff(itemId)} />
+      <IconSwitch id={`${baseId}-import`} on={importOn} label={IMPORT_SWITCH.label} help={IMPORT_SWITCH.title} icon="import" offIcon="import-off" testId="import-switch" onToggle={() => area !== undefined ? toggleAreaImportOff(area, itemId) : toggleImportOff(itemId)} />
+      <IconSwitch id={`${baseId}-leftover`} on={leftoverOn} label={LEFTOVER_SWITCH.label} help={LEFTOVER_SWITCH.title} icon="leftover" offIcon="leftover-off" testId="leftover-switch" disabled={area !== undefined} onToggle={() => toggleLeftoverOff(itemId)} />
     </>
   )
   const sentenceRow = <p data-testid="sourcing-sentence" title={sentence} className="text-[11px] leading-snug text-gray-400 line-clamp-2">{sentence}</p>

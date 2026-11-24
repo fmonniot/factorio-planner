@@ -300,7 +300,7 @@ export function FactorySummary() {
     return [{
       id: 'served-order',
       label: 'Served order…',
-      icon: 'list',
+      icon: 'served',
       badge: n > 0 ? { count: n, noun: 'not ranked' } : undefined,
       onSelect: e => {
         const r = e.currentTarget.getBoundingClientRect()
@@ -458,21 +458,21 @@ export function FactorySummary() {
           }}
           actionsFor={(slot, edit) => {
             const actions: StripAction[] = [
-              { label: 'Find recipe', icon: 'search', side: 'left', onSelect: () => setProducerPickerItemId(slot.itemId) },
+              { label: 'Find recipe', icon: 'find', side: 'left', onSelect: () => setProducerPickerItemId(slot.itemId) },
               ...servedAction(slot.itemId),
             ]
             // The extra output field takes the place of the plus while it is open.
             if (slot.product!.extra !== undefined) {
               actions.push({
                 label: 'Remove extra',
-                icon: 'minus',
+                icon: 'extra-remove',
                 title: 'Remove extra output',
                 onSelect: () => updateProductExtra(slot.product!.id, undefined),
               })
             } else if (!edit.editing) {
               actions.push({
                 label: 'Add extra output',
-                icon: 'plus',
+                icon: 'extra-add',
                 title: 'Add extra output on top of what is requested',
                 onSelect: edit.start,
               })
@@ -506,10 +506,10 @@ export function FactorySummary() {
             </span>
           )}
           actionsFor={slot => [
-            { label: 'Add consumer recipe…', icon: 'arrowR', side: 'left', onSelect: () => setConsumerPickerItemId(slot.itemId) },
+            { label: 'Add consumer recipe…', icon: 'consumer', side: 'left', onSelect: () => setConsumerPickerItemId(slot.itemId) },
             ...servedAction(slot.itemId),
-            ...leftoverAction(slot.itemId, slot.rate).map((a): StripAction => ({ ...a, icon: 'flame' })),
-            { label: 'Make it a product', icon: 'flag', onSelect: () => requestAddProduct(slot.itemId) },
+            ...leftoverAction(slot.itemId, slot.rate).map((a): StripAction => ({ ...a, icon: 'use-all' })),
+            { label: 'Make it a product', icon: 'make-product', onSelect: () => requestAddProduct(slot.itemId) },
           ]}
           onOpenBlock={setActiveBlock}
         />
@@ -542,12 +542,12 @@ export function FactorySummary() {
           actionsFor={slot => {
             const canConnect = connectable(slot.itemId)
             const actions: StripAction[] = [
-              { label: 'Find recipe', icon: 'search', side: 'left', onSelect: () => setProducerPickerItemId(slot.itemId) },
+              { label: 'Find recipe', icon: 'find', side: 'left', onSelect: () => setProducerPickerItemId(slot.itemId) },
             ]
             if (canConnect) {
               actions.push({
                 label: 'Receive from…',
-                icon: 'arrowL',
+                icon: 'receive',
                 side: 'left',
                 onSelect: e => {
                   const rect = e.currentTarget.getBoundingClientRect()
