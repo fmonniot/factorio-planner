@@ -501,15 +501,19 @@ export function withOrdinaryFallback<R extends { feasible: boolean; warnings: So
   if (!second.feasible || isUnbounded(second.warnings)) return { lp: first, ordinary: false }
   const culprit = first.warnings.find(w => w.type === 'unbounded-absorber')
   const recipeIds = culprit?.type === 'unbounded-absorber' ? [...culprit.recipeIds] : []
-  const at = second.warnings[0]?.type === 'infeasible-pins' ? 1 : 0
-  second.warnings.splice(at, 0, { type: 'absorber-idle', recipeIds })
+  insertIdleWarning(second.warnings, { type: 'absorber-idle', recipeIds })
   return { lp: second, ordinary: true }
+}
+
+/** `absorber-idle` goes right after a leading `infeasible-pins`, else first. */
+function insertIdleWarning(warnings: SolverWarning[], idle: SolverWarning): void {
+  warnings.splice(warnings[0]?.type === 'infeasible-pins' ? 1 : 0, 0, idle)
 }
 
 /** The connection order solves afresh and drops the warning `withOrdinaryFallback` added: put it back (mutates `after`). */
 export function keepIdleWarning<R extends { warnings: SolverWarning[] }>(before: R, after: R): R {
   const idle = before.warnings.find(w => w.type === 'absorber-idle')
-  if (idle && after !== before && !after.warnings.includes(idle)) after.warnings.unshift(idle)
+  if (idle && after !== before && !after.warnings.includes(idle)) insertIdleWarning(after.warnings, idle)
   return after
 }
 

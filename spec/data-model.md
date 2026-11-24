@@ -890,7 +890,7 @@ type SolverWarning =
   | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }  // areaId only with areas
   | { type: 'infeasible-pins'; recipeIds: string[]; conflict?: true }  // conflict: the elastic solve failed too (the pins conflict, or a locked item cannot be made whatever the pins), values arbitrary; absent: the pins hold and products fall short, recipeIds are the pins that bind where the solver can tell, else all
   | { type: 'unbounded-absorber'; recipeIds: string[] }  // a feasible solve came back unbounded and the re-solve at ordinary costs was not feasible either: values arbitrary; recipeIds are the block's rewarded rows (may be empty)
-  | { type: 'absorber-idle'; recipeIds: string[] }  // a feasible solve came back unbounded (a rewarded row earns more per run than what it takes costs), so the block was solved again with every absorber reward off: those rows are idle, rates reliable; recipeIds as unbounded-absorber
+  | { type: 'absorber-idle'; recipeIds: string[] }  // a feasible solve came back unbounded (a rewarded row earns more per run than what it takes costs), so the block was solved again with every absorber reward off: those rows run only where a pin or a goal needs them, rates reliable; recipeIds as unbounded-absorber
   | { type: 'unbounded-source'; blockIds: string[] }  // added by solveAll: the block receives from these blocks, whose rates are arbitrary (unbounded-absorber, or fed by one)
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number; temp?: FluidTag }[] }
   | { type: 'coproduct-driven'; drivers: { recipeId: string; itemIds: string[]; throughput: number; needed: number }[] }  // executions/min summed over the recipe's rows: its rate, and what its other outputs need

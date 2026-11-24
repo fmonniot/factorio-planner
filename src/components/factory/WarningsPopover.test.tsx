@@ -239,6 +239,8 @@ describe('WarningsPopover — absorber-idle', () => {
     expect(screen.getByText(/Absorber left idle/).className).not.toContain('text-red-400')
     expect(screen.getByText(/"Boiler Recipe" would earn more per run than the items it takes cost to make/)).toBeInTheDocument()
     expect(screen.getByText(/the other rates are reliable/)).toBeInTheDocument()
+    expect(screen.getByText(/All absorber rewards in this block were switched off/)).toBeInTheDocument()
+    expect(screen.getByText(/run only where a pin or a goal needs them/)).toBeInTheDocument()
     expect(screen.getByText(/Stop absorbing byproduct/)).toBeInTheDocument()
     expect(screen.getByTitle('Show solver warnings').className).not.toContain('text-red')
   })

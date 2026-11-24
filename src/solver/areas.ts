@@ -1202,8 +1202,11 @@ export function solveAreaBlock(
   const rewardedColumns = new Set(columns.filter(c => c.node.byproductConsumer).map(c => c.id))
   const markedColumns = new Set(columns.filter(c => c.node.absorberFeeder && !c.node.byproductConsumer).map(c => c.id))
   // The active pair: the rewarded rows and marked feeders, or empty sets in the ordinary re-solve (see `withOrdinaryFallback`).
-  let bcColumns = rewardedColumns
-  let feederColumns = markedColumns
+  const pairOf = (ordinary: boolean) => ordinary
+    ? { bc: new Set<string>(), feeders: new Set<string>() }
+    : { bc: rewardedColumns, feeders: markedColumns }
+  // Set once, from the flag `withOrdinaryFallback` returns, before the connection order and the rows read it.
+  let active = pairOf(false)
 
   // Ingredients of byproduct consumers (see solveBlock).
   const consumerIngredients = new Set<string>()
@@ -1368,7 +1371,7 @@ export function solveAreaBlock(
     const step = (
       order: AreaOrder, noImport: Set<string>, stepCaps: Map<string, number>, connectionsFirst: Set<string>, stepSpecs: AreaItemSpec[],
       fluidCaps: ReadonlyMap<string, number> = offerFluidCaps,
-    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order, fluidCaps, leftoverOff)
+    ) => solveAreaLP(system, columns, pinnedRates, active.bc, active.feeders, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order, fluidCaps, leftoverOff)
     const base = { defaults: plainDefaults, byproductsFirst }
     const defaultsFirst = new Set([...firstItems, ...plainDefaults])
     const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
@@ -1436,9 +1439,8 @@ export function solveAreaBlock(
 
   // The passes run twice when the absorber rewards make the objective unbounded: the second time with no rewards at all.
   const run = (ordinary: boolean) => {
-    bcColumns = ordinary ? new Set() : rewardedColumns
-    feederColumns = ordinary ? new Set() : markedColumns
-    let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs(), undefined, offerFluidCaps, leftoverOff)
+    const { bc, feeders } = pairOf(ordinary)
+    let lp = solveAreaLP(system, columns, pinnedRates, bc, feeders, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs(), undefined, offerFluidCaps, leftoverOff)
     const pass2 = pass2Plan({
       totalCaps: plainCaps, intermediates: system.classification.intermediates, firstItems, locked,
       slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow, keySupply: keySupplyPlan,
@@ -1458,7 +1460,7 @@ export function solveAreaBlock(
     // An unbounded pass 1 has arbitrary slack and throughput, so pass 2 would be planned from noise: keep pass 1 and its warning.
     if ((pass2.run || areaPass2) && !isUnbounded(lp.warnings)) {
       lp = solveAreaLP(
-        system, columns, pinnedRates, bcColumns, feederColumns, pass2.noImport,
+        system, columns, pinnedRates, bc, feeders, pass2.noImport,
         new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual), undefined, pass2.fluidCaps, leftoverOff,
       )
     }
@@ -1466,8 +1468,7 @@ export function solveAreaBlock(
   }
   const { lp: passes, ordinary } = withOrdinaryFallback(run)
   // The connection order and the rows below read the pair of the run that was kept.
-  bcColumns = ordinary ? new Set() : rewardedColumns
-  feederColumns = ordinary ? new Set() : markedColumns
+  active = pairOf(ordinary)
   let lp = passes
   lp = keepIdleWarning(lp, areaConnectionOrder(lp) ?? lp)
 
@@ -1483,7 +1484,7 @@ export function solveAreaBlock(
     if (!col.recipe) continue
     nodes.push(solvedNodeOf(
       planNode, col.recipe, throughput.get(col.id) ?? 0, col.effects, col.effects.productivityBonus, gameData,
-      isFeeder(lp.absorbers, bcColumns, col.id),
+      isFeeder(lp.absorbers, active.bc, col.id),
     ))
   }
 

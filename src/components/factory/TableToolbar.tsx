@@ -206,10 +206,10 @@ function warningBody(
     case 'absorber-idle': {
       const names = w.recipeIds.map(id => `"${gameData.recipes[id]?.name ?? id}"`)
       return names.length === 0
-        ? 'An absorbing row would earn more per run than the items it takes cost to make, so the solver found no limit. Absorbing rows in this block are left idle and the surplus they would take stays as surplus; the other rates are reliable.'
+        ? 'An absorbing row would earn more per run than the items it takes cost to make, so the solver found no limit. All absorber rewards in this block were switched off, so absorbing rows run only where a pin or a goal needs them and the surplus they would take stays as surplus; the other rates are reliable, but an ingredient they take is still not imported by other rows.'
         : names.length === 1
-          ? `${names[0]} would earn more per run than the items it takes cost to make, so the solver found no limit. Absorbing rows in this block are left idle and the surplus they would take stays as surplus; the other rates are reliable.`
-          : `One of ${names.join(', ')} would earn more per run than the items it takes cost to make, so the solver found no limit. Absorbing rows in this block are left idle and the surplus they would take stays as surplus; the other rates are reliable.`
+          ? `${names[0]} would earn more per run than the items it takes cost to make, so the solver found no limit. All absorber rewards in this block were switched off, so absorbing rows run only where a pin or a goal needs them and the surplus they would take stays as surplus; the other rates are reliable, but an ingredient they take is still not imported by other rows.`
+          : `One of ${names.join(', ')} would earn more per run than the items it takes cost to make, so the solver found no limit. All absorber rewards in this block were switched off, so absorbing rows run only where a pin or a goal needs them and the surplus they would take stays as surplus; the other rates are reliable, but an ingredient they take is still not imported by other rows.`
     }
     case 'unbounded-source': {
       const names = w.blockIds.map(id => `"${blockName(id)}"`)

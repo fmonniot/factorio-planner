@@ -1069,4 +1069,12 @@ describe('withOrdinaryFallback', () => {
     expect(keepIdleWarning(before, { feasible: true, warnings: [] }).warnings).toEqual([idle])
     expect(keepIdleWarning(before, before).warnings, 'same result: no duplicate').toEqual([idle])
   })
+
+  it('keepIdleWarning puts it after a leading infeasible-pins, as withOrdinaryFallback does', () => {
+    const idle: SolverWarning = { type: 'absorber-idle', recipeIds: ['chop'] }
+    const pins: SolverWarning = { type: 'infeasible-pins', recipeIds: ['plate'] }
+    const over: SolverWarning = { type: 'overconstrained', itemIds: [] } as unknown as SolverWarning
+    const before = { feasible: true, warnings: [idle] }
+    expect(keepIdleWarning(before, { feasible: true, warnings: [pins, over] }).warnings).toEqual([pins, idle, over])
+  })
 })
