@@ -68,7 +68,7 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
                 <FlowChip itemId={r.itemId} temp={r.temp} rate={r.rate} boundary={r.boundary} otherEnd={r.otherEnd} direction={direction} items={items} rateUnit={rateUnit} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-gray-200">{rowDisplayName({ name: items[r.itemId]?.name ?? r.itemId, temp: r.temp })}</div>
-                  {r.otherEnd && <div className="truncate text-[11px] text-gray-400" title={r.otherEnd}>{r.otherEnd}</div>}
+                  {r.otherEnd && <div className="truncate text-[11px] text-gray-400" data-tip={r.otherEnd}>{r.otherEnd}</div>}
                 </div>
                 <span className="shrink-0 whitespace-nowrap font-mono tabular-nums text-gray-400">{fmtItemRateText(r.itemId, r.rate / 60, rateUnit)}</span>
               </li>

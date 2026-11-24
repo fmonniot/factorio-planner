@@ -49,7 +49,7 @@ function HorizonTargetsPopover({ gameData, onClose, onEdit, ignoreRef }: {
               return (
                 <li key={id} className="flex items-center gap-2 bg-gray-950 border border-gray-700 rounded-md px-2 py-1">
                   <TechIcon tech={tech} className="w-5 h-5 text-xs" />
-                  <span className="flex-1 min-w-0 truncate text-xs" title={tech.name}>{tech.name}</span>
+                  <span className="flex-1 min-w-0 truncate text-xs" data-tip={tech.name}>{tech.name}</span>
                   <button
                     type="button"
                     aria-label={`Remove ${tech.name}`}

@@ -357,7 +357,8 @@ describe('PlanAreasModal — source rule marker', () => {
     expect(marker).toHaveAttribute('data-item-id', 'h2')
     // The sentence of the item in that block.
     expect(marker).toHaveAccessibleName(/^Made here by Hydrogen synthesis .* Import is off\.$/)
-    expect(marker).toHaveAttribute('title', marker.getAttribute('aria-label')!)
+    expect(marker).not.toHaveAttribute('title')
+    expect(marker).toHaveAttribute('data-tip', '')
     expect(within(row('Alpha', 'o2')).queryByTestId('source-rule-marker')).toBeNull()
 
     // Charlie moves hydrogen between its areas too and has no rule.

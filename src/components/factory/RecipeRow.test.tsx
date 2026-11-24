@@ -1048,9 +1048,9 @@ describe('RecipeRow source rule marker', () => {
     // No solve in this test: the rows that make Oxygen as a byproduct are named without a rate.
     const sentence = /^Uses what this block already makes \(Electrolysis\)\. The rest is imported\.$/
     expect(screen.getByRole('img', { name: sentence })).toBe(markers()[0])
-    expect(markers()[0].getAttribute('title')).toMatch(sentence)
+    expect(markers()[0]).not.toHaveAttribute('title')
     expect(screen.getByLabelText(/^Oxygen/).getAttribute('aria-label')).toMatch(/^Oxygen — \S+$/)
-    expect(document.querySelector('[title*="first)"]')).toBeNull()
+    expect(document.querySelector('[aria-label*="first)"]')).toBeNull()
   })
 
   it('marks no product or byproduct chip of that item', () => {

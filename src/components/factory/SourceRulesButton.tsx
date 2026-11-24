@@ -14,6 +14,7 @@ import { noEffectText, ruleId, sourceRules } from './sourceRules'
 import type { SourceRulePart } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
+import { describedTip } from '../tipProps'
 
 // ---------------------------------------------------------------------------
 // SourceRulesButton — the "Source rules (N)" button of the Ingredients pane's header and the popover it opens:
@@ -57,7 +58,7 @@ function RuleEntry({ rule, block, gameData, expanded, onToggle, onRemove }: {
             <button
               type="button"
               data-testid="source-rule-item"
-              title={expanded ? `Hide where ${name} comes from` : `Change where ${name} comes from`}
+              {...describedTip(expanded ? `Hide where ${name} comes from` : `Change where ${name} comes from`)}
               aria-expanded={expanded}
               aria-controls={expanded ? controlId : undefined}
               onClick={onToggle}
@@ -194,7 +195,7 @@ export function SourceRulesButton() {
         aria-haspopup="dialog"
         aria-expanded={shown}
         aria-controls={shown ? panelId : undefined}
-        title="Show this block's source rules"
+        {...describedTip("Show this block's source rules")}
         onClick={() => { setOpen(o => !o); setExpanded(null) }}
         className={`h-5 px-1.5 rounded border text-[11px] leading-none normal-case tracking-normal whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${shown ? 'border-gray-500 text-gray-200' : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}
       >

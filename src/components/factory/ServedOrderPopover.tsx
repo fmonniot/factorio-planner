@@ -8,6 +8,7 @@ import { MINI_BUTTON_CLASS } from './Switch'
 import { useDismiss, useEscapeLayer } from './sidePanel/useDismiss'
 import { blockAreas } from '../../solver/areas'
 import { dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, isTiedLine, lineKey, lineName, moveTarget, placement, servedLines, splitServed, underIn, type DropZone, type ServedLine } from './servedOrder'
+import { describedTip } from '../tipProps'
 
 // ---------------------------------------------------------------------------
 // ServedOrderPopover — the order the solver serves an item's consumers in, and where the source's own extra output
@@ -310,10 +311,10 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
         <span data-testid="served-short" className="font-mono tabular-nums text-amber-300">short {amount(line.short)}</span>
       )}
       {line.notCredited && (
-        <span data-testid="served-not-credited" title={NOT_CREDITED_HINT} className="rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">no credit</span>
+        <span data-testid="served-not-credited" role="img" aria-label="no credit" {...describedTip(NOT_CREDITED_HINT)} className="rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">no credit</span>
       )}
       {line.group?.listOrder && (
-        <span data-testid="served-list-order" title={LIST_ORDER_HINT} className="rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">list order</span>
+        <span data-testid="served-list-order" role="img" aria-label="list order" {...describedTip(LIST_ORDER_HINT)} className="rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">list order</span>
       )}
     </>
   )
@@ -367,7 +368,9 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
           {group && line.span?.index === 0 && (
             <span
               data-testid="served-share-entry"
-              title="The areas of this block share one place; move or share one of them to rank them apart."
+              role="img"
+              aria-label={`${fmtPercent(group.percent)} %`}
+              {...describedTip('The areas of this block share one place; move or share one of them to rank them apart.')}
               className="font-mono text-[11px] tabular-nums text-gray-300"
             >{fmtPercent(group.percent)} %</span>
           )}
@@ -391,7 +394,7 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
                 aria-label="Share with the line above"
                 aria-pressed={pressed}
                 aria-disabled={index === 0}
-                title="Share with the line above"
+                data-tip=""
                 onClick={() => tie(line, index)}
                 className={`${MINI_BUTTON_CLASS} ${pressed ? 'border-blue-400 bg-blue-950 text-blue-200' : ''}`}
               >Share</button>

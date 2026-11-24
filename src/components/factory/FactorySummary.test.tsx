@@ -10,7 +10,7 @@ import { useSolverStore } from '../../store/solverStore'
 import { BLOCK_PALETTE } from '../../data/blockColors'
 import { sourceRulesOf } from '../../test/sourceRulesOf'
 import type { Block, ConnectionFlow, GameData, SolverResult, Product } from '../../data/types'
-import { getByTip, queryByTip } from '../../test/byTip'
+import { expectTip, getByTip, queryByTip, tipOf } from '../../test/byTip'
 
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
@@ -1116,7 +1116,9 @@ describe('FactorySummary — connections', () => {
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       const item = screen.getByRole('menuitem', { name: /Miner/ })
       expect(item.getAttribute('data-closes-loop')).toBe('true')
-      expect(item.getAttribute('title')).toMatch(/Closes a loop/)
+      expect(tipOf(item)).toMatch(/Closes a loop/)
+      expect(item).toHaveAccessibleDescription(/Closes a loop/)
+      expect(item).not.toHaveAttribute('title')
     })
 
     it('says so when no other block has the item to spare', () => {
@@ -1573,9 +1575,12 @@ describe('FactorySummary — requests', () => {
   })
 
   describe('connection menu sections', () => {
-    function setupMenu() {
+    function setupMenu(minerReceives = false) {
       const consumer: Block = { ...makeEmptyBlock('Consumer'), id: 'consumer', products: [ironGoal] }
-      const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', products: [ironOreProduct] }
+      const miner: Block = {
+        ...makeEmptyBlock('Miner'), id: 'miner', products: [ironOreProduct],
+        ...(minerReceives ? { inputConnections: [{ id: 'mr', itemId: 'iron-ore', fromBlockId: 'smelter' }] } : {}),
+      }
       const smelter: Block = { ...makeEmptyBlock('Smelter'), id: 'smelter', products: [] }
       // Loop already requests the consumer's iron plate and makes iron ore itself.
       const loop: Block = {
@@ -1599,6 +1604,18 @@ describe('FactorySummary — requests', () => {
       })
     }
 
+    it('disables a request that would loop back, with the reason on a wrapper and as the description', () => {
+      setupMenu(true)
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      const miner = screen.getAllByRole('menuitem').find(i => i.dataset.kind === 'request' && i.textContent === 'Miner')!
+      expect(miner).toBeDisabled()
+      expect(miner).toHaveAccessibleDescription('Miner receives Iron Ore itself')
+      expect(miner).not.toHaveAttribute('title')
+      expect(miner.parentElement).toHaveAttribute('data-tip', 'Miner receives Iron Ore itself')
+      expect(tipOf(miner)).toBe('Miner receives Iron Ore itself')
+    })
+
     it('lists requests first and takes second, marking a request that would close a loop', () => {
       setupMenu()
       render(<FactorySummary />)
@@ -1609,7 +1626,7 @@ describe('FactorySummary — requests', () => {
       expect(requests.map(i => i.textContent)).toEqual(['Miner', 'Loop ↻'])
       expect(requests[0]).toBeEnabled()
       expect(requests[1]).toBeEnabled()
-      expect(requests[1].getAttribute('title')).toBe('Closes a loop: Loop already receives from this block, directly or through other blocks')
+      expectTip(requests[1], 'Closes a loop: Loop already receives from this block, directly or through other blocks')
       const takes = screen.getAllByRole('menuitem').filter(i => i.dataset.kind === 'take')
       expect(takes).toHaveLength(1)
       expect(takes[0].textContent).toContain('Smelter')
@@ -2709,7 +2726,8 @@ describe('FactorySummary — source rule marker', () => {
     // It shows the rule and takes no click of its own: the slot is the way to the control. Its tooltip is the sentence.
     const marker = markers(ore)[0]
     expect(marker.tagName).toBe('SPAN')
-    expect(marker).toHaveAttribute('title', expect.stringContaining('Iron Ore'))
+    expect(marker).toHaveAttribute('aria-label', expect.stringContaining('Iron Ore'))
+    expect(marker).not.toHaveAttribute('title')
     // The slot's name already says it: the marker is out of the accessibility tree.
     expect(marker.closest('[aria-hidden="true"]')).not.toBeNull()
     expect(within(ore).queryByRole('img')).toBeNull()
@@ -2718,7 +2736,7 @@ describe('FactorySummary — source rule marker', () => {
     fireEvent.click(marker)
     expect(ore).toHaveAttribute('aria-pressed', 'true')
     expect(markers(ore)).toHaveLength(1)
-    expect(within(strip('Ingredients')).getByTestId('sourcing-sentence')).toHaveTextContent(marker.getAttribute('title')!)
+    expect(within(strip('Ingredients')).getByTestId('sourcing-sentence')).toHaveTextContent(marker.getAttribute('aria-label')!)
   })
 
   it('follows the status in the slot name, and sits after the status badge of a short slot', () => {

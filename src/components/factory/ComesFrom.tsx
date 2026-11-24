@@ -145,7 +145,7 @@ export function ComesFrom({ itemId, areaId, listInPopover = false, actions = [],
                 type="button"
                 data-testid="receive-from"
                 aria-describedby={`${baseId}-no-effect-${ruleId(rule)}`}
-                title={`Pick the block that sends ${name} to this one`}
+                data-tip={`Pick the block that sends ${name} to this one`}
                 onClick={e => {
                   const r = e.currentTarget.getBoundingClientRect()
                   openConnectionMenu(itemId, r.left, r.bottom)
@@ -158,7 +158,7 @@ export function ComesFrom({ itemId, areaId, listInPopover = false, actions = [],
             <button
               type="button"
               aria-describedby={`${baseId}-no-effect-${ruleId(rule)}`}
-              title={`Remove the ${ruleLabel(rule, block.rootPlan)} rule`}
+              data-tip={`Remove the ${ruleLabel(rule, block.rootPlan)} rule`}
               onClick={() => removeRule(rule)}
               className="bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 hover:border-gray-500"
             >
@@ -177,7 +177,7 @@ export function ComesFrom({ itemId, areaId, listInPopover = false, actions = [],
     hasPopup: 'dialog',
     onSelect: e => openComesFrom(itemId, anchorOf(e.currentTarget)),
   }
-  const sentenceRow = <p data-testid="sourcing-sentence" title={sentence} className="text-[11px] leading-snug text-gray-400 line-clamp-2">{sentence}</p>
+  const sentenceRow = <p data-testid="sourcing-sentence" data-tip={sentence} className="text-[11px] leading-snug text-gray-400 line-clamp-2">{sentence}</p>
 
   if (listInPopover) {
     // The strip of a selected Ingredients slot: the sentence under the bar, then one row of icons.

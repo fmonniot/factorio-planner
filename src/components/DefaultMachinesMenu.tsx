@@ -46,7 +46,7 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
         data-category={category}
         className="flex items-center gap-2 px-3 py-1"
       >
-        <span className="w-36 truncate text-gray-200" title={category}>{categoryLabel(category, gameData)}</span>
+        <span className="w-36 truncate text-gray-200" data-tip={category}>{categoryLabel(category, gameData)}</span>
         {rows > 0 && <span className="text-[11px] text-gray-400 shrink-0">{rows} {rows === 1 ? 'row' : 'rows'}</span>}
         <div data-menu-row className="flex flex-wrap gap-1 ml-auto justify-end">
           {availableMachinesFor(gameData, horizon, category).map(m => {
@@ -58,7 +58,7 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
                 role="menuitemradio"
                 aria-checked={checked}
                 aria-label={m.name}
-                title={m.name}
+                data-tip=""
                 data-machine-id={m.id}
                 tabIndex={-1}
                 onClick={() => setDefaultMachine(category, m.id)}
@@ -108,13 +108,13 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
                 data-unlisted
                 className="flex items-center gap-2 px-3 py-1"
               >
-                <span className="w-36 truncate text-gray-200" title={category}>{label}</span>
+                <span className="w-36 truncate text-gray-200" data-tip={category}>{label}</span>
                 <span className="text-[11px] text-gray-400 truncate">{machineName}</span>
                 <button
                   type="button"
                   role="menuitem"
                   aria-label={`Clear default for ${label}`}
-                  title={`Clear default for ${label}`}
+                  data-tip=""
                   tabIndex={-1}
                   data-clear-default
                   onClick={e => {

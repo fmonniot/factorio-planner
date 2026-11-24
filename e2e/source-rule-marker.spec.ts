@@ -116,11 +116,11 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   const sentence = (await sentenceEl.textContent())!
   expect(sentence).toContain('Uses what this block already makes (')
   await expect(marker).toHaveAccessibleName(sentence)
-  await expect(marker).toHaveAttribute('title', sentence)
+  await expect(marker).toHaveAttribute('aria-label', sentence)
   await expect(marker).toHaveText('')
   await expect(page.getByTestId('item-tile-sourcing')).toHaveCount(0)
   await expect(page.locator('[data-sourcing]')).toHaveCount(0)
-  await expect(table(page).locator('[title*="first)"]')).toHaveCount(0)
+  await expect(table(page).locator('[aria-label*="first)"]')).toHaveCount(0)
 
   // Back to the default: no rule, no marker.
   await setPreset(control, 'own')
@@ -214,7 +214,7 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(slotMarker).toHaveCount(1)
   await expect(markers(summary)).toHaveCount(1)
   // The slot's name says it, so the marker inside is not announced a second time; its tooltip is the sentence.
-  await expect(slotMarker).toHaveAttribute('title', sentence)
+  await expect(slotMarker).toHaveAttribute('aria-label', sentence)
   await expect(oxygenSlot(page).getByRole('img')).toHaveCount(0)
   // The 6px dot is inside the slot, in its top-right corner, and a click on it is a click on the slot.
   const slotBox = (await oxygenSlot(page).boundingBox())!
@@ -244,7 +244,7 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await openMatrix()
   await expect(markers(matrix)).toHaveCount(1)
   await expect(markers(matrixHeader)).toHaveAccessibleName(sentence)
-  await expect(markers(matrixHeader)).toHaveAttribute('title', sentence)
+  await expect(markers(matrixHeader)).toHaveAttribute('aria-label', sentence)
   // Every block side by side has none: a rule belongs to one block.
   await page.getByRole('group', { name: 'Block' }).getByRole('button', { name: 'All blocks' }).click()
   await expect(markers(page.getByTestId('modal-panel'))).toHaveCount(0)

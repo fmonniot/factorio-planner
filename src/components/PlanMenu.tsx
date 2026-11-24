@@ -8,6 +8,7 @@ import { Modal } from './Modal'
 import { PlanNameDialog } from './PlanNameDialog'
 import { ITEM_CLASS } from './MenuButton'
 import { PlusIcon, PencilIcon, CopyIcon, TrashIcon } from './icons'
+import { TipWrap } from './TipWrap'
 
 type PlanDialog = null | { kind: 'rename' } | { kind: 'delete' } | { kind: 'error'; message: string }
 
@@ -52,20 +53,21 @@ export function usePlanSection(): PlanSection {
           {index.plans.map(p => {
             const checked = p.id === index.activePlanId
             return (
-              <button
-                key={p.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={checked}
-                disabled={!loaded}
-                title={p.name}
-                tabIndex={-1}
-                className={ITEM_CLASS}
-                onClick={() => { run(switchPlan(p.id)); closeMenu(true) }}
-              >
-                <span aria-hidden className="w-3 inline-block shrink-0">{checked ? '✓' : ''}</span>
-                <span className="truncate max-w-64">{p.name}</span>
-              </button>
+              <TipWrap key={p.id} tip={p.name} when={!loaded} className="flex flex-col">
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={checked}
+                  disabled={!loaded}
+                  data-tip={loaded ? p.name : undefined}
+                  tabIndex={-1}
+                  className={`${ITEM_CLASS} disabled:pointer-events-none`}
+                  onClick={() => { run(switchPlan(p.id)); closeMenu(true) }}
+                >
+                  <span aria-hidden className="w-3 inline-block shrink-0">{checked ? '✓' : ''}</span>
+                  <span className="truncate max-w-64">{p.name}</span>
+                </button>
+              </TipWrap>
             )
           })}
         </div>

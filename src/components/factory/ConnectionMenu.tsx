@@ -9,6 +9,8 @@ import { takeCandidates, requestCandidates, requestBlockerTitle } from '../../st
 import { isMadeByAnyRecipe } from '../../data/recipeProducts'
 import { hasProduct } from '../../solver/blockGraph'
 import { fmtItemRateText } from './ItemTile'
+import { TipWrap } from '../TipWrap'
+import { describedTip } from '../tipProps'
 
 // ---------------------------------------------------------------------------
 // ConnectionMenu — pick the block that supplies an item to the active block
@@ -87,29 +89,34 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
           Request {itemName} from
         </div>
       )}
-      {requests.map(({ block, closesLoop, blocker }) => (
-        <button
-          key={block.id}
-          type="button"
-          role="menuitem"
-          data-kind="request"
-          data-closes-loop={closesLoop ? 'true' : undefined}
-          disabled={!!blocker}
-          title={blocker
+      {requests.map(({ block, closesLoop, blocker }) => {
+        const tip = blocker
             ? requestBlockerTitle(blocker, block.name, itemName)
             : closesLoop
               ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
-              : `${block.name} makes what this block needs`}
-          className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
-          onClick={() => {
-            addInputConnection(itemId, block.id)
-            onClose()
-          }}
-        >
-          {block.name}
-          {closesLoop && <span aria-hidden> ↻</span>}
-        </button>
-      ))}
+              : `${block.name} makes what this block needs`
+        return (
+        <TipWrap key={block.id} tip={tip} when={!!blocker} className="flex flex-col">
+          <button
+            type="button"
+            role="menuitem"
+            data-kind="request"
+            data-closes-loop={closesLoop ? 'true' : undefined}
+            disabled={!!blocker}
+            data-tip={blocker ? undefined : tip}
+            aria-description={tip}
+            className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:pointer-events-none disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
+            onClick={() => {
+              addInputConnection(itemId, block.id)
+              onClose()
+            }}
+          >
+            {block.name}
+            {closesLoop && <span aria-hidden> ↻</span>}
+          </button>
+        </TipWrap>
+        )
+      })}
       {connectable && requests.length > 0 && takes.length > 0 && <div className="border-t border-gray-700 my-1" />}
       {connectable && (takes.length > 0 || requests.length === 0) && (
         <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-400">
@@ -128,9 +135,9 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
           role="menuitem"
           data-kind="take"
           data-closes-loop={closesLoop ? 'true' : undefined}
-          title={closesLoop
+          {...describedTip(closesLoop
             ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
-            : undefined}
+            : undefined)}
           className="w-full flex items-center justify-between gap-3 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
           onClick={() => {
             addInputConnection(itemId, block.id)
@@ -150,7 +157,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
         <button
           type="button"
           role="menuitem"
-          title={`Create a block that makes ${itemName} and request it from there`}
+          {...describedTip(`Create a block that makes ${itemName} and request it from there`)}
           className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
           onClick={() => {
             onMakeInNewBlock(itemId)
