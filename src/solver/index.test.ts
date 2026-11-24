@@ -225,6 +225,14 @@ describe('solveAll — overconstrained and surplus a connection delivers', () =>
     expect(tree(all)).toBeCloseTo(1000, 3)
   })
 
+  it('keeps the result object when the flows take nothing of the surplus', () => {
+    const all = solveAll([forest(), consumer(500)], gd())
+    const results = { ...all.results }
+    const before = results.F
+    trimConsumedSurplus([{ id: 'F' }], results, all.flows.map(f => ({ ...f, itemId: 'other' })))
+    expect(results.F).toBe(before)
+  })
+
   it('does not touch a result without an outbound flow', () => {
     const results = { F: solveAll([forest()], gd()).results.F }
     const before = results.F

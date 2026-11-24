@@ -832,6 +832,7 @@ export function trimConsumedSurplus(
         .filter((u, i) => u.rate > surplusTolerance(w.surplusItems[i].rate))
       if (surplusItems.length > 0) warnings.push({ type: 'overconstrained', surplusItems })
     }
+    if (JSON.stringify(warnings) === JSON.stringify(result.warnings)) continue
     const key = JSON.stringify(warnings)
     const hit = trimmedCopies.get(result)
     if (hit?.key === key) results[b.id] = hit.result
