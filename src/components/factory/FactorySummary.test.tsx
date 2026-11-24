@@ -10,7 +10,7 @@ import { useSolverStore } from '../../store/solverStore'
 import { BLOCK_PALETTE } from '../../data/blockColors'
 import { sourceRulesOf } from '../../test/sourceRulesOf'
 import type { Block, ConnectionFlow, GameData, SolverResult, Product } from '../../data/types'
-import { getByTip, queryByTip } from '../../test/byTip'
+import { expectTip, getByTip, queryByTip, tipOf } from '../../test/byTip'
 
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
@@ -120,7 +120,7 @@ describe('FactorySummary — without loaded game data', () => {
     useGameDataStore.setState({ status })
     render(<FactorySummary />)
     expect(screen.queryByText('Products'), 'summary must be hidden').not.toBeInTheDocument()
-    expect(screen.queryByTitle('Add product')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add product' })).not.toBeInTheDocument()
   })
 })
 
@@ -129,8 +129,7 @@ describe('FactorySummary — header row', () => {
     render(<FactorySummary />)
     expect(screen.queryByText('/sec')).not.toBeInTheDocument()
     expect(screen.queryByText('/min')).not.toBeInTheDocument()
-    expect(screen.queryByTitle('Click to rename')).not.toBeInTheDocument()
-    expect(screen.queryByTitle('Show solver warnings')).not.toBeInTheDocument()
+    expect(queryByTip('Show solver warnings')).not.toBeInTheDocument()
   })
 })
 
@@ -811,7 +810,7 @@ describe('FactorySummary — add product, item already a product', () => {
   it('disables the item in the picker and still adds another one', async () => {
     setupStore([ironGoal])
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add product'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     const slotOf = (id: string) => screen.getAllByTestId('item-slot').find(b => b.getAttribute('data-item-id') === id)!
     expect(slotOf('iron-plate')).toHaveAttribute('aria-disabled', 'true')
@@ -825,14 +824,14 @@ describe('FactorySummary — add product, item already a product', () => {
 describe('FactorySummary — add product', () => {
   it('clicking + opens item picker', async () => {
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add product'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Add product' })).toBeInTheDocument())
   })
 
   it('adding a product via the picker adds a product', async () => {
     setupStore([])
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add product'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     const slots = screen.getAllByTestId('item-slot')
     const ironSlot = slots.find(b => b.getAttribute('data-item-id') === 'iron-plate')!
@@ -846,7 +845,7 @@ describe('FactorySummary — add product', () => {
   it('adds a product with the amount typed in the picker as its extra output', async () => {
     setupStore([])
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add product'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '60' } })
     fireEvent.click(screen.getAllByTestId('item-slot').find(b => b.getAttribute('data-item-id') === 'iron-plate')!)
@@ -1117,7 +1116,9 @@ describe('FactorySummary — connections', () => {
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       const item = screen.getByRole('menuitem', { name: /Miner/ })
       expect(item.getAttribute('data-closes-loop')).toBe('true')
-      expect(item.getAttribute('title')).toMatch(/Closes a loop/)
+      expect(tipOf(item)).toMatch(/Closes a loop/)
+      expect(item).toHaveAccessibleDescription(/Closes a loop/)
+      expect(item).not.toHaveAttribute('title')
     })
 
     it('says so when no other block has the item to spare', () => {
@@ -1574,9 +1575,12 @@ describe('FactorySummary — requests', () => {
   })
 
   describe('connection menu sections', () => {
-    function setupMenu() {
+    function setupMenu(minerReceives = false) {
       const consumer: Block = { ...makeEmptyBlock('Consumer'), id: 'consumer', products: [ironGoal] }
-      const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', products: [ironOreProduct] }
+      const miner: Block = {
+        ...makeEmptyBlock('Miner'), id: 'miner', products: [ironOreProduct],
+        ...(minerReceives ? { inputConnections: [{ id: 'mr', itemId: 'iron-ore', fromBlockId: 'smelter' }] } : {}),
+      }
       const smelter: Block = { ...makeEmptyBlock('Smelter'), id: 'smelter', products: [] }
       // Loop already requests the consumer's iron plate and makes iron ore itself.
       const loop: Block = {
@@ -1600,6 +1604,18 @@ describe('FactorySummary — requests', () => {
       })
     }
 
+    it('disables a request that would loop back, with the reason on a wrapper and as the description', () => {
+      setupMenu(true)
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      const miner = screen.getAllByRole('menuitem').find(i => i.dataset.kind === 'request' && i.textContent === 'Miner')!
+      expect(miner).toBeDisabled()
+      expect(miner).toHaveAccessibleDescription('Miner receives Iron Ore itself')
+      expect(miner).not.toHaveAttribute('title')
+      expect(miner.parentElement).toHaveAttribute('data-tip', 'Miner receives Iron Ore itself')
+      expect(tipOf(miner)).toBe('Miner receives Iron Ore itself')
+    })
+
     it('lists requests first and takes second, marking a request that would close a loop', () => {
       setupMenu()
       render(<FactorySummary />)
@@ -1610,7 +1626,7 @@ describe('FactorySummary — requests', () => {
       expect(requests.map(i => i.textContent)).toEqual(['Miner', 'Loop ↻'])
       expect(requests[0]).toBeEnabled()
       expect(requests[1]).toBeEnabled()
-      expect(requests[1].getAttribute('title')).toBe('Closes a loop: Loop already receives from this block, directly or through other blocks')
+      expectTip(requests[1], 'Closes a loop: Loop already receives from this block, directly or through other blocks')
       const takes = screen.getAllByRole('menuitem').filter(i => i.dataset.kind === 'take')
       expect(takes).toHaveLength(1)
       expect(takes[0].textContent).toContain('Smelter')
@@ -1668,7 +1684,7 @@ describe('FactorySummary — requests', () => {
 
   describe('adding a product', () => {
     const openPicker = async () => {
-      fireEvent.click(screen.getByTitle('Add product'))
+      fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
       await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     }
     const pickOre = () =>
@@ -1982,7 +1998,7 @@ describe('FactorySummary — pane layout', () => {
     setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', extraRate: 10 }])
     render(<FactorySummary />)
     expect(pane('Products').textContent).toContain('· 2')
-    expect(screen.getByTitle('Add product').closest('.overflow-y-auto')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Add product' }).closest('.overflow-y-auto')).toBeNull()
   })
 
   it('caps the slot grid height and gives the strip a fixed height', () => {
@@ -2052,7 +2068,7 @@ describe('FactorySummary — byproduct consumer recipe', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
     expect(screen.getByText("Choose a recipe that consumes 'Slag'")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTitle('Slag To Plate'))
+    fireEvent.click(getByTip('Slag To Plate'))
     const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
     expect(nodes).toHaveLength(1)
     expect(nodes[0].kind === 'game-recipe' && nodes[0].recipeId).toBe('slag-to-plate')
@@ -2064,7 +2080,7 @@ describe('FactorySummary — byproduct consumer recipe', () => {
     select('Byproducts', 'Slag')
     fireEvent.click(within(strip('Byproducts')).getByRole('button', { name: 'Add consumer recipe…' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
-    fireEvent.click(screen.getByTitle('Slag To Plate'))
+    fireEvent.click(getByTip('Slag To Plate'))
     expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(1)
   })
 
@@ -2106,7 +2122,7 @@ describe('FactorySummary — Find recipe', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
     expect(screen.getByText("Choose a recipe to produce 'Iron Plate'")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTitle('Smelt Iron'))
+    fireEvent.click(getByTip('Smelt Iron'))
     const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
     expect(nodes).toHaveLength(1)
     expect(nodes[0].kind === 'game-recipe' && nodes[0].recipeId).toBe('smelt-iron')
@@ -2121,7 +2137,7 @@ describe('FactorySummary — Find recipe', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
     expect(screen.getByText("Choose a recipe to produce 'Iron Ore'")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTitle('Mine Iron'))
+    fireEvent.click(getByTip('Mine Iron'))
     expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(1)
   })
 
@@ -2346,7 +2362,7 @@ describe('FactorySummary — collapsed summary', () => {
     expect(within(pane('Byproducts')).getByTestId('summary-line-count')).toHaveTextContent('1')
     expect(screen.queryAllByTestId('summary-slot')).toHaveLength(0)
     expect(screen.queryByTestId('summary-detail')).toBeNull()
-    expect(screen.queryByTitle('Add product')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add product' })).toBeNull()
   })
 
   it('draws as many chips as fit, each with its quantity, the goal in the title, and no +N when they all fit', () => {
@@ -2710,7 +2726,8 @@ describe('FactorySummary — source rule marker', () => {
     // It shows the rule and takes no click of its own: the slot is the way to the control. Its tooltip is the sentence.
     const marker = markers(ore)[0]
     expect(marker.tagName).toBe('SPAN')
-    expect(marker).toHaveAttribute('title', expect.stringContaining('Iron Ore'))
+    expect(marker).toHaveAttribute('aria-label', expect.stringContaining('Iron Ore'))
+    expect(marker).not.toHaveAttribute('title')
     // The slot's name already says it: the marker is out of the accessibility tree.
     expect(marker.closest('[aria-hidden="true"]')).not.toBeNull()
     expect(within(ore).queryByRole('img')).toBeNull()
@@ -2719,7 +2736,7 @@ describe('FactorySummary — source rule marker', () => {
     fireEvent.click(marker)
     expect(ore).toHaveAttribute('aria-pressed', 'true')
     expect(markers(ore)).toHaveLength(1)
-    expect(within(strip('Ingredients')).getByTestId('sourcing-sentence')).toHaveTextContent(marker.getAttribute('title')!)
+    expect(within(strip('Ingredients')).getByTestId('sourcing-sentence')).toHaveTextContent(marker.getAttribute('aria-label')!)
   })
 
   it('follows the status in the slot name, and sits after the status badge of a short slot', () => {

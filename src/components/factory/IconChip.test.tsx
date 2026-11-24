@@ -16,10 +16,10 @@ describe('IconChip', () => {
   })
 
   it('is a span without onClick and a button with it', () => {
-    const { rerender } = render(<IconChip alt="Gear" title="Gear" />)
+    const { rerender } = render(<IconChip alt="Gear" tip="Gear" />)
     expect(screen.queryByRole('button')).toBeNull()
     const onClick = vi.fn()
-    rerender(<IconChip alt="Gear" title="Gear" onClick={onClick} />)
+    rerender(<IconChip alt="Gear" tip="Gear" onClick={onClick} />)
     fireEvent.click(screen.getByRole('button'))
     expect(onClick).toHaveBeenCalledTimes(1)
   })
@@ -98,10 +98,11 @@ describe('IconChip', () => {
     const onClick = vi.fn()
     const onMarker = vi.fn()
     const marker = <button type="button" data-testid="marker" onClick={onMarker} />
-    const { container } = render(<IconChip alt="Gear" title="Gear" data-testid="chip" onClick={onClick} marker={marker} />)
+    const { container } = render(<IconChip alt="Gear" tip="Gear" data-testid="chip" onClick={onClick} marker={marker} />)
     const chip = screen.getByTestId('chip')
     expect(chip.tagName).toBe('BUTTON')
-    expect(chip).toHaveAttribute('title', 'Gear')
+    expect(chip).toHaveAttribute('aria-label', 'Gear')
+    expect(chip).not.toHaveAttribute('title')
     // A button holds no button: the marker is the chip's sibling, in the badge corner of the frame.
     expect(chip.querySelector('button')).toBeNull()
     expect(container.firstElementChild).toHaveAttribute('data-chip-frame')

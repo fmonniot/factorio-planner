@@ -29,7 +29,7 @@ async function upload(page: Page, data: unknown) {
 /** 60 iron plates per minute smelted by one row. */
 async function addPlateRow(page: Page) {
   const overlay = page.locator('.fixed.inset-0')
-  await page.getByTitle('Add product').click()
+  await page.getByRole('button', { name: 'Add product', exact: true }).click()
   await overlay.getByLabel('Amount').fill('60')
   await overlay.locator('[data-testid="item-slot"][data-item-id="iron-plate"]').click()
   await expect(overlay).not.toBeVisible()

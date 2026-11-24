@@ -6,6 +6,7 @@ import { SidePanel } from './SidePanel'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
 import { useUiStore } from '../../../store/uiStore'
 import { useSolverStore } from '../../../store/solverStore'
+import { expectTip } from '../../../test/byTip'
 import type { Block, GameData, GameRecipeNode, SolverResult, SubPlan } from '../../../data/types'
 
 /** Fresh each call: iron plate (from ore) and plastic, one furnace. */
@@ -387,7 +388,7 @@ describe('SidePanel — where inputs come from', () => {
     it("Change… opens the popover on the row's area", () => {
       setAreas()
       const button = within(entry('plate')).getByTestId('sourcing-change')
-      expect(button).toHaveAttribute('title', "Choose where this item comes from, for the block or for this row's area")
+      expectTip(button, "Choose where this item comes from, for the block or for this row's area")
       fireEvent.click(button)
       expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'plate', areaId: 'sp-a' })
     })

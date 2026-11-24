@@ -98,14 +98,18 @@ describe('BlockAreaMatrix power units', () => {
 
   it('words the header note of an energy-only trade by its direction', () => {
     renderMatrix({ matrix: { ...matrix, rows: [elecRow] }, focusedAreaId: 'B' })
-    const head = document.querySelector('thead button[title="Focus A"]')!.closest('th')!
+    const head = document.querySelector('thead button[data-tip="Focus A"]')!.closest('th')!
     expect(head.textContent).toContain('sends it 1 item')
   })
 
   it('leaves the totals of an ungrouped matrix alone and hints at the left-out rows', () => {
     const mixed = { ...elecRow, groupId: 'other-items' }
     renderMatrix({ matrix: { ...matrix, rows: [mixed, plateRow] } })
-    expect(document.querySelector('tbody[data-group-id="other-items"] span[title]')?.getAttribute('title')).toMatch(/leave out/)
+    const note = document.querySelector('tbody[data-group-id="other-items"] span[data-tip]')
+    expect(note?.getAttribute('data-tip')).toMatch(/leave out/)
+    const toggle = document.querySelector<HTMLElement>('tbody[data-group-id="other-items"] th button')!
+    expect(toggle).toHaveAccessibleDescription(/leave out/)
+    expect(toggle).not.toHaveAttribute('title')
   })
 
   it('adds no total for a group holding electricity and heat', () => {

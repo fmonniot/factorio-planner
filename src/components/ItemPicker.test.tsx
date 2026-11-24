@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within, cleanup } from '@testing-library/rea
 import { ItemPicker } from './ItemPicker'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
+import { expectTip, tipOf } from '../test/byTip'
 import type { GameData, Recipe } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -143,7 +144,8 @@ describe('ItemPicker — recipes mode', () => {
     const present = slot('iron-plate')
     expect(present).toHaveAttribute('aria-disabled', 'true')
     expect(present).toHaveAttribute('data-in-area', 'true')
-    expect(present).toHaveAttribute('title', 'Iron Plate (already in this area)')
+    expect(present).toHaveAttribute('aria-label', 'Iron Plate (already in this area)')
+    expectTip(present, 'Iron Plate (already in this area)', { describe: false })
     fireEvent.click(present)
     expect(onSelect).not.toHaveBeenCalled()
     expect(slot('copper-plate')).toBeEnabled()
@@ -814,6 +816,12 @@ describe('ItemPicker — fuel groups', () => {
     expect(groupSlot('boiler')).toBeDisabled()
     expect(groupSlot('boiler')).toHaveAttribute('data-in-area', 'true')
     expect(groupSlot('boiler-2')).toBeEnabled()
+    // The disabled slot gets no pointer events: the tooltip sits on its wrapper.
+    const text = groupSlot('boiler')!.getAttribute('aria-label')!
+    expect(text).toContain('(already in this area)')
+    expect(tipOf(groupSlot('boiler')!)).toBe(text)
+    expect(groupSlot('boiler')!.parentElement).toHaveAttribute('data-tip', text)
+    expect(groupSlot('boiler-2')!.closest('[data-tip]')).toBe(groupSlot('boiler-2'))
   })
 
   it('opens a partly present group and disables only the fuel already there', () => {
@@ -923,7 +931,8 @@ describe('ItemPicker — items mode', () => {
     const iron = slotOf('iron-plate')
     expect(iron).toHaveAttribute('aria-disabled', 'true')
     expect(iron).toHaveAttribute('data-present', 'true')
-    expect(iron).toHaveAttribute('title', 'Iron Plate (already a product of this block)')
+    expect(iron).toHaveAttribute('aria-label', 'Iron Plate (already a product of this block)')
+    expectTip(iron, 'Iron Plate (already a product of this block)', { describe: false })
     expect(slotOf('copper-plate')).not.toHaveAttribute('aria-disabled')
     fireEvent.click(iron)
     expect(onSelect).not.toHaveBeenCalled()

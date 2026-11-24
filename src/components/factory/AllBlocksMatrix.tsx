@@ -8,6 +8,7 @@ import { fmtFluidTag } from '../../data/flowKey'
 import { primaryAreas, type PlanMatrixBlock, type PlanMatrixRow } from './planAreaMatrix'
 import { fmtAmount, fmtAmountUnit, fmtSigned, fmtSignedUnit } from './matrixFormat'
 import { isEnergyItem } from '../../data/electricity'
+import { describedTip } from '../tipProps'
 
 // ---------------------------------------------------------------------------
 // Every block as a column: what each block takes or leaves across its boundary, per item, next to
@@ -100,7 +101,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
             ) : (
               <span aria-hidden className="w-4 h-4 shrink-0" />
             )}
-            <span className="truncate" title={rowDisplayName(row)}>
+            <span className="truncate" data-tip={rowDisplayName(row)}>
               {row.name}
               {row.temp !== undefined && fmtFluidTag(row.temp) !== '' && (
                 <span data-testid="matrix-row-temperature" className="ml-1 font-mono text-[10px] text-orange-300">{fmtFluidTag(row.temp)}</span>
@@ -118,7 +119,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
               <td
                 key={`${b.blockId}:areas`}
                 data-col={`${b.blockId}:areas`}
-                title={prim.map(p => `${p.name} ${fmtSignedUnit(p.rate, rateUnit, energy)}`).join(', ')}
+                {...describedTip(prim.map(p => `${p.name} ${fmtSignedUnit(p.rate, rateUnit, energy)}`).join(', '))}
                 className={`${BLOCK_EDGE} px-1 py-0.5 text-center text-gray-300 border-b border-gray-800`}
               >
                 {prim.length > 0 && (
@@ -272,7 +273,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
                 } else if (expanded) {
                   b.areas.forEach((a, i) =>
                     heads.push(
-                      <th key={`${b.blockId}:${a.areaId}`} scope="col" className={`${i === 0 ? BLOCK_EDGE : ''} w-[5.5rem] truncate ${sub}`} title={a.name}>
+                      <th key={`${b.blockId}:${a.areaId}`} scope="col" className={`${i === 0 ? BLOCK_EDGE : ''} w-[5.5rem] truncate ${sub}`} data-tip={a.name}>
                         {a.name}
                       </th>,
                     ),

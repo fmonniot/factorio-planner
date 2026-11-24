@@ -4,7 +4,7 @@ import { selectDataset, expectDataset } from './support/appMenu'
 /** Add a goal of `amount` for the first item in the picker. */
 async function addGoal(page: Page, amount: string) {
   const overlay = page.locator('.fixed.inset-0')
-  await page.getByTitle('Add product').click()
+  await page.getByRole('button', { name: 'Add product', exact: true }).click()
   await overlay.getByLabel('Amount').fill(amount)
   await overlay.locator('[data-testid="item-slot"]').first().click()
   await expect(overlay).not.toBeVisible()
@@ -50,9 +50,9 @@ test.describe('per-data-set plans', () => {
 
   test('plan editing is disabled until game data is loaded', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Add block', exact: true })).toBeDisabled()
-    await expect(page.getByTitle('Add product')).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add product', exact: true })).not.toBeVisible()
     await selectDataset(page, 'Nullius')
     await expect(page.getByRole('button', { name: 'Add block', exact: true })).toBeEnabled()
-    await expect(page.getByTitle('Add product')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add product', exact: true })).toBeVisible()
   })
 })

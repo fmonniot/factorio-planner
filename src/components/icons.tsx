@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 
 interface IconProps {
   className?: string
-  /** Names the icon for assistive technology and as its tooltip; without it the icon is hidden from them. */
+  /** Names the icon for assistive technology and as its instant tooltip (`data-tip`, drawn by `TooltipLayer`); without it the icon is hidden from them. */
   title?: string
   testId?: string
 }
@@ -13,7 +13,7 @@ function SvgIcon({ className = 'w-4 h-4', title, testId, children }: IconProps &
   return (
     <svg
       // A titled icon is an image with a name and a tooltip; an untitled one is decoration.
-      {...(title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true })}
+      {...(title ? { role: 'img', 'aria-label': title, 'data-tip': '' } : { 'aria-hidden': true })}
       data-testid={testId}
       viewBox="0 0 24 24"
       fill="none"
@@ -23,7 +23,6 @@ function SvgIcon({ className = 'w-4 h-4', title, testId, children }: IconProps &
       strokeLinejoin="round"
       className={className}
     >
-      {title && <title>{title}</title>}
       {children}
     </svg>
   )

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { WarningsPopover } from './TableToolbar'
+import { expectTip, getByTip } from '../../test/byTip'
 import { useSolverStore } from '../../store/solverStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
@@ -37,7 +38,7 @@ function setupWithWarnings(result: Partial<SolverResult>) {
 }
 
 function openPopover() {
-  fireEvent.click(screen.getByTitle('Show solver warnings'))
+  fireEvent.click(getByTip('Show solver warnings'))
 }
 
 beforeEach(() => {
@@ -175,7 +176,7 @@ describe('WarningsPopover — no-fitting-temperature', () => {
 
   it('is critical: red title and red pill', () => {
     expect(screen.getByText(/No fluid at a fitting temperature/).className).toContain('text-red-400')
-    expect(screen.getByTitle('Show solver warnings').className).toContain('text-red')
+    expect(getByTip('Show solver warnings').className).toContain('text-red')
   })
 })
 
@@ -194,7 +195,7 @@ describe('WarningsPopover — absorber-idle', () => {
     expect(screen.getByText(/All absorber rewards in this block were switched off/)).toBeInTheDocument()
     expect(screen.getByText(/run only where a pin or a goal needs them/)).toBeInTheDocument()
     expect(screen.getByText(/Stop absorbing byproduct/)).toBeInTheDocument()
-    expect(screen.getByTitle('Show solver warnings').className).not.toContain('text-red')
+    expect(getByTip('Show solver warnings').className).not.toContain('text-red')
   })
 
   it('links to the row', () => {
@@ -232,7 +233,7 @@ describe('WarningsPopover — unbounded-absorber', () => {
     expect(screen.getByText(/Absorber has no limit/).className).toContain('text-red-400')
     expect(screen.getByText(/"Boiler Recipe" earns more per run than the items it takes cost to make/)).toBeInTheDocument()
     expect(screen.getByText(/Stop absorbing byproduct/)).toBeInTheDocument()
-    expect(screen.getByTitle('Show solver warnings').className).toContain('text-red')
+    expect(getByTip('Show solver warnings').className).toContain('text-red')
   })
 
   it('links to the row', () => {
@@ -381,7 +382,8 @@ describe('WarningsPopover — module-not-allowed', () => {
   it('is not critical, links to the row and counts one warning', () => {
     setup('category')
     expect(screen.getByText(/Module not accepted/).className).toContain('text-yellow-400')
-    expect(screen.getByTitle('Show solver warnings')).toHaveTextContent('1 warning')
+    expect(getByTip('Show solver warnings')).toHaveTextContent('1 warning')
+    expectTip(getByTip('Show solver warnings'), 'Show solver warnings')
     expect(screen.getByRole('button', { name: 'Go to Boiler Recipe' })).toBeInTheDocument()
   })
 })
@@ -405,7 +407,7 @@ describe('WarningsPopover — coproduct-driven', () => {
     expect(screen.getByText(/about 40%/)).toBeInTheDocument()
     expect(screen.getByText(/Don't make more here \(right-click its ingredient chip, then Comes from…\)/)).toBeInTheDocument()
     expect(screen.getByText(/pin the recipe/)).toBeInTheDocument()
-    expect(screen.getByTitle('Show solver warnings').className).toContain('text-yellow-300')
+    expect(getByTip('Show solver warnings').className).toContain('text-yellow-300')
   })
 
   it.each([[0.5], [0]])('says "under 1%" for a need of %s', (needed) => {
@@ -662,7 +664,7 @@ describe('WarningsPopover — pill', () => {
   it('reports whether the popover is open', () => {
     setupWithWarnings({ warnings: [{ type: 'no-recipe', itemId: 'iron-plate' }] })
     render(<WarningsPopover />)
-    const pill = screen.getByTitle('Show solver warnings')
+    const pill = getByTip('Show solver warnings')
     expect(pill).toHaveAttribute('aria-haspopup', 'dialog')
     expect(pill).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(pill)
@@ -672,7 +674,7 @@ describe('WarningsPopover — pill', () => {
   it('ignores an Escape another layer already handled, and closes on a plain one', () => {
     setupWithWarnings({ warnings: [{ type: 'no-recipe', itemId: 'iron-plate' }] })
     render(<WarningsPopover />)
-    const pill = screen.getByTitle('Show solver warnings')
+    const pill = getByTip('Show solver warnings')
     fireEvent.click(pill)
     const handled = (e: KeyboardEvent) => e.preventDefault()
     window.addEventListener('keydown', handled, true)

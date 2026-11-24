@@ -19,7 +19,7 @@ const FIXTURE = path.resolve('e2e/fixtures/item-sourcing.json')
 const oxygenSlot = (page: Page) => slot(page, 'Ingredients', 'Oxygen')
 const compressedSlot = (page: Page) => slot(page, 'Ingredients', 'Compressed oxygen')
 const acidRow = (page: Page) =>
-  page.locator('main table tbody tr').filter({ has: page.locator('[title="Nitric acid"]') }).first()
+  page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Nitric acid"]') }).first()
 const oxygenChip = (page: Page) => acidRow(page).getByLabel(/^Oxygen/)
 
 async function setup(page: Page) {

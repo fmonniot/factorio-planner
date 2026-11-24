@@ -16,6 +16,8 @@ import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig } from '.
 import { beaconEffects, applyRecipeConstraints, fmtEffect } from './effects'
 import { resolveRowMachine } from '../../../data/horizon'
 import { rowMachine } from '../../../solver/effects'
+import { describedTip } from '../../tipProps'
+import { TipWrap } from '../../TipWrap'
 
 /** What one configuration contributes, as text: "speed +50%, energy +70%". */
 function contribution(applied: ReturnType<typeof beaconEffects>): string {
@@ -81,7 +83,8 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
               type="button"
               data-testid="beacon-type-button"
               aria-expanded={open}
-              title={entity?.name ?? (hasBeaconData ? 'Select beacon type' : 'No beacon data')}
+              data-tip={entity?.name ?? (hasBeaconData ? 'Select beacon type' : 'No beacon data')}
+              aria-description={entity ? undefined : (hasBeaconData ? 'Select beacon type' : 'No beacon data')}
               aria-label={`Beacon type: ${entity?.name ?? 'none'}`}
               onClick={toggle}
               className={`flex items-center gap-1 rounded px-1 py-0.5 bg-gray-700 hover:bg-gray-600 ${beacon.beaconId && !withinHorizon(horizon.beaconIds, beacon.beaconId) ? 'ring-1 ring-amber-500' : ''}`}
@@ -136,7 +139,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
           type="button"
           onClick={onRemove}
           aria-label="Remove beacon configuration"
-          title="Remove this beacon configuration"
+          {...describedTip('Remove this beacon configuration')}
           className="text-xs text-red-500 hover:text-red-400"
         >
           Remove
@@ -246,23 +249,26 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
             onRemove={() => emit(configs.filter((_, j) => j !== i), true)}
           />
         ))}
-        <button
-          type="button"
-          data-testid="add-beacon-config"
-          onClick={add}
-          disabled={blocked !== undefined}
-          title={addTitle}
-          className="w-full rounded border border-dashed border-gray-600 py-1.5 text-xs text-gray-400 hover:text-gray-200 hover:border-gray-500 disabled:opacity-40 disabled:hover:text-gray-400 disabled:hover:border-gray-600"
-        >
-          + Add beacon configuration
-        </button>
+        <TipWrap tip={addTitle} when={blocked !== undefined} className="flex w-full">
+          <button
+            type="button"
+            data-testid="add-beacon-config"
+            onClick={add}
+            disabled={blocked !== undefined}
+            data-tip={blocked === undefined ? addTitle : undefined}
+            aria-description={blocked}
+            className="w-full disabled:pointer-events-none rounded border border-dashed border-gray-600 py-1.5 text-xs text-gray-400 hover:text-gray-200 hover:border-gray-500 disabled:opacity-40 disabled:hover:text-gray-400 disabled:hover:border-gray-600"
+          >
+            + Add beacon configuration
+          </button>
+        </TipWrap>
       </div>
       {configs.length > 0 && recipeRowCount > 1 && (
         <div className="mt-3 pt-2 border-t border-gray-800">
           <button
             type="button"
             data-testid="apply-beacon-to-recipe-rows"
-            title={`Copy these beacon configurations to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`}
+            {...describedTip(`Copy these beacon configurations to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`)}
             onClick={() => applyRowSettingsToRecipe(node.id, 'beacon')}
             className="text-xs text-teal-400 hover:text-teal-300"
           >

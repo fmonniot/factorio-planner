@@ -81,7 +81,7 @@ test.describe('block connections', () => {
     await page.getByRole('button', { name: 'Add recipe' }).click()
     const overlay = page.locator('.fixed.inset-0')
     await overlay.getByPlaceholder('Search…').fill('Iron plate')
-    await overlay.locator('[data-testid="recipe-slot"][title="Iron plate"]').click()
+    await overlay.locator('[data-testid="recipe-slot"][aria-label="Iron plate"]').click()
 
     await expect(detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="unused"]').getByTestId('summary-segment-detail')).toHaveText(/^Not used/)
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toBeVisible()

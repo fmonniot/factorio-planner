@@ -36,4 +36,12 @@ describe('MachinePicker with an additional-category fallback', () => {
     render(<MachinePicker nodeId="n1" recipeId="circuit" recipeCategory="crafting" machineId={undefined} gameData={gameData} onDone={() => {}} />)
     expect(screen.getByTestId('machine-option-default')).toHaveTextContent('Default (Electronics machine)')
   })
+
+  it('says on a row-only machine why it has no default, as tooltip and description', () => {
+    render(<MachinePicker nodeId="n1" recipeId="circuit" recipeCategory="crafting" machineId={undefined} gameData={gameData} onDone={() => {}} />)
+    const label = screen.getByTestId('row-only-label')
+    expect(label).not.toHaveAttribute('title')
+    expect(label.getAttribute('data-tip')).toMatch(/^Defaults are per primary category/)
+    expect(screen.getByTestId('machine-option')).toHaveAccessibleDescription(label.getAttribute('data-tip')!)
+  })
 })

@@ -47,14 +47,14 @@ export function PanelHeader({ icon, title, subtitle, onClose }: {
     <header className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-700">
       <span className="shrink-0">{icon}</span>
       <div className="flex-1 min-w-0">
-        <h2 data-testid="panel-title" className="text-sm font-semibold text-gray-100 truncate" title={title}>{title}</h2>
+        <h2 data-testid="panel-title" className="text-sm font-semibold text-gray-100 truncate" data-tip={title}>{title}</h2>
         {subtitle && <div className="text-[11px] text-gray-400 truncate">{subtitle}</div>}
       </div>
       <button
         type="button"
         onClick={onClose}
         aria-label="Close panel"
-        title="Close panel"
+        data-tip=""
         className="shrink-0 text-gray-400 hover:text-gray-200 text-lg leading-none px-1"
       >
         ✕

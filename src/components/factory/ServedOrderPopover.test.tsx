@@ -4,6 +4,7 @@ import { render, screen, fireEvent, createEvent, within } from '@testing-library
 import { LIST_ORDER_HINT, ServedOrderPopover } from './ServedOrderPopover'
 import { makeEmptyBlock, makeEmptySubPlan } from '../../store/blockStore'
 import type { GameData, ServedEntry, ServedList } from '../../data/types'
+import { expectTip } from '../../test/byTip'
 
 const items = { plate: { id: 'plate', name: 'Plate', type: 'item', iconPath: '', hidden: false } } as unknown as GameData['items']
 const blocks = [{ ...makeEmptyBlock('Gears'), id: 'b' }, { ...makeEmptyBlock('Belts'), id: 'c' }]
@@ -658,7 +659,8 @@ describe('ServedOrderPopover groups, shares and drops', () => {
       const badges = screen.getAllByTestId('served-list-order')
       expect(badges).toHaveLength(2)
       expect(badges[0].textContent).toBe('list order')
-      expect(badges[0].getAttribute('title')).toBe(LIST_ORDER_HINT)
+      expectTip(badges[0], LIST_ORDER_HINT)
+      expect(screen.getAllByRole('img', { name: 'list order' })).toHaveLength(2)
       expect(field('Belts').disabled).toBe(false)
     })
     it('draws none without the flag', () => {

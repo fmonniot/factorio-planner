@@ -139,7 +139,7 @@ test('5 grpIcon: every group row has a 12 px icon named for its kind instead of 
     const box = (await icon.boundingBox())!
     expect([box.width, box.height]).toEqual([12, 12])
     expect(await icon.evaluate(e => getComputedStyle(e).color)).toBe(gray)
-    await expect(icon.locator('title')).toHaveText('Separate area')
+    await expect(icon).toHaveAttribute('data-tip', '')
     // Before the name, and no "Area" tag any more.
     expect(box.x).toBeLessThan((await row.getByRole('button', { name, exact: true }).boundingBox())!.x)
     await expect(row.getByText('Area', { exact: true })).toHaveCount(0)

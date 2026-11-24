@@ -107,7 +107,7 @@ test('the toolbar filter and the item-picker search placeholders read at 4.5:1',
   const f = await expectRatio(filter, 4.5, 'toolbar filter placeholder', '::placeholder')
   expect(f.fg).toEqual(GRAY_400)
 
-  await page.getByTitle('Add product').click()
+  await page.getByRole('button', { name: 'Add product', exact: true }).click()
   const search = page.getByPlaceholder('Search…')
   await expect(search).toBeVisible()
   const s = await expectRatio(search, 4.5, 'item picker placeholder', '::placeholder')

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { FlowList } from './GroupPanel'
+import { getAllByTip } from '../../../test/byTip'
 
 const items = { steam: { id: 'steam', name: 'Steam', iconPath: '' } } as never
 
@@ -11,6 +12,6 @@ describe('FlowList', () => {
       { key: 'steam@500', itemId: 'steam', temp: { at: 500 }, rate: 30, boundary: false, otherEnd: '', ends: [] },
     ]
     render(<FlowList lines={lines} items={items} testId="area-receives" empty="none" />)
-    expect(screen.getAllByTitle(/^Steam/).map(e => e.textContent)).toEqual(['Steam 165°C', 'Steam 500°C'])
+    expect(getAllByTip(/^Steam/).map(e => e.textContent)).toEqual(['Steam 165°C', 'Steam 500°C'])
   })
 })

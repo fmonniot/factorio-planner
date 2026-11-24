@@ -19,7 +19,7 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
         ) : (
           <span className="w-7 h-7 bg-gray-700 rounded text-[9px] text-gray-300 flex items-center justify-center shrink-0">{name.substring(0, 2).toUpperCase()}</span>
         )}
-        <span className="flex-1 min-w-0 text-xs text-gray-200 truncate" title={name}>{name}</span>
+        <span className="flex-1 min-w-0 text-xs text-gray-200 truncate" data-tip={name}>{name}</span>
         {rate !== undefined && discarded && <span data-testid="output-not-counted" className="text-[11px] text-gray-500">not counted</span>}
         {rate !== undefined && !discarded && (
           <span className="text-[11px] text-green-300 tabular-nums">{fmtItemRateText(itemId, rate / 60, unit)}</span>

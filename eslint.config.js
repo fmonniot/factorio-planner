@@ -20,4 +20,15 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // A native `title` shows after a delay and is not read as a description: tooltips use `data-tip` (see `tipProps`, `describedTip`).
+    files: ['src/components/**/*.tsx'],
+    ignores: ['**/*.test.tsx'],
+    rules: {
+      'no-restricted-syntax': ['error', {
+        selector: "JSXOpeningElement[name.name=/^[a-z]/] > JSXAttribute[name.name='title']",
+        message: 'No native `title` on a DOM element: use `data-tip` (and `tipProps` / `describedTip` for the accessible name and description). See spec/ui.md, Chip tooltips.',
+      }],
+    },
+  },
 ])

@@ -44,6 +44,8 @@ describe('TableToolbar', () => {
     expect(screen.getByTestId('block-machine-count')).toHaveTextContent('4 machines')
     const power = screen.getByTestId('block-power-total')
     expect(power).toHaveAccessibleName('Total power draw, 2.0 MW')
+    expect(power).toHaveAccessibleDescription('Total power draw of the block')
+    expect(power).not.toHaveAttribute('title')
   })
 
   it('uses singular labels for one recipe and one machine', () => {

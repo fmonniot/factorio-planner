@@ -41,7 +41,7 @@ export function Segmented({ label, size = 'md', children }: SegmentedProps) {
   )
 }
 
-interface SegmentProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'className'> {
+interface SegmentProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'className' | 'title'> {
   pressed: boolean
 }
 

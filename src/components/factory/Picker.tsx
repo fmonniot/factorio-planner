@@ -22,7 +22,7 @@ export function Picker({ heading, onClose, children, className = '', style, ...r
   onClose: () => void
   children: ReactNode
   className?: string
-} & Omit<HTMLAttributes<HTMLDivElement>, 'children'>) {
+} & Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'title'>) {
   const anchor = usePickerAnchor()
   const self = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<CSSProperties | null>(null)
@@ -81,7 +81,7 @@ export function PickerRow({ name, iconPath, detail, selected = false, onClick, c
   selected?: boolean
   onClick: () => void
   className?: string
-} & Omit<HTMLAttributes<HTMLButtonElement>, 'onClick' | 'children'>) {
+} & Omit<HTMLAttributes<HTMLButtonElement>, 'onClick' | 'children' | 'title'>) {
   return (
     <button
       type="button"
@@ -97,6 +97,6 @@ export function PickerRow({ name, iconPath, detail, selected = false, onClick, c
 }
 
 /** The note a picker shows when nothing fits. */
-export function PickerEmpty({ children, ...rest }: { children: ReactNode } & HTMLAttributes<HTMLDivElement>) {
+export function PickerEmpty({ children, ...rest }: { children: ReactNode } & Omit<HTMLAttributes<HTMLDivElement>, 'title'>) {
   return <div className="px-2 py-1 text-xs text-gray-400 italic" {...rest}>{children}</div>
 }

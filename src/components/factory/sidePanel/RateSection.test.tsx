@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { RateSection } from './RateSection'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
 import { useUiStore } from '../../../store/uiStore'
+import { tipOf } from '../../../test/byTip'
 import type { GameData, GameRecipeNode, SolvedNode } from '../../../data/types'
 
 /** Electrolysis makes 6 hydrogen per run; iron plate 1 per run. Fresh each call. */
@@ -104,7 +105,11 @@ describe('RateSection — pin', () => {
 
   it('cannot pin a row that absorbs a byproduct', () => {
     renderRate(electrolysis({ byproductConsumer: true }))
-    expect(screen.getByRole('switch', { name: 'Pin rate' })).toBeDisabled()
+    const pin = screen.getByRole('switch', { name: 'Pin rate' })
+    expect(pin).toBeDisabled()
+    expect(pin).toHaveAccessibleDescription('A row that absorbs a byproduct runs on surplus and cannot be pinned')
+    expect(pin).not.toHaveAttribute('title')
+    expect(tipOf(pin)).toBe('A row that absorbs a byproduct runs on surplus and cannot be pinned')
   })
 
   it('cannot pin a row marked to feed absorbing rows', () => {

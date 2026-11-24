@@ -19,7 +19,7 @@ test.describe('Plan export', () => {
     const overlay = page.locator('.fixed.inset-0')
 
     // Add a goal via FactorySummary [+]
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await overlay.getByLabel('Amount').fill('60')
     await overlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
     await overlay.locator('[data-testid="item-slot"]').first().click()
@@ -27,10 +27,10 @@ test.describe('Plan export', () => {
     // Add a recipe via ProductionTable
     await page.getByRole('button', { name: 'Add recipe' }).click()
     await overlay.getByPlaceholder('Search…').fill('Chemistry research 1')
-    await overlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
+    await overlay.locator('[data-testid="recipe-slot"][aria-label="Chemistry research 1"]').click()
 
     // Wait for the recipe row to appear.
-    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
     // Trigger the download and capture it.
@@ -77,7 +77,7 @@ test.describe('Plan export', () => {
 
     // The recipe row should appear after reload without UI interaction.
     await expect(
-      page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
+      page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Chemistry research 1"]') }).first()
     ).toBeVisible()
   })
 })

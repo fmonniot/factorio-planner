@@ -115,7 +115,7 @@ async function upload(page: Page, data: unknown) {
 /** Open Add product, pick Electricity in the Power tab with `amount` MW. */
 async function addElectricityGoal(page: Page, amount: string) {
   const overlay = page.locator('.fixed.inset-0')
-  await page.getByTitle('Add product').click()
+  await page.getByRole('button', { name: 'Add product', exact: true }).click()
   await overlay.getByLabel('Amount').fill(amount)
   await overlay.locator('[data-testid="item-group-tab"][data-group-id="power:power"]').click()
   await overlay.locator('[data-testid="item-slot"][data-item-id="power:electricity"]').click()
@@ -236,7 +236,7 @@ test.describe('Power generation', () => {
     await expect(boilerGroup).toHaveAttribute('data-recipe-count', '2')
     await page.getByRole('button', { name: 'Close' }).click()
 
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await page.locator('[data-testid="item-group-tab"][data-group-id="power:power"]').click()
     const itemIds = await page.locator('[data-testid="item-slot"]').evaluateAll(
       els => els.map(e => e.getAttribute('data-item-id') ?? ''),
@@ -318,7 +318,7 @@ test.describe('Heat', () => {
 
   test('heat is typed in MW and stays in MW per second', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await expect(overlay.getByText('/min (MW for Electricity and Heat)')).toBeVisible()
     await overlay.getByLabel('Amount').fill('21.6')
     await overlay.locator('[data-testid="item-group-tab"][data-group-id="power:power"]').click()
@@ -333,7 +333,7 @@ test.describe('Heat', () => {
 
   test('a reactor neighbour count lowers the reactor count and the fuel', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await overlay.getByLabel('Amount').fill('21.6')
     await overlay.locator('[data-testid="item-group-tab"][data-group-id="power:power"]').click()
     await overlay.locator('[data-testid="item-slot"][data-item-id="power:heat"]').click()
@@ -371,7 +371,7 @@ test.describe('Heat', () => {
     await openHorizonTree(page)
     await page.locator('[data-tech-id="electronics"]').click()
     await closeHorizonTree(page)
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await page.locator('[data-testid="item-group-tab"][data-group-id="power:power"]').click()
     const itemIds = await page.locator('[data-testid="item-slot"]').evaluateAll(
       els => els.map(e => e.getAttribute('data-item-id') ?? ''),

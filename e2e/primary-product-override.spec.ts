@@ -20,7 +20,7 @@ test.describe('Primary product override', () => {
     const overlay = page.locator('.fixed.inset-0')
 
     // Add Hydrogen as a goal.
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await overlay.getByLabel('Amount').fill('60')
     await overlay.getByPlaceholder('Search…').fill('Hydrogen')
     // The hydrogen fluid lives in the "fluids" group — switch tab to find it.
@@ -33,7 +33,7 @@ test.describe('Primary product override', () => {
     await overlay.locator('[data-testid="recipe-slot"][data-recipe-id="nullius-brine-electrolysis"]').click()
 
     // Wait for the row to appear.
-    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Brine electrolysis"]') }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Brine electrolysis"]') }).first()
     await expect(row).toBeVisible()
 
     // By default Hydrogen is primary — it appears in the Products column.
@@ -62,16 +62,16 @@ test.describe('Primary product override', () => {
     const overlay = page.locator('.fixed.inset-0')
 
     // Add Chemistry research as a goal.
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await overlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
     await overlay.locator('[data-testid="item-slot"]').first().click()
 
     // Add Chemistry research 1 recipe (single-output).
     await page.getByRole('button', { name: 'Add recipe' }).click()
     await overlay.getByPlaceholder('Search…').fill('Chemistry research 1')
-    await overlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
+    await overlay.locator('[data-testid="recipe-slot"][aria-label="Chemistry research 1"]').click()
 
-    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
     // Single-output: no "Set as primary" tiles (nothing to switch to).

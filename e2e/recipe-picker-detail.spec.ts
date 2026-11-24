@@ -82,7 +82,7 @@ test.describe('Recipe picker detail panel', () => {
 
   test('item-mode picker has no recipe detail panel', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Add product' })).toBeVisible()
 
     const slot = overlay.locator('[data-testid="item-slot"]').first()

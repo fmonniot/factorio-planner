@@ -35,7 +35,7 @@ interface SourceRuleMarkerProps {
 export function SourceRuleMarker({ sentence, itemId }: SourceRuleMarkerProps) {
   const label = sentence || FALLBACK_LABEL
   return (
-    <span role="img" aria-label={label} title={label} data-testid="source-rule-marker" data-item-id={itemId} className={BOX_CLASS}>
+    <span role="img" aria-label={label} data-tip="" data-testid="source-rule-marker" data-item-id={itemId} className={BOX_CLASS}>
       <span className={DOT_CLASS} />
     </span>
   )

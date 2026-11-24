@@ -63,7 +63,7 @@ async function closeRules(page: Page) {
 
 /** Add a product through the item picker; `amount` '' clears the field (no extra output). */
 async function addProduct(page: Page, itemName: string, itemId: string, amount?: string) {
-  await page.getByTitle('Add product').click()
+  await page.getByRole('button', { name: 'Add product', exact: true }).click()
   const overlay = page.locator('.fixed.inset-0')
   await overlay.getByPlaceholder('Search…').fill(itemName)
   if (amount !== undefined) await overlay.getByLabel('Amount').fill(amount)

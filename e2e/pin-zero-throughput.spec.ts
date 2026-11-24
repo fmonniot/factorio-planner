@@ -26,7 +26,7 @@ test('can pin a recipe even when initial throughput is 0', async ({ page }) => {
 
   // The saline-electrolysis row must be present (proves the fixture loaded).
   const row = page.locator('main table tbody tr')
-    .filter({ has: page.locator('[title="Saline electrolysis"]') }).first()
+    .filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Saline electrolysis"]') }).first()
   await expect(row).toBeVisible({ timeout: 5000 })
 
   // Not yet pinned: no badge, and the panel's Rate section offers an unchecked pin.

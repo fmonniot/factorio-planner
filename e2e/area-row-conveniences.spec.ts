@@ -45,10 +45,10 @@ test('the badge, chips, primary-product tooltip and Go to row in… help to read
 
   const badge = row(page, ROOT_ELEC).getByTestId('multi-area-badge')
   await expect(badge).toHaveText('2')
-  await expect(badge).toHaveAttribute(
-    'title',
-    /^Steam electrolysis: \d+ buildings? \([\d.]+ exact\) in 2 areas: \d+ here, \d+ Compression$/,
-  )
+  const split = /^Steam electrolysis: \d+ buildings? \([\d.]+ exact\) in 2 areas: \d+ here, \d+ Compression$/
+  await expect(badge).toHaveAttribute('data-tip', split)
+  await expect(badge).toHaveAccessibleDescription(split)
+  await expect(badge).toHaveAccessibleName('Built in 2 areas')
 
   await expect(
     group(page, 'Compression').getByTestId('area-chips-out')

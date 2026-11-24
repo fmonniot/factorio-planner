@@ -10,6 +10,7 @@ import { findSubPlan } from '../../data/subPlanTree'
 import { indexRecipeAreas } from './recipeAreas'
 import { useUiStore } from '../../store/uiStore'
 import type { Block, GameData, SolvedNode, RecipeNode, GameRecipeNode, SubPlanNode, SubPlan } from '../../data/types'
+import { expectTip, getAllByTip, queryByTip, tipOf } from '../../test/byTip'
 
 // ---------------------------------------------------------------------------
 // Fixtures — single-output
@@ -206,7 +207,7 @@ describe('RecipeRow', () => {
   it('renders recipe name via title on icon/placeholder', () => {
     renderRow()
     // Recipe name is on the icon/placeholder title (may also appear in item tile titles)
-    expect(screen.getAllByTitle('Iron Plate').length).toBeGreaterThan(0)
+    expect(getAllByTip('Iron Plate').length).toBeGreaterThan(0)
   })
 
   it('renders the machine count', () => {
@@ -306,7 +307,7 @@ describe('RecipeRow', () => {
 
   it('recipe cell holds only the select button (actions live in the right-click menu)', () => {
     renderRow()
-    const cell = screen.getAllByTitle('Iron Plate')[0].closest('td')!
+    const cell = getAllByTip('Iron Plate')[0].closest('td')!
     const buttons = within(cell).getAllByRole('button')
     expect(buttons).toHaveLength(1)
     expect(buttons[0]).toHaveAttribute('aria-pressed', 'false')
@@ -333,7 +334,7 @@ describe('RecipeRow', () => {
   it('ingredient tile is not a button when onIngredientClick is omitted', () => {
     renderRow()
     // No "Find producer recipe" title — the tile renders as a span.
-    expect(screen.queryByTitle(/Find producer recipe/)).not.toBeInTheDocument()
+    expect(queryByTip(/Find producer recipe/)).not.toBeInTheDocument()
   })
 })
 
@@ -344,7 +345,7 @@ describe('RecipeRow', () => {
 describe('T11 — Primary product selection', () => {
   it('single-output: no "Set as primary" elements', () => {
     renderRow({ planNode: ironPlateRecipeNode, solvedNode })
-    expect(screen.queryByTitle(/Set as primary/)).not.toBeInTheDocument()
+    expect(queryByTip(/Set as primary/)).not.toBeInTheDocument()
   })
 
   it('multi-output: primary tile appears in Products column (no badge needed)', () => {
@@ -355,7 +356,7 @@ describe('T11 — Primary product selection', () => {
     // The Products cell renders a tile for Hydrogen (the primary).
     // The Byproducts cell renders a tile for Oxygen with "Set as primary".
     // No ● badge — the column position is the feedback.
-    expect(screen.queryByTitle('Primary product')).not.toBeInTheDocument()
+    expect(queryByTip('Primary product')).not.toBeInTheDocument()
     expect(screen.getByLabelText(/Set as primary/)).toBeInTheDocument()
   })
 
@@ -401,7 +402,7 @@ describe('T12 — Pin rate UI', () => {
     setupElectrolysis(undefined)
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     expect(screen.queryByTestId('chip-pin')).not.toBeInTheDocument()
-    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+    fireEvent.contextMenu(getAllByTip('Electrolysis')[0])
     expect(screen.getByRole('menuitem', { name: 'Pin rate' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Unpin rate' })).not.toBeInTheDocument()
   })
@@ -413,7 +414,7 @@ describe('T12 — Pin rate UI', () => {
     // The chip's name replaces its content for assistive technology, so it carries the pin state.
     expect(screen.getByTestId('chip-pin').closest('[data-variant]')).toHaveAttribute('aria-label', expect.stringMatching(/\(rate pinned\)$/))
     expect(screen.queryByLabelText('Pinned rate')).not.toBeInTheDocument()
-    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+    fireEvent.contextMenu(getAllByTip('Electrolysis')[0])
     expect(screen.getByRole('menuitem', { name: 'Unpin rate' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Pin rate' })).not.toBeInTheDocument()
   })
@@ -422,7 +423,7 @@ describe('T12 — Pin rate UI', () => {
     setupElectrolysis(undefined)
     const zeroThroughput: SolvedNode = { ...electrolysisSolved, throughput: 0 }
     renderRow({ planNode: electrolysisPlanNode, solvedNode: zeroThroughput })
-    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+    fireEvent.contextMenu(getAllByTip('Electrolysis')[0])
     fireEvent.click(screen.getByRole('menuitem', { name: 'Pin rate' }))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     if (updated.kind === 'game-recipe') {
@@ -535,7 +536,7 @@ describe('RecipeRow — v2 surplus intermediate renders as byproduct', () => {
 
 describe('RecipeRow context menu', () => {
   function openMenu() {
-    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0])
+    fireEvent.contextMenu(getAllByTip('Iron Plate')[0])
   }
   const nodes = () => useBlockStore.getState().blocks[0].rootPlan.nodes
 
@@ -600,7 +601,8 @@ describe('RecipeRow context menu', () => {
     const bc: RecipeNode = { ...ironPlateRecipeNode, byproductConsumer: true }
     renderRow({ planNode: bc })
     const badge = screen.getByRole('img', { name: 'Absorbs byproduct' })
-    expect(badge.getAttribute('title')).toContain('Absorbs byproduct')
+    expect(tipOf(badge)).toContain('Absorbs byproduct')
+    expectTip(badge, tipOf(badge))
   })
 
   it('a default row has no absorbs-byproduct badge', () => {
@@ -611,7 +613,8 @@ describe('RecipeRow context menu', () => {
   it('a row that feeds an absorber shows the feeder badge with an explanatory title and no absorbs-byproduct badge', () => {
     renderRow({ solvedNode: { ...solvedNode, feedsAbsorber: true } })
     const badge = screen.getByRole('img', { name: 'Feeds an absorbing row' })
-    expect(badge.getAttribute('title'), 'title').toContain('runs only to supply')
+    expect(tipOf(badge), 'tooltip').toContain('runs only to supply')
+    expectTip(badge, tipOf(badge))
     expect(screen.queryByRole('img', { name: 'Absorbs byproduct' }), 'no absorber badge').toBeNull()
   })
 
@@ -677,10 +680,11 @@ describe('RecipeRow context menu', () => {
   it('a marked row that feeds an absorber has its own badge title; an unmarked feeder keeps the usual one', () => {
     const marked: RecipeNode = { ...ironPlateRecipeNode, absorberFeeder: true }
     const { unmount } = renderRow({ planNode: marked, solvedNode: { ...solvedNode, feedsAbsorber: true } })
-    expect(screen.getByRole('img', { name: 'Feeds an absorbing row' }).getAttribute('title')).toMatch(/besides what other rows use/)
+    expect(tipOf(screen.getByRole('img', { name: 'Feeds an absorbing row' }))).toMatch(/besides what other rows use/)
     unmount()
     renderRow({ solvedNode: { ...solvedNode, feedsAbsorber: true } })
-    expect(screen.getByRole('img', { name: 'Feeds an absorbing row' }).getAttribute('title')).toMatch(/runs only to supply/)
+    expect(tipOf(screen.getByRole('img', { name: 'Feeds an absorbing row' }))).toMatch(/runs only to supply/)
+    expectTip(screen.getByRole('img', { name: 'Feeds an absorbing row' }), tipOf(screen.getByRole('img', { name: 'Feeds an absorbing row' })))
   })
 
   it('Wrap in subfactory asks for a name in a dialog and wraps the node', () => {
@@ -721,7 +725,7 @@ describe('RecipeRow context menu', () => {
 
   it('right-clicking inside the open menu keeps it in place', () => {
     renderRow()
-    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0], { clientX: 10, clientY: 20 })
+    fireEvent.contextMenu(getAllByTip('Iron Plate')[0], { clientX: 10, clientY: 20 })
     const menu = screen.getByRole('menu')
     const { left, top } = menu.style
     fireEvent.contextMenu(screen.getAllByRole('menuitem')[0], { clientX: 300, clientY: 400 })
@@ -759,7 +763,7 @@ describe('RecipeRow context menu', () => {
     vi.stubGlobal('innerWidth', 500)
     vi.stubGlobal('innerHeight', 300)
     renderRow()
-    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0], { clientX: 480, clientY: 290 })
+    fireEvent.contextMenu(getAllByTip('Iron Plate')[0], { clientX: 480, clientY: 290 })
     const menu = screen.getByRole('menu')
     expect(menu.style.left).toBe('340px')
     expect(menu.style.top).toBe('180px')
@@ -930,7 +934,7 @@ describe('RecipeRow byproduct context menu', () => {
   it('never has the recipe-cell menu and the byproduct menu open together', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer: vi.fn() })
     fireEvent.contextMenu(oxygenTile())
-    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+    fireEvent.contextMenu(getAllByTip('Electrolysis')[0])
     expect(screen.getAllByRole('menu')).toHaveLength(1)
     expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(
       ['Absorb byproduct', 'Feed absorbing rows', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'],
@@ -1044,9 +1048,9 @@ describe('RecipeRow source rule marker', () => {
     // No solve in this test: the rows that make Oxygen as a byproduct are named without a rate.
     const sentence = /^Uses what this block already makes \(Electrolysis\)\. The rest is imported\.$/
     expect(screen.getByRole('img', { name: sentence })).toBe(markers()[0])
-    expect(markers()[0].getAttribute('title')).toMatch(sentence)
+    expect(markers()[0]).not.toHaveAttribute('title')
     expect(screen.getByLabelText(/^Oxygen/).getAttribute('aria-label')).toMatch(/^Oxygen — \S+$/)
-    expect(document.querySelector('[title*="first)"]')).toBeNull()
+    expect(document.querySelector('[aria-label*="first)"]')).toBeNull()
   })
 
   it('marks no product or byproduct chip of that item', () => {
@@ -1205,7 +1209,7 @@ describe('RecipeRow sub-factory actions', () => {
 
   it('right-click then "Remove subfactory" deletes an empty sub-factory without confirming', () => {
     setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
-    expect(screen.queryByTitle('Remove subplan')).not.toBeInTheDocument()
+    expect(queryByTip('Remove subplan')).not.toBeInTheDocument()
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
     expect(rootPlan().nodes).toHaveLength(0)
@@ -1281,7 +1285,7 @@ describe('RecipeRow sub-factory actions', () => {
     const root = { ...block.rootPlan, nodes: [{ kind: 'subplan', id: 'h1', subPlanId: 'g1' } as SubPlanNode], subPlans: [inner] }
     useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
     renderRow({ planNode: leaf, rootPlan: root, parentSubPlanId: 'g4', depth: 4 })
-    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0])
+    fireEvent.contextMenu(getAllByTip('Iron Plate')[0])
     const wrap = screen.getByRole('menuitem', { name: 'Wrap in subfactory…' })
     expect(wrap).toBeDisabled()
     expect(wrap.closest('[data-tip]')).toHaveAttribute('data-tip', 'Cannot nest deeper than 4 levels')
@@ -1314,7 +1318,8 @@ describe('RecipeRow sub-factory actions', () => {
     it('puts a folder icon named Sub-factory before the name of a plain group, and an areas icon named Separate area before an area, with no Area tag', () => {
       renderGroup(makeSubPlan('sp-123', 'My Subfactory'))
       const folder = screen.getByRole('img', { name: 'Sub-factory' })
-      expect(folder).toContainHTML('<title>Sub-factory</title>')
+      expect(folder).toHaveAttribute('data-tip', '')
+      expect(folder.querySelector('title')).toBeNull()
       expect(folder).toHaveClass('w-3', 'h-3', 'text-gray-400')
       expect(folder.compareDocumentPosition(screen.getByRole('button', { name: 'My Subfactory' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(screen.queryByRole('img', { name: 'Separate area' })).not.toBeInTheDocument()
@@ -1589,7 +1594,7 @@ describe('RecipeRow in a block with areas', () => {
     })
   }
 
-  const openMenu = () => fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+  const openMenu = () => fireEvent.contextMenu(getAllByTip('Electrolysis')[0])
   const labels = () => screen.getAllByRole('menuitem').map(i => i.textContent)
   const planOf = (id: string) => findSubPlan(useBlockStore.getState().blocks[0].rootPlan, id)!
 
@@ -1601,7 +1606,8 @@ describe('RecipeRow in a block with areas', () => {
     renderAreaRow('e-root')
     const badge = screen.getByTestId('multi-area-badge')
     expect(badge.textContent).toBe('3')
-    expect(badge).toHaveAttribute('title', MULTI_TITLE)
+    expectTip(badge, MULTI_TITLE)
+    expect(screen.getByRole('img', { name: 'Built in 3 areas' })).toBe(badge)
   })
 
   it('lists Build also in… and Go to row in… in the row menu', () => {

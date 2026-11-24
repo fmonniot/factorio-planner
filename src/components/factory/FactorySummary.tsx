@@ -421,8 +421,8 @@ export function FactorySummary() {
               type="button"
               onClick={() => setShowProductPicker(true)}
               className="w-[22px] h-5 inline-flex items-center justify-center text-gray-400 hover:text-gray-200 rounded border border-gray-700 hover:border-gray-500"
-              title="Add product"
               aria-label="Add product"
+              data-tip=""
             >
               {/* An SVG rather than a "+" glyph, whose font metrics sit it off-centre. */}
               <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
