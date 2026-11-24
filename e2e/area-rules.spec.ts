@@ -5,6 +5,7 @@ import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { exportPlan } from './support/appMenu'
 import { openRowMenu } from './support/rowMenu'
 import { detail, pane, selectSlot, slot } from './support/summary'
+import { openLine } from './support/sourcesList'
 
 /**
  * Case 21 A of spec/test-synthetic.md on real Nullius recipes: plate is the Stone box, gear the Gravel box, "Stone boxing"
@@ -72,7 +73,7 @@ test.describe('area source rules (case 21 A)', () => {
     await expectFigures(page, { l: 12, b: 8, connection: 0, stone: 100 })
 
     await openFromChip(page, 'L')
-    await expect(popover(page)).toContainText('For the whole block or for one area')
+    await expect(popover(page).getByTestId('comes-from-scope')).toHaveAttribute('data-tip', /^Every row of the block/)
     await expect(scopeButton(page, 'Whole block')).toHaveAttribute('aria-pressed', 'true')
     await expect(scopeButton(page, 'Line L')).toHaveAttribute('aria-pressed', 'false')
     await expect(popover(page).getByTestId('comes-from-scope').getByRole('button')).toHaveCount(2)
@@ -194,6 +195,7 @@ test.describe('area source rules (case 21 A)', () => {
     // No offer: the block's one connection goes (the Sources list of the chip's popover has its Remove).
     await openFromChip(page, 'L')
     await popover(page).getByTestId('sources-button').click()
+    await openLine(popover(page).locator('[data-line="block"]'))
     await popover(page).getByTestId('sources-block-remove').click()
     await expect(popover(page).getByTestId('sources-block-name')).toHaveCount(0)
     await page.keyboard.press('Escape')
@@ -221,5 +223,44 @@ test.describe('area source rules (case 21 A)', () => {
     await popover(page).getByTestId('import-switch').click()
     await expect(slot(page, 'Ingredients', 'Stone box')).not.toHaveAccessibleName(/missing|short/i)
     await expect(slot(page, 'Ingredients', 'Stone box')).toHaveAccessibleName(/^Stone box, 12(\.0+)? per minute/)
+  })
+
+  test("the list's rule chip says whose rule it is at area scope, and Use the block's clears the area's", async ({ page }) => {
+    await load(page)
+    await openFromChip(page, 'L')
+    await scopeButton(page, 'Line L').click()
+    await popover(page).getByTestId('sources-button').click()
+    const chip = popover(page).getByTestId('sources-rule-chip')
+    await expect(chip).toHaveText("Block's rule · Make it here")
+    await expect(chip).toHaveAttribute('data-owner', 'follows')
+    await expect(popover(page).getByTestId('use-block-rule')).toHaveCount(0)
+    // Switching Make more here off in the list writes the area's own rule.
+    await popover(page).getByTestId('sources-make-here-switch').click()
+    await expect(chip).toHaveText("Own rule · Don't make more here")
+    await expect(chip).toHaveAttribute('data-owner', 'own')
+    const clear = popover(page).getByTestId('use-block-rule')
+    await expect(clear).toHaveText("Use the block's")
+    await clear.click()
+    await expect(chip).toHaveText("Block's rule · Make it here")
+    await expect(popover(page).getByTestId('use-block-rule')).toHaveCount(0)
+    await expect(rulesButton(page)).toHaveCount(0)
+  })
+
+  test('the Leftover row of the list is the block\'s at area scope: read-only, with a change link to the whole block', async ({ page }) => {
+    await load(page)
+    await openFromChip(page, 'L')
+    await scopeButton(page, 'Line L').click()
+    await popover(page).getByTestId('sources-button').click()
+    const row = popover(page).getByTestId('leftover-row')
+    await expect(row.getByTestId('leftover-switch')).toHaveAttribute('aria-disabled', 'true')
+    await expect(row.getByTestId('leftover-switch')).toBeChecked()
+    await row.getByTestId('leftover-switch').click({ force: true })
+    await expect(row.getByTestId('leftover-switch')).toBeChecked()
+    await expect(row).toContainText('whole block only')
+    await row.getByTestId('leftover-whole-block').click()
+    await expect(scopeButton(page, 'Whole block')).toHaveAttribute('aria-pressed', 'true')
+    await expect(row.getByTestId('leftover-switch')).not.toHaveAttribute('aria-disabled', 'true')
+    await row.getByTestId('leftover-switch').click()
+    await expect(row.getByTestId('leftover-switch')).not.toBeChecked()
   })
 })

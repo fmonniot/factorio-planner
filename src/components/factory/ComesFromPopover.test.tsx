@@ -69,7 +69,7 @@ describe('ComesFromPopover', () => {
     open('ore')
     expect(popover()).toHaveAccessibleName('Ore')
     expect(popover()).toHaveAttribute('data-item-id', 'ore')
-    expect(popover()).toHaveTextContent('Applies to every row of this block')
+    expect(popover()).toHaveTextContent('Every row of this block')
     const control = within(popover()).getByTestId('comes-from')
     expect(document.activeElement).toBe(within(control).getByRole('radio', { name: 'Make it here' }))
     // No slot, so nothing to link to.
@@ -88,9 +88,13 @@ describe('ComesFromPopover', () => {
     })
     render(<ComesFromPopover hasSlot={() => false} />)
     act(() => useUiStore.getState().openComesFrom('plate', anchor, { areaId: 'L' }))
-    expect(popover()).toHaveTextContent('For the whole block or for one area')
-    expect(popover()).not.toHaveTextContent('Applies to every row of this block')
-    expect(within(within(popover()).getByTestId('comes-from-scope')).getByRole('button', { name: 'Line L' })).toHaveAttribute('aria-pressed', 'true')
+    // The scope control sits under the name, and its tooltip says what the scope covers.
+    const scope = within(popover()).getByTestId('comes-from-scope')
+    expect(popover()).not.toHaveTextContent('Every row of this block')
+    expect(within(scope).getByRole('button', { name: 'Line L' })).toHaveAttribute('aria-pressed', 'true')
+    expect(scope).toHaveAttribute('data-tip', 'Rows of Line L')
+    const name = within(popover()).getByText('Plate')
+    expect(name.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('keeps the whole-block header in a block with areas when no area is offered, and the list has no scope', () => {
@@ -102,9 +106,35 @@ describe('ComesFromPopover', () => {
     })
     render(<ComesFromPopover hasSlot={() => false} />)
     act(() => useUiStore.getState().openComesFrom('plate', anchor))
-    expect(popover()).toHaveTextContent('Applies to every row of this block')
-    expect(popover()).not.toHaveTextContent('For the whole block or for one area')
+    expect(popover()).toHaveTextContent('Every row of this block')
     expect(within(popover()).queryByTestId('comes-from-scope')).not.toBeInTheDocument()
+  })
+
+  it('has the item, its need and the Sources toggle in the header', () => {
+    useSolverStore.setState({
+      lastResults: { main: { nodes: [{ recipeNodeId: 'x', inputRates: { ore: 90 }, outputRates: {} }], unsatisfied: [] } as never },
+    })
+    render(<ComesFromPopover hasSlot={() => false} />)
+    open('ore')
+    const header = within(popover()).getByTestId('comes-from-header')
+    expect(within(header).getByTestId('comes-from-need')).toHaveTextContent('90.0/m')
+    expect(within(header).getByTestId('sources-button')).toHaveAttribute('aria-expanded', 'false')
+    expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
+    expect(within(popover()).getByTestId('comes-from-bar')).toHaveAttribute('data-need', '90')
+  })
+
+  it('opens on the compact view, or on the list when asked, and focuses the toggle then', () => {
+    render(<ComesFromPopover hasSlot={() => false} />)
+    open('ore')
+    expect(within(popover()).queryByTestId('sources-list')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(within(popover()).getByRole('radio', { name: 'Make it here' }))
+    act(() => useUiStore.getState().openComesFrom('plate', anchor, { list: true }))
+    expect(within(popover()).getByTestId('sources-list')).toBeInTheDocument()
+    expect(within(popover()).queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(within(popover()).getByTestId('sources-button'))
+    // The list follows each open request.
+    act(() => useUiStore.getState().openComesFrom('plate', anchor))
+    expect(within(popover()).queryByTestId('sources-list')).not.toBeInTheDocument()
   })
 
   it('sets the rule of the block from the control', () => {

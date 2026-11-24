@@ -3,8 +3,6 @@ import { createPortal } from 'react-dom'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
-import { scopeAreasOf } from './sourceRules'
-import { Icon } from '../Icon'
 import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
 import { keepTabInside } from './keepTabInside'
@@ -99,12 +97,12 @@ export function ComesFromPopover({ hasSlot }: {
   useLayoutEffect(() => {
     if (!shown) return
     origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    ref.current?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]')?.focus()
+    // The list view has no radio: the header's Sources toggle, which comes before the radios in the DOM, takes it then.
+    const el = ref.current
+    ;(el?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]') ?? el?.querySelector<HTMLElement>('[data-testid="sources-button"]'))?.focus()
   }, [shown, itemId])
 
   if (!popover || !gameData) return null
-  const item = gameData.items[popover.itemId]
-  const name = item?.name ?? popover.itemId
 
   return createPortal(
     <div
@@ -117,26 +115,13 @@ export function ComesFromPopover({ hasSlot }: {
       style={{ position: 'fixed', top: 0, left: 0 }}
       className="z-50 flex w-[340px] max-w-[calc(100vw-1rem)] flex-col gap-2 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl px-3 py-2.5 text-left"
     >
-      <div className="flex items-center gap-2">
-        {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />}
-        <div className="min-w-0 flex-1 leading-tight">
-          <div id={titleId} className="text-xs font-semibold text-gray-100 truncate">{name}</div>
-          <div className="text-[11px] text-gray-400">
-            {activeBlock && !popover.list && scopeAreasOf(activeBlock, popover.itemId, popover.areaId, undefined).length > 0 ? 'For the whole block or for one area' : 'Applies to every row of this block'}
-          </div>
-        </div>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={() => { close(); returnFocus() }}
-          className="shrink-0 inline-flex text-gray-400 hover:text-gray-100 pl-1 outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
-      <ComesFrom key={`${popover.itemId}:${popover.seq ?? 0}`} itemId={popover.itemId} areaId={popover.areaId} initialListOpen={popover.list} />
+      <ComesFrom
+        key={`${popover.itemId}:${popover.seq ?? 0}`}
+        itemId={popover.itemId}
+        areaId={popover.areaId}
+        initialListOpen={popover.list}
+        heading={{ titleId, onClose: () => { close(); returnFocus() } }}
+      />
       {hasSlot(popover.itemId) && (
         <button
           type="button"

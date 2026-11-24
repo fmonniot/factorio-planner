@@ -66,7 +66,7 @@ test.describe('item sourcing', () => {
     await expect(page.getByRole('menuitem')).toHaveText(['Comes from…'])
     await page.getByRole('menuitem', { name: 'Comes from…' }).click()
     await expect(comesFromPopover(page)).toBeVisible()
-    await expect(comesFromPopover(page)).toContainText('Applies to every row of this block')
+    await expect(comesFromPopover(page)).toContainText('Every row of this block')
     await expect(comesFromPopover(page).getByRole('radio', { name: 'Make it here' })).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(comesFromPopover(page)).toHaveCount(0)

@@ -1,162 +1,79 @@
-import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
-import { areaIdsOf, effectiveAreaRule } from '../../data/subPlanTree'
-import type { Block, BlockConnection, ConnectionFlow, Product } from '../../data/types'
-import { areaLPItems, blockAreas } from '../../solver/areas'
-import { flattenBlock } from '../../solver/index'
+import { areaName as areaNameOf } from '../../data/subPlanTree'
+import type { Product } from '../../data/types'
 import { hasProduct } from '../../solver/blockGraph'
-import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
-import { productChangeEffects, requestBlockerTitle } from '../../store/connections'
+import { useBlockStore } from '../../store/blockStore'
+import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
-import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { fmtItemRateText, fmtRate, inputRateUnit } from './ItemTile'
+import { fmtRate, inputRateUnit } from './ItemTile'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { RateInput } from './RateInput'
-import { cappedTitle, cappingLimit, REQUEST_IGNORED_TITLE } from './summarySegments'
-import { AREA_LINE_HELP, SOURCES_LINES, sourcesLineOrder } from './itemSourcing'
-import { areaSupply, supplierLines } from './areaSources'
-import type { SupplierLine } from './areaSources'
-import type { LineKey, Side } from './itemSourcing'
-import { itemMakers } from './sourcingText'
-import type { ItemMaker } from './sourcingText'
-import { Tip } from './Tip'
+import { AREA_LINE_HELP, MAKE_MORE_PLACE_HELP, MAKE_MORE_PLACES, SOURCES_DETAIL, SOURCES_LINES } from './itemSourcing'
+import type { Side } from './itemSourcing'
+import { altMoveTarget } from './sourcesModel'
+import type { SourceLine } from './sourcesModel'
+import { DashedSquareIcon, DetailStatus, SourcesLine } from './SourcesLine'
+import type { SourcesView } from './useSourcesModel'
+import { StripIcon } from './StripIcon'
 import { MINI_BUTTON_CLASS, Switch } from './Switch'
 import { Cluster } from './StripToolbar'
 import type { StripAction } from './StripToolbar'
+import type { ItemMaker } from './sourcingText'
 
 // ---------------------------------------------------------------------------
 // SourcesList — the Sources list of one item of the active block (phase 2 of sourcing priority): every place the item may
-// come from, top to bottom in the order it is tried. It is a second view of the item's stored rule, beside the three presets:
-// moving *Make more here* below the block lines is Receive it first, switching it off is Don't make more here, and the Import
-// line holds the same switch as the Comes from control. Between *Make more here* and the end of the block lines it draws one
-// line per connection of the item, in connection order, then the Receive from… line (`add-block`).
-// With `areaId` it is the list of one area (D6 and D12 of phase 5): the same lines read and written through the area's own rule.
-// *Other areas* is one line per area that supplies the item, with a switch and the rate routed from it; the block lines are
-// read-only (their order, limits and removal belong to the block); only the Receive from… line stays, because it adds a
-// connection to the block (no order, no limit) and the area's "No connection for X." notice offers it; and a line under them says how much of it reaches the area; *Import*
-// reads the area's own figure. At block scope *Other areas* stays one read-only line.
+// come from, top to bottom in the order it is tried, as rows on a rail. Each row reads what the block consumes from it (its share
+// of the item's need) and opens a detail with its help and its controls. It is a second view of the item's stored rule, beside the
+// three presets: moving *Make more here* below the block lines is Receive it first, switching it off is Don't make more here, and
+// the Import line holds the same switch as the Comes from control. Between *Make more here* and the end of the block lines it draws
+// one line per connection of the item, in connection order, then the Receive from… line (`add-block`). A foot under the lines
+// adds them up.
+// With an area (`view.area`) it is the list of one area (D6 and D12 of phase 5): the same lines read and written through the area's
+// own rule. *Other areas* is one line per area that supplies the item, with a switch and the rate routed from it; the block lines are
+// read-only (their order, limits and removal belong to the block) and show their share of what reaches the area; only the Receive
+// from… line stays, because it adds a connection to the block (no order, no limit) and the area's "No connection for X." notice
+// offers it. At block scope *Other areas* stays one read-only line. The model of the lines (`sourcesModel.ts`) comes in `view`.
 // ---------------------------------------------------------------------------
 
 const EPS = 1e-6
 
-/** Whether the focus came by the keyboard (an engine without `:focus-visible` counts as keyboard). */
-function keyboardFocus(el: Element): boolean {
-  try {
-    return el.matches(':focus-visible')
-  } catch {
-    return true
-  }
-}
-
 /** The drag type of the *Make more here* line. */
 const DRAG_TYPE = 'application/x-sources-line'
-
-/** The `data-line` values: the lines of `sourcesLineOrder` (a supplying area's is `other-area`), the line that says what reaches the area, and the Receive from… line that ends the block lines. */
-type RowKey = Exclude<LineKey, `area:${string}`> | 'other-area' | 'block-reach' | 'add-block'
-
-/** What a line is, for the shared frame: its key, name (a block line has none), help, reading, controls and state. */
-interface LineProps {
-  line: RowKey
-  /** A block line: the connection it stands for. */
-  connectionId?: string
-  /** A supplying area's line: the area. */
-  areaId?: string
-  /** The id of the line's tooltip: the line's description, and its controls'. */
-  helpId: string
-  name?: React.ReactNode
-  help: string
-  reading?: React.ReactNode
-  /** The line has no effect now (greyed). */
-  off?: boolean
-  controls?: React.ReactNode
-  /** Extra attributes and handlers of the frame (drag and drop). */
-  frame?: React.HTMLAttributes<HTMLLIElement> & { draggable?: boolean }
-  /** The drop line drawn on one edge of this line. */
-  dropSide?: 'before' | 'after' | null
-  focused: boolean
-  onFocusLine: (e: React.FocusEvent<HTMLLIElement>) => void
-  onBlurLine: (e: React.FocusEvent<HTMLLIElement>) => void
-}
-
-/**
- * One line: its name, what it reads, its controls. The line takes the focus (so the keyboard reaches the read-only ones), and
- * shows its help as a tooltip on hover and focus and as a help line under it while it holds the focus.
- */
-function Line({ line, connectionId, areaId, helpId, name, help, reading, off, controls, frame, dropSide, focused, onFocusLine, onBlurLine }: LineProps) {
-  return (
-    <li
-      tabIndex={0}
-      data-testid="sources-line"
-      data-line={line}
-      data-connection-id={connectionId}
-      data-area-id={areaId}
-      data-off={off || undefined}
-      aria-describedby={helpId}
-      onFocus={onFocusLine}
-      onBlur={onBlurLine}
-      {...frame}
-      className={`group relative flex flex-col gap-0.5 rounded px-1.5 py-1 outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${off ? 'text-gray-500' : 'text-gray-200'}`}
-    >
-      {dropSide && (
-        <span
-          aria-hidden="true"
-          data-testid="sources-drop-line"
-          data-side={dropSide}
-          className={`absolute left-0 right-0 h-0.5 bg-blue-500 pointer-events-none ${dropSide === 'before' ? '-top-px' : '-bottom-px'}`}
-        />
-      )}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-h-5">
-        {name && <span className="flex items-center gap-1.5 text-[11px] font-medium shrink-0">{name}</span>}
-        <span data-testid="sources-reading" className={`min-w-[7rem] flex-1 text-[11px] leading-snug break-words ${off ? 'text-gray-500' : 'text-gray-400'}`}>{reading}</span>
-        {controls && <div className="ml-auto">{controls}</div>}
-      </div>
-      <Tip id={helpId} align="start" hoverOnly>{help}</Tip>
-      {/* The tooltip is the line's one description (aria-describedby); the help line repeats it for the eye only. */}
-      {focused && <p data-testid="sources-help" aria-hidden="true" className="text-[11px] leading-snug text-gray-400">{help}</p>}
-    </li>
-  )
-}
-
-/** "{recipe} ({n} × {machine})", as the sentences name a row; the recipe alone without a solve or while the row is idle. */
-const makerLabel = (m: ItemMaker, solved: boolean) => solved && m.machineCount > 0 ? `${m.recipeName} (${m.machineCount} × ${m.machineName})` : m.recipeName
-
-/** The tag of a block line: what the connection is to its source. */
-type Tag = 'requested' | 'existing'
-
-/** One block line's model: its connection, source, flow, tag and what it reads. */
-interface BlockRow {
-  connection: BlockConnection
-  source: Block | undefined
-  flow: ConnectionFlow | undefined
-  /** Deleted source or self-connection: listed greyed, with Remove only. */
-  greyed: boolean
-  tag?: Tag
-  /** The tag's tooltip. */
-  tagTitle?: string
-  /** The action *Make it a product* is offered. */
-  canMakeProduct: boolean
-  /** Why it cannot be used: the source receives the item itself, so the request would be ignored. */
-  productBlocked?: string
-  status: string
-}
 
 /** The three drop handlers of a row. */
 type DropHandlers = Required<Pick<React.HTMLAttributes<HTMLLIElement>, 'onDragOver' | 'onDragLeave' | 'onDrop'>>
 
+type Frame = (React.HTMLAttributes<HTMLLIElement> & { draggable?: boolean }) | undefined
+
 const DRAG_BLOCK = 'application/x-sources-block-line'
 
-const isAreaLine = (line: LineKey): line is `area:${string}` => line.startsWith('area:')
+/** "{recipe} ({n} × {machine})", as the sentences name a row; the recipe alone without a solve or while the row is idle. */
+const makerLabel = (m: ItemMaker, solved: boolean) => solved && m.machineCount > 0 ? `${m.recipeName} (${m.machineCount} × ${m.machineName})` : m.recipeName
 
-export function SourcesList({ itemId, id, areaId }: {
-  itemId: string
+/** The data-line value of a model line. */
+const dataLineOf = (l: SourceLine) => l.kind
+
+const PRESSED_CLASS = 'aria-pressed:border-teal-600 aria-pressed:bg-teal-900/60 aria-pressed:text-teal-200'
+
+/** The switch of a line, with the help text that describes it for a screen reader (the tooltip says the state). */
+function LineSwitch({ testId, on, label, helpId, help, onToggle }: { testId: string; on: boolean; label: string; helpId: string; help: string; onToggle: () => void }) {
+  return (
+    <>
+      <Switch on={on} label={label} testId={testId} describedBy={helpId} compact tip={`${label} ${on ? 'on' : 'off'}`} onToggle={onToggle} />
+      <span id={helpId} className="sr-only">{help}</span>
+    </>
+  )
+}
+
+export function SourcesList({ view, id, onScope }: {
+  view: SourcesView
   id?: string
-  /** The list of this area (its own rule, its rows); without one, or with one that is no area, the block's. */
-  areaId?: string
+  /** Switches the control's scope (an area's block lines point to the whole block). */
+  onScope: (area: string | undefined) => void
 }) {
-  const block = useBlockStore(selectActiveBlock)
-  const blocks = useBlockStore(s => s.blocks)
+  const { block, blocks, flows, itemId, name, unit, rate, solved, area, makeHere, drawnSide, sideKey, makers, rows, model } = view
   const setMakeHere = useBlockStore(s => s.setMakeHere)
   const toggleImportOff = useBlockStore(s => s.toggleImportOff)
   const setAreaMakeHere = useBlockStore(s => s.setAreaMakeHere)
@@ -167,28 +84,12 @@ export function SourcesList({ itemId, id, areaId }: {
   const moveConnection = useBlockStore(s => s.moveConnection)
   const moveConnectionBy = useBlockStore(s => s.moveConnectionBy)
   const addProduct = useBlockStore(s => s.addProduct)
-  const gameData = useGameDataStore(selectGameData)
-  const result = useSolverStore(selectBlockResult(block?.id))
-  const flows = useSolverStore(selectFlows)
-  const unit = useUiStore(s => s.rateUnit)
   const openConnectionMenu = useUiStore(s => s.openConnectionMenu)
-
-  const rootPlan = block?.rootPlan
-  // An area whose flag went off is no area: the list falls back to the block's.
-  const area = useMemo(() => (rootPlan !== undefined && areaId !== undefined && areaIdsOf(rootPlan).has(areaId) ? areaId : undefined), [rootPlan, areaId])
-  const rule = block && rootPlan && area !== undefined ? effectiveAreaRule(rootPlan, block.sourceRules, area, itemId) : block?.sourceRules[itemId]
-  const makeHere = rule?.makeHere
-  // Where *Make more here* was drawn last: it keeps that place while it is switched off. Session state in the ui store, not part
-  // of the stored rule, so that every surface that shows the list agrees and a closed list remembers it.
-  // At area scope it is remembered per area.
-  const blockId = block ? (area !== undefined ? `${block.id}/${area}` : block.id) : undefined
-  const storedSide = useUiStore(s => (blockId ? s.sourcesSides[`${blockId}:${itemId}`] : undefined))
   const setSourcesSide = useUiStore(s => s.setSourcesSide)
-  const drawnSide: Side | undefined = makeHere === 'after-blocks' ? 'below' : makeHere === undefined ? 'above' : undefined
-  const lastSide: Side = drawnSide ?? storedSide ?? 'above'
+
   useEffect(() => {
-    if (blockId && drawnSide) setSourcesSide(blockId, itemId, drawnSide)
-  }, [blockId, itemId, drawnSide, setSourcesSide])
+    if (drawnSide) setSourcesSide(sideKey, itemId, drawnSide)
+  }, [sideKey, itemId, drawnSide, setSourcesSide])
   const listId = useId()
   const listRef = useRef<HTMLUListElement>(null)
   // A move reorders the keyed lines and the browser drops the focus of the one that moved: put it back (a selector, on `refocus`).
@@ -199,7 +100,9 @@ export function SourcesList({ itemId, id, areaId }: {
     if (selector) listRef.current?.querySelector<HTMLElement>(selector)?.focus()
   })
 
-  const [focusedLine, setFocusedLine] = useState<string | null>(null)
+  // The line whose detail is open (one at a time), by its stable key: it stays open while the line moves.
+  const [openLineKey, setOpenLine] = useState<string | null>(null)
+  const openKey = model.lines.some(l => l.key === openLineKey) ? openLineKey : null
   // What is being dragged ('make-here' or 'block:<connection id>'), as state for the faded look and as a ref for the handlers
   // that run before a render.
   const [dragging, setDragging] = useState<string | null>(null)
@@ -212,76 +115,17 @@ export function SourcesList({ itemId, id, areaId }: {
   const [editingLimit, setEditingLimit] = useState<string | null>(null)
   const [pending, setPending] = useState<{ sourceId: string; product: Product; effects: ProductChangeEffect[] } | null>(null)
 
-  const blockById = useMemo(() => new Map(blocks.map(b => [b.id, b])), [blocks])
-  const flowById = useMemo(() => new Map(flows.map(f => [f.connectionId, f])), [flows])
-  const hasAreas = useMemo(() => rootPlan !== undefined && blockAreas(rootPlan) !== undefined, [rootPlan])
-  const makers = useMemo(
-    () => (block && gameData ? itemMakers(block, gameData, result, itemId, area) : []),
-    [block, gameData, result, itemId, area],
-  )
-  // The other areas that supply this one (area scope only): walks the plan once per other area, so kept until the plan, the solve or the switches change.
-  // (The switches are keyed by their ids: an area with no rule of its own gets a fresh empty rule on every render.)
-  const offKey = (block && rootPlan && area !== undefined ? effectiveAreaRule(rootPlan, block.sourceRules, area, itemId).areasOff : undefined)?.join('\n') ?? ''
-  const suppliers = useMemo(
-    () => (block && gameData && area !== undefined ? supplierLines(block, gameData, result, itemId, area, { areasOff: offKey === '' ? undefined : offKey.split('\n') }) : []),
-    [block, gameData, result, itemId, area, offKey],
-  )
-  // Whether the area LP splits the item's outside legs between the areas (two areas or more touch it); not told by the routes, which omit a part at zero.
-  const split = useMemo(
-    () => (block && gameData && area !== undefined ? areaLPItems(flattenBlock(block), gameData).has(itemId) : false),
-    [block, gameData, itemId, area],
-  )
-  if (!block || !gameData) return null
-
-  const name = gameData.items[itemId]?.name ?? itemId
-  const solved = result !== undefined
-  const rate = (perMin: number) => fmtItemRateText(itemId, perMin / 60, unit)
+  const blockById = new Map(blocks.map(b => [b.id, b]))
+  const connections = block.inputConnections.filter(c => c.itemId === itemId)
   const off = makeHere === 'off'
-  const importOn = !rule?.importOff
 
   // Already made here: under Don't make more here every row that makes the item, otherwise the rows not dedicated to it.
   const made = solved
     ? makers.filter(m => (off || m.byproduct) && m.rate > EPS).map(m => `${m.recipeName} ${rate(m.rate)}`)
     : makers.filter(m => m.byproduct).map(m => m.recipeName)
-  const madeText = made.length > 0 ? made.join(', ') : 'nothing yet'
+  const madeText = made.length > 0 ? made.join(', ') : SOURCES_DETAIL.nothingYet
   const dedicated = makers.filter(m => !m.byproduct)
-  const makeText = dedicated.length > 0 ? dedicated.map(m => makerLabel(m, solved)).join(', ') : 'no row here makes it'
-  // A split fluid can be imported over several ranges: all of them count.
-  const unsatisfied = (result?.unsatisfied ?? []).filter(u => u.itemId === itemId).reduce((t, u) => t + u.rate, 0)
-  // At area scope: the area's own figure (areaSupply), not the block's.
-  const supply = area !== undefined ? areaSupply(result?.areaRoutes, itemId, area, rule ?? {}, unsatisfied, split) : undefined
-  const importAmount = supply ? (importOn ? supply.imported : supply.missing) : unsatisfied
-  const importText = !solved ? '' : importOn ? (importAmount > EPS ? rate(importAmount) : 'none') : (importAmount > EPS ? `Missing ${rate(importAmount)}` : '')
-
-  // The block lines, in connection order.
-  const connections = block.inputConnections.filter(c => c.itemId === itemId)
-  const rows: BlockRow[] = connections.map(connection => {
-    const source = blockById.get(connection.fromBlockId)
-    const flow = flowById.get(connection.id)
-    const greyed = source === undefined || connection.fromBlockId === block.id
-    if (greyed) {
-      return { connection, source, flow, greyed, canMakeProduct: false, status: source === undefined ? 'the source block was deleted' : 'ignored: a block cannot supply itself' }
-    }
-    const sourceName = source.name
-    // Before the first solve the tag follows the source's products; after it, the solver's reading (a request it ignores is a take).
-    const requested = flow ? flow.kind === 'request' : hasProduct(source, itemId)
-    const tag: Tag = requested ? 'requested' : 'existing'
-    const tagTitle = requested
-      ? `${sourceName} makes what this block needs of it.`
-      : flow?.requestIgnored
-        ? `Taken as existing: ${REQUEST_IGNORED_TITLE[flow.requestIgnored]}`
-        : `${sourceName} only gives what it has left over.`
-    let status = ''
-    if (flow?.status === 'unused') status = 'not used: this block makes or needs none from outside'
-    else if (flow?.status === 'limited') {
-      const cap = cappingLimit(true, flow.capped, connection.maxRate)
-      status = cap !== undefined ? cappedTitle(rate(cap)) : `Limited: ${sourceName} only offers ${rate(flow.available)}`
-    }
-    const canMakeProduct = tag === 'existing' && !hasProduct(source, itemId)
-    // As in the connection menu: a source that receives the item itself would ignore the request, so the action is disabled.
-    const blocker = canMakeProduct ? productChangeEffects(blocks, source.id, itemId, 'add', flows).find(e => e.blocker)?.blocker : undefined
-    return { connection, source, flow, greyed, tag, tagTitle, canMakeProduct, ...(blocker ? { productBlocked: requestBlockerTitle(blocker, sourceName, name) } : {}), status }
-  })
+  const makeText = dedicated.length > 0 ? dedicated.map(m => makerLabel(m, solved)).join(', ') : SOURCES_DETAIL.noMaker
 
   /** Make more here goes above (Make it here) or below (Receive it first) the block lines. */
   const writeMakeHere = (value: 'after-blocks' | 'off' | undefined) => area !== undefined ? setAreaMakeHere(area, itemId, value) : setMakeHere(itemId, value)
@@ -290,9 +134,9 @@ export function SourcesList({ itemId, id, areaId }: {
     refocus.current = '[data-testid="sources-make-here-switch"]'
     writeMakeHere(off ? undefined : 'off')
   }
-  /** Move Make more here by button: the focus goes to the other button, since the pressed one is at the end of the group now. */
+  /** Move Make more here by button: the focus stays on the button of its new side. */
   const moveMakeMore = (side: Side) => {
-    refocus.current = side === 'below' ? '[data-testid="sources-move-up"]' : '[data-testid="sources-move-down"]'
+    refocus.current = `[data-line="make-here"] [data-testid="${side === 'above' ? 'sources-make-before' : 'sources-make-after'}"]`
     placeMakeMore(side)
   }
   /** Move a block line by button; the focus follows it, on the other button when the pressed one has nowhere left to go. */
@@ -335,7 +179,7 @@ export function SourcesList({ itemId, id, areaId }: {
     window.setTimeout(() => { if (dragRef.current === key) setDragging(key) }, 0)
   }
 
-  const makeHereDrag: LineProps['frame'] = off
+  const makeHereDrag: Frame = off
     ? {}
     : {
         draggable: true,
@@ -376,7 +220,7 @@ export function SourcesList({ itemId, id, areaId }: {
 
   // A block line takes the drop of another block line: before it or before the next one, by the half it is over. A drop of
   // Make more here goes to the group's handlers.
-  const rowFrame = (index: number, connectionId: string, movable: boolean): LineProps['frame'] => {
+  const rowFrame = (index: number, connectionId: string, movable: boolean): Frame => {
     const group = groupDrop(index)
     const target = (e: React.DragEvent<HTMLLIElement>) => {
       const r = e.currentTarget.getBoundingClientRect()
@@ -417,7 +261,7 @@ export function SourcesList({ itemId, id, areaId }: {
   }
 
   // The Receive from… line is the end of the block group: a block line dropped on it goes last.
-  const receiveFrame = (): LineProps['frame'] => {
+  const receiveFrame = (): Frame => {
     const group = groupDrop(rows.length)
     return {
       onDragOver: e => {
@@ -441,78 +285,86 @@ export function SourcesList({ itemId, id, areaId }: {
     }
   }
 
-  const focusProps = (key: string) => ({
-    focused: focusedLine === key,
-    // The help line takes room under the line: it opens on keyboard focus only, since a press that focuses a control would
-    // shift the lines below it between the press and the release and lose the click.
-    onFocusLine: (e: React.FocusEvent<HTMLLIElement>) => { if (keyboardFocus(e.target)) setFocusedLine(key) },
-    onBlurLine: (e: React.FocusEvent<HTMLLIElement>) => {
-      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocusedLine(l => (l === key ? null : l))
-    },
-  })
+  const last = rows.length // the index of the Receive from… line
+  const edge = (index: number): 'before' | 'after' | null => {
+    const line = lineDrop && lineDrop.id === (rows[index]?.connection.id ?? 'add-block') ? lineDrop.side : null
+    if (line) return line
+    if (drop === 'before' && index === 0) return 'before'
+    if (drop === 'after' && index === last) return 'after'
+    return null
+  }
 
-  // Under the block lines at area scope: how much of what the connections deliver reaches this area.
-  const reachesText = solved && supply && rows.some(r => !r.greyed)
-    ? (supply.reaches > EPS ? `${rate(supply.reaches)} of it reaches this area` : 'none of it reaches this area')
-    : undefined
-
-  const drawBlockLines = (helpId: string): React.ReactNode => {
-    const help = SOURCES_LINES['other-blocks'].title
-    const last = rows.length // the index of the Receive from… line
-    const edge = (index: number): 'before' | 'after' | null => {
-      const line = lineDrop && lineDrop.id === (rows[index]?.connection.id ?? 'add-block') ? lineDrop.side : null
-      if (line) return line
-      if (drop === 'before' && index === 0) return 'before'
-      if (drop === 'after' && index === last) return 'after'
-      return null
+  /** Alt+ArrowUp / Alt+ArrowDown on a line's name moves the line; the plain arrows are left alone. */
+  const nameKeyDown = (line: SourceLine) => (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
+    // The block lines are the block's: an area's list cannot reorder them.
+    if (area !== undefined && line.kind === 'block') return
+    const move = altMoveTarget(line.key, e.key === 'ArrowUp' ? -1 : 1, { connectionIds: connections.map(c => c.id), makeHere })
+    if (!move) return
+    e.preventDefault()
+    if (move.type === 'connection') {
+      refocus.current = `[data-connection-id="${move.connectionId}"] [data-testid="sources-line-toggle"]`
+      moveConnectionBy(move.connectionId, move.delta)
+    } else {
+      refocus.current = '[data-line="make-here"] [data-testid="sources-line-toggle"]'
+      placeMakeMore(move.side)
     }
+  }
+
+  const rateText = (l: SourceLine) => l.rate === undefined || (l.kind !== 'block' && l.rate <= EPS) ? '—' : rate(l.rate)
+
+  function drawBlockLine(line: SourceLine, index: number) {
+    const row = rows[index]
+    const c = row.connection
+    const detailId = `${listId}-${line.key}-detail`
+    const sourceName = line.label
+    const limit = c.maxRate !== undefined ? rate(c.maxRate) : undefined
+    const first = index === 0
+    const end = index === rows.length - 1
+    const movable = area === undefined && !row.greyed && editingLimit !== c.id
+    const limited = row.flow?.status === 'limited'
     return (
-      <>
-        {rows.map((row, index) => {
-          const c = row.connection
-          const key = `block:${c.id}`
-          const rowHelpId = `${helpId}-${c.id}`
-          const sourceName = row.source?.name ?? '(deleted block)'
-          const limit = c.maxRate !== undefined ? rate(c.maxRate) : undefined
-          const first = index === 0
-          const end = index === rows.length - 1
-          return (
-            <Line
-              key={c.id}
-              line="block"
-              connectionId={c.id}
-              helpId={rowHelpId}
-              name={
-                <>
-                  <span
-                    aria-hidden="true"
-                    data-testid="sources-block-color"
-                    className="inline-block size-2.5 shrink-0 rounded-sm"
-                    style={{ background: row.source?.color ?? MISSING_BLOCK_COLOR }}
-                  />
-                  <span data-testid="sources-block-name">{sourceName}</span>
-                </>
-              }
-              help={help}
-              off={row.greyed}
-              reading={
-                <>
-                  {row.tag && (
-                    <span data-testid="sources-block-tag" data-tag={row.tag} data-tip={row.tagTitle} className={`mr-2 rounded border px-1 ${row.tag === 'requested' ? 'border-teal-700 text-teal-300' : 'border-gray-600 text-gray-300'}`}>
-                      {row.tag}
-                    </span>
-                  )}
-                  {!row.greyed && <span data-testid="sources-block-rate" className="mr-2 tabular-nums">{row.flow ? rate(row.flow.rate) : '—'}</span>}
-                  {row.status && <span data-testid="sources-block-status" data-status={row.flow?.status}>{row.status}</span>}
-                </>
-              }
-              frame={rowFrame(index, c.id, area === undefined && !row.greyed && editingLimit !== c.id)}
-              dropSide={edge(index)}
-              controls={
-                <span className="flex shrink-0 flex-wrap items-center gap-1">
-                  {area === undefined && !row.greyed && editingLimit !== c.id && (
+      <SourcesLine
+        key={line.key}
+        line={line}
+        dataLine="block"
+        open={openKey === line.key}
+        onToggle={() => setOpenLine(k => (k === line.key ? null : line.key))}
+        detailId={detailId}
+        icon={<span aria-hidden="true" data-testid="sources-block-color" className="inline-block size-2.5 shrink-0 rounded-sm" style={{ background: row.source?.color ?? MISSING_BLOCK_COLOR }} />}
+        tag={row.tag && (
+          <span data-testid="sources-block-tag" data-tag={row.tag} data-tip={row.tagTitle} className={`shrink-0 rounded border px-1 text-[10px] font-normal leading-4 ${row.tag === 'requested' ? 'border-teal-700 text-teal-300' : 'border-gray-600 text-gray-300'}`}>
+            {row.tag}
+          </span>
+        )}
+        rateText={rateText(line)}
+        rateTestId="sources-block-rate"
+        frame={rowFrame(index, c.id, movable)}
+        dropSide={edge(index)}
+        draggable={movable}
+        onNameKeyDown={nameKeyDown(line)}
+        detail={
+          <>
+            {row.status && <DetailStatus tone={limited ? 'amber' : 'grey'} testId="sources-block-status" status={row.flow?.status}>{row.status}</DetailStatus>}
+            {area !== undefined ? (
+              <>
+                <p>{SOURCES_DETAIL.blockAtArea}</p>
+                {!row.greyed && (
+                  <p data-testid="sources-detail-reading">
+                    {row.flow ? `${rate(row.flow.rate)} over this connection` : 'No flow yet'}{line.rate !== undefined && `; ${line.rate > EPS ? rate(line.rate) : 'none'} of it reaches this area`}.
+                  </p>
+                )}
+                <div className="flex">
+                  <button type="button" data-testid="sources-whole-block" onClick={() => onScope(undefined)} className={MINI_BUTTON_CLASS}>Whole block</button>
+                </div>
+              </>
+            ) : (
+              <>
+                {!row.greyed && <p>{row.tagTitle} {SOURCES_LINES['other-blocks'].title}</p>}
+                <div className="flex flex-wrap items-center gap-1">
+                  {!row.greyed && editingLimit !== c.id && (
                     <button
-                      type="button" data-testid="sources-limit" aria-label={`Limit of ${sourceName}`} aria-describedby={rowHelpId}
+                      type="button" data-testid="sources-limit" aria-label={`Limit of ${sourceName}`}
                       data-tip={limit ? 'Change or clear the limit' : 'Set a limit on what is received over this connection'}
                       onClick={() => setEditingLimit(c.id)}
                       className={MINI_BUTTON_CLASS}
@@ -520,7 +372,7 @@ export function SourcesList({ itemId, id, areaId }: {
                       {limit ? `Limit ${limit}` : 'No limit'}
                     </button>
                   )}
-                  {area === undefined && !row.greyed && editingLimit === c.id && (
+                  {!row.greyed && editingLimit === c.id && (
                     <RateInput
                       initial={c.maxRate !== undefined ? fmtRate(c.maxRate / 60, inputRateUnit(itemId, unit)) : ''}
                       rateUnit={inputRateUnit(itemId, unit)}
@@ -534,169 +386,233 @@ export function SourcesList({ itemId, id, areaId }: {
                       }}
                     />
                   )}
-                  <Cluster
-                    actions={[
-                      ...(area === undefined && row.canMakeProduct
-                        ? [{
-                            label: 'Make it a product', icon: 'make-product', testId: 'sources-make-product', describedBy: rowHelpId,
-                            ariaDisabled: row.productBlocked !== undefined, title: row.productBlocked,
-                            onSelect: () => requestSourceProduct(c.fromBlockId),
-                          } satisfies StripAction]
-                        : []),
-                      ...(area === undefined && !row.greyed
-                        ? [
-                            { label: 'Move up', icon: 'up', testId: 'sources-block-move-up', describedBy: rowHelpId, ariaDisabled: first, onSelect: () => moveRow(c.id, -1) } satisfies StripAction,
-                            { label: 'Move down', icon: 'down', testId: 'sources-block-move-down', describedBy: rowHelpId, ariaDisabled: end, joined: true, onSelect: () => moveRow(c.id, 1) } satisfies StripAction,
-                          ]
-                        : []),
-                      ...(area === undefined
-                        ? [{ label: `Remove ${sourceName}`, icon: 'x', testId: 'sources-block-remove', describedBy: rowHelpId, danger: true, onSelect: () => removeRow(c.id) } satisfies StripAction]
-                        : []),
-                    ]}
-                  />
-                </span>
-              }
-              {...focusProps(key)}
-            />
-          )
-        })}
-        {reachesText !== undefined && (
-          <Line
-            line="block-reach"
-            helpId={`${helpId}-reach`}
-            help="The connections' whole rate is the block's; this is the part of it routed to this area."
-            reading={<span data-testid="sources-reaches">{reachesText}</span>}
-            {...focusProps('block-reach')}
-          />
-        )}
-        <Line
-          line="add-block"
-          helpId={`${helpId}-add`}
-          help={help}
-          reading={rows.length === 0 ? `No connection for ${name}.` : undefined}
-          frame={receiveFrame()}
-          dropSide={edge(last)}
-          controls={
-            <span className="flex shrink-0 items-center">
-              <Cluster
-                actions={[{
-                  label: 'Receive from…', icon: 'receive', testId: 'sources-receive-from', describedBy: `${helpId}-add`, hasPopup: 'menu',
-                  onSelect: e => {
-                    const r = e.currentTarget.getBoundingClientRect()
-                    openConnectionMenu(itemId, r.left, r.bottom)
-                  },
-                }]}
-              />
-            </span>
-          }
-          {...focusProps('add-block')}
-        />
-      </>
-    )
-  }
-
-  const drawAreaLine = (line: SupplierLine): React.ReactNode => {
-    const key = `area:${line.areaId}`
-    const reading = !solved ? '' : line.off ? '—' : line.routed > EPS ? rate(line.routed) : 'nothing'
-    const helpId = `${listId}-${line.areaId}-help`
-    return (
-      <Line
-        key={key}
-        line="other-area"
-        areaId={line.areaId}
-        helpId={helpId}
-        name={line.name}
-        help={AREA_LINE_HELP}
-        reading={reading}
-        off={line.off}
-        controls={
-          <span className="flex shrink-0 items-center">
-            <Switch
-              on={!line.off} label={`Take from ${line.name}`} testId="sources-area-switch" describedBy={helpId}
-              onToggle={() => {
-                refocus.current = `[data-area-id="${line.areaId}"] [data-testid="sources-area-switch"]`
-                if (area !== undefined) toggleAreaSupplier(area, itemId, line.areaId)
-              }}
-            />
-          </span>
+                  <span className="ml-auto flex items-center gap-1">
+                    <Cluster
+                      actions={[
+                        ...(row.canMakeProduct
+                          ? [{
+                              label: 'Make it a product', icon: 'make-product', testId: 'sources-make-product', describedBy: detailId,
+                              ariaDisabled: row.productBlocked !== undefined, title: row.productBlocked,
+                              onSelect: () => requestSourceProduct(c.fromBlockId),
+                            } satisfies StripAction]
+                          : []),
+                        ...(!row.greyed
+                          ? [
+                              { label: 'Move up', icon: 'up', testId: 'sources-block-move-up', describedBy: detailId, ariaDisabled: first, onSelect: () => moveRow(c.id, -1) } satisfies StripAction,
+                              { label: 'Move down', icon: 'down', testId: 'sources-block-move-down', describedBy: detailId, ariaDisabled: end, joined: true, onSelect: () => moveRow(c.id, 1) } satisfies StripAction,
+                            ]
+                          : []),
+                        { label: `Remove ${sourceName}`, icon: 'x', testId: 'sources-block-remove', describedBy: detailId, danger: true, onSelect: () => removeRow(c.id) } satisfies StripAction,
+                      ]}
+                    />
+                  </span>
+                </div>
+              </>
+            )}
+          </>
         }
-        {...focusProps(key)}
       />
     )
   }
 
-  const draw = (line: LineKey): React.ReactNode => {
-    if (isAreaLine(line)) {
-      const supplier = suppliers.find(l => `area:${l.areaId}` === line)
-      return supplier ? drawAreaLine(supplier) : null
+  function drawLine(line: SourceLine, blockIndex: number) {
+    if (line.kind === 'block') return drawBlockLine(line, blockIndex)
+    const detailId = `${listId}-${line.key}-detail`
+    const helpId = `${listId}-${line.key}-help`
+    const common = {
+      line,
+      dataLine: dataLineOf(line),
+      open: openKey === line.key,
+      onToggle: () => setOpenLine(k => (k === line.key ? null : line.key)),
+      detailId,
+      rateText: rateText(line),
+      rateTestId: 'sources-rate' as const,
+      onNameKeyDown: nameKeyDown(line),
+      draggable: false,
     }
-    const helpId = `${listId}-${line}-help`
-    switch (line) {
+    switch (line.kind) {
       case 'made-here':
-        return <Line key={line} line={line} helpId={helpId} name={SOURCES_LINES['made-here'].label} help={SOURCES_LINES['made-here'].title} reading={madeText} {...focusProps(line)} />
-      case 'make-here': {
         return (
-          <Line
-            key={line}
-            line={line}
-            helpId={helpId}
-            name={SOURCES_LINES['make-here'].label}
-            help={SOURCES_LINES['make-here'].title}
-            reading={makeText}
-            off={off}
-            frame={{ ...makeHereDrag, ...(dragging === 'make-here' ? { style: { opacity: 0.4 } } : {}) }}
-            controls={
-              <span className="flex shrink-0 items-center gap-1">
-                {/* Moving is across the whole group of block lines; a line switched off has no place to move to. */}
-                <Cluster
-                  actions={[
-                    { label: 'Move up', icon: 'up', testId: 'sources-move-up', describedBy: helpId, ariaDisabled: off || drawnSide === 'above', onSelect: () => { if (!off && drawnSide === 'below') moveMakeMore('above') } },
-                    { label: 'Move down', icon: 'down', testId: 'sources-move-down', describedBy: helpId, ariaDisabled: off || drawnSide === 'below', joined: true, onSelect: () => { if (!off && drawnSide === 'above') moveMakeMore('below') } },
-                  ]}
-                />
-                <Switch on={!off} label={SOURCES_LINES['make-here'].label} testId="sources-make-here-switch" describedBy={helpId} onToggle={toggleMakeMore} />
-              </span>
+          <SourcesLine
+            key={line.key}
+            {...common}
+            icon={<StripIcon name="make" />}
+            detail={
+              <>
+                <p>{SOURCES_LINES['made-here'].title}</p>
+                <p data-testid="sources-detail-reading">{madeText}</p>
+              </>
             }
-            {...focusProps(line)}
+          />
+        )
+      case 'make-here':
+        return (
+          <SourcesLine
+            key={line.key}
+            {...common}
+            icon={<StripIcon name="make-more" />}
+            frame={{ ...makeHereDrag, ...(dragging === 'make-here' ? { style: { opacity: 0.4 } } : {}) }}
+            draggable={!off}
+            switchNode={<LineSwitch testId="sources-make-here-switch" on={!off} label={SOURCES_LINES['make-here'].label} helpId={helpId} help={SOURCES_LINES['make-here'].title} onToggle={toggleMakeMore} />}
+            detail={
+              <>
+                <p>{SOURCES_LINES['make-here'].title}</p>
+                <p data-testid="sources-detail-reading">{makeText}</p>
+                {/* Moving is across the whole group of block lines; a line switched off has no place to move to. */}
+                <div role="group" aria-label="Where Make more here is tried" className="flex flex-wrap items-center gap-1">
+                  {(['above', 'below'] as const).map(side => (
+                    <button
+                      key={side}
+                      type="button"
+                      data-testid={side === 'above' ? 'sources-make-before' : 'sources-make-after'}
+                      aria-pressed={!off && drawnSide === side}
+                      aria-disabled={off || undefined}
+                      data-tip={MAKE_MORE_PLACE_HELP[side]}
+                      onClick={() => { if (!off && drawnSide !== side) moveMakeMore(side) }}
+                      className={`${MINI_BUTTON_CLASS} ${PRESSED_CLASS}`}
+                    >
+                      {MAKE_MORE_PLACES[side].label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            }
+          />
+        )
+      case 'other-areas':
+        return (
+          <SourcesLine
+            key={line.key}
+            {...common}
+            icon={<DashedSquareIcon />}
+            detail={
+              <>
+                <p>{SOURCES_LINES['other-areas'].title}</p>
+                {area !== undefined && <p data-testid="sources-detail-reading">No other area makes {name}.</p>}
+              </>
+            }
+          />
+        )
+      case 'other-area': {
+        const supplier = view.suppliers.find(l => l.areaId === line.areaId)
+        const idle = line.mark === 'idle'
+        return (
+          <SourcesLine
+            key={line.key}
+            {...common}
+            icon={<DashedSquareIcon />}
+            switchNode={<LineSwitch
+                testId="sources-area-switch" on={!line.off} label={`Take from ${line.label}`} helpId={helpId} help={AREA_LINE_HELP}
+                onToggle={() => {
+                  refocus.current = `[data-area-id="${line.areaId}"] [data-testid="sources-area-switch"]`
+                  if (area !== undefined) toggleAreaSupplier(area, itemId, line.areaId!)
+                }}
+              />}
+            detail={
+              <>
+                {idle && <DetailStatus tone="grey">{SOURCES_DETAIL.sendsNothing}</DetailStatus>}
+                <p>{AREA_LINE_HELP}</p>
+                <p data-testid="sources-detail-reading">
+                  {line.off ? `Off: nothing of it comes from ${line.label}.` : solved && supplier && supplier.routed > EPS ? `${rate(supplier.routed)} routed from ${line.label}` : `Nothing routed from ${line.label} now`}
+                </p>
+              </>
+            }
           />
         )
       }
-      case 'other-areas':
-        return (
-          <Line
-            key={line} line={line} helpId={helpId} name={SOURCES_LINES['other-areas'].label} help={SOURCES_LINES['other-areas'].title}
-            reading={area !== undefined ? `No other area makes ${name}.` : undefined}
-            {...focusProps(line)}
-          />
-        )
-      case 'block':
-        return <Fragment key={line}>{drawBlockLines(helpId)}</Fragment>
       case 'import': {
+        const importOn = view.importOn
+        const missingAmount = model.missing
         return (
-          <Line
-            key={line}
-            line={line}
-            helpId={helpId}
-            name={SOURCES_LINES.import.label}
-            help={SOURCES_LINES.import.title}
-            reading={importText}
-            off={!importOn}
-            controls={
-              <span className="flex shrink-0 items-center">
-                <Switch on={importOn} label={SOURCES_LINES.import.label} testId="sources-import-switch" describedBy={helpId} onToggle={() => area !== undefined ? toggleAreaImportOff(area, itemId) : toggleImportOff(itemId)} />
-              </span>
+          <SourcesLine
+            key={line.key}
+            {...common}
+            icon={<StripIcon name="import" />}
+            switchNode={<LineSwitch testId="sources-import-switch" on={importOn} label={SOURCES_LINES.import.label} helpId={helpId} help={SOURCES_LINES.import.title} onToggle={() => area !== undefined ? toggleAreaImportOff(area, itemId) : toggleImportOff(itemId)} />}
+            detail={
+              <>
+                {line.mark === 'missing' && <DetailStatus tone="amber">{SOURCES_DETAIL.importMissing}</DetailStatus>}
+                <p>{SOURCES_LINES.import.title}</p>
+                <p data-testid="sources-detail-reading">
+                  {!solved ? '' : importOn ? (line.rate !== undefined && line.rate > EPS ? rate(line.rate) : 'none') : (missingAmount > EPS ? `Missing ${rate(missingAmount)}` : '')}
+                </p>
+              </>
             }
-            {...focusProps(line)}
           />
         )
       }
     }
   }
 
+  function drawReceiveFrom() {
+    return (
+      <li
+        key="add-block"
+        data-testid="sources-line"
+        data-line="add-block"
+        {...receiveFrame()}
+        className="relative rounded text-gray-200"
+      >
+        {edge(last) && (
+          <span
+            aria-hidden="true"
+            data-testid="sources-drop-line"
+            data-side={edge(last)}
+            className={`absolute left-0 right-0 h-0.5 bg-blue-500 pointer-events-none ${edge(last) === 'before' ? '-top-px' : '-bottom-px'}`}
+          />
+        )}
+        <div className="flex h-[26px] items-center">
+          <span aria-hidden="true" className="relative z-10 flex w-4 shrink-0 items-center justify-center text-[13px] font-bold leading-none text-teal-300">+</span>
+          <button
+            type="button"
+            data-testid="sources-receive-from"
+            aria-haspopup="menu"
+            onClick={e => {
+              const r = e.currentTarget.getBoundingClientRect()
+              openConnectionMenu(itemId, r.left, r.bottom)
+            }}
+            className="ml-[20px] rounded text-[11px] font-medium text-teal-300 outline-none hover:text-teal-200 focus-visible:ring-2 focus-visible:ring-teal-400"
+          >
+            Receive from…
+          </button>
+          {rows.length === 0 && <span className="ml-2 min-w-0 truncate text-[11px] text-gray-500">No connection for {name}.</span>}
+        </div>
+      </li>
+    )
+  }
+
+  // The lines in the order the rule makes them; the Receive from… line ends the group of block lines.
+  const lineByKey = new Map(model.lines.map(l => [l.key, l]))
+  const drawOrdered = (key: string): React.ReactNode[] => {
+    if (key === 'block') {
+      return [
+        ...rows.map((r, i) => drawBlockLine(lineByKey.get(`block:${r.connection.id}`)!, i)),
+        drawReceiveFrom(),
+      ]
+    }
+    const line = lineByKey.get(key)
+    return line ? [drawLine(line, 0)] : []
+  }
+
+  const scopeName = area !== undefined ? areaNameOf(block.rootPlan, area) : undefined
+  const foot = (
+    <li data-testid="sources-foot" data-total={model.total} data-missing={model.missing} className="relative flex h-[26px] items-center text-[11px] text-gray-400">
+      <span aria-hidden="true" className="relative z-10 flex w-4 shrink-0 items-center justify-center text-gray-500">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3.5l3 3 3-3" /></svg>
+      </span>
+      <span className="ml-1.5 min-w-0 flex-1 truncate">{scopeName !== undefined ? `Reaches ${scopeName}` : 'Reaches the rows'}</span>
+      {model.missing > EPS && <span data-testid="sources-foot-missing" className="mr-1.5 shrink-0 text-amber-300">{rate(model.missing)} missing</span>}
+      <span data-testid="sources-foot-total" className="w-11 shrink-0 text-right font-mono tabular-nums text-gray-200">{model.need === undefined ? '—' : rate(model.total)}</span>
+      <span aria-hidden="true" className="w-[30px] shrink-0" />
+    </li>
+  )
+
   return (
     <>
-      <ul ref={listRef} id={id} role="list" aria-label={`Sources of ${name}`} data-testid="sources-list" className="flex flex-col rounded border border-gray-700/70 bg-gray-950/40 py-0.5">
-        {sourcesLineOrder(makeHere, hasAreas, lastSide, suppliers.map(l => l.areaId)).map(draw)}
+      <ul ref={listRef} id={id} role="list" aria-label={`Sources of ${name}`} data-testid="sources-list" className="relative flex flex-col py-0.5">
+        <span aria-hidden="true" className="absolute left-[7px] top-1 bottom-3 w-0.5 bg-gray-700" />
+        {view.order.flatMap(drawOrdered)}
+        {foot}
       </ul>
       {pending && (
         <ProductChangeDialog

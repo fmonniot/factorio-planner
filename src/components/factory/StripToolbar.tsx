@@ -33,7 +33,8 @@ export interface StripAction {
   describedBy?: string
 }
 
-const BUTTON = 'relative inline-flex h-[22px] w-6 shrink-0 items-center justify-center border border-gray-700 bg-gray-900 hover:border-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:border-gray-700 aria-disabled:opacity-40 aria-disabled:cursor-default aria-disabled:hover:border-gray-700 aria-expanded:border-teal-600 aria-expanded:bg-teal-900/60 aria-expanded:text-teal-200'
+/** The class set of an icon button of the strip, which the Sources toggle of the Comes from header shares. */
+export const STRIP_BUTTON_CLASS = 'relative inline-flex h-[22px] w-6 shrink-0 items-center justify-center border border-gray-700 bg-gray-900 hover:border-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 disabled:opacity-40 disabled:pointer-events-none disabled:cursor-default disabled:hover:border-gray-700 aria-disabled:opacity-40 aria-disabled:cursor-default aria-disabled:hover:border-gray-700 aria-expanded:border-teal-600 aria-expanded:bg-teal-900/60 aria-expanded:text-teal-200'
 
 function ActionButton({ action, position }: { action: StripAction; position: 'alone' | 'first' | 'middle' | 'last' }) {
   const name = action.badge ? `${action.label} · ${action.badge.count} ${action.badge.noun}` : action.label
@@ -53,7 +54,7 @@ function ActionButton({ action, position }: { action: StripAction; position: 'al
       aria-controls={action.controls}
       aria-describedby={action.describedBy}
       data-testid={action.testId}
-      className={`${BUTTON} ${shape} ${action.danger ? 'text-red-400' : 'text-gray-300'}`}
+      className={`${STRIP_BUTTON_CLASS} ${shape} ${action.danger ? 'text-red-400' : 'text-gray-300'}`}
     >
       <StripIcon name={action.icon} />
       {action.badge && (

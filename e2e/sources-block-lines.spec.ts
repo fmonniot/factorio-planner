@@ -4,6 +4,7 @@ import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, selectSlot, slot } from './support/summary'
 import { comesFromPopover } from './support/sidePanel'
+import { openLine } from './support/sourcesList'
 
 /**
  * The block lines of the Sources list. The active block "Gears" makes iron gear (30/min) and needs 30 iron plate/min. Two
@@ -75,6 +76,7 @@ test.describe('the block lines of the Sources list', () => {
     await expect(list.locator('[data-line="add-block"]')).toBeVisible()
     await expect(delivered(list, 'Cheap')).toHaveText('30.0/m')
     await expect(delivered(list, 'Dear')).toHaveText(/^0(\.0+)?\/m$/)
+    await openLine(lineOf(list, 'Dear'))
     await expect(lineOf(list, 'Dear')).toContainText('not used')
     for (const name of ['Cheap', 'Dear']) {
       await expect(lineOf(list, name).getByTestId('sources-block-tag')).toHaveText('existing')
@@ -83,6 +85,7 @@ test.describe('the block lines of the Sources list', () => {
 
   test('a reorder changes which source delivers', async ({ page }) => {
     const list = await openList(page)
+    await openLine(lineOf(list, 'Dear'))
     await lineOf(list, 'Dear').getByTestId('sources-block-move-up').click()
     expect(await sourceNames(list)).toEqual(['Dear', 'Cheap'])
     await expect(delivered(list, 'Dear')).toHaveText('30.0/m')
@@ -100,6 +103,7 @@ test.describe('the block lines of the Sources list', () => {
 
   test('a limit on the first makes the second deliver the rest', async ({ page }) => {
     const list = await openList(page)
+    await openLine(lineOf(list, 'Cheap'))
     await lineOf(list, 'Cheap').getByTestId('sources-limit').click()
     await page.getByLabel('Limit of Cheap').fill('10')
     await page.keyboard.press('Enter')
@@ -115,7 +119,7 @@ test.describe('the block lines of the Sources list', () => {
 
   test('the tag reads existing for a take and requested after Make it a product', async ({ page }) => {
     const list = await openList(page)
-    const dear = lineOf(list, 'Dear')
+    const dear = await openLine(lineOf(list, 'Dear'))
     await expect(dear.getByTestId('sources-block-tag')).toHaveText('existing')
     await expect(dear.getByTestId('sources-block-tag')).toHaveAttribute('data-tip', 'Dear only gives what it has left over.')
     await dear.getByTestId('sources-make-product').click()
@@ -133,6 +137,7 @@ test.describe('the block lines of the Sources list', () => {
 
   test('Remove drops the connection, and Receive from… opens the connection menu', async ({ page }) => {
     const list = await openList(page)
+    await openLine(lineOf(list, 'Cheap'))
     await lineOf(list, 'Cheap').getByTestId('sources-block-remove').click()
     expect(await sourceNames(list)).toEqual(['Dear'])
     await expect(delivered(list, 'Dear')).toHaveText('30.0/m')
@@ -148,8 +153,71 @@ test.describe('the block lines of the Sources list', () => {
     await expect(comesFromPopover(page)).toHaveCount(0)
   })
 
+  test("a block line's detail holds its limit, its delivered rate and Remove", async ({ page }) => {
+    const list = await openList(page)
+    const cheap = lineOf(list, 'Cheap')
+    await expect(cheap.getByTestId('sources-detail')).toHaveCount(0)
+    await openLine(cheap)
+    await expect(cheap.getByTestId('sources-detail')).toBeVisible()
+    await expect(cheap.getByTestId('sources-line-toggle')).toHaveAttribute('aria-expanded', 'true')
+    // One line is open at a time.
+    await openLine(lineOf(list, 'Dear'))
+    await expect(list.getByTestId('sources-detail')).toHaveCount(1)
+    await expect(cheap.getByTestId('sources-line-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await openLine(cheap)
+    await cheap.getByTestId('sources-limit').click()
+    await page.getByLabel('Limit of Cheap').fill('10')
+    await page.keyboard.press('Enter')
+    await expect(cheap.getByTestId('sources-limit')).toHaveText('Limit 10.0/m')
+    await expect(delivered(list, 'Cheap')).toHaveText('10.0/m')
+    await cheap.getByTestId('sources-block-remove').click()
+    expect(await sourceNames(list)).toEqual(['Dear'])
+  })
+
+  test('Alt+ArrowDown on a line name moves the block line, and the focus follows it', async ({ page }) => {
+    const list = await openList(page)
+    const toggle = (name: string) => lineOf(list, name).getByTestId('sources-line-toggle')
+    await toggle('Cheap').focus()
+    await page.keyboard.press('Alt+ArrowDown')
+    expect(await sourceNames(list)).toEqual(['Dear', 'Cheap'])
+    await expect(toggle('Cheap')).toBeFocused()
+    await expect(delivered(list, 'Dear')).toHaveText('30.0/m')
+    await page.keyboard.press('Alt+ArrowUp')
+    expect(await sourceNames(list)).toEqual(['Cheap', 'Dear'])
+    await expect(toggle('Cheap')).toBeFocused()
+    // A plain arrow moves nothing.
+    await page.keyboard.press('ArrowDown')
+    expect(await sourceNames(list)).toEqual(['Cheap', 'Dear'])
+  })
+
+  test('the bar of the header has a part per supplying line: connections, then import, then what is missing', async ({ page }) => {
+    const list = await openList(page)
+    const popover = comesFromPopover(page)
+    const parts = popover.getByTestId('comes-from-bar-segment')
+    await expect(parts).toHaveCount(1)
+    await expect(parts.first()).toHaveAttribute('data-kind', 'block')
+    await expect(parts.first().getByTestId('summary-segment-tip')).toHaveText(/^Cheap 30\.0\/m/)
+    // Both connections limited to 10 a minute: 10 and 10 come over them, the other 10 are imported.
+    for (const name of ['Cheap', 'Dear']) {
+      await openLine(lineOf(list, name))
+      await lineOf(list, name).getByTestId('sources-limit').click()
+      await page.getByLabel(`Limit of ${name}`).fill('10')
+      await page.keyboard.press('Enter')
+    }
+    await expect(parts).toHaveCount(3)
+    await expect(parts.evaluateAll(els => els.map(el => el.getAttribute('data-kind')))).resolves.toEqual(['block', 'block', 'import'])
+    await expect(parts.nth(2).getByTestId('summary-segment-tip')).toHaveText(/^Import 10\.0\/m/)
+    await expect(popover.getByTestId('comes-from-need')).toContainText('30')
+    // Import off: the same 10 are missing.
+    await list.getByTestId('sources-import-switch').click()
+    await expect(parts.nth(2)).toHaveAttribute('data-kind', 'missing')
+    await expect(parts.nth(2).getByTestId('summary-segment-tip')).toHaveText(/^Missing 10\.0\/m/)
+    await expect(list.getByTestId('sources-foot-missing')).toContainText('10.0/m missing')
+  })
+
   test('Escape cancels the limit edit only, then closes the popover', async ({ page }) => {
     const list = await openList(page)
+    await openLine(lineOf(list, 'Cheap'))
     await lineOf(list, 'Cheap').getByTestId('sources-limit').click()
     await page.getByLabel('Limit of Cheap').fill('10')
     await page.keyboard.press('Escape')
@@ -163,6 +231,7 @@ test.describe('the block lines of the Sources list', () => {
 
   test('leaving the limit field by Tab does not pull the focus back', async ({ page }) => {
     const list = await openList(page)
+    await openLine(lineOf(list, 'Cheap'))
     await lineOf(list, 'Cheap').getByTestId('sources-limit').click()
     await page.getByLabel('Limit of Cheap').fill('10')
     await page.keyboard.press('Tab')
@@ -172,6 +241,7 @@ test.describe('the block lines of the Sources list', () => {
 
   test('Escape in the Make it a product dialog closes the dialog only', async ({ page }) => {
     const list = await openList(page)
+    await openLine(lineOf(list, 'Dear'))
     await lineOf(list, 'Dear').getByTestId('sources-make-product').click()
     const confirm = page.getByTestId('product-change-confirm')
     await expect(confirm).toBeVisible()
@@ -192,6 +262,7 @@ test.describe('a source that receives the item itself', () => {
   test('cannot be made a product: the action is disabled with the reason', async ({ page }, testInfo) => {
     await setup(page, testInfo, dearReceives(false))
     const list = await openList(page)
+    await openLine(lineOf(list, 'Dear'))
     const action = lineOf(list, 'Dear').getByTestId('sources-make-product')
     await expect(action).toHaveAttribute('aria-disabled', 'true')
     await expect(action).toHaveAttribute('data-tip', /receives/)
@@ -202,6 +273,7 @@ test.describe('a source that receives the item itself', () => {
   test('reads existing with the reason when the solver ignores its request', async ({ page }, testInfo) => {
     await setup(page, testInfo, dearReceives(true))
     const list = await openList(page)
+    await openLine(lineOf(list, 'Dear'))
     const tag = lineOf(list, 'Dear').getByTestId('sources-block-tag')
     await expect(tag).toHaveText('existing')
     await expect(tag).toHaveAttribute('data-tip', /^Taken as existing: the source receives this item itself/)

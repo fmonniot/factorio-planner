@@ -1,6 +1,6 @@
 import { makeHereOf, presetOf, type SourcingPreset } from '../../data/sourceRules'
 import { areaName } from '../../data/subPlanTree'
-import type { SubPlan } from '../../data/types'
+import type { SourceRule, SubPlan } from '../../data/types'
 import type { SourceRuleKind, SourceRulePart } from './sourceRules'
 
 // ---------------------------------------------------------------------------
@@ -122,6 +122,58 @@ export const SOURCES_LINES = {
   },
   import: IMPORT_SWITCH,
 } as const satisfies Record<string, { label: string; title: string }>
+
+/** The toggle of the popover's header that opens the Sources list: the same name as the strip's button. */
+export const SOURCES_TOGGLE_LABEL = SOURCES_BUTTON_LABEL
+
+/** The heading of the Sources list view: the lines are tried top to bottom. */
+export const LIST_ORDER_LABEL = 'Used in this order'
+
+/** The tooltip of the rule chip of the list view: it reads the rule, the list writes it. */
+export const RULE_CHIP_HELP = 'The rule this order makes. Move Make more here above or below the other blocks, or switch it off, to change it.'
+
+/** The two places of *Make more here* against the block lines, as its detail names them. */
+export const MAKE_MORE_PLACES = {
+  above: { label: 'Before other blocks' },
+  below: { label: 'After other blocks' },
+} as const satisfies Record<Side, { label: string }>
+
+/** What each place does, as the preset names it. */
+export const MAKE_MORE_PLACE_HELP: Record<Side, string> = {
+  above: `${ITEM_SOURCING_CHOICES[0].label}: ${ITEM_SOURCING_CHOICES[0].title}`,
+  below: `${ITEM_SOURCING_CHOICES[1].label}: ${ITEM_SOURCING_CHOICES[1].title}`,
+}
+
+/** The Leftover row at the foot of the Sources list: the block's rule, read beside its switch. */
+export const LEFTOVER_ROW = {
+  label: 'Leftover',
+  reading: { on: "what the rows don't use stays spare", off: 'the rows use all they can' },
+  areaReading: 'whole block only ·',
+  changeLabel: 'change',
+} as const
+
+/** The rule chip of the list view: the rule's preset (and Import off) as text, and whose rule it is. */
+export function ruleChipOf(
+  rule: SourceRule | undefined,
+  scope: { area?: string; ownRule: boolean },
+): { text: string; owner: 'block' | 'follows' | 'own'; preset: SourcingPreset | undefined } {
+  const preset = presetOf(rule)
+  const base = ITEM_SOURCING_CHOICES.find(c => c.mode === preset)?.label ?? ITEM_SOURCING_CHOICES[0].label
+  const body = rule?.importOff ? `${base} · Import off` : base
+  if (scope.area === undefined) return { text: body, owner: 'block', preset }
+  return scope.ownRule
+    ? { text: `Own rule · ${body}`, owner: 'own', preset }
+    : { text: `Block's rule · ${body}`, owner: 'follows', preset }
+}
+
+/** The help strings of the detail of a line of the Sources list. */
+export const SOURCES_DETAIL = {
+  blockAtArea: "Order, limit and Remove are the block's.",
+  noMaker: 'no row here makes it',
+  nothingYet: 'nothing yet',
+  sendsNothing: 'sends nothing now',
+  importMissing: 'Missing: Import is off and nothing else supplies it.',
+} as const
 
 // ---------------------------------------------------------------------------
 // The order of the Sources list's lines, a function of the rule and of the block.

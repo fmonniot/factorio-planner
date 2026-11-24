@@ -66,7 +66,8 @@ describe('ComesFrom, scope', () => {
     expect(scope('Whole block')).toHaveAttribute('aria-pressed', 'true')
     expect(scope('Line L')).toHaveAttribute('aria-pressed', 'false')
     expect(within(screen.getByTestId('comes-from-scope')).queryByRole('button', { name: 'Line B' })).not.toBeInTheDocument()
-    expect(screen.getByTestId('scope-hint')).toHaveTextContent('Every row of the block, unless an area has its own rule')
+    expect(screen.getByTestId('comes-from-scope')).toHaveAttribute('data-tip', 'Every row of the block, unless an area has its own rule')
+    expect(screen.queryByTestId('scope-hint')).not.toBeInTheDocument()
   })
 
   it('has no scope control without an area to offer, but the whole block', () => {
@@ -79,7 +80,7 @@ describe('ComesFrom, scope', () => {
     render(<ComesFrom itemId="plate" areaId="L" />)
     expect(scope('Line L')).toHaveAttribute('aria-pressed', 'true')
     expect(scope('Line B')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByTestId('scope-hint')).toHaveTextContent('Rows of Line L')
+    expect(screen.getByTestId('comes-from-scope')).toHaveAttribute('data-tip', 'Rows of Line L')
     expect(preset("Don't make more here")).toHaveAttribute('aria-checked', 'true')
   })
 
@@ -155,11 +156,15 @@ describe('ComesFrom, an area with no rule', () => {
   it('writes the area rule from a switch, and says what the area takes nothing from', () => {
     openOnArea()
     fireEvent.click(screen.getByTestId('sources-button'))
-    expect(screen.getByTestId('follows-block-rule')).toBeInTheDocument()
-    expect(screen.getByTestId('sourcing-sentence').textContent).not.toContain('Takes nothing')
+    // The list has no "follows" row: the chip says whose rule it is.
+    expect(screen.queryByTestId('follows-block-rule')).not.toBeInTheDocument()
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'follows')
     fireEvent.click(screen.getByTestId('sources-area-switch'))
     expect(areaRules('L')).toEqual({ plate: { makeHere: 'after-blocks', areasOff: ['B'] } })
     expect(mainBlock().sourceRules).toEqual({ plate: { makeHere: 'after-blocks' } })
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'own')
+    // The sentence is the compact view's: close the list to read it.
+    fireEvent.click(screen.getByTestId('sources-button'))
     expect(screen.queryByTestId('follows-block-rule')).not.toBeInTheDocument()
     expect(screen.getByTestId('sourcing-sentence').textContent).toMatch(/^Line L: .* Takes nothing from Line B\.$/)
     fireEvent.click(screen.getByTestId('use-block-rule'))
@@ -188,10 +193,14 @@ describe('ComesFrom, in the Comes from popover', () => {
     setup()
     render(<ComesFrom itemId="plate" />)
     const root = screen.getByTestId('comes-from')
-    expect(root.firstElementChild).toBe(screen.getByTestId('sourcing-sentence'))
+    // The header (with the Sources toggle) and the bar come first, then the sentence.
+    expect(root.children[0]).toBe(screen.getByTestId('comes-from-header'))
+    expect(root.children[1]).toBe(screen.getByTestId('comes-from-bar'))
+    expect(root.children[2]).toBe(screen.getByTestId('sourcing-sentence'))
+    expect(within(screen.getByTestId('comes-from-header')).getByTestId('sources-button')).toHaveAccessibleName('Sources…')
     const toolbar = within(root).getByTestId('strip-toolbar')
     expect([...toolbar.querySelectorAll('button')].map(b => b.getAttribute('aria-label')))
-      .toEqual(['Make it here', 'Receive it first', "Don't make more here", 'Import', 'Leftover', 'Sources…'])
+      .toEqual(['Make it here', 'Receive it first', "Don't make more here", 'Import', 'Leftover'])
     expect(toolbar.firstElementChild).toBe(within(toolbar).getByRole('radiogroup'))
   })
 
@@ -199,7 +208,9 @@ describe('ComesFrom, in the Comes from popover', () => {
     setup({ L: { plate: {} } })
     render(<ComesFrom itemId="plate" areaId="L" />)
     const root = screen.getByTestId('comes-from')
-    expect(root.firstElementChild).toBe(screen.getByTestId('comes-from-scope'))
+    // The scope control is in the header, above the sentence.
+    expect(within(screen.getByTestId('comes-from-header')).getByTestId('comes-from-scope')).toBe(screen.getByTestId('comes-from-scope'))
+    expect(screen.getByTestId('comes-from-scope').compareDocumentPosition(screen.getByTestId('sourcing-sentence')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     fireEvent.click(within(root).getByRole('radio', { name: "Don't make more here" }))
     expect(areaRules('L')).toEqual({ plate: { makeHere: 'off' } })
     fireEvent.click(screen.getByTestId('import-switch'))
@@ -266,7 +277,7 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     fireEvent.click(screen.getByTestId('areas-have-rules'))
     expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'plate', areaId: 'L' })
     const popover = screen.getByTestId('comes-from-popover')
-    expect(popover).toHaveTextContent('For the whole block or for one area')
+    expect(within(popover).getByTestId('comes-from-scope')).toHaveAttribute('data-tip', 'Rows of Line L')
     expect(within(within(popover).getByTestId('comes-from-scope')).getByRole('button', { name: 'Line L' })).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -274,6 +285,128 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     setup({ L: { ore: {} } })
     render(<ComesFrom itemId="plate" listInPopover />)
     expect(screen.queryByTestId('areas-have-rules')).not.toBeInTheDocument()
+  })
+})
+
+describe('ComesFrom, the two views', () => {
+  it('shows the compact view until the Sources toggle is pressed, then the list instead of the sentence, toolbar and radios', () => {
+    setup()
+    render(<ComesFrom itemId="plate" areaId="L" />)
+    const toggle = screen.getByTestId('sources-button')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('sources-list')).not.toBeInTheDocument()
+    expect(screen.getByTestId('sourcing-sentence')).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup')).toBeInTheDocument()
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(toggle).toHaveAttribute('aria-controls', screen.getByTestId('sources-list').id)
+    expect(screen.queryByTestId('sourcing-sentence')).not.toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('strip-toolbar')).not.toBeInTheDocument()
+    expect(screen.getByTestId('comes-from-bar')).toBeInTheDocument()
+    fireEvent.click(toggle)
+    expect(screen.queryByTestId('sources-list')).not.toBeInTheDocument()
+    expect(toggle).not.toHaveAttribute('aria-controls')
+  })
+
+  it('keeps the takers and no-effect notes in the list view', () => {
+    setup({ areas: false, block: { plate: { leftoverOff: true }, ore: { importOff: true } } })
+    const taker: Block = { ...makeEmptyBlock('Cooler'), id: 'cooler', inputConnections: [{ id: 'c1', itemId: 'plate', fromBlockId: 'main' }] }
+    useBlockStore.setState(s => ({ blocks: [...s.blocks, taker] }))
+    render(<ComesFrom itemId="plate" initialListOpen />)
+    expect(screen.getByTestId('leftover-take-note')).toBeInTheDocument()
+    expect(screen.getByTestId('sources-list')).toBeInTheDocument()
+  })
+
+  it('has no need in the header before the first solve', () => {
+    setup({ areas: false })
+    render(<ComesFrom itemId="plate" />)
+    expect(screen.queryByTestId('comes-from-need')).not.toBeInTheDocument()
+  })
+
+  it('says "Every row of this block" when no area is offered, and has no heading without one', () => {
+    setup({ areas: false })
+    render(<ComesFrom itemId="plate" />)
+    expect(screen.getByTestId('comes-from-header')).toHaveTextContent('Every row of this block')
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ComesFrom, the rule chip and the Leftover row of the list view', () => {
+  it('reads the block\'s rule as the chip, with Import off', () => {
+    setup({ areas: false, block: { plate: { makeHere: 'after-blocks', importOff: true } } })
+    render(<ComesFrom itemId="plate" initialListOpen />)
+    const chip = screen.getByTestId('sources-rule-chip')
+    expect(chip).toHaveTextContent('Receive it first · Import off')
+    expect(chip).toHaveAttribute('data-preset', 'connections-first')
+    expect(chip).toHaveAttribute('data-owner', 'block')
+    expect(chip).toHaveAttribute('data-tip', expect.stringContaining('Move Make more here'))
+  })
+
+  it('prefixes the chip at area scope, and Use the block\'s clears the area rule', () => {
+    setup({ block: { plate: { makeHere: 'after-blocks' } } })
+    render(<ComesFrom itemId="plate" areaId="L" initialListOpen />)
+    fireEvent.click(scope('Line L'))
+    expect(screen.getByTestId('sources-rule-chip')).toHaveTextContent("Block's rule · Receive it first")
+    expect(screen.queryByTestId('use-block-rule')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('sources-make-here-switch'))
+    expect(areaRules('L')).toEqual({ plate: { makeHere: 'off' } })
+    expect(screen.getByTestId('sources-rule-chip')).toHaveTextContent("Own rule · Don't make more here")
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'own')
+    const clear = screen.getByTestId('use-block-rule')
+    expect(clear).toHaveTextContent("Use the block's")
+    expect(clear).toHaveAccessibleName("Use the block's rule")
+    fireEvent.click(clear)
+    expect(areaRules('L')).toBeUndefined()
+    expect(screen.getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'follows')
+  })
+
+  it('offers each area with its own rule at block scope, and a click switches to it', () => {
+    setup({ L: { plate: { makeHere: 'off' } }, B: { plate: {} } })
+    render(<ComesFrom itemId="plate" initialListOpen />)
+    const links = screen.getAllByTestId('area-own-rule')
+    expect(links.map(l => l.textContent)).toEqual(['Line L has its own', 'Line B has its own'])
+    expect(links.map(l => l.getAttribute('data-area-id'))).toEqual(['L', 'B'])
+    fireEvent.click(links[1])
+    expect(scope('Line B')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByTestId('area-own-rule')).not.toBeInTheDocument()
+  })
+
+  it('has no such link when no area has a rule', () => {
+    setup()
+    render(<ComesFrom itemId="plate" initialListOpen />)
+    expect(screen.queryByTestId('area-own-rule')).not.toBeInTheDocument()
+  })
+
+  it('has the Leftover row at the foot, with the block\'s switch', () => {
+    setup({ areas: false })
+    render(<ComesFrom itemId="plate" initialListOpen />)
+    const row = screen.getByTestId('leftover-row')
+    expect(row).toHaveTextContent("Leftover")
+    expect(row).toHaveTextContent("what the rows don't use stays spare")
+    const sw = within(row).getByTestId('leftover-switch')
+    expect(sw).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(sw)
+    expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
+    expect(row).toHaveTextContent('the rows use all they can')
+  })
+
+  it('is read-only at area scope, shows the block\'s value, and "change" switches to the whole block', () => {
+    setup({ block: { plate: { leftoverOff: true } }, L: { plate: {} } })
+    render(<ComesFrom itemId="plate" areaId="L" initialListOpen />)
+    const sw = screen.getByTestId('leftover-switch')
+    expect(sw).toHaveAttribute('aria-disabled', 'true')
+    expect(sw).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(sw)
+    expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
+    const row = screen.getByTestId('leftover-row')
+    expect(row).toHaveTextContent('whole block only')
+    const change = within(row).getByTestId('leftover-whole-block')
+    expect(change).toHaveTextContent('change')
+    expect(change).toHaveAccessibleName('Whole block: change Leftover')
+    fireEvent.click(change)
+    expect(scope('Whole block')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('leftover-switch')).not.toHaveAttribute('aria-disabled')
   })
 })
 

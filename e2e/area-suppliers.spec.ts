@@ -4,6 +4,7 @@ import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { exportPlan } from './support/appMenu'
 import { pane, selectSlot, slot } from './support/summary'
+import { openLine } from './support/sourcesList'
 
 /**
  * Case 21 B of spec/test-synthetic.md on real Nullius recipes: plate is the Stone box (20 stone for 4 boxes), gear the Gravel
@@ -43,7 +44,7 @@ const made = (page: Page, n: 1 | 2) => async (): Promise<number> => {
 const popover = (page: Page) => page.getByTestId('comes-from-popover')
 const rulesButton = (page: Page) => pane(page, 'Ingredients').getByTestId('source-rules')
 const areaLine = (page: Page, id: string) => popover(page).locator(`[data-line="other-area"][data-area-id="${id}"]`)
-const reading = (page: Page, line: ReturnType<typeof areaLine>) => line.getByTestId('sources-reading')
+const reading = (page: Page, line: ReturnType<typeof areaLine>) => line.getByTestId('sources-rate')
 
 async function openList(page: Page) {
   await using(page).getByLabel(/^Stone box/).click({ button: 'right' })
@@ -85,6 +86,7 @@ test.describe('choosing the supplying area (case 21 B)', () => {
     await using(page).getByLabel(/^Stone box/).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Comes from…' }).click()
     await popover(page).getByTestId('sources-button').click()
+    await openLine(popover(page).locator('[data-line="block"]'))
     await popover(page).getByTestId('sources-block-remove').click()
     await expect(popover(page).getByTestId('sources-block-name')).toHaveCount(0)
     await page.keyboard.press('Escape')
@@ -95,8 +97,8 @@ test.describe('choosing the supplying area (case 21 B)', () => {
     await expect(popover(page).locator('[data-line="other-area"]').evaluateAll(els => els.map(e => e.getAttribute('data-area-id')))).resolves.toEqual([M1, M2])
     await expectRows(page, { m1: 12, m2: 0 })
     await expect(reading(page, areaLine(page, M1))).toHaveText(/^12(\.0+)?\/m$/)
-    await expect(reading(page, areaLine(page, M2))).toHaveText('nothing')
-    await expect(reading(page, popover(page).locator('[data-line="import"]'))).toHaveText('none')
+    await expect(reading(page, areaLine(page, M2))).toHaveText('—')
+    await expect(reading(page, popover(page).locator('[data-line="import"]'))).toHaveText('—')
     await page.keyboard.press('Escape')
     await expect(slot(page, 'Ingredients', 'Stone')).toHaveAccessibleName(/^Stone, 60(\.0+)? per minute/)
     await expect(stoneBox(page)).toHaveCount(0)
@@ -108,6 +110,8 @@ test.describe('choosing the supplying area (case 21 B)', () => {
     await expectRows(page, { m1: 0, m2: 12 })
     await expect(reading(page, areaLine(page, M1))).toHaveText('—')
     await expect(reading(page, areaLine(page, M2))).toHaveText(/^12(\.0+)?\/m$/)
+    // The sentence is the compact view's.
+    await popover(page).getByTestId('sources-button').click()
     await expect(popover(page).getByTestId('sourcing-sentence')).toHaveText(/^Line L: .* Takes nothing from Line M1\.$/)
     await page.keyboard.press('Escape')
     await expect(stone(page)).toHaveAccessibleName(/^Stone, 60(\.0+)? per minute/)
@@ -156,8 +160,10 @@ test.describe('choosing the supplying area (case 21 B)', () => {
     await expectRows(page, { m1: 0, m2: 0 })
     const blockLine = popover(page).locator('[data-line="block"]')
     await expect(blockLine.getByTestId('sources-block-rate')).toHaveText(/^12(\.0+)?\/m$/)
-    await expect(popover(page).getByTestId('sources-reaches')).toHaveText(/^12(\.0+)?\/m of it reaches this area$/)
-    await expect(reading(page, popover(page).locator('[data-line="import"]'))).toHaveText('none')
+    await openLine(blockLine)
+    await expect(blockLine.getByTestId('sources-detail-reading')).toHaveText(/of it reaches this area\.$/)
+    await expect(popover(page).getByTestId('sources-foot')).toContainText('Reaches Line L')
+    await expect(reading(page, popover(page).locator('[data-line="import"]'))).toHaveText('—')
     // The block lines are read-only here (no limit, no Remove); Receive from… stays, as it only adds a connection.
     await expect(blockLine.getByTestId('sources-limit')).toHaveCount(0)
     await expect(blockLine.getByTestId('sources-block-remove')).toHaveCount(0)
@@ -216,8 +222,8 @@ test('case 21 C, rows c and d: the area that takes nothing from T leaves the sid
     await page.locator('div.fixed.inset-0').getByRole('button', { name: 'Close' }).click()
   }
   const line = (id: string) => popover(page).locator(`[data-line="other-area"][data-area-id="${id}"]`)
-  const readingOf = (l: ReturnType<typeof line>) => l.getByTestId('sources-reading')
-  const importOf = () => popover(page).locator('[data-line="import"]').getByTestId('sources-reading')
+  const readingOf = (l: ReturnType<typeof line>) => l.getByTestId('sources-rate')
+  const importOf = () => popover(page).locator('[data-line="import"]').getByTestId('sources-rate')
 
   // Row a, as the starting point: the area rows make 39 Gravel.
   await expect.poll(ranAt).toBeCloseTo(39, 1)
@@ -227,7 +233,7 @@ test('case 21 C, rows c and d: the area that takes nothing from T leaves the sid
   await popover(page).getByRole('radio', { name: "Don't make more here" }).click()
   await popover(page).getByTestId('sources-button').click()
   await expect.poll(ranAt).toBeCloseTo(15, 1)
-  await expect(readingOf(line(T))).toHaveText('nothing')
+  await expect(readingOf(line(T))).toHaveText('—')
   await expect(importOf()).toHaveText(/^24(\.0+)?\/m$/)
   await page.keyboard.press('Escape')
   await trades('Line C1', { t: 0, outside: 24 })
