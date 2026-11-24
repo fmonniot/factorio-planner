@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { TooltipLayer, tipText } from './TooltipLayer'
+import { expectTip, tipOf } from '../test/byTip'
 
 function over(el: Element, pointerType = 'mouse') {
   const e = new Event('pointerover', { bubbles: true })
@@ -138,5 +139,22 @@ describe('TooltipLayer', () => {
     it('dragstart', () => { opened(); fireEvent.dragStart(screen.getByTestId('chip')); gone() })
     it('contextmenu', () => { opened(); fireEvent.contextMenu(screen.getByTestId('chip')); gone() })
     it('pointerout to nowhere', () => { opened(); fireEvent.pointerOut(screen.getByTestId('chip'), { relatedTarget: null }); gone() })
+  })
+
+  it('tipOf reads the closest anchor, or nothing', () => {
+    render(<div data-tip="Outer"><button data-testid="in">x</button></div>)
+    expect(tipOf(screen.getByTestId('in'))).toBe('Outer')
+    render(<button data-testid="bare">x</button>)
+    expect(tipOf(screen.getByTestId('bare'))).toBe('')
+  })
+
+  it('expectTip checks the text, the description and the absence of a title', () => {
+    render(<button data-testid="b" data-tip="Why" aria-description="Why">x</button>)
+    expectTip(screen.getByTestId('b'), 'Why')
+  })
+
+  it('expectTip can skip the description', () => {
+    render(<button data-testid="b" aria-label="Name" data-tip="">x</button>)
+    expectTip(screen.getByTestId('b'), 'Name', { describe: false })
   })
 })

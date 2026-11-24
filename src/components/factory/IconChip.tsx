@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 import { Icon } from '../Icon'
+import { tipProps } from '../tipProps'
 
 // ---------------------------------------------------------------------------
 // IconChip — the one component for every icon-with-a-number in the production table:
@@ -16,7 +17,7 @@ const QUANTITY_COLOR: Record<ChipTone, string> = {
   ingredient: 'text-green-300',
 }
 
-interface IconChipProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
+interface IconChipProps extends Omit<HTMLAttributes<HTMLElement>, 'children' | 'title'> {
   /** The icon; without one the `fallback` (or the first letters of `alt`) is drawn. */
   iconPath?: string
   alt: string
@@ -99,13 +100,13 @@ export function IconChip({
   )
   const plate = item ? 'rounded-[5px] bg-[rgba(148,163,184,0.09)] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.10)]' : 'rounded'
   const base = `relative inline-flex shrink-0 group/chip ${plate} ${ring} ${quietEmpty ? quietText(!locked) : ''} ${className}`
-  const tipProps = tip === undefined ? {} : { 'aria-label': tip, 'data-tip': '' }
+  const tipAttrs = tip === undefined ? {} : tipProps(tip)
   const chip = onClick ? (
-    <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${disabled ? '' : 'hover:ring-1 hover:ring-gray-500 cursor-pointer'}`} {...tipProps} {...rest}>
+    <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${disabled ? '' : 'hover:ring-1 hover:ring-gray-500 cursor-pointer'}`} {...tipAttrs} {...rest}>
       {body}
     </button>
   ) : (
-    <span className={base} {...(tip === undefined ? {} : { role: 'img' })} {...tipProps} {...rest}>{body}</span>
+    <span className={base} {...(tip === undefined ? {} : { role: 'img' })} {...tipAttrs} {...rest}>{body}</span>
   )
   if (!marker) return chip
   return (

@@ -46,7 +46,8 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
                   fallback={id !== undefined && !mod ? '?' : undefined}
                   warn={overflow || outside || (id !== undefined && !mod)}
                   onClick={toggle}
-                  title={id === undefined ? 'Empty slot' : (mod?.name ?? `Unknown module "${id}"`) + (overflow ? ' (more modules than slots)' : '')}
+                  data-tip={id === undefined ? 'Empty slot' : (mod?.name ?? `Unknown module "${id}"`) + (overflow ? ' (more modules than slots)' : '')}
+                  aria-description={overflow ? 'More modules than slots' : undefined}
                   aria-label={`${label} ${i + 1}: ${id === undefined ? 'empty' : (mod?.name ?? id)}`}
                   aria-expanded={open}
                   data-testid={`${testIdPrefix}-slot`}
