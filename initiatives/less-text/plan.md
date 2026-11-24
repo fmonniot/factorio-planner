@@ -59,7 +59,15 @@ The sentence is a second, poorer reading of the same facts: it names the rows th
 
 **Text equivalent.** The models still produce one plain-text reading for assistive technology (`aria-describedby`, a `role="img"` label); it is derived from the model, kept short, and never shown on the page.
 
+### Layouts per surface (2026-11-24)
+
+The owner reviewed the layouts canvas (four artboards: Details panel, summary strip, Sources line detail, explanations and tooltips; each shows today beside a proposal) and accepted every proposal. Which value of each variant (Details layout rows / chips / bar, rule as icons or chip, preview mark, Ingredient strip legend, Sources help) is still to be picked.
+
+### Where an explanation goes (2026-11-24)
+
+No ⓘ button and no disclosure: the owner rejected the ⓘ popover because it gives little the layout does not already show. An explanation that still helps becomes the tooltip of the label it explains (the Effects title, the "Separate area" subtitle, the served order's title, a Sources line's name), in the author's existing wording; one the layout already says is dropped. Rewritten copy stays plain sentences or labels, never a crammed chain of clauses.
+
 ## Open questions
 
-- **Where does an explanation go** once it leaves the page: a tooltip on the control, an info (ⓘ) button, a disclosure, or the README?
+- **Variant picks** for the accepted layouts (above).
 - **Tests.** `sourcingText.test.ts`, `outputsText.test.ts` and many component and e2e tests assert the sentences verbatim; they move with the model.
