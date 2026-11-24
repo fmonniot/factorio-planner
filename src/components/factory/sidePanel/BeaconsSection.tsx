@@ -139,7 +139,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
           type="button"
           onClick={onRemove}
           aria-label="Remove beacon configuration"
-          data-tip="Remove this beacon configuration"
+          {...describedTip('Remove this beacon configuration')}
           className="text-xs text-red-500 hover:text-red-400"
         >
           Remove

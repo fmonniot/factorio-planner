@@ -34,6 +34,7 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
           const mod = id ? gameData.modules[id] : undefined
           const overflow = i >= slotCount
           const outside = id !== undefined && !withinHorizon(moduleIds, id)
+          const tip = id === undefined ? 'Empty slot' : (mod?.name ?? `Unknown module "${id}"`) + (overflow ? ' (more modules than slots)' : '')
           return (
             <PickerTrigger
               key={i}
@@ -46,8 +47,8 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
                   fallback={id !== undefined && !mod ? '?' : undefined}
                   warn={overflow || outside || (id !== undefined && !mod)}
                   onClick={toggle}
-                  data-tip={id === undefined ? 'Empty slot' : (mod?.name ?? `Unknown module "${id}"`) + (overflow ? ' (more modules than slots)' : '')}
-                  aria-description={overflow ? 'More modules than slots' : undefined}
+                  data-tip={tip}
+                  aria-description={overflow ? tip : undefined}
                   aria-label={`${label} ${i + 1}: ${id === undefined ? 'empty' : (mod?.name ?? id)}`}
                   aria-expanded={open}
                   data-testid={`${testIdPrefix}-slot`}

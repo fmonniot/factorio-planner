@@ -255,7 +255,9 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               return (
                 <td
                   key={a.areaId}
-                  {...describedTip(text === '' ? undefined : t.kind === 'pair' && t.out > 0 && t.in > 0 ? `Sends to the focus, then receives from it: ${text}` : text)}
+                  {...(t.kind === 'pair' && t.out > 0 && t.in > 0
+                    ? describedTip(`Sends to the focus, then receives from it: ${text}`)
+                    : text === '' ? {} : { 'data-tip': text })}
                   className={cellClass(a.areaId, `truncate px-1 text-center font-mono tabular-nums border-b border-gray-700 ${groupColor(t)}`)}
                 >
                   {text}

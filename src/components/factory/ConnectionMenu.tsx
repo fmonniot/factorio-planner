@@ -91,30 +91,30 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
       )}
       {requests.map(({ block, closesLoop, blocker }) => {
         const tip = blocker
-            ? requestBlockerTitle(blocker, block.name, itemName)
-            : closesLoop
-              ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
-              : `${block.name} makes what this block needs`
+          ? requestBlockerTitle(blocker, block.name, itemName)
+          : closesLoop
+            ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
+            : `${block.name} makes what this block needs`
         return (
-        <TipWrap key={block.id} tip={tip} when={!!blocker} className="flex flex-col">
-          <button
-            type="button"
-            role="menuitem"
-            data-kind="request"
-            data-closes-loop={closesLoop ? 'true' : undefined}
-            disabled={!!blocker}
-            data-tip={blocker ? undefined : tip}
-            aria-description={tip}
-            className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:pointer-events-none disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
-            onClick={() => {
-              addInputConnection(itemId, block.id)
-              onClose()
-            }}
-          >
-            {block.name}
-            {closesLoop && <span aria-hidden> ↻</span>}
-          </button>
-        </TipWrap>
+          <TipWrap key={block.id} tip={tip} when={!!blocker} className="flex flex-col">
+            <button
+              type="button"
+              role="menuitem"
+              data-kind="request"
+              data-closes-loop={closesLoop ? 'true' : undefined}
+              disabled={!!blocker}
+              data-tip={blocker ? undefined : tip}
+              aria-description={tip}
+              className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:pointer-events-none disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
+              onClick={() => {
+                addInputConnection(itemId, block.id)
+                onClose()
+              }}
+            >
+              {block.name}
+              {closesLoop && <span aria-hidden> ↻</span>}
+            </button>
+          </TipWrap>
         )
       })}
       {connectable && requests.length > 0 && takes.length > 0 && <div className="border-t border-gray-700 my-1" />}

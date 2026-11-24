@@ -388,7 +388,7 @@ describe('MachineSection — module counts and slots', () => {
     const slots = screen.getAllByTestId('module-slot')
     expect(slots).toHaveLength(3)
     expect(slots[2]).toHaveAttribute('data-overflow', 'true')
-    expect(slots[2]).toHaveAccessibleDescription('More modules than slots')
+    expect(slots[2]).toHaveAccessibleDescription('Speed (more modules than slots)')
     expect(slots[2]).not.toHaveAttribute('title')
     expect(slots[1]).not.toHaveAccessibleDescription()
     expect(slots[2]).toHaveClass('ring-amber-500')

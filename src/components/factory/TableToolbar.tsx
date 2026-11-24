@@ -120,7 +120,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
           <span
             data-testid="block-power-total"
             role="img"
-            data-tip="Total power draw of the block"
+            {...describedTip('Total power draw of the block')}
             aria-label={`Total power draw, ${power.value} ${power.unit}`}
             className="font-mono tabular-nums text-cyan-300"
           >

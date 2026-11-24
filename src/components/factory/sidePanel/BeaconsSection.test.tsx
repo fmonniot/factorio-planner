@@ -110,6 +110,9 @@ describe('BeaconsSection — the card', () => {
 
   it('removes the configuration', () => {
     renderBeacons(makeGameData())
+    const remove = screen.getByRole('button', { name: 'Remove beacon configuration' })
+    expect(remove).toHaveAccessibleDescription('Remove this beacon configuration')
+    expect(remove).not.toHaveAttribute('title')
     fireEvent.click(screen.getByRole('button', { name: 'Remove beacon configuration' }))
     expect(storedConfigs()).toBeUndefined()
   })
