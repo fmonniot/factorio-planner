@@ -13,6 +13,10 @@ function makeGameData(): GameData {
         id: 'wire', name: 'Tinned wire', category: 'crafting', craftingTime: 1, ingredients: [], products: [], madeIn: [],
         allowProductivity: true, mainProduct: undefined, hidden: false, subgroup: '', order: '',
       },
+      nopro: {
+        id: 'nopro', name: 'No productivity', category: 'crafting', craftingTime: 1, ingredients: [], products: [], madeIn: [],
+        allowProductivity: false, mainProduct: undefined, hidden: false, subgroup: '', order: '',
+      },
     },
     machines: {
       'assembling-machine-2': {
@@ -24,6 +28,7 @@ function makeGameData(): GameData {
     modules: {
       agri: { id: 'agri', name: 'Agriculture', category: 'angels-bio-yield', tier: 1, effects: { productivity: 0.1 }, limitation: [], limitationBlacklist: [], iconPath: '' },
       speed: { id: 'speed', name: 'Speed', category: 'speed', tier: 1, effects: { speed: 0.2 }, limitation: [], limitationBlacklist: [], iconPath: '' },
+      prod: { id: 'prod', name: 'Prod', category: 'productivity', tier: 1, effects: { productivity: 0.1 }, limitation: [], limitationBlacklist: [], iconPath: '' },
       quality: { id: 'quality', name: 'Quality', category: 'quality', tier: 1, effects: { quality: 0.1 }, limitation: [], limitationBlacklist: [], iconPath: '' },
     },
     beacons: {
@@ -103,6 +108,59 @@ describe('moduleNotAllowedWarning', () => {
   it('lists identical misfits of duplicate rows once', () => {
     const rows = [row('a', { modules: [{ moduleId: 'agri', count: 1 }] }), row('b', { modules: [{ moduleId: 'agri', count: 2 }] })]
     expect(moduleNotAllowedWarning(block(plan('r', rows)), makeGameData())?.misfits).toHaveLength(1)
+  })
+
+  describe('recipe-level misfits', () => {
+    const warn = (r: GameRecipeNode, gd = makeGameData()) => moduleNotAllowedWarning(block(plan('r', [r])), gd)
+
+    it('reports a productivity module in a machine on a recipe that disallows productivity', () => {
+      expect(warn(row('n', { recipeId: 'nopro', modules: [{ moduleId: 'prod', count: 1 }] }))?.misfits).toEqual([
+        { recipeId: 'nopro', moduleId: 'prod', kind: 'machine', entityId: 'assembling-machine-2', reason: 'recipe' },
+      ])
+    })
+
+    it('reports it in a beacon that allows productivity', () => {
+      const gd = makeGameData()
+      gd.beacons.beacon.allowedEffects = ['speed', 'productivity']
+      expect(warn(row('n', { recipeId: 'nopro', beaconConfigs: [beaconConfig('prod')] }), gd)?.misfits).toEqual([
+        { recipeId: 'nopro', moduleId: 'prod', kind: 'beacon', entityId: 'beacon', reason: 'recipe' },
+      ])
+    })
+
+    it('reports a module whose blacklist names the recipe', () => {
+      const gd = makeGameData()
+      gd.modules.speed.limitationBlacklist = ['wire']
+      expect(warn(row('n', { modules: [{ moduleId: 'speed', count: 1 }] }), gd)?.misfits.map(m => m.reason)).toEqual(['recipe'])
+    })
+
+    it('judges the limitation list: a list without the recipe misfits, one with it does not', () => {
+      const gd = makeGameData()
+      gd.modules.speed.limitation = ['other']
+      expect(warn(row('n', { modules: [{ moduleId: 'speed', count: 1 }] }), gd)?.misfits.map(m => m.reason)).toEqual(['recipe'])
+      gd.modules.speed.limitation = ['wire']
+      expect(warn(row('n', { modules: [{ moduleId: 'speed', count: 1 }] }), gd)).toBeUndefined()
+    })
+
+    it('lists only the effect when the entity and the recipe both reject the module', () => {
+      const gd = makeGameData()
+      gd.machines['assembling-machine-2'].allowedEffects = ['speed']
+      expect(warn(row('n', { recipeId: 'nopro', modules: [{ moduleId: 'prod', count: 1 }] }), gd)?.misfits.map(m => m.reason)).toEqual(['effect'])
+    })
+
+    it('gives no recipe-level verdict for a recipe missing from the data', () => {
+      const gd = makeGameData()
+      expect(warn(row('n', { recipeId: 'ghost', modules: [{ moduleId: 'prod', count: 1 }] }), gd)).toBeUndefined()
+      gd.machines['assembling-machine-2'].allowedEffects = ['speed']
+      expect(warn(row('n', { recipeId: 'ghost', modules: [{ moduleId: 'prod', count: 1 }] }), gd)?.misfits.map(m => m.reason)).toEqual(['effect'])
+    })
+
+    it('skips a machine without slots and lists duplicate rows once', () => {
+      const gd = makeGameData()
+      const rows = [row('a', { recipeId: 'nopro', modules: [{ moduleId: 'prod', count: 1 }] }), row('b', { recipeId: 'nopro', modules: [{ moduleId: 'prod', count: 2 }] })]
+      expect(moduleNotAllowedWarning(block(plan('r', rows)), gd)?.misfits).toHaveLength(1)
+      gd.machines['assembling-machine-2'].moduleSlots = 0
+      expect(moduleNotAllowedWarning(block(plan('r', rows)), gd)).toBeUndefined()
+    })
   })
 
   it('lists rows in plan order: the plan nodes, then the sub-plans', () => {

@@ -61,7 +61,6 @@ Follow-ups of the [surplus rule initiative](archive/surplus-rule/plan.md), which
 - [ ] **Fusion and Space Age generators.** Fusion reactors and generators, lightning attractors and per-surface solar power are not exported; neither bundle has them.
 - [ ] **Beacon power.** Beacon energy is not counted in a row's power (spec/solver.md); needed for self-powering blocks.
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective. Two real plans show the objective matters more than the unit: the solver leaves rows at zero and lets an unwanted output pile up. The options (machines, priced surplus, required rows) and the measurements are in [surplus-aware-objective/](surplus-aware-objective/plan.md).
-- [ ] **Module warnings: recipe-level misfits and per-slot rings.** `module-not-allowed` judges the machine or beacon only. A module the recipe refuses (its limitation lists, or productivity on a recipe that disallows it) is not warned about, and the Machine section names the misfit modules in one message instead of ringing the slot that holds each.
 
 ## UI / UX
 

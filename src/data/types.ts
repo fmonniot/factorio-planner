@@ -149,10 +149,10 @@ export type SolverWarning =
    * supply and the block cannot import (a locked fluid). `recipeIds` are the rows that take it.
    */
   | { type: 'no-fitting-temperature'; itemId: string; min?: number; max?: number; recipeIds: string[] }
-  /** Modules the game would not accept in their machine or beacon (effects or category); the planner still counts them as before. */
+  /** Modules the game would not accept in their machine or beacon (effects or category) or for their recipe (limitation lists, productivity); the planner still counts them as before. */
   | {
       type: 'module-not-allowed'
-      misfits: { recipeId: string; moduleId: string; kind: 'machine' | 'beacon'; entityId: string; reason: 'effect' | 'category' }[]
+      misfits: { recipeId: string; moduleId: string; kind: 'machine' | 'beacon'; entityId: string; reason: 'effect' | 'category' | 'recipe' }[]
     }
 
 /** An item moving into or out of an area; `boundary` when the block also imports or exports it. */

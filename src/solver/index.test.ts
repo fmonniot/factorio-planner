@@ -3374,6 +3374,23 @@ describe('solveAll — module-not-allowed warning', () => {
     expect(listed.warnings.slice(0, -1)).toEqual(plain.warnings)
   })
 
+  it('warns about a productivity module on a recipe that disallows productivity, appended last, without changing the rows', () => {
+    const allowing = withMachine()
+    const disallowing = withMachine()
+    disallowing.recipes['iron-plate'] = { ...disallowing.recipes['iron-plate'], allowProductivity: false }
+    const ok = solveAll([withModule()], allowing).results['block-1']
+    const misfit = solveAll([withModule()], disallowing).results['block-1']
+    const last = misfit.warnings[misfit.warnings.length - 1]
+    expect(last).toEqual({
+      type: 'module-not-allowed',
+      misfits: [{ recipeId: 'iron-plate', moduleId: 'agri', kind: 'machine', entityId: 'asm', reason: 'recipe' }],
+    })
+    expect(ok.warnings.some(w => w.type === 'module-not-allowed')).toBe(false)
+    // The solver drops the disallowed productivity itself: the rows equal a run without the module.
+    const bare = makeBlock(makeSubPlan('Root', [{ ...planNode('n1', 'iron-plate'), machineId: 'asm', modules: [] }]), [{ id: 'g', itemId: 'plate', extraRate: 60 }])
+    expect(misfit.nodes).toEqual(solveAll([bare], disallowing).results['block-1'].nodes)
+  })
+
   it('keeps the result object when nothing is misfit', () => {
     const block = withModule()
     const cache = createSolveCache()

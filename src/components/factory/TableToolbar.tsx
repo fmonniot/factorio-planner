@@ -260,6 +260,9 @@ function warningBody(
           const moduleName = module?.name ?? m.moduleId
           const entity = (m.kind === 'machine' ? gameData.machines[m.entityId] : gameData.beacons[m.entityId])?.name ?? m.entityId
           const base = `"${recipe}": ${moduleName} cannot be inserted in ${entity}`
+          if (m.reason === 'recipe') {
+            return `${base} (the recipe does not accept it: the module's recipe limits leave it out, or it carries productivity and the recipe does not allow productivity). The planner counts its effects, except productivity on a recipe that disallows it.`
+          }
           return m.reason === 'category'
             ? `${base} (the game does not accept its category, ${module?.category ?? 'unknown'}, there). The planner still counts its effects.`
             : `${base} (it carries an effect the ${m.kind} does not allow). The planner counts only the effects the ${m.kind} allows.`
@@ -292,7 +295,7 @@ function warningHint(w: SolverWarning): string {
     case 'request-loop-not-converged': return "Set a limit on one of the loop's requests, or remove one."
     case 'no-fitting-temperature': return 'Add a row that makes it at a fitting temperature, turn Import on for it, or connect a block that makes it.'
     case 'connection-temperature': return 'Connect a block that makes it at a fitting temperature, or add a row here that makes it.'
-    case 'module-not-allowed': return 'Replace the module with one the machine accepts, or pick another machine or beacon.'
+    case 'module-not-allowed': return 'Replace the module, or pick another machine, beacon or recipe.'
   }
 }
 

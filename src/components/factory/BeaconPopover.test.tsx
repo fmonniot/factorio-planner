@@ -128,6 +128,19 @@ describe('BeaconCell — module categories', () => {
     expect(screen.getByTestId('beacon-module-chip')).toHaveAttribute('data-incompatible', 'true')
   })
 
+  it('flags a productivity module the recipe disallows, though the beacon allows it, but not without a beacon entity', () => {
+    const gd = categoryData()
+    gd.beacons.beacon.allowedEffects = ['speed', 'productivity']
+    gd.beacons.beacon.allowedModuleCategories = undefined
+    gd.modules.prod = { ...speedModule, id: 'prod', name: 'Prod', category: 'productivity', effects: { productivity: 0.1 } }
+    gd.recipes['iron-plate'] = { ...gd.recipes['iron-plate'], allowProductivity: false }
+    const modules = [{ moduleId: 'prod', count: 1 }]
+    const { rerender } = render(<BeaconCell {...props} gameData={gd} beacons={[{ ...beacon, beaconId: 'beacon', modules }]} />)
+    expect(screen.getByTestId('beacon-module-chip')).toHaveAttribute('data-incompatible', 'true')
+    rerender(<BeaconCell {...props} gameData={gd} beacons={[{ ...beacon, beaconId: undefined, modules }]} />)
+    expect(screen.getByTestId('beacon-module-chip')).not.toHaveAttribute('data-incompatible')
+  })
+
   it('does not flag an accepted module', () => {
     render(<BeaconCell {...props} gameData={categoryData()} beacons={[{ ...beacon, beaconId: 'beacon' }]} />)
     expect(screen.getByTestId('beacon-module-chip')).not.toHaveAttribute('data-incompatible')

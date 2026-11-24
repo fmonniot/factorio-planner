@@ -274,25 +274,48 @@ describe('BeaconsSection — module picker and productivity', () => {
     const gd = makeGameData()
     gd.recipes['iron-plate'].allowProductivity = true
     renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ modules: [{ moduleId: 'prod-3', count: 2 }] })] }))
-    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Prod 3 cannot be inserted in Beacon')
+    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Ringed modules cannot be inserted in Beacon')
+    expect(screen.getAllByTestId('beacon-module-slot')[0]).toHaveAttribute('data-misfit', 'effect')
+  })
+
+  it('rings a module the recipe does not take, though the beacon allows productivity', () => {
+    const gd = makeGameData()
+    gd.recipes['iron-plate'].allowProductivity = false
+    gd.beacons.beacon.allowedEffects = ['speed', 'consumption', 'productivity']
+    renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ modules: [{ moduleId: 'prod-3', count: 1 }] })] }))
+    const slot = screen.getAllByTestId('beacon-module-slot')[0]
+    expect(slot).toHaveAttribute('data-misfit', 'recipe')
+    expect(slot.getAttribute('data-tip')).toContain('Prod 3 cannot be used for')
+    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('cannot be used for')
+  })
+
+  it('gives no verdict for a beacon without a resolvable entity', () => {
+    const gd = makeGameData()
+    gd.recipes['iron-plate'].allowProductivity = false
+    renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ beaconId: undefined, modules: [{ moduleId: 'prod-3', count: 1 }] })] }))
+    expect(screen.getAllByTestId('beacon-module-slot')[0]).not.toHaveAttribute('data-misfit')
+    expect(screen.queryByTestId('module-not-allowed')).toBeNull()
   })
 
   it('rejects a module by category: options omit it and a stored one is noted', () => {
     const gd = makeGameData()
     gd.beacons.beacon.allowedModuleCategories = ['speed']
     renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ modules: [{ moduleId: 'eff-1', count: 1 }] })] }))
-    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Z Eff 1 cannot be inserted in Beacon')
+    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Ringed modules cannot be inserted in Beacon')
+    expect(screen.getAllByTestId('beacon-module-slot')[0]).toHaveAttribute('data-misfit', 'category')
     fireEvent.click(screen.getAllByTestId('beacon-module-slot')[1])
     expect(screen.getAllByTestId('beacon-module-option').map(e => e.getAttribute('data-module-id'))).toEqual(['speed-3'])
   })
 
-  it('names only the modules the beacon cannot take', () => {
+  it('rings only the modules the beacon cannot take', () => {
     const gd = makeGameData()
     gd.recipes['iron-plate'].allowProductivity = true
     renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ modules: [{ moduleId: 'prod-3', count: 1 }, { moduleId: 'speed-3', count: 1 }] })] }))
     const note = screen.getByTestId('module-not-allowed')
-    expect(note).toHaveTextContent('Prod 3 cannot be inserted in Beacon')
-    expect(note).not.toHaveTextContent('Speed 3')
+    expect(note).toHaveTextContent('Ringed modules cannot be inserted in Beacon')
+    const slots = screen.getAllByTestId('beacon-module-slot')
+    expect(slots[0]).toHaveAttribute('data-misfit')
+    expect(slots[1], 'Speed 3 slot not ringed').not.toHaveAttribute('data-misfit')
   })
 })
 
