@@ -15,6 +15,7 @@ import { MenuButton, ITEM_CLASS } from './MenuButton'
 import { IconButton, TOOLTIP_BOX_CLASS, TOOLTIP_CLASS } from './IconButton'
 import { PlusIcon } from './icons'
 import { NameDialog } from './NameDialog'
+import { tipProps } from './tipProps'
 
 // ---------------------------------------------------------------------------
 // Context menu
@@ -163,8 +164,7 @@ function BlockContextMenu({ blockId, anchor, onClose, onRename }: ContextMenuPro
         <button
           role="menuitemradio"
           aria-checked={colorAuto}
-          aria-label="Default colour"
-          title="Default colour: the colour of the first product's icon"
+          {...tipProps('Default colour', "Default colour: the colour of the first product's icon")}
           data-testid="block-color-default"
           className={`w-4 h-4 rounded-sm flex items-center justify-center overflow-hidden ${
             firstItem === undefined ? 'border border-dashed border-gray-500' : ''
@@ -180,7 +180,7 @@ function BlockContextMenu({ blockId, anchor, onClose, onRename }: ContextMenuPro
             role="menuitemradio"
             aria-checked={!colorAuto && c === currentColor}
             aria-label={`Colour ${c}`}
-            title={c}
+            data-tip={c}
             data-testid="block-color-swatch"
             data-color={c}
             className={`w-4 h-4 rounded-sm ${!colorAuto && c === currentColor ? 'ring-2 ring-gray-100' : 'hover:ring-1 hover:ring-gray-400'}`}

@@ -222,7 +222,9 @@ describe('PlanAreasModal', () => {
     expect(within(panel).getByText(/Area in Alpha/)).toBeInTheDocument()
     const counterpart = table('Alpha').querySelector('tr[data-item-id="h2"] td[data-col="A-root"]')!
     expect(counterpart).toHaveAttribute('data-counterpart', 'true')
-    const tip = counterpart.querySelector('[title]')?.getAttribute('title') ?? counterpart.getAttribute('title') ?? ''
+    const tip = counterpart.getAttribute('data-tip') ?? ''
+    expect(counterpart).toHaveAccessibleDescription(tip)
+    expect(counterpart).not.toHaveAttribute('title')
     expect(tip).toContain('Areas higher in the table supply first; an area with its own row for the item is served before the others.')
     expect(tip).not.toContain('allocated')
     fireEvent.click(within(panel).getByRole('button', { name: 'Stop focusing Plastics' }))

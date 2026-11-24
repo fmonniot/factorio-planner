@@ -157,8 +157,9 @@ test('counterpart figures follow the solver routes', async ({ page }) => {
   await expect(top).toHaveText(/^400\s*→$/)
   await expect(backup).toHaveText(/^560\s*→$/)
   for (const cell of [top, backup]) {
-    const title = (await cell.getAttribute('title')) ?? ''
-    expect(title).toContain('Areas higher in the table supply first; an area with its own row for the item is served before the others.')
-    expect(title).not.toContain('allocated')
+    const tip = (await cell.getAttribute('data-tip')) ?? ''
+    expect(tip).toContain('Areas higher in the table supply first; an area with its own row for the item is served before the others.')
+    expect(tip).not.toContain('allocated')
+    await expect(cell).toHaveAccessibleDescription(/Areas higher in the table supply first/)
   }
 })

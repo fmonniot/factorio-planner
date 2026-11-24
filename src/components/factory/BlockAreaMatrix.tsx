@@ -11,6 +11,7 @@ import { fmtFluidTag } from '../../data/flowKey'
 import { fmtAmount, fmtAmountUnit, fmtSigned, tradeRateText } from './matrixFormat'
 import { isEnergyItem } from '../../data/electricity'
 import { FoldedList } from './FoldedList'
+import { describedTip } from '../tipProps'
 
 // ---------------------------------------------------------------------------
 // One block's areas as a balance matrix (items x areas), with an optional focus on one area.
@@ -118,7 +119,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   const items = gameData.items
 
   /** What a cell shows: the area's signed net, or in counterpart mode the part that goes between it and the focus. */
-  function cellValue(row: MatrixRow, areaId: string): { text: string; kind: 'send' | 'receive'; counterpart: boolean; title?: string } | null {
+  function cellValue(row: MatrixRow, areaId: string): { text: string; kind: 'send' | 'receive'; counterpart: boolean; tip?: string } | null {
     const v = row.cells[areaId] ?? 0
     if (counterpartMode && focus && areaId !== focus.areaId) {
       const c = focus.counterpart[row.key]?.[areaId] ?? 0
@@ -133,7 +134,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
         text: sends ? `${n} →` : `→ ${n}`,
         kind: sends ? 'send' : 'receive',
         counterpart: true,
-        title: sends
+        tip: sends
           ? `${area} sends ${per} of ${item} to ${focusedArea!.name}. ${RULE}`
           : `${focusedArea!.name} sends ${per} of ${item} to ${area}. ${RULE}`,
       }
@@ -175,7 +176,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               )}
               {marker && <span className="absolute -top-1.5 -right-1.5 flex">{marker}</span>}
             </span>
-            <span className="truncate" title={rowDisplayName(row)}>
+            <span className="truncate" data-tip={rowDisplayName(row)}>
               {row.name}
               {row.temp !== undefined && fmtFluidTag(row.temp) !== '' && (
                 <span data-testid="matrix-row-temperature" className="ml-1 font-mono text-[10px] text-orange-300">{fmtFluidTag(row.temp)}</span>
@@ -196,7 +197,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               data-rate={raw}
               data-sign={raw > 0 ? 'send' : raw < 0 ? 'receive' : undefined}
               data-counterpart={c?.counterpart ? 'true' : undefined}
-              title={c?.title}
+              {...describedTip(c?.tip)}
               className={cellClass(a.areaId, 'px-1 py-0.5 text-center font-mono tabular-nums border-b border-gray-800')}
             >
               {c && (
@@ -222,6 +223,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     const { rows: tr, energy } = grouping ? totalRows(g.rows) : { rows: g.rows, energy: false }
     const fromTotal = grouping ? tr.reduce((n, r) => n + outsideValue(r, 'from'), 0) : 0
     const toTotal = grouping ? tr.reduce((n, r) => n + outsideValue(r, 'to'), 0) : 0
+    const totalsNote = !energy && tr.length < g.rows.length ? 'Totals leave out electricity and heat rows' : undefined
     return (
       <tbody key={g.id} data-group-id={g.id}>
         {grouping && (
@@ -230,6 +232,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               <button
                 type="button"
                 aria-expanded={open}
+                aria-description={totalsNote}
                 onClick={() => onToggleGroup(g.id, !open)}
                 className="flex items-center gap-2 text-gray-100 hover:text-white"
               >
@@ -237,7 +240,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
                 {g.name}
                 <span
                   className="text-[11px] font-normal text-gray-400"
-                  title={!energy && tr.length < g.rows.length ? 'Totals leave out electricity and heat rows' : undefined}
+                  data-tip={totalsNote}
                 >
                   {g.rows.length} {g.rows.length === 1 ? 'item' : 'items'}
                 </span>
@@ -252,7 +255,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               return (
                 <td
                   key={a.areaId}
-                  title={text === '' ? undefined : t.kind === 'pair' && t.out > 0 && t.in > 0 ? `Sends to the focus, then receives from it: ${text}` : text}
+                  {...describedTip(text === '' ? undefined : t.kind === 'pair' && t.out > 0 && t.in > 0 ? `Sends to the focus, then receives from it: ${text}` : text)}
                   className={cellClass(a.areaId, `truncate px-1 text-center font-mono tabular-nums border-b border-gray-700 ${groupColor(t)}`)}
                 >
                   {text}
@@ -344,7 +347,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
                         <button
                           type="button"
                           aria-pressed={focused}
-                          title={`Focus ${a.name}`}
+                          {...describedTip(`Focus ${a.name}`)}
                           onClick={() => onFocus(focused ? null : a.areaId)}
                           className={`${ruleMarker ? 'inline-block align-middle max-w-[calc(100%-1.25rem)]' : 'block mx-auto max-w-full'} truncate text-xs font-semibold hover:text-white ${focused ? 'text-teal-200' : 'text-gray-200'}`}
                         >
@@ -459,7 +462,7 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
                   className="mt-1 ml-2 space-y-0.5"
                   renderItem={l => (
                     <li key={`${l.key}:${l.direction}`} data-item-id={l.itemId} data-direction={l.direction} className="flex items-baseline gap-2 text-[11px]">
-                      <span className="flex-1 min-w-0 truncate text-gray-300" title={l.name}>{l.name}</span>
+                      <span className="flex-1 min-w-0 truncate text-gray-300" data-tip={l.name}>{l.name}</span>
                       <span className="tabular-nums text-gray-400">{fmtAmountUnit(l.rate, rateUnit, l.energy)} {l.direction}</span>
                     </li>
                   )}

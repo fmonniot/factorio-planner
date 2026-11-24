@@ -164,7 +164,7 @@ test.describe('block list', () => {
     expect([box.width, box.height]).toEqual([28, 28])
     expect(box.x + box.width, 'before the first tab').toBeLessThanOrEqual((await tabButton(page, 'Red science').boundingBox())!.x)
     // The tabs all fit, and the list is still there.
-    await expect(page.getByTitle('All blocks')).toHaveCount(0)
+    await expect(page.locator('[title]')).toHaveCount(0)
 
     await button.hover()
     await expect(page.getByText('All blocks', { exact: true })).toBeVisible()
