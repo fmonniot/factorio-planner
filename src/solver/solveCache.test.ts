@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createSolveCache, exactKey, planKey, sourcingKey, type BlockSolve, type RequestLoopSolve } from './solveCache'
+import { createSolveCache, exactKey, LOOP_SLOTS, SLOTS_PER_BLOCK, planKey, sourcingKey, type BlockSolve, type RequestLoopSolve } from './solveCache'
 import { flattenBlock } from './index'
 import type { Block, GameData, GameRecipeNode, Product, RecipeNode, SubPlan } from '../data/types'
 
@@ -145,33 +145,25 @@ describe('createSolveCache', () => {
     expect(cache.size).toBe(0)
   })
 
-  it('keeps three entries per block and counts the block once', () => {
+  it('keeps SLOTS_PER_BLOCK entries per block and counts the block once', () => {
     const cache = createSolveCache()
     const gd = gameData()
-    const first = solved()
-    const second = solved()
-    const third = solved()
-    cache.set('b', gd, 'k1', caps([]), first)
-    cache.set('b', gd, 'k2', caps([]), second)
-    cache.set('b', gd, 'k3', caps([]), third)
+    const all = Array.from({ length: SLOTS_PER_BLOCK }, () => solved())
+    all.forEach((s, i) => cache.set('b', gd, `k${i}`, caps([]), s))
     expect(cache.size).toBe(1)
-    expect(cache.get('b', gd, 'k1', caps([]))).toBe(first)
-    expect(cache.get('b', gd, 'k2', caps([]))).toBe(second)
-    expect(cache.get('b', gd, 'k3', caps([]))).toBe(third)
+    all.forEach((s, i) => expect(cache.get('b', gd, `k${i}`, caps([]))).toBe(s))
   })
 
   it('evicts the least recently used entry', () => {
     const cache = createSolveCache()
     const gd = gameData()
-    cache.set('b', gd, 'A', caps([]), solved())
-    cache.set('b', gd, 'B', caps([]), solved())
-    cache.set('b', gd, 'C', caps([]), solved())
-    expect(cache.get('b', gd, 'A', caps([]))).toBeDefined()
-    cache.set('b', gd, 'D', caps([]), solved())
-    expect(cache.get('b', gd, 'B', caps([]))).toBeUndefined()
-    expect(cache.get('b', gd, 'A', caps([]))).toBeDefined()
-    expect(cache.get('b', gd, 'C', caps([]))).toBeDefined()
-    expect(cache.get('b', gd, 'D', caps([]))).toBeDefined()
+    for (let i = 0; i < SLOTS_PER_BLOCK; i++) cache.set('b', gd, `k${i}`, caps([]), solved())
+    expect(cache.get('b', gd, 'k0', caps([]))).toBeDefined() // k1 is now the least recently used
+    cache.set('b', gd, 'new', caps([]), solved())
+    expect(cache.get('b', gd, 'k1', caps([]))).toBeUndefined()
+    expect(cache.get('b', gd, 'k0', caps([]))).toBeDefined()
+    for (let i = 2; i < SLOTS_PER_BLOCK; i++) expect(cache.get('b', gd, `k${i}`, caps([]))).toBeDefined()
+    expect(cache.get('b', gd, 'new', caps([]))).toBeDefined()
   })
 
   it('replaces an entry with equal inputs instead of adding one', () => {
@@ -207,6 +199,22 @@ describe('request loop entries', () => {
   const loopSolve = (): RequestLoopSolve => ({
     shares: new Map([['c', 20]]), credits: new Map([['ct', 5]]), credited: [['t', 'plate', 5]],
     needs: new Map([['ct', 8]]), uncredited: new Set(), rounds: 3, converged: true,
+  })
+
+  it('keeps two cycle outcomes per member list', () => {
+    expect(LOOP_SLOTS).toBe(2)
+    const cache = createSolveCache()
+    const gd = gameData()
+    const [e1, e2, e3] = [loopSolve(), loopSolve(), loopSolve()]
+    cache.setRequestLoop(['a', 'b'], gd, 'k1', e1)
+    cache.setRequestLoop(['a', 'b'], gd, 'k2', e2)
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k1')).toBe(e1)
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k2')).toBe(e2)
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k1')).toBe(e1) // k2 is now the least recently used
+    cache.setRequestLoop(['a', 'b'], gd, 'k3', e3)
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k2')).toBeUndefined()
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k1')).toBe(e1)
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k3')).toBe(e3)
   })
 
   it('round-trips an entry for the same members, key and game data', () => {

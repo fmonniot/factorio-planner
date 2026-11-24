@@ -1,11 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import { sourceRulesOf } from '../test/sourceRulesOf'
-import { solve, solveAll, solveBlock, flattenBlock, netBalance } from './index'
+import { solve, solveAll, solveBlock, flattenBlock, netBalance, shortFirstSupply } from './index'
+import { splitFluids } from '../data/flowKey'
 import { createSolveCache } from './solveCache'
 import { areaNeedsOf } from './servedAreas'
 import { areaRuleOf } from './areas'
 import { outsideLegParts } from './areaRoutes'
-import type { AreaRoute, AreaSourceRule, Block, GameData, ServedEntry, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SourceRule, SubPlan } from '../data/types'
+import type { AreaRoute, ConnectionFlow, AreaSourceRule, Block, GameData, ServedEntry, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SourceRule, SubPlan } from '../data/types'
 
 // Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius item ids and coefficients).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
@@ -127,6 +128,9 @@ function recipes(): GameRecipe[] {
     recipe('case11-make-goal', 'smelting', 1, [item('case11-ore', 1)], [item('case11-goal', 1), item('case11-x', 1)]),
     recipe('case11-use-x', 'smelting', 1, [item('case11-x', 1)], [item('case11-other', 1)]),
     recipe('case11-make-x', 'smelting', 1, [item('case11-feed', 1)], [item('case11-x', 2)]),
+    // Case 30 (Receive it first with a short supply): a feed maker and a consumer of `other`.
+    recipe('case30-make-feed', 'smelting', 1, [item('case30-ore', 1)], [item('case11-feed', 1)]),
+    recipe('case30-use-other', 'smelting', 1, [item('case11-other', 1)], [item('case30-junk', 1)]),
     // Case 16 (served order inside a loop of blocks) and case 17 (inside a cycle of requests).
     recipe('case16-make', 'smelting', 1, [item('case16-y', 1)], [item('case16-goal', 1), item('case16-x', 1)]),
     recipe('case16-use', 'smelting', 1, [item('case16-x', 1)], [item('case16-other', 1), item('case16-y', 1)]),
@@ -3862,6 +3866,158 @@ describe('solver synthetic cases', () => {
         expectFlow(all, 'c-HT', 10, 'ok', 0, 'H')
         expectFlow(all, 'c-CT', 20, 'limited', 5, 'C')
         expectFlow(all, 'c-H2T', 0, 'limited', 5, 'H2')
+      })
+    })
+  })
+  describe('case 30: Receive it first with a short supply', () => {
+    const X = 'case11-x'
+    const FEED = 'case11-feed'
+    const first = (): SourceRule => ({ makeHere: 'after-blocks' })
+    const T = (goal = 30): Block => mk('T', [['case11-goal', goal]], [planNode('case11-make-goal')])
+    const Cb = (): Block => mk('C', [[FEED, 0]], [planNode('case30-make-feed')])
+    const Bb = (links: Block['inputConnections'], rule: SourceRule | null = first(), areaRule?: SourceRule): Block => {
+      const rows = [planNode('case11-use-x'), planNode('case11-make-x')]
+      const base = mk('B', [['case11-other', 50]], rows, links)
+      if (areaRule) {
+        const l = { ...subPlan('L', [rowIn('case11-use-x', 'L'), rowIn('case11-make-x', 'L')], [], true), sourceRules: { [X]: areaRule } }
+        return { ...base, rootPlan: subPlan('root-B', [], [l]) }
+      }
+      return { ...base, sourceRules: rule ? { [X]: rule } : {} }
+    }
+    const linksT = (): Block['inputConnections'] => [{ id: 'c-BT', itemId: X, fromBlockId: 'T' }, { id: 'c-BC', itemId: FEED, fromBlockId: 'C' }]
+    const nodeRate = (r: SolverResult, recipeId: string) => r.nodes.filter(n => n.recipeNodeId.startsWith(recipeId)).reduce((n, x) => n + x.throughput, 0)
+    const expectTopUp = (all: ReturnType<typeof solveAll>, run: number) => {
+      const f = flowIn(all, 'c-BC')
+      expect(f.requested, 'c-BC requested').toBeCloseTo(run, 6)
+      expect(f.rate, 'c-BC rate').toBeCloseTo(run, 6)
+      expect(f.status, 'c-BC status').toBe(run > 0 ? 'ok' : 'unused')
+      expect(nodeRate(all.results.C, 'case30-make-feed'), 'C make-feed').toBeCloseTo(run, 6)
+      expect(nodeRate(all.results.B, 'case11-make-x'), 'B make-x').toBeCloseTo(run, 6)
+      expect(unsatisfiedRate(all.results.B, FEED) ?? 0, 'B imports feed').toBeCloseTo(0, 6)
+      expect(unsatisfiedRate(all.results.B, X) ?? 0, 'B imports X').toBeCloseTo(0, 6)
+    }
+
+    it('a: asks C for the 10 feed the top-up needs', () => {
+      const all = solveAll([T(), Bb(linksT()), Cb()], makeGameData())
+      expectTopUp(all, 10)
+      expect(flowIn(all, 'c-BT')).toMatchObject({ kind: 'take', status: 'ok' })
+      expect(flowIn(all, 'c-BT').rate).toBeCloseTo(30, 6)
+    })
+    it('b: a supply that is enough asks for nothing', () => {
+      const all = solveAll([T(60), Bb(linksT()), Cb()], makeGameData())
+      expectTopUp(all, 0)
+      expect(all.results.C.nodes).toEqual([])
+      expect(flowIn(all, 'c-BT').rate).toBeCloseTo(50, 6)
+      expect(flowIn(all, 'c-BT').status).toBe('ok')
+    })
+    it('c: a request limited to 30 is short too', () => {
+      const A = mk('A', [[X, 0]], [planNode('case11-make-goal')])
+      const links: Block['inputConnections'] = [{ id: 'c-BA', itemId: X, fromBlockId: 'A', maxRate: 30 }, { id: 'c-BC', itemId: FEED, fromBlockId: 'C' }]
+      const all = solveAll([A, Bb(links), Cb()], makeGameData())
+      expectTopUp(all, 10)
+      expect(flowIn(all, 'c-BA')).toMatchObject({ kind: 'request', status: 'ok', capped: true })
+      expect(flowIn(all, 'c-BA').requested).toBeCloseTo(30, 6)
+      expect(flowIn(all, 'c-BA').rate).toBeCloseTo(30, 6)
+    })
+    it('d: without the rule B tops up first', () => {
+      const all = solveAll([T(), Bb(linksT(), null), Cb()], makeGameData())
+      expectTopUp(all, 25)
+      expect(flowIn(all, 'c-BT').rate).toBeCloseTo(0, 6)
+      expect(flowIn(all, 'c-BT').status).toBe('unused')
+    })
+    it('e: the rule on an area counts', () => {
+      const all = solveAll([T(), Bb(linksT(), null, first()), Cb()], makeGameData())
+      expectTopUp(all, 10)
+      expect(flowIn(all, 'c-BT').rate).toBeCloseTo(30, 6)
+    })
+    it('f: a source with nothing to offer', () => {
+      const all = solveAll([T(0), Bb(linksT()), Cb()], makeGameData())
+      expectTopUp(all, 25)
+      expect(flowIn(all, 'c-BT').rate).toBeCloseTo(0, 6)
+    })
+    it.each([['T', 'B', 'C'], ['B', 'C', 'T'], ['C', 'B', 'T']])('g: tabs %s, %s, %s', (...tabs) => {
+      const byId: Record<string, Block> = { T: T(), B: Bb(linksT()), C: Cb() }
+      const all = solveAll(tabs.map(t => byId[t]), makeGameData())
+      expectTopUp(all, 10)
+      expect(flowIn(all, 'c-BT').rate).toBeCloseTo(30, 6)
+    })
+    it('h: inside a cycle of requests', () => {
+      const Cc: Block = {
+        ...mk('C', [[FEED, 0], ['case30-junk', 5]], [planNode('case30-make-feed'), planNode('case30-use-other')], [{ id: 'c-CB', itemId: 'case11-other', fromBlockId: 'B' }]),
+      }
+      const Bc: Block = { ...Bb(linksT()), products: [{ id: 'p-B-0', itemId: 'case11-other', extraRate: 50 }] }
+      const all = solveAll([T(), Bc, Cc], makeGameData())
+      expect(all.requestLoops[0].converged).toBe(true)
+      expect(flowIn(all, 'c-BC').requested, 'c-BC requested').toBeCloseTo(12.5, 6)
+      expect(flowIn(all, 'c-BC').rate, 'c-BC rate').toBeCloseTo(12.5, 6)
+      expect(flowIn(all, 'c-CB').rate, 'c-CB').toBeCloseTo(5, 6)
+      expect(nodeRate(all.results.C, 'case30-make-feed')).toBeCloseTo(12.5, 6)
+      expect(nodeRate(all.results.B, 'case11-make-x')).toBeCloseTo(12.5, 6)
+      expect(unsatisfiedRate(all.results.B, FEED) ?? 0).toBeCloseTo(0, 6)
+      expect(flowIn(all, 'c-BT').rate).toBeCloseTo(30, 6)
+    })
+    it('i: a warm solve equals a cold one', () => {
+      const cache = createSolveCache()
+      const gd = makeGameData()
+      solveAll([T(), Bb(linksT()), Cb()], gd, cache)
+      const warm = solveAll([T(40), Bb(linksT()), Cb()], gd, cache)
+      const cold = solveAll([T(40), Bb(linksT()), Cb()], gd)
+      expectTopUp(warm, 5)
+      expect(warm.flows).toEqual(cold.flows)
+      expect(warm.served).toEqual(cold.served)
+      for (const id of ['T', 'B', 'C']) expect(warm.results[id].nodes, id).toEqual(cold.results[id].nodes)
+    })
+
+    describe('passes and the short-supply check', () => {
+      const setsPerBlock = (cache: ReturnType<typeof createSolveCache>, run: () => void): Record<string, number> => {
+        const set = vi.spyOn(cache, 'set')
+        run()
+        const counts: Record<string, number> = {}
+        for (const [id] of set.mock.calls) counts[id] = (counts[id] ?? 0) + 1
+        return counts
+      }
+      it('runs one pass when the supply is enough', () => {
+        const cache = createSolveCache()
+        const counts = setsPerBlock(cache, () => solveAll([T(60), Bb(linksT()), Cb()], makeGameData(), cache))
+        expect(counts.B).toBe(2)
+      })
+      it('runs a second pass when short', () => {
+        const cache = createSolveCache()
+        const gd = makeGameData()
+        const counts = setsPerBlock(cache, () => solveAll([T(), Bb(linksT()), Cb()], gd, cache))
+        expect(counts.B).toBe(4)
+        expect(counts.T).toBe(1)
+        const first = solveAll([T(), Bb(linksT()), Cb()], gd, cache)
+        const again = solveAll([T(), Bb(linksT()), Cb()], gd, cache)
+        expect(again.results.B).toBe(first.results.B)
+        expect(again.results.T).toBe(first.results.T)
+      })
+      it("keeps the short item's need from the unlimited probe", () => {
+        const all = solveAll([{ ...T(), servedOrder: { [X]: listOf('B') } }, Bb(linksT()), Cb()], makeGameData())
+        const line = all.served.T[X].consumers.find(c => c.blockId === 'B')!
+        expect(line.need).toBeCloseTo(50, 6)
+        expect(line.share).toBeCloseTo(30, 6)
+        expect(line.got).toBeCloseTo(30, 6)
+      })
+      describe('shortFirstSupply', () => {
+        const gd = makeGameData()
+        const flowOfB = (available: number): ConnectionFlow[] => [{ connectionId: 'c-BT', fromBlockId: 'T', toBlockId: 'B', itemId: X, available, capped: false, rate: available, status: 'ok', kind: 'take' }]
+        const probes = (need: number) => new Map([['B', new Map([[X, need]])]])
+        it('names the item and the offer when the offer is short', () => {
+          expect(shortFirstSupply([Bb(linksT())], gd, probes(50), flowOfB(30))).toEqual(new Map([['B', new Map([[X, 30]])]]))
+        })
+        it('has no entry within tolerance, for an unprobed block, or for a block with no row making the item', () => {
+          expect(shortFirstSupply([Bb(linksT())], gd, probes(50), flowOfB(50 - 1e-9)).size).toBe(0)
+          expect(shortFirstSupply([Bb(linksT())], gd, new Map(), flowOfB(30)).size).toBe(0)
+          const noMaker: Block = { ...Bb(linksT()), rootPlan: subPlan('root-B', [planNode('case11-use-x')]) }
+          expect(shortFirstSupply([noMaker], gd, probes(50), flowOfB(30)).size).toBe(0)
+        })
+        it('has no entry for a split fluid', () => {
+          const base = gd.recipes['case11-use-x']
+          const fluidGd = { ...gd, recipes: { ...gd.recipes, 'case11-use-x': { ...base, ingredients: [{ ...base.ingredients[0], minimumTemperature: 10 }] } } } as GameData
+          expect(splitFluids(fluidGd).has(X)).toBe(true)
+          expect(shortFirstSupply([Bb(linksT())], fluidGd, probes(50), flowOfB(30)).size).toBe(0)
+        })
       })
     })
   })

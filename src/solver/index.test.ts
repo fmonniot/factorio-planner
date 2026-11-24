@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { parseAppState } from '../data/loader'
-import { solve, productGoals, solveBlock, solveAll, markUnboundedSources, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance, trimConsumedSurplus } from './index'
+import { solve, productGoals, solveBlock, solveAll, markUnboundedSources, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance, trimConsumedSurplus, withShortNeeds } from './index'
 import { coproductDrivenWarning, itemGrossFlow, pass2Plan } from './blockResult'
 import type { LoopShape } from './blockGraph'
 import type { FlowKeys } from './build'
@@ -3380,5 +3380,18 @@ describe('solveAll — module-not-allowed warning', () => {
     const gd = withMachine()
     const first = solveAll([block], gd, cache).results['block-1']
     expect(solveAll([block], gd, cache).results['block-1']).toBe(first)
+  })
+})
+
+describe('withShortNeeds', () => {
+  const probe = (received: Array<[string, number]>, failed = false) => ({ received: new Map(received), nodes: [], failed })
+  it('takes the short item from the unlimited probe and the rest from the capped one', () => {
+    const merged = withShortNeeds(probe([['x', 20], ['y', 7]]), probe([['x', 50]]), new Set(['x']))
+    expect(merged.received).toEqual(new Map([['x', 50], ['y', 7]]))
+    expect(merged.failed).toBe(false)
+  })
+  it('falls back to the unlimited probe when only the capped one failed', () => {
+    const unlimited = probe([['x', 50], ['y', 7]])
+    expect(withShortNeeds(probe([], true), unlimited, new Set(['x']))).toBe(unlimited)
   })
 })
