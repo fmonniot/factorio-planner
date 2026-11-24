@@ -32,9 +32,34 @@ All four sections of [inventory.md](inventory.md):
 
 Out of scope: the warnings popover (explaining is what a warning is for), empty states, confirmation dialogs (`ProductChangeDialog`, the import dialogs) and screen-reader-only announcements. Their wording may still be trimmed in passing.
 
+## Decisions
+
+### One structured model, each surface lays it out (2026-11-24)
+
+The sentence builders mix the facts (who makes the item, which block sends it, what is imported) with the wording. They go: each concept has one structured model, and every surface that shows it lays the model out in its own way (a row list in the Details panel, a single compact line in the strip, a chip or icon in a tooltip). No surface formats a sentence from it.
+
+**Where an item comes from: the Sources model.** `buildSourcesModel` (`src/components/factory/sourcesModel.ts`) already holds everything the sourcing sentence states, and more:
+
+| The sentence says | The Sources model has |
+|---|---|
+| "Made here by X (n × Machine)" | `makers` (recipe, machine, count, rate, byproduct) behind the *Already made here* and *Make more here* lines, each with its consumed share |
+| "taken from B (rate)", "Taken from A first (rate offered)" | one `block` line per connection: source name, colour, rate; `rows[].flow` for offered, limited, unused |
+| "the rest is imported", "Import is off", "missing" | the `import` line, `missing`, the `missing` mark |
+| "Area: … Takes nothing from A" | area scope: one `other-area` line per supplying area, `off` when switched off |
+| the preset ("Receive it first", …) | the line order and `ruleChipOf` |
+
+The sentence is a second, poorer reading of the same facts: it names the rows that could make the item, not how much each source gives, so it can say "Made here by X" while connections deliver most of it. Every surface of the sourcing sentence (Details panel inputs, Ingredients strip, Source rules list, source rule marker) reads the Sources model instead. Needed for that:
+
+- `useSourcesModel` reads the active block only; the source rule marker of the block graph needs any block, so the hook takes the block (as `useBlockSourcingSentence` does).
+- The strip control calls it with `enabled = false` today to skip the work; laying the model out in the strip makes it pay for the model. Area scope walks the plan once per other area (`supplierLines`) and flattens the block (`areaLPItems`), so check the cost on a large Seablock plan before every table row's marker reads it.
+
+**Where an output goes: the outputs model.** `OutputTextInput` (`src/components/factory/outputsText.ts`) is already structured: product of the block, consuming rows (rate, absorber, area), receiving blocks (rate), leftover, discarded, other makers. It becomes the model the Details panel lays out, shaped like the Sources model (lines with a kind, a label, a rate and a look: the block's colour for a receiving block, the made look for a row, the leftover look), so inputs and outputs read alike. The Products and Byproducts strips already show the block-level version of the same facts as bar segments (`summarySegments.ts`); the row-level layout should use the same looks.
+
+**Smaller sentences of section 1.** The leftover-take note lists blocks that take the item (`takers` in `ComesFrom.tsx`), and a rule without effect already has a reason code (`noEffect`); both are laid out from those, not from `leftoverTakeNote` / `noEffectText`. The matrix sentences (not taken, not supplied, an area's contents) are figures and name lists already, and are laid out as such.
+
+**Text equivalent.** The models still produce one plain-text reading for assistive technology (`aria-describedby`, a `role="img"` label); it is derived from the model, kept short, and never shown on the page.
+
 ## Open questions
 
-- **One model, several layouts.** The sentence builders mix the facts (who makes the item, which block sends it, what is imported) with the wording. Split them into a structured model each surface lays out its own way, or keep one compact layout every surface shares?
 - **Where does an explanation go** once it leaves the page: a tooltip on the control, an info (ⓘ) button, a disclosure, or the README?
-- **Accessibility.** Several sentences are also the accessible description of a control (`aria-describedby`); a layout without prose still needs a text equivalent for assistive technology.
 - **Tests.** `sourcingText.test.ts`, `outputsText.test.ts` and many component and e2e tests assert the sentences verbatim; they move with the model.
