@@ -4,7 +4,7 @@ import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { exportPlan } from './support/appMenu'
 import { pane, selectSlot, slot } from './support/summary'
-import { openLine } from './support/sourcesList'
+import { openLine, setPreset } from './support/sourcesList'
 
 /**
  * Case 21 B of spec/test-synthetic.md on real Nullius recipes: plate is the Stone box (20 stone for 4 boxes), gear the Gravel
@@ -51,7 +51,6 @@ async function openList(page: Page) {
   await page.getByRole('menuitem', { name: 'Comes from…' }).click()
   await expect(popover(page)).toBeVisible()
   await popover(page).getByTestId('comes-from-scope').getByRole('button', { name: 'Line L', exact: true }).click()
-  await popover(page).getByTestId('sources-button').click()
   await expect(popover(page).getByTestId('sources-list')).toBeVisible()
 }
 
@@ -85,7 +84,6 @@ test.describe('choosing the supplying area (case 21 B)', () => {
     // No offer: the block's connection goes, through the Sources list of the block.
     await using(page).getByLabel(/^Stone box/).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Comes from…' }).click()
-    await popover(page).getByTestId('sources-button').click()
     await openLine(popover(page).locator('[data-line="block"]'))
     await popover(page).getByTestId('sources-block-remove').click()
     await expect(popover(page).getByTestId('sources-block-name')).toHaveCount(0)
@@ -110,9 +108,6 @@ test.describe('choosing the supplying area (case 21 B)', () => {
     await expectRows(page, { m1: 0, m2: 12 })
     await expect(reading(page, areaLine(page, M1))).toHaveText('—')
     await expect(reading(page, areaLine(page, M2))).toHaveText(/^12(\.0+)?\/m$/)
-    // The sentence is the compact view's.
-    await popover(page).getByTestId('sources-button').click()
-    await expect(popover(page).getByTestId('sourcing-sentence')).toHaveText(/^Line L: .* Takes nothing from Line M1\.$/)
     await page.keyboard.press('Escape')
     await expect(stone(page)).toHaveAccessibleName(/^Stone, 60(\.0+)? per minute/)
     await expect(rulesButton(page)).toHaveText('Source rules (1)')
@@ -230,8 +225,7 @@ test('case 21 C, rows c and d: the area that takes nothing from T leaves the sid
 
   // Row c: Line C1 does not make Gravel more.
   await open(0, 'Line C1')
-  await popover(page).getByRole('radio', { name: "Don't make more here" }).click()
-  await popover(page).getByTestId('sources-button').click()
+  await setPreset(popover(page), 'byproducts-first')
   await expect.poll(ranAt).toBeCloseTo(15, 1)
   await expect(readingOf(line(T))).toHaveText('—')
   await expect(importOf()).toHaveText(/^24(\.0+)?\/m$/)
@@ -241,14 +235,12 @@ test('case 21 C, rows c and d: the area that takes nothing from T leaves the sid
 
   // Row d: Line C2 takes nothing from Line T.
   await open(1, 'Line C2')
-  await popover(page).getByTestId('sources-button').click()
   await expect(readingOf(line(T))).toHaveText(/^15(\.0+)?\/m$/)
   await line(T).getByTestId('sources-area-switch').click()
   await expect(readingOf(line(T))).toHaveText('—')
   await expect.poll(ranAt).toBeCloseTo(30, 1)
   await page.keyboard.press('Escape')
   await open(0, 'Line C1')
-  await popover(page).getByTestId('sources-button').click()
   await expect(readingOf(line(T))).toHaveText(/^15(\.0+)?\/m$/)
   await expect(importOf()).toHaveText(/^9(\.0+)?\/m$/)
   await page.keyboard.press('Escape')

@@ -1,17 +1,14 @@
 import { Icon } from '../Icon'
 import { fmtItemRate } from './ItemTile'
-import { SOURCES_TOGGLE_LABEL } from './itemSourcing'
-import { StripIcon } from './StripIcon'
-import { STRIP_BUTTON_CLASS } from './StripToolbar'
 import type { RateUnit } from '../../store/uiStore'
 
 // ---------------------------------------------------------------------------
 // ComesFromHeader — the head of the Comes from control in its popover and in the Source rules list. The popover's has the item (icon
-// and name), its scope control or subtitle, the item's need, the Sources toggle and Close; the embedded one (the Source rules
-// row, which already names the item) has only the scope control or subtitle, the need and the toggle.
+// and name), its scope control or subtitle, the item's need and Close; the embedded one (the Source rules
+// row, which already names the item) has only the scope control or subtitle and the need.
 // ---------------------------------------------------------------------------
 
-export function ComesFromHeader({ titleId, item, subtitle, scope, need, itemId, unit, listOpen, controlsId, onToggleList, onClose }: {
+export function ComesFromHeader({ titleId, item, subtitle, scope, need, itemId, unit, onClose }: {
   /** Id of the name, which the dialog is labelled by. */
   titleId?: string
   /** The item the popover is for; without it the header is the embedded one. */
@@ -24,10 +21,6 @@ export function ComesFromHeader({ titleId, item, subtitle, scope, need, itemId, 
   need: number | undefined
   itemId: string
   unit: RateUnit
-  listOpen: boolean
-  /** The id of the Sources list, while it is open. */
-  controlsId?: string
-  onToggleList: () => void
   onClose?: () => void
 }) {
   const rate = need !== undefined ? fmtItemRate(itemId, need / 60, unit) : undefined
@@ -47,18 +40,6 @@ export function ComesFromHeader({ titleId, item, subtitle, scope, need, itemId, 
             <span className="text-gray-400 text-[10px]">{rate.unit}</span>
           </span>
         )}
-        <button
-          type="button"
-          data-testid="sources-button"
-          aria-label={SOURCES_TOGGLE_LABEL}
-          aria-expanded={listOpen}
-          aria-controls={controlsId}
-          data-tip={`${SOURCES_TOGGLE_LABEL} Every place it can come from, in the order it is tried.`}
-          onClick={onToggleList}
-          className={`${STRIP_BUTTON_CLASS} rounded text-gray-300`}
-        >
-          <StripIcon name="sources" />
-        </button>
         {onClose && (
           <button
             type="button"

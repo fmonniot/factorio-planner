@@ -17,10 +17,9 @@ async function setup(page: Page) {
   await expect(slot(page, 'Ingredients', 'Compressed oxygen')).toBeVisible({ timeout: 10000 })
 }
 
-/** The Comes from control of oxygen in its popover, with the Sources list open. */
+/** The Comes from control of oxygen in its popover: the Sources list is its one view. */
 async function openList(page: Page): Promise<Locator> {
   const control = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
-  await control.getByTestId('sources-button').click()
   await expect(control.getByTestId('sources-list')).toBeVisible()
   return control
 }
@@ -47,7 +46,7 @@ test.describe('the Sources list', () => {
 
   test('reaches each of the six states from the list', async ({ page }) => {
     const control = await openList(page)
-    await expect(control.getByTestId('sources-button')).toHaveAttribute('aria-expanded', 'true')
+    await expect(control.getByTestId('sources-button')).toHaveCount(0)
     await expectState(control, 'own', true, true, TOP)
 
     await control.getByTestId('sources-import-switch').click()
@@ -73,31 +72,7 @@ test.describe('the Sources list', () => {
     await expectState(control, 'own', true, false, TOP)
   })
 
-  test('the list and the presets are two views of one rule', async ({ page }) => {
-    const control = await openList(page)
-    await expectState(control, 'own', true, true, TOP)
-    // The list has no presets: closing it brings the radios back, and what they choose reads on the chip.
-    await control.getByTestId('sources-button').click()
-    await control.getByRole('radio', { name: 'Receive it first' }).click()
-    await control.getByTestId('sources-button').click()
-    await expectState(control, 'connections-first', true, true, BELOW)
-    await control.getByTestId('sources-button').click()
-    await control.getByRole('radio', { name: "Don't make more here" }).click()
-    await control.getByTestId('sources-button').click()
-    // Switched off, Make more here stays where it was drawn last.
-    await expectState(control, 'byproducts-first', false, true, BELOW)
-    await control.getByTestId('sources-button').click()
-    await control.getByTestId('import-switch').click()
-    await control.getByTestId('sources-button').click()
-    await expectState(control, 'byproducts-first', false, false, BELOW)
-    await expect(control.getByTestId('sources-rule-chip')).toHaveText("Don't make more here · Import off")
-    await control.getByTestId('sources-button').click()
-    await control.getByRole('radio', { name: 'Make it here' }).click()
-    await control.getByTestId('sources-button').click()
-    await expectState(control, 'own', true, false, TOP)
-  })
-
-  test("the strip's Sources… list replaces the rule's buttons, and dragging Make more here changes the chip", async ({ page }) => {
+  test("the popover has the list and no rule buttons, and dragging Make more here changes the chip", async ({ page }) => {
     await selectSlot(page, 'Ingredients', 'Compressed oxygen')
     await detail(page, 'Ingredients').getByTestId('comes-from').getByTestId('sources-button').click()
     const popover = comesFromPopover(page)
@@ -107,10 +82,6 @@ test.describe('the Sources list', () => {
     await expect(popover.getByTestId('sources-rule-chip')).toHaveText('Make it here')
     await popover.locator('[data-line="make-here"]').dragTo(popover.locator('[data-line="add-block"]'), { targetPosition: { x: 20, y: 18 } })
     await expect(popover.getByTestId('sources-rule-chip')).toHaveText('Receive it first')
-    await popover.getByTestId('sources-button').click()
-    await expect(popover.getByTestId('sources-list')).toHaveCount(0)
-    await expect(popover.getByRole('radio', { name: 'Receive it first' })).toBeChecked()
-    await expect(popover.getByTestId('sourcing-sentence')).toBeVisible()
   })
 
   test('a line opens its detail with its help, from the keyboard too', async ({ page }) => {
@@ -151,8 +122,8 @@ test.describe('the Sources list', () => {
   test('the keyboard reaches every line and action, keeps the focus after a move, and a click on a switch opens nothing', async ({ page }) => {
     const control = await openList(page)
     const order: string[] = []
-    await control.getByTestId('sources-button').focus()
-    for (let i = 0; i < 7; i++) {
+    await control.getByRole('button', { name: 'Close' }).focus()
+    for (let i = 0; i < 6; i++) {
       await page.keyboard.press('Tab')
       order.push(await page.evaluate(() => {
         const el = document.activeElement as HTMLElement
@@ -161,7 +132,7 @@ test.describe('the Sources list', () => {
       }))
     }
     expect(order).toEqual([
-      'popover:Close', 'made-here:sources-line-toggle', 'make-here:sources-line-toggle', 'make-here:sources-make-here-switch',
+      'made-here:sources-line-toggle', 'make-here:sources-line-toggle', 'make-here:sources-make-here-switch',
       'add-block:sources-receive-from', 'import:sources-line-toggle', 'import:sources-import-switch',
     ])
 
@@ -193,13 +164,14 @@ test.describe('the Sources list', () => {
     await expect(control.getByTestId('sources-detail')).toHaveCount(1)
   })
 
-  test('a list closed and opened again, and a second popover, keep the side Make more here was on', async ({ page }) => {
+  test('a popover closed and opened again keeps the side Make more here was on', async ({ page }) => {
     const control = await openList(page)
     await openLine(control.locator('[data-line="make-here"]'))
     await control.getByTestId('sources-make-after').click()
     await control.getByTestId('sources-make-here-switch').click()
-    await control.getByTestId('sources-button').click()
-    await control.getByTestId('sources-button').click()
-    await expectState(control, 'byproducts-first', false, true, BELOW)
+    await control.getByRole('button', { name: 'Close' }).click()
+    await expect(comesFromPopover(page)).toHaveCount(0)
+    const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+    await expectState(again, 'byproducts-first', false, true, BELOW)
   })
 })

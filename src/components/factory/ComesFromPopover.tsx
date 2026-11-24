@@ -93,14 +93,12 @@ export function ComesFromPopover({ hasSlot }: {
     }
   }, [shown, anchor])
 
-  // Focus goes to the chosen preset of the control when the popover opens (a new item gets it again).
+  // Focus goes to the first line of the Sources list when the popover opens (a new item gets it again).
   const itemId = popover?.itemId
   useLayoutEffect(() => {
     if (!shown) return
     origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    // The list view has no radio: the header's Sources toggle, which comes before the radios in the DOM, takes it then.
-    const el = ref.current
-    ;(el?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]') ?? el?.querySelector<HTMLElement>('[data-testid="sources-button"]'))?.focus()
+    ref.current?.querySelector<HTMLElement>('[data-testid="sources-line-toggle"]')?.focus()
   }, [shown, itemId])
 
   if (!popover || !gameData) return null
@@ -120,7 +118,6 @@ export function ComesFromPopover({ hasSlot }: {
         key={`${popover.itemId}:${popover.seq ?? 0}`}
         itemId={popover.itemId}
         areaId={popover.areaId}
-        initialListOpen={popover.list}
         heading={{ titleId, onClose: () => { close(); returnFocus() } }}
       />
       {hasSlot(popover.itemId) && (

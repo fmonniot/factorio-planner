@@ -42,7 +42,7 @@ export function useSourcesModel(itemId: string, areaId: string | undefined, enab
   const drawnSide: Side | undefined = makeHere === 'after-blocks' ? 'below' : makeHere === undefined ? 'above' : undefined
   const lastSide: Side = drawnSide ?? storedSide ?? 'above'
 
-  // Remember where *Make more here* is drawn, in every view of the control: a preset chosen in the compact view moves it too.
+  // Remember where *Make more here* is drawn, whoever wrote the rule: the list, or the Source rules list's Remove.
   const setSourcesSide = useUiStore(s => s.setSourcesSide)
   useEffect(() => {
     if (sideKey && drawnSide) setSourcesSide(sideKey, itemId, drawnSide)

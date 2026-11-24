@@ -1208,8 +1208,20 @@ describe('FactorySummary — connections', () => {
   describe('Comes from', () => {
     const consumer = () => useBlockStore.getState().blocks.find(b => b.id === 'consumer')!
     const group = () => within(strip('Ingredients')).getByTestId('comes-from')
-    const choice = (name: RegExp | string) => within(group()).getByRole('radio', { name })
-    const importSwitch = () => within(group()).getByRole('switch', { name: 'Import' })
+    // The rule is set in the Comes from popover, which Sources… opens; the strip has the sentence and the pane's actions.
+    const openRules = () => fireEvent.click(within(group()).getByTestId('sources-button'))
+    const rules = () => within(screen.getByTestId('comes-from-popover'))
+    const makeHereLine = () => rules().getAllByTestId('sources-line').find(l => l.getAttribute('data-line') === 'make-here')!
+    // The detail of the line stays open once opened: open it only when it is shut.
+    const moveMakeHere = (button: string) => {
+      if (!rules().queryByTestId(button)) fireEvent.click(within(makeHereLine()).getByTestId('sources-line-toggle'))
+      fireEvent.click(rules().getByTestId(button))
+    }
+    const receiveFirst = () => moveMakeHere('sources-make-after')
+    const makeItHere = () => moveMakeHere('sources-make-before')
+    const makeSwitch = () => rules().getByTestId('sources-make-here-switch')
+    const importSwitch = () => rules().getByTestId('sources-import-switch')
+    const chipPreset = () => rules().getByTestId('sources-rule-chip').getAttribute('data-preset')
     const patch = (over: Partial<Block>) =>
       useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, ...over } : b)) }))
 
@@ -1225,21 +1237,26 @@ describe('FactorySummary — connections', () => {
       patch({ rootPlan: { ...consumer().rootPlan, nodes: [makeRecipeNode('ore-synth')] } })
     }
 
-    it('is in the strip of a selected slot, with the three presets and the Import switch', () => {
+    it('is in the strip of a selected slot, with the sentence and Sources…, and no rule controls', () => {
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       render(<FactorySummary />)
       expect(within(strip('Ingredients')).queryByTestId('comes-from')).not.toBeInTheDocument()
       select('Ingredients', 'Iron Ore')
       expect(group()).toHaveAccessibleName('Comes from')
-      expect(within(group()).getAllByRole('radio').map(r => [r.getAttribute('aria-label'), r.getAttribute('data-sourcing-choice')])).toEqual([
-        ['Make it here', 'own'],
-        ['Receive it first', 'connections-first'],
-        ["Don't make more here", 'byproducts-first'],
-      ])
-      expect(choice('Make it here')).toBeChecked()
-      expect(importSwitch()).toBeChecked()
-      expect(importSwitch()).toHaveAttribute('data-testid', 'import-switch')
+      expect(within(group()).queryByRole('radio')).not.toBeInTheDocument()
+      expect(within(group()).queryByRole('switch')).not.toBeInTheDocument()
+      expect(within(group()).getByTestId('sources-button')).toHaveAccessibleName('Sources…')
       expect(within(group()).getByTestId('sourcing-sentence')).toHaveTextContent(/^Made here|^No row here makes Iron Ore/)
+    })
+
+    it('opens the Comes from popover with the list from Sources…', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      openRules()
+      expect(screen.getByTestId('comes-from-popover')).toHaveAttribute('data-item-id', 'iron-ore')
+      expect(rules().getByTestId('sources-list')).toBeInTheDocument()
+      expect(chipPreset()).toBe('own')
     })
 
     it('is not on the Products strip', () => {
@@ -1251,25 +1268,31 @@ describe('FactorySummary — connections', () => {
       expect(screen.getAllByTestId('comes-from')).toHaveLength(1)
     })
 
-    it('sets each preset, and Make it here clears it', () => {
+    it('sets each rule from the list, and Make it here clears it', () => {
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       withOreRow()
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
-      fireEvent.click(choice('Receive it first'))
+      openRules()
+      receiveFirst()
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'after-blocks' } })
-      expect(choice('Receive it first')).toBeChecked()
-      fireEvent.click(choice("Don't make more here"))
+      expect(chipPreset()).toBe('connections-first')
+      fireEvent.click(makeSwitch())
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off' } })
-      fireEvent.click(choice('Make it here'))
+      expect(chipPreset()).toBe('byproducts-first')
+      fireEvent.click(makeSwitch())
+      expect(consumer().sourceRules).toEqual({})
+      receiveFirst()
+      makeItHere()
       expect(consumer().sourceRules).toEqual({})
     })
 
-    it('turns Import off and on', () => {
+    it('turns Import off and on, and the strip\'s sentence follows', () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       withOreRow()
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
+      openRules()
       fireEvent.click(importSwitch())
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { importOff: true } })
       expect(importSwitch()).not.toBeChecked()
@@ -1278,55 +1301,18 @@ describe('FactorySummary — connections', () => {
       expect(consumer().sourceRules).toEqual({})
     })
 
-    it('is one tab stop, and the arrows move between presets, wrapping and skipping one that is not available', () => {
-      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
-      withOreRow()
-      render(<FactorySummary />)
-      select('Ingredients', 'Iron Ore')
-      expect(within(group()).getAllByRole('radio').map(r => r.tabIndex)).toEqual([0, -1, -1])
-
-      choice('Make it here').focus()
-      fireEvent.keyDown(choice('Make it here'), { key: 'ArrowRight' })
-      expect(choice('Receive it first')).toBeChecked()
-      expect(choice('Receive it first')).toHaveFocus()
-      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'after-blocks' } })
-      fireEvent.keyDown(choice('Receive it first'), { key: 'ArrowRight' })
-      expect(choice("Don't make more here")).toBeChecked()
-      fireEvent.keyDown(choice("Don't make more here"), { key: 'ArrowRight' })
-      expect(choice('Make it here')).toBeChecked()
-      fireEvent.keyDown(choice('Make it here'), { key: 'ArrowLeft' })
-      expect(choice("Don't make more here")).toBeChecked()
-
-      // With Import off the third preset is reached like the others.
-      fireEvent.click(choice('Make it here'))
-      fireEvent.click(importSwitch())
-      choice('Make it here').focus()
-      fireEvent.keyDown(choice('Make it here'), { key: 'ArrowLeft' })
-      expect(choice("Don't make more here")).toBeChecked()
-    })
-
-    it('gives each preset and the switch its help text as its description', () => {
-      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
-      render(<FactorySummary />)
-      select('Ingredients', 'Iron Ore')
-      expect(choice('Make it here')).toHaveAccessibleDescription('Made here; connections and imports cover what is missing.')
-      expect(choice('Receive it first')).toHaveAccessibleDescription("Taken from this block's connections first; made here for the rest.")
-      expect(choice("Don't make more here")).toHaveAccessibleDescription('Runs no row for this item: uses what this block already makes, then its connections, then Import.')
-      expect(importSwitch()).toHaveAccessibleDescription('Bring it in from outside the plan. Off: what the other sources leave is shown as missing.')
-    })
-
     it("lets Don't make more here and Import off be chosen together, in either order", () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       withOreRow()
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
+      openRules()
       fireEvent.click(importSwitch())
-      expect(choice("Don't make more here")).not.toHaveAttribute('aria-disabled')
-      fireEvent.click(choice("Don't make more here"))
+      expect(makeSwitch()).not.toHaveAttribute('aria-disabled')
+      fireEvent.click(makeSwitch())
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off', importOff: true } })
-      expect(choice("Don't make more here")).toBeChecked()
+      expect(chipPreset()).toBe('byproducts-first')
       expect(importSwitch()).not.toHaveAttribute('aria-disabled')
-      expect(importSwitch()).toHaveAccessibleDescription('Bring it in from outside the plan. Off: what the other sources leave is shown as missing.')
 
       fireEvent.click(importSwitch())
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off' } })
@@ -1339,7 +1325,8 @@ describe('FactorySummary — connections', () => {
       withOreRow()
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
-      fireEvent.click(choice("Don't make more here"))
+      openRules()
+      fireEvent.click(makeSwitch())
       fireEvent.click(importSwitch())
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off', importOff: true } })
       act(() => useBlockStore.getState().undo())
@@ -1347,7 +1334,7 @@ describe('FactorySummary — connections', () => {
       act(() => useBlockStore.getState().undo())
       expect(consumer().sourceRules).toEqual({})
       fireEvent.click(importSwitch())
-      fireEvent.click(choice("Don't make more here"))
+      fireEvent.click(makeSwitch())
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off', importOff: true } })
       act(() => useBlockStore.getState().undo())
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { importOff: true } })
@@ -1359,7 +1346,8 @@ describe('FactorySummary — connections', () => {
       patch({ sourceRules: { 'iron-ore': { makeHere: 'off' as const, importOff: true as const } } })
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
-      expect(choice("Don't make more here")).toBeChecked()
+      openRules()
+      expect(chipPreset()).toBe('byproducts-first')
       expect(importSwitch()).not.toBeChecked()
       expect(within(group()).queryAllByTestId('no-effect')).toHaveLength(0)
     })
@@ -1376,8 +1364,6 @@ describe('FactorySummary — connections', () => {
         ['import-off', 'not-made'],
       ])
       expect(lines[0]).toHaveTextContent('No row in this block makes Iron Ore.')
-      // A rule with no effect stays selectable so it can be changed.
-      expect(choice('Receive it first')).not.toHaveAttribute('aria-disabled')
       fireEvent.click(within(lines[1]).getByRole('button', { name: 'Remove' }))
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'after-blocks' } })
       fireEvent.click(within(within(group()).getByTestId('no-effect')).getByRole('button', { name: 'Remove' }))
@@ -2173,18 +2159,20 @@ describe('FactorySummary — import lock', () => {
     addOreRow()
     render(<FactorySummary />)
     select('Ingredients', 'Iron Ore')
-    fireEvent.click(within(strip('Ingredients')).getByRole('switch', { name: 'Import' }))
+    fireEvent.click(within(strip('Ingredients')).getByTestId('sources-button'))
+    fireEvent.click(within(screen.getByTestId('comes-from-popover')).getByTestId('sources-import-switch'))
     expect(noImport()).toEqual(['iron-ore'])
     expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-status', 'short')
     expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute, short, has a source rule')
-    fireEvent.click(within(strip('Ingredients')).getByRole('switch', { name: 'Import' }))
+    fireEvent.click(within(screen.getByTestId('comes-from-popover')).getByTestId('sources-import-switch'))
     expect(noImport()).toEqual([])
   })
 
   it('lets Import be turned off on an item no row makes (raw), saying it has no effect', () => {
     render(<FactorySummary />)
     select('Ingredients', 'Iron Ore')
-    const switchEl = within(strip('Ingredients')).getByRole('switch', { name: 'Import' })
+    fireEvent.click(within(strip('Ingredients')).getByTestId('sources-button'))
+    const switchEl = within(screen.getByTestId('comes-from-popover')).getByTestId('sources-import-switch')
     expect(switchEl).not.toHaveAttribute('aria-disabled')
     fireEvent.click(switchEl)
     expect(noImport()).toEqual(['iron-ore'])
@@ -2605,21 +2593,14 @@ describe('FactorySummary — opening an Ingredients slot on request', () => {
   beforeEach(() => useUiStore.setState({ ingredientSlotRequest: null, selectedRow: null }))
   afterEach(() => vi.unstubAllGlobals())
 
-  it('selects the slot, focuses the chosen preset of its Comes from control, and consumes the request', () => {
+  it('selects the slot, focuses Sources… in its Comes from control, and consumes the request', () => {
     render(<FactorySummary />)
     open('iron-ore')
     expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
     expect(strip('Ingredients')).toHaveAttribute('data-state', 'selected')
     expect(comesFrom()).toContainElement(document.activeElement as HTMLElement)
-    expect(document.activeElement).toBe(within(comesFrom()).getByRole('radio', { name: 'Make it here' }))
+    expect(document.activeElement).toBe(within(comesFrom()).getByTestId('sources-button'))
     expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
-  })
-
-  it('focuses the preset that is chosen, the one tab stop of the group', () => {
-    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, sourceRules: { 'iron-ore': { makeHere: 'after-blocks' as const } } })) }))
-    render(<FactorySummary />)
-    open('iron-ore')
-    expect(document.activeElement).toBe(within(comesFrom()).getByRole('radio', { name: 'Receive it first' }))
   })
 
   it('expands a collapsed summary first', () => {

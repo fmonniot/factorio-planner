@@ -5,7 +5,7 @@ import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { exportPlan } from './support/appMenu'
 import { openRowMenu } from './support/rowMenu'
 import { detail, pane, selectSlot, slot } from './support/summary'
-import { openLine } from './support/sourcesList'
+import { expectPreset, openLine, setPreset } from './support/sourcesList'
 
 /**
  * Case 21 A of spec/test-synthetic.md on real Nullius recipes: plate is the Stone box, gear the Gravel box, "Stone boxing"
@@ -78,12 +78,11 @@ test.describe('area source rules (case 21 A)', () => {
     await expect(scopeButton(page, 'Line L')).toHaveAttribute('aria-pressed', 'false')
     await expect(popover(page).getByTestId('comes-from-scope').getByRole('button')).toHaveCount(2)
     await scopeButton(page, 'Line L').click()
-    await expect(popover(page).getByTestId('follows-block-rule')).toHaveText("Follows the block's rule")
+    await expect(popover(page).getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'follows')
 
-    await popover(page).getByRole('radio', { name: 'Receive it first' }).click()
+    await setPreset(popover(page), 'connections-first')
     await expect(popover(page).getByTestId('use-block-rule')).toBeVisible()
-    await expect(popover(page).getByTestId('follows-block-rule')).toHaveCount(0)
-    await expect(popover(page).getByTestId('sourcing-sentence')).toHaveText(/^Line L: /)
+    await expect(popover(page).getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'own')
     await expectFigures(page, { l: 0, b: 8, connection: 12, stone: 40 })
 
     // The marker follows the rule of the area: its rows only.
@@ -107,7 +106,7 @@ test.describe('area source rules (case 21 A)', () => {
     await strip.getByTestId('areas-have-rules').click()
     await expect(popover(page)).toBeVisible()
     await expect(scopeButton(page, 'Line L')).toHaveAttribute('aria-pressed', 'true')
-    await expect(popover(page).getByRole('radio', { name: 'Receive it first' })).toHaveAttribute('aria-checked', 'true')
+    await expectPreset(popover(page), 'connections-first')
 
     // The column of the area in the areas matrix has the marker; the other column has none.
     await page.keyboard.press('Escape')
@@ -121,7 +120,7 @@ test.describe('area source rules (case 21 A)', () => {
     await openFromChip(page, 'L')
     await expect(scopeButton(page, 'Line L')).toHaveAttribute('aria-pressed', 'true')
     await popover(page).getByTestId('use-block-rule').click()
-    await expect(popover(page).getByTestId('follows-block-rule')).toBeVisible()
+    await expect(popover(page).getByTestId('sources-rule-chip')).toHaveAttribute('data-owner', 'follows')
     await expectFigures(page, { l: 12, b: 8, connection: 0, stone: 100 })
     await expect(page.getByTestId('source-rule-marker')).toHaveCount(0)
     await expect(rulesButton(page)).toHaveCount(0)
@@ -135,13 +134,13 @@ test.describe('area source rules (case 21 A)', () => {
     await expect(popover(page).getByTestId('comes-from-scope').getByRole('button')).toHaveCount(2)
 
     // Row b: the block receives it first.
-    await popover(page).getByRole('radio', { name: 'Receive it first' }).click()
+    await setPreset(popover(page), 'connections-first')
     await expectFigures(page, { l: 0, b: 0, connection: 20, stone: 0 })
 
     // Row d: B makes it here, whatever the block says (an empty rule on the area).
     await scopeButton(page, 'Line B').click()
-    await expect(popover(page).getByRole('radio', { name: 'Receive it first' })).toHaveAttribute('aria-checked', 'true')
-    await popover(page).getByRole('radio', { name: 'Make it here' }).click()
+    await expectPreset(popover(page), 'connections-first')
+    await setPreset(popover(page), 'own')
     await expect(popover(page).getByTestId('use-block-rule')).toBeVisible()
     await expectFigures(page, { l: 0, b: 8, connection: 12, stone: 40 })
 
@@ -169,7 +168,7 @@ test.describe('area source rules (case 21 A)', () => {
     await load(page)
     await openFromChip(page, 'L')
     await scopeButton(page, 'Line L').click()
-    await popover(page).getByRole('radio', { name: 'Receive it first' }).click()
+    await setPreset(popover(page), 'connections-first')
     await expectFigures(page, { l: 0, b: 8, connection: 12, stone: 40 })
     await page.keyboard.press('Escape')
     await expect(rulesButton(page)).toHaveText('Source rules (1)')
@@ -194,7 +193,6 @@ test.describe('area source rules (case 21 A)', () => {
     await load(page)
     // No offer: the block's one connection goes (the Sources list of the chip's popover has its Remove).
     await openFromChip(page, 'L')
-    await popover(page).getByTestId('sources-button').click()
     await openLine(popover(page).locator('[data-line="block"]'))
     await popover(page).getByTestId('sources-block-remove').click()
     await expect(popover(page).getByTestId('sources-block-name')).toHaveCount(0)
@@ -202,14 +200,14 @@ test.describe('area source rules (case 21 A)', () => {
     // Row g, as the starting point: L does not make it, nothing is offered, so 12 are imported and none missing.
     await openFromChip(page, 'L')
     await scopeButton(page, 'Line L').click()
-    await popover(page).getByRole('radio', { name: "Don't make more here" }).click()
+    await setPreset(popover(page), 'byproducts-first')
     await expect.poll(made(page, 'L'), { message: "Line L's Stone boxing row" }).toBeCloseTo(0, 1)
     await expect.poll(made(page, 'B'), { message: "Line B's Stone boxing row" }).toBeCloseTo(8, 1)
     await expect(stoneBox(page)).toHaveAccessibleName(/^Stone box, 12(\.0+)? per minute/)
     await expect(stoneBox(page)).not.toHaveAccessibleName(/missing|short/i)
 
     // Row j: Import off on L. Its 12 cannot come from anywhere: they are missing, the slot is short by 12.
-    await popover(page).getByTestId('import-switch').click()
+    await popover(page).getByTestId('sources-import-switch').click()
     await expect.poll(made(page, 'L'), { message: "Line L's Stone boxing row" }).toBeCloseTo(0, 1)
     await expect.poll(made(page, 'B'), { message: "Line B's Stone boxing row" }).toBeCloseTo(8, 1)
     await page.keyboard.press('Escape')
@@ -220,7 +218,7 @@ test.describe('area source rules (case 21 A)', () => {
 
     // Import on again: Line L imports its 12 (row g).
     await openFromChip(page, 'L')
-    await popover(page).getByTestId('import-switch').click()
+    await popover(page).getByTestId('sources-import-switch').click()
     await expect(slot(page, 'Ingredients', 'Stone box')).not.toHaveAccessibleName(/missing|short/i)
     await expect(slot(page, 'Ingredients', 'Stone box')).toHaveAccessibleName(/^Stone box, 12(\.0+)? per minute/)
   })
@@ -229,7 +227,6 @@ test.describe('area source rules (case 21 A)', () => {
     await load(page)
     await openFromChip(page, 'L')
     await scopeButton(page, 'Line L').click()
-    await popover(page).getByTestId('sources-button').click()
     const chip = popover(page).getByTestId('sources-rule-chip')
     await expect(chip).toHaveText("Block's rule · Make it here")
     await expect(chip).toHaveAttribute('data-owner', 'follows')
@@ -250,7 +247,6 @@ test.describe('area source rules (case 21 A)', () => {
     await load(page)
     await openFromChip(page, 'L')
     await scopeButton(page, 'Line L').click()
-    await popover(page).getByTestId('sources-button').click()
     const row = popover(page).getByTestId('leftover-row')
     await expect(row.getByTestId('leftover-switch')).toHaveAttribute('aria-disabled', 'true')
     await expect(row.getByTestId('leftover-switch')).toBeChecked()

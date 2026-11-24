@@ -85,8 +85,8 @@ export interface UiStoreState {
    * At most one is open; opening another replaces it. It holds for any item of the active block, whether or not the item
    * has an Ingredients slot, and it closes with a block change. `areaId` is the area the control starts on (`ComesFrom`).
    */
-  comesFromPopover: { itemId: string; anchor: PopoverAnchor; /** The Sources list is open in it. */ list?: boolean; /** The area the popover was opened for (a row of it, or a rule of it): the control starts on that area's scope. */ areaId?: string; /** Changes with every request, so a second one for the same item is told from the first. */ seq?: number } | null
-  openComesFrom: (itemId: string, anchor: PopoverAnchor, opts?: { list?: boolean; areaId?: string }) => void
+  comesFromPopover: { itemId: string; anchor: PopoverAnchor; /** The area the popover was opened for (a row of it, or a rule of it): the control starts on that area's scope. */ areaId?: string; /** Changes with every request, so a second one for the same item is told from the first. */ seq?: number } | null
+  openComesFrom: (itemId: string, anchor: PopoverAnchor, opts?: { areaId?: string }) => void
   closeComesFrom: () => void
   /** Where the Sources list last drew *Make more here* against the block lines, by `blockId:itemId`. Session only, not persisted and not part of the rule: every surface that shows the list agrees. */
   sourcesSides: Record<string, 'above' | 'below'>
@@ -170,7 +170,7 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   openIngredientSlot: (itemId) => set({ ingredientSlotRequest: { seq: (ingredientSlotSeq += 1), itemId } }),
   clearIngredientSlotRequest: (seq) => set(state => (state.ingredientSlotRequest?.seq === seq ? { ingredientSlotRequest: null } : state)),
   comesFromPopover: null,
-  openComesFrom: (itemId, anchor, opts) => set({ comesFromPopover: { itemId, anchor, seq: ++comesFromSeq, ...(opts?.list ? { list: true } : {}), ...(opts?.areaId !== undefined ? { areaId: opts.areaId } : {}) } }),
+  openComesFrom: (itemId, anchor, opts) => set({ comesFromPopover: { itemId, anchor, seq: ++comesFromSeq, ...(opts?.areaId !== undefined ? { areaId: opts.areaId } : {}) } }),
   sourcesSides: {},
   setSourcesSide: (blockId, itemId, side) => set(state => state.sourcesSides[`${blockId}:${itemId}`] === side ? state : { sourcesSides: { ...state.sourcesSides, [`${blockId}:${itemId}`]: side } }),
   closeComesFrom: () => set(state => (state.comesFromPopover === null ? state : { comesFromPopover: null })),

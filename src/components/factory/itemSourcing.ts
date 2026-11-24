@@ -123,13 +123,10 @@ export const SOURCES_LINES = {
   import: IMPORT_SWITCH,
 } as const satisfies Record<string, { label: string; title: string }>
 
-/** The toggle of the popover's header that opens the Sources list: the same name as the strip's button. */
-export const SOURCES_TOGGLE_LABEL = SOURCES_BUTTON_LABEL
-
-/** The heading of the Sources list view: the lines are tried top to bottom. */
+/** The heading of the Sources list: the lines are tried top to bottom. */
 export const LIST_ORDER_LABEL = 'Used in this order'
 
-/** The tooltip of the rule chip of the list view: it reads the rule, the list writes it. */
+/** The tooltip of the rule chip of the list: it reads the rule, the list writes it. */
 export const RULE_CHIP_HELP = 'The rule this order makes. Move Make more here above or below the other blocks, or switch it off, to change it.'
 
 /** The two places of *Make more here* against the block lines, as its detail names them. */
@@ -152,7 +149,7 @@ export const LEFTOVER_ROW = {
   changeLabel: 'change',
 } as const
 
-/** The rule chip of the list view: the rule's preset (and Import off) as text, and whose rule it is. */
+/** The rule chip of the list: the rule's preset (and Import off) as text, and whose rule it is. */
 export function ruleChipOf(
   rule: SourceRule | undefined,
   scope: { area?: string; ownRule: boolean },

@@ -64,14 +64,14 @@ describe('ComesFromPopover', () => {
     expect(screen.queryByTestId('comes-from-popover')).not.toBeInTheDocument()
   })
 
-  it('opens for an item with no slot, names the item and whose rule it is, and focuses the chosen preset', () => {
+  it('opens for an item with no slot, names the item and whose rule it is, and focuses the first line of the list', () => {
     render(<ComesFromPopover hasSlot={() => false} />)
     open('ore')
     expect(popover()).toHaveAccessibleName('Ore')
     expect(popover()).toHaveAttribute('data-item-id', 'ore')
     expect(popover()).toHaveTextContent('Every row of this block')
     const control = within(popover()).getByTestId('comes-from')
-    expect(document.activeElement).toBe(within(control).getByRole('radio', { name: 'Make it here' }))
+    expect(document.activeElement).toBe(within(control).getAllByTestId('sources-line-toggle')[0])
     // No slot, so nothing to link to.
     expect(within(popover()).queryByTestId('comes-from-show-slot')).not.toBeInTheDocument()
   })
@@ -110,7 +110,7 @@ describe('ComesFromPopover', () => {
     expect(within(popover()).queryByTestId('comes-from-scope')).not.toBeInTheDocument()
   })
 
-  it('has the item, its need and the Sources toggle in the header', () => {
+  it('has the item and its need in the header, and no Sources toggle', () => {
     useSolverStore.setState({
       lastResults: { main: { nodes: [{ recipeNodeId: 'x', inputRates: { ore: 90 }, outputRates: {} }], unsatisfied: [] } as never },
     })
@@ -118,29 +118,26 @@ describe('ComesFromPopover', () => {
     open('ore')
     const header = within(popover()).getByTestId('comes-from-header')
     expect(within(header).getByTestId('comes-from-need')).toHaveTextContent('90.0/m')
-    expect(within(header).getByTestId('sources-button')).toHaveAttribute('aria-expanded', 'false')
+    expect(within(header).queryByTestId('sources-button')).not.toBeInTheDocument()
     expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
     expect(within(popover()).getByTestId('comes-from-bar')).toHaveAttribute('data-need', '90')
   })
 
-  it('opens on the compact view, or on the list when asked, and focuses the toggle then', () => {
+  it('opens on the list, focuses its first line, and starts the control afresh on each open request', () => {
     render(<ComesFromPopover hasSlot={() => false} />)
     open('ore')
-    expect(within(popover()).queryByTestId('sources-list')).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(within(popover()).getByRole('radio', { name: 'Make it here' }))
-    act(() => useUiStore.getState().openComesFrom('plate', anchor, { list: true }))
     expect(within(popover()).getByTestId('sources-list')).toBeInTheDocument()
     expect(within(popover()).queryByRole('radiogroup')).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(within(popover()).getByTestId('sources-button'))
-    // The list follows each open request.
+    expect(document.activeElement).toBe(within(popover()).getAllByTestId('sources-line-toggle')[0])
     act(() => useUiStore.getState().openComesFrom('plate', anchor))
-    expect(within(popover()).queryByTestId('sources-list')).not.toBeInTheDocument()
+    expect(within(popover()).getByTestId('sources-list')).toBeInTheDocument()
+    expect(popover()).toHaveAttribute('data-item-id', 'plate')
   })
 
   it('sets the rule of the block from the control', () => {
     render(<ComesFromPopover hasSlot={() => false} />)
     open('ore')
-    fireEvent.click(within(popover()).getByRole('radio', { name: "Don't make more here" }))
+    fireEvent.click(within(popover()).getByTestId('sources-make-here-switch'))
     expect(mainBlock().sourceRules).toEqual({ ore: { makeHere: 'off' } })
     // It stays open, and the same on another item.
     expect(popover()).toBeInTheDocument()

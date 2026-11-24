@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, createEvent, within, act } from '@testing-library/react'
+import { cleanup, render, screen, fireEvent, createEvent, within, act } from '@testing-library/react'
 import { ComesFrom } from './ComesFrom'
 import { ComesFromPopover } from './ComesFromPopover'
 import { sourcesLineOrder } from './itemSourcing'
@@ -41,7 +41,7 @@ const mainBlock = () => useBlockStore.getState().blocks.find(b => b.id === 'main
 const ruleOf = () => mainBlock().sourceRules.ore
 const lines = () => screen.getAllByTestId('sources-line').map(l => l.getAttribute('data-line'))
 const line = (name: string) => screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-line') === name)!
-/** The preset the rule chip reads ('own' is Make it here), in the list view, which has no radios. */
+/** The preset the rule chip reads ('own' is Make it here). */
 const chipPreset = () => screen.getByTestId('sources-rule-chip').getAttribute('data-preset')!
 const chipText = () => screen.getByTestId('sources-rule-chip').textContent
 /** Opens (or closes) the detail of a line by its name button. */
@@ -61,7 +61,6 @@ function setup(over: Partial<Block> = {}) {
 
 function openList() {
   render(<ComesFrom itemId="ore" />)
-  fireEvent.click(screen.getByTestId('sources-button'))
 }
 
 /** An empty-handed solve of main: the node rows of the test have no consumption unless given. */
@@ -87,33 +86,24 @@ describe('sourcesLineOrder', () => {
 })
 
 describe('the Sources button', () => {
-  it('shows and hides the list in place, and reports it with aria-expanded', () => {
-    render(<ComesFrom itemId="ore" />)
+  it('opens the Comes from popover when the control sits in a strip, and the strip draws no list', () => {
+    render(<ComesFrom itemId="ore" listInPopover />)
     const button = screen.getByTestId('sources-button')
     expect(button).toHaveAccessibleName('Sources…')
-    expect(button).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByTestId('sources-list')).toBeNull()
-    fireEvent.click(button)
-    expect(button).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByTestId('sources-list')).toBeInTheDocument()
+    expect(button).toHaveAttribute('aria-haspopup', 'dialog')
     fireEvent.click(button)
     expect(screen.queryByTestId('sources-list')).toBeNull()
+    expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'ore' })
   })
 
-  it('opens the Comes from popover with the list open when the control sits in a strip', () => {
-    render(<ComesFrom itemId="ore" listInPopover />)
-    fireEvent.click(screen.getByTestId('sources-button'))
-    expect(screen.queryByTestId('sources-list')).toBeNull()
-    expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'ore', list: true })
-  })
-
-  it('starts open when asked to', () => {
-    render(<ComesFrom itemId="ore" initialListOpen />)
+  it('has no toggle in the control itself: the list is always drawn', () => {
+    render(<ComesFrom itemId="ore" />)
+    expect(screen.queryByTestId('sources-button')).toBeNull()
     expect(screen.getByTestId('sources-list')).toBeInTheDocument()
   })
 })
 
-describe('the list and the presets are two views of one rule', () => {
+describe('the list reads and writes the stored rule', () => {
   const STATES: { name: string; rule: Block['sourceRules'][string] | undefined; preset: string; chip: string; order: string[]; make: boolean; imp: boolean }[] = [
     { name: 'Make it here', rule: undefined, preset: 'own', chip: 'Make it here', order: ['made-here', 'make-here', 'add-block', 'import'], make: true, imp: true },
     { name: 'Make it here, Import off', rule: { importOff: true }, preset: 'own', chip: 'Make it here · Import off', order: ['made-here', 'make-here', 'add-block', 'import'], make: true, imp: false },
@@ -147,19 +137,6 @@ describe('the list and the presets are two views of one rule', () => {
       expect(chipText()).toBe(s.chip)
       expect(lines()).toEqual(s.order)
     })
-
-    it(`shows the list of ${s.name} after the presets (and the Import switch of the control) chose it`, () => {
-      render(<ComesFrom itemId="ore" />)
-      fireEvent.click(document.querySelector(`[data-sourcing-choice="${s.preset}"]`)!)
-      if (s.rule?.importOff) fireEvent.click(screen.getByTestId('import-switch'))
-      // The presets and the Import switch are the compact view's: the list is the other view of the same rule.
-      fireEvent.click(screen.getByTestId('sources-button'))
-      expect(ruleOf()).toEqual(s.rule)
-      expect(chipText()).toBe(s.chip)
-      expect(lines()).toEqual(s.order)
-      expect(screen.getByTestId('sources-make-here-switch')).toHaveAttribute('aria-checked', String(s.make))
-      expect(screen.getByTestId('sources-import-switch')).toHaveAttribute('aria-checked', String(s.imp))
-    })
   }
 
   it('moves Make more here below with Receive it first, switches it off with Don\'t make more here, and on again with Make it here', () => {
@@ -184,18 +161,6 @@ describe('the list and the presets are two views of one rule', () => {
     expect(ruleOf()).toEqual({ makeHere: 'off' })
     expect(lines()).toEqual(['made-here', 'add-block', 'make-here', 'import'])
     expect(line('make-here').hasAttribute('data-off')).toBe(true)
-  })
-
-  it('has one Import switch with the control', () => {
-    render(<ComesFrom itemId="ore" />)
-    fireEvent.click(screen.getByTestId('import-switch'))
-    fireEvent.click(screen.getByTestId('sources-button'))
-    expect(screen.getByTestId('sources-import-switch')).toHaveAttribute('aria-checked', 'false')
-    expect(chipText()).toBe('Make it here · Import off')
-    fireEvent.click(screen.getByTestId('sources-import-switch'))
-    fireEvent.click(screen.getByTestId('sources-button'))
-    expect(screen.getByTestId('import-switch')).toHaveAttribute('aria-checked', 'true')
-    expect(ruleOf()).toBeUndefined()
   })
 })
 
@@ -440,13 +405,13 @@ describe('history', () => {
 })
 
 describe('the side Make more here was drawn on', () => {
-  it('is remembered when the list closes and opens again', () => {
+  it('is remembered when the list is drawn again', () => {
     setup({ sourceRules: { ore: { makeHere: 'after-blocks' } } })
     openList()
     fireEvent.click(screen.getByTestId('sources-make-here-switch'))
     expect(lines()).toEqual(BELOW)
-    fireEvent.click(screen.getByTestId('sources-button'))
-    fireEvent.click(screen.getByTestId('sources-button'))
+    cleanup()
+    openList()
     expect(lines()).toEqual(BELOW)
   })
 })
@@ -483,18 +448,6 @@ describe('focus', () => {
       expect(el.getAttribute('tabindex')).toBeNull()
     }
     for (const l of screen.getAllByTestId('sources-line')) expect(l).not.toHaveAttribute('tabindex')
-  })
-})
-
-describe('the side of Make more here, from the compact view', () => {
-  it('is recorded when a preset is chosen there, so the list draws the dimmed line where it was', () => {
-    setup({ sourceRules: { ore: { makeHere: 'after-blocks' } } })
-    render(<ComesFrom itemId="ore" />)
-    fireEvent.click(document.querySelector('[data-sourcing-choice="byproducts-first"]')!)
-    expect(ruleOf()).toEqual({ makeHere: 'off' })
-    fireEvent.click(screen.getByTestId('sources-button'))
-    expect(lines()).toEqual(BELOW)
-    expect(line('make-here')).toHaveAttribute('data-off', 'true')
   })
 })
 
@@ -550,15 +503,17 @@ describe('the description of a switch', () => {
 })
 
 describe('the popover', () => {
-  it('follows each open request for the list, also for the same item', () => {
+  it('draws the list, and follows each open request, also for the same item', () => {
     render(<ComesFromPopover hasSlot={() => false} />)
     const anchor = { rect: { left: 0, top: 0, right: 10, bottom: 10 }, avoid: null }
-    act(() => useUiStore.getState().openComesFrom('ore', anchor, { list: true }))
+    act(() => useUiStore.getState().openComesFrom('ore', anchor))
     expect(screen.getByTestId('sources-list')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('sources-button'))
-    expect(screen.queryByTestId('sources-list')).toBeNull()
-    act(() => useUiStore.getState().openComesFrom('ore', anchor, { list: true }))
+    openLine('make-here')
+    expect(screen.getByTestId('sources-detail')).toBeInTheDocument()
+    // A second request for the item starts the control afresh: the detail is shut.
+    act(() => useUiStore.getState().openComesFrom('ore', anchor))
     expect(screen.getByTestId('sources-list')).toBeInTheDocument()
+    expect(screen.queryByTestId('sources-detail')).toBeNull()
   })
 })
 
@@ -927,7 +882,6 @@ describe('at area scope', () => {
   const openAreaList = () => {
     render(<ComesFrom itemId="ore" areaId="L" />)
     fireEvent.click(screen.getByRole('button', { name: 'Line L' }))
-    fireEvent.click(screen.getByTestId('sources-button'))
   }
   const areaLine = (id: string) => screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-area-id') === id)!
   const reading = (el: HTMLElement) => within(el).getByTestId('sources-rate').textContent
@@ -944,7 +898,6 @@ describe('at area scope', () => {
   it('keeps the single read-only Other areas line at block scope', () => {
     setupAreas()
     render(<ComesFrom itemId="ore" />)
-    fireEvent.click(screen.getByTestId('sources-button'))
     expect(lines()).toEqual(['made-here', 'make-here', 'other-areas', 'add-block', 'import'])
     expect(screen.queryByTestId('sources-area-switch')).not.toBeInTheDocument()
     expect(reading(line('other-areas'))).toBe('—')
@@ -1094,7 +1047,7 @@ describe('at area scope', () => {
     expect(document.getElementById(sw.getAttribute('aria-describedby')!)).toHaveTextContent(/block/i)
     fireEvent.click(screen.getByTestId('use-block-rule'))
     expect(screen.queryByTestId('use-block-rule')).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(screen.getByTestId('sources-button'))
+    expect(document.activeElement).toBe(screen.getAllByTestId('sources-line-toggle')[0])
     fireEvent.click(screen.getByTestId('leftover-whole-block'))
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Whole block' }))
   })
@@ -1105,7 +1058,6 @@ describe('at area scope', () => {
       blocks: st.blocks.map(b => b.id === 'main' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => sp.id === 'L' ? { ...sp, sourceRules: { ore: { importOff: true } } } : sp) } } : b),
     }))
     render(<ComesFrom itemId="ore" />)
-    fireEvent.click(screen.getByTestId('sources-button'))
     fireEvent.click(screen.getByTestId('area-own-rule'))
     expect(screen.queryByTestId('area-own-rule')).not.toBeInTheDocument()
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Line L' }))
@@ -1117,7 +1069,6 @@ describe('at area scope', () => {
       blocks: st.blocks.map(b => b.id === 'main' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => sp.id === 'L' ? { ...sp, sourceRules: { ore: { makeHere: 'after-blocks' as const } } } : sp) } } : b),
     }))
     render(<ComesFrom itemId="ore" />)
-    fireEvent.click(screen.getByTestId('sources-button'))
     solve([into(undefined, 20, 0)], [{ itemId: 'ore', rate: 20 }])
     expect(reading(line('import'))).toBe('20.0/m')
     expect(screen.queryByTestId('sources-foot-missing')).not.toBeInTheDocument()
@@ -1228,7 +1179,7 @@ describe('the bar of the header', () => {
       flows: [{ connectionId: 'c1', fromBlockId: 'alpha', toBlockId: 'main', itemId: 'ore', available: 60, capped: false, rate: 30, status: 'ok', kind: 'take' }] as never,
     }))
     solvedNodes([{ recipeNodeId: synth, inputRates: { ore: 100 }, outputRates: { ore: 60 } }], { unsatisfied: [{ itemId: 'ore', rate: 10 }] as never })
-    render(<ComesFrom itemId="ore" initialListOpen />)
+    render(<ComesFrom itemId="ore" />)
     const bar = screen.getByTestId('comes-from-bar')
     expect(bar).toHaveAttribute('data-need', '100')
     const parts = within(bar).getAllByTestId('comes-from-bar-segment')
