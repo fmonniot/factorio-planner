@@ -3103,7 +3103,6 @@ describe('solver synthetic cases', () => {
     const COOLERS = ['case24-cool-300', 'case24-cool-200', 'case24-cool-100']
     const FILTER = 'case24-filter'
     const rule: SourceRule = { importOff: true }
-    const mismatches = (r: SolverResult) => r.warnings.filter(w => w.type === 'temperature-mismatch')
     const rowsOf = (recipeIds: string[], pins: Record<string, number> = {}, where: (id: string) => string = () => 'root') =>
       recipeIds.map(id => rowIn(id, where(id))).map(n => ({ ...n, ...(pins[n.recipeId] === undefined ? {} : { pinnedRate: pins[n.recipeId] }) }))
     const block = (rootPlan: SubPlan, sourceRule: SourceRule = rule): Block => ({
@@ -3125,7 +3124,6 @@ describe('solver synthetic cases', () => {
       expect(unsatisfiedRate(r, 'case24-ore'), 'ore').toBeCloseTo(60, 6)
       expect(r.conversions, 'four conversions of 6000').toHaveLength(4)
       for (const c of r.conversions ?? []) expect(c.rate, 'conversion rate').toBeCloseTo(6000, 6)
-      expect(mismatches(r), 'no mismatch').toEqual([])
       expect(noFitting(r), 'no missing temperature').toEqual([])
     })
 
@@ -3136,7 +3134,6 @@ describe('solver synthetic cases', () => {
       expect(r.warnings, 'one warning').toEqual([
         { type: 'no-fitting-temperature', itemId: USED, max: 50, recipeIds: [FILTER] },
       ])
-      expect(mismatches(r), 'no mismatch').toEqual([])
     })
 
     it('b2: b with Import on imports the fluid for a filter at 50 or less', () => {
@@ -3151,7 +3148,6 @@ describe('solver synthetic cases', () => {
       const r = flat(ALL, {}, {})
       for (const id of ALL) expect(rate(r, id), id).toBeCloseTo(60, 6)
       expect(unsatisfiedRate(r, USED), 'used is not imported').toBeUndefined()
-      expect(mismatches(r), 'no mismatch').toEqual([])
     })
 
     it('d: a cooler pinned too low is infeasible pins with a conflict', () => {
@@ -3160,7 +3156,6 @@ describe('solver synthetic cases', () => {
       expect(w, 'infeasible pins').toBeDefined()
       expect(w).toMatchObject({ type: 'infeasible-pins', conflict: true })
       expect(w?.type === 'infeasible-pins' ? [...w.recipeIds].sort() : undefined).toEqual(['case24-cool-100', FILTER])
-      expect(mismatches(r), 'no mismatch').toEqual([])
     })
 
     describe('e, f: the cooling rows in an area of their own', () => {
@@ -3177,7 +3172,6 @@ describe('solver synthetic cases', () => {
         const leg = (r.areaRoutes ?? []).find(x => x.itemId === USED && x.from === 'Cool' && x.to === 'root')
         expect(leg?.rate, 'used from Cool to the root').toBeCloseTo(6000, 6)
         expect(leg?.temp, 'at 25').toEqual({ at: 25 })
-        expect(mismatches(r), 'no mismatch').toEqual([])
       })
 
       it('f: d in areas', () => {
@@ -3185,7 +3179,6 @@ describe('solver synthetic cases', () => {
         const w = r.warnings.find(x => x.type === 'infeasible-pins')
         expect(w).toMatchObject({ type: 'infeasible-pins', conflict: true })
         expect(w?.type === 'infeasible-pins' ? [...w.recipeIds].sort() : undefined).toEqual(['case24-cool-100', FILTER])
-        expect(mismatches(r), 'no mismatch').toEqual([])
       })
     })
 

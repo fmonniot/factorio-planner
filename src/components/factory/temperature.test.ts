@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { GameData, Recipe } from '../../data/types'
-import { fmtTemperatureValue, fmtTemperatureRange, ingredientTemperatureLabels, productTemperatureLabels, fmtTemperatureWarning, fmtNoFittingTemperature, fmtPartTemp } from './temperature'
+import { fmtTemperatureValue, fmtTemperatureRange, ingredientTemperatureLabels, productTemperatureLabels, fmtNoFittingTemperature, fmtPartTemp } from './temperature'
 
 function makeRecipe(ingredients: Recipe['ingredients']): Recipe {
   return {
@@ -101,23 +101,6 @@ describe('productTemperatureLabels', () => {
 
   it('returns an empty record without explicit temperatures', () => {
     expect(productTemperatureLabels(withProducts([{ itemId: 'a', type: 'item', amount: 1 }]))).toEqual({})
-  })
-})
-
-describe('fmtTemperatureWarning', () => {
-  const gd = {
-    items: { steam: { id: 'steam', name: 'Steam', defaultTemperature: 15 } },
-    recipes: { turbine: { id: 'turbine', name: 'Steam Turbine' } },
-  } as unknown as GameData
-
-  it('names the need and the single supplied temperature', () => {
-    expect(fmtTemperatureWarning({ type: 'temperature-mismatch', recipeId: 'turbine', itemId: 'steam', supplied: [165], minimum: 465 }, gd))
-      .toBe('Steam Turbine needs Steam at ≥465°C, but it is only supplied at 165°C.')
-  })
-
-  it('joins several supplied temperatures', () => {
-    expect(fmtTemperatureWarning({ type: 'temperature-mismatch', recipeId: 'turbine', itemId: 'steam', supplied: [165, 315], minimum: 465 }, gd))
-      .toContain('at 165°C, 315°C.')
   })
 })
 

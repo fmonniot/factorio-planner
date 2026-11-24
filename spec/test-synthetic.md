@@ -1239,11 +1239,11 @@ Goal: 60 `case24-clean`. Import off on `case24-used` (except in b2 and c). Ore i
 
 | Row | Setup | Expected |
 |---|---|---|
-| a | H, C3, C2, C1, F | every row 60; ore 60 imported; used not imported; four conversions of 6000; no `temperature-mismatch`, no `no-fitting-temperature` |
-| b | a without C1 | every row 0; `unsatisfied` is the goal shortfall, 60 clean; `warnings` is exactly one `no-fitting-temperature` on `case24-used` (`max` 50, rows [F]); no `temperature-mismatch` |
+| a | H, C3, C2, C1, F | every row 60; ore 60 imported; used not imported; four conversions of 6000; no `no-fitting-temperature` |
+| b | a without C1 | every row 0; `unsatisfied` is the goal shortfall, 60 clean; `warnings` is exactly one `no-fitting-temperature` on `case24-used` (`max` 50, rows [F])|
 | b2 | b with Import on | F 60; H, C3, C2 0; `unsatisfied` is one import of 6000 used with `temp: { max: 50 }`; no warning |
 | c | a with Import on | as a |
-| d | a with C1 pinned at 10 and F pinned at 60 | `infeasible-pins` with `conflict: true`, naming C1 and F; no `temperature-mismatch` |
+| d | a with C1 pinned at 10 and F pinned at 60 | `infeasible-pins` with `conflict: true`, naming C1 and F |
 | e | a with H, C3, C2, C1 in an area "Cool" and F in the root | the same rates; one route of used at `temp: { at: 25 }` from Cool to the root, 6000 |
 | f | d with the rows in areas as in e | as d |
 | g | a, and a block that also takes 100 plates from a connection as in [case 22](#case-22--a-connection-replaces-an-import) A-b (gear goal 25, P 1 makes 2, S pinned at 10) | the order keeps the chain: plate received 30, P 10, G 25, and H, C3, C2, C1, F all 60 |

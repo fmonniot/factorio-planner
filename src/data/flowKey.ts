@@ -1,5 +1,4 @@
 import type { FluidTag, GameData, Ingredient, Item, RecipeProduct } from './types'
-import { HEAT_ITEM_ID } from './electricity'
 import { effectiveTemperature, fmtTemperatureRange, hasTemperatureBound, isBound } from './temperature'
 
 // ---------------------------------------------------------------------------
@@ -52,12 +51,11 @@ export function rangeOf(ing: Pick<Ingredient, 'minimumTemperature' | 'maximumTem
   return range
 }
 
-/** The temperature a product is made at: its own, else the fluid's default, else unknown; heat is always unknown. */
+/** The temperature a product is made at: its own, else the fluid's default, else unknown. Reactor heat carries its heat buffer's maximum, the hottest it can deliver. */
 export function productTag(
   prod: Pick<RecipeProduct, 'itemId' | 'temperature'>,
   item: Pick<Item, 'defaultTemperature'> | undefined,
 ): { at: number | null } {
-  if (prod.itemId === HEAT_ITEM_ID) return { at: null }
   return { at: effectiveTemperature(prod, item) ?? null }
 }
 

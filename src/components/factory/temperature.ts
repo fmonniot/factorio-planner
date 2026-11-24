@@ -29,21 +29,6 @@ export function productTemperatureLabels(recipe: Recipe): Record<string, string>
 }
 
 /**
- * Sentence for a `temperature-mismatch` warning (heat only), e.g. "Heat Exchanger (Heat) needs Heat at ≥500°C,
- * but it is only supplied at 400°C."
- */
-export function fmtTemperatureWarning(
-  w: Extract<SolverWarning, { type: 'temperature-mismatch' }>,
-  gameData: GameData,
-): string {
-  const recipe = gameData.recipes[w.recipeId]?.name ?? w.recipeId
-  const item = gameData.items[w.itemId]?.name ?? w.itemId
-  const need = fmtTemperatureRange(w.minimum, w.maximum) ?? ''
-  const supplied = w.supplied.map(t => `${fmtTemperatureValue(t)}°C`).join(', ')
-  return `${recipe} needs ${item} at ${need}, but it is only supplied at ${supplied}.`
-}
-
-/**
  * Sentence for a `no-fitting-temperature` warning, e.g. "Steam Turbine needs Steam at ≥465°C, but nothing in this
  * block makes it and it cannot be imported." Several rows: "A, B and C need Steam at …".
  */

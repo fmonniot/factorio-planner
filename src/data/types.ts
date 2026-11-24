@@ -144,8 +144,6 @@ export type SolverWarning =
         needed: { min?: number; max?: number; rate: number }[]
       }[]
     }
-  /** Heat only: a reactor's heat buffer maximum against an exchanger's minimum. */
-  | { type: 'temperature-mismatch'; recipeId: string; itemId: string; supplied: number[]; minimum?: number; maximum?: number }
   /**
    * A temperature range of a fluid the block's rows take that nothing in the block makes, no connection could
    * supply and the block cannot import (a locked fluid). `recipeIds` are the rows that take it.
