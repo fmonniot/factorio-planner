@@ -56,6 +56,30 @@ test.describe('summary strip and bars', () => {
     await expect(detail(page, 'Ingredients')).toHaveCSS('height', '72px')
   })
 
+  // The toolbar is icon-only, so the widest row (Products with an extra output and two or more products) fits every pane width.
+  for (const width of [820, 1280, 1440]) {
+    test(`the toolbar of a selected product stays inside its pane at ${width} px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await setup(page)
+      await selectProduct(page, 'nullius-plastic')
+      await page.mouse.move(5, 5)
+      const strip = detail(page, 'Products')
+      const toolbar = strip.getByTestId('strip-toolbar')
+      const box = (await strip.boundingBox())!
+      const buttons = toolbar.getByRole('button')
+      expect(await buttons.count()).toBeGreaterThanOrEqual(4)
+      for (const b of await buttons.all()) {
+        const r = (await b.boundingBox())!
+        expect(r.x, 'inside on the left').toBeGreaterThanOrEqual(box.x - 0.5)
+        expect(r.x + r.width, 'inside on the right').toBeLessThanOrEqual(box.x + box.width + 0.5)
+        expect(r.width).toBe(24)
+        expect(r.height).toBe(22)
+      }
+      expect(await toolbar.evaluate(e => e.scrollWidth <= e.clientWidth), 'nothing overflows the row').toBe(true)
+      expect(box.height).toBe(72)
+    })
+  }
+
   // 1 legTip
   test('there is no key line; hovering a segment shows a black tooltip with name, amount and note', async ({ page }) => {
     await setup(page)

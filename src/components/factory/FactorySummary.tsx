@@ -300,6 +300,7 @@ export function FactorySummary() {
     return [{
       id: 'served-order',
       label: 'Served order…',
+      icon: 'list',
       badge: n > 0 ? { count: n, noun: 'not ranked' } : undefined,
       onSelect: e => {
         const r = e.currentTarget.getBoundingClientRect()
@@ -455,26 +456,30 @@ export function FactorySummary() {
               />
             )
           }}
-          renderKeyExtra={(slot, edit) => slot.product!.extra === undefined && !edit.editing && (
-            <button
-              type="button"
-              onClick={edit.start}
-              data-tip="Add extra output on top of what is requested"
-              className="border border-dashed border-gray-600 rounded px-2 py-0.5 leading-4 whitespace-nowrap text-gray-400 hover:text-gray-200"
-            >
-              + Extra output
-            </button>
-          )}
-          actionsFor={slot => {
+          actionsFor={(slot, edit) => {
             const actions: StripAction[] = [
-              { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
+              { label: 'Find recipe', icon: 'search', side: 'left', onSelect: () => setProducerPickerItemId(slot.itemId) },
+              ...servedAction(slot.itemId),
             ]
+            // The extra output field takes the place of the plus while it is open.
             if (slot.product!.extra !== undefined) {
-              actions.push({ label: 'Remove extra', onSelect: () => updateProductExtra(slot.product!.id, undefined) })
+              actions.push({
+                label: 'Remove extra',
+                icon: 'minus',
+                title: 'Remove extra output',
+                onSelect: () => updateProductExtra(slot.product!.id, undefined),
+              })
+            } else if (!edit.editing) {
+              actions.push({
+                label: 'Add extra output',
+                icon: 'plus',
+                title: 'Add extra output on top of what is requested',
+                onSelect: edit.start,
+              })
             }
-            actions.push(...productMoveActions(slot.product!.id))
-            actions.push({ label: 'Remove product', danger: true, onSelect: () => requestRemoveProduct(slot.product!.id) })
-            actions.push(...servedAction(slot.itemId))
+            // The two moves are one joined pair.
+            actions.push(...productMoveActions(slot.product!.id).map((a, i): StripAction => ({ ...a, icon: i === 0 ? 'left' : 'right', joined: i === 1 })))
+            actions.push({ label: 'Remove product', icon: 'trash', danger: true, onSelect: () => requestRemoveProduct(slot.product!.id) })
             return actions
           }}
           onOpenBlock={setActiveBlock}
@@ -501,10 +506,10 @@ export function FactorySummary() {
             </span>
           )}
           actionsFor={slot => [
+            { label: 'Add consumer recipe…', icon: 'arrowR', side: 'left', onSelect: () => setConsumerPickerItemId(slot.itemId) },
             ...servedAction(slot.itemId),
-            ...leftoverAction(slot.itemId, slot.rate),
-            { label: 'Add consumer recipe…', onSelect: () => setConsumerPickerItemId(slot.itemId) },
-            { label: 'Make it a product', onSelect: () => requestAddProduct(slot.itemId) },
+            ...leftoverAction(slot.itemId, slot.rate).map((a): StripAction => ({ ...a, icon: 'flame' })),
+            { label: 'Make it a product', icon: 'flag', onSelect: () => requestAddProduct(slot.itemId) },
           ]}
           onOpenBlock={setActiveBlock}
         />
@@ -537,11 +542,13 @@ export function FactorySummary() {
           actionsFor={slot => {
             const canConnect = connectable(slot.itemId)
             const actions: StripAction[] = [
-              { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
+              { label: 'Find recipe', icon: 'search', side: 'left', onSelect: () => setProducerPickerItemId(slot.itemId) },
             ]
             if (canConnect) {
               actions.push({
                 label: 'Receive from…',
+                icon: 'arrowL',
+                side: 'left',
                 onSelect: e => {
                   const rect = e.currentTarget.getBoundingClientRect()
                   openConnectionMenu(slot.itemId, rect.left, rect.bottom)

@@ -1,8 +1,8 @@
 # Summary strip: icon actions
 
-Status: Future
+Status: Active
 
-The detail strip under each summary pane holds too much when an item is selected. In Products and Byproducts the actions are text buttons on one 22 px row that never wraps, and they run under the next pane (177 px past the edge at a 413 px pane in Products, 233 px in Byproducts at 260 px). In Ingredients the strip stacks seven lines (header, bar, actions, Comes from with its presets and Import, Leftover alone, Sources… alone, the sentence) and is never shorter than 156 px: 194 px at 413 px, 227 px at 260 px. The design replaces the text buttons with one icon toolbar pattern shared by the three panes, and folds the Comes from block into that toolbar. The design is done and judged; nothing is implemented in `src/components/` yet.
+The detail strip under each summary pane holds too much when an item is selected. In Products and Byproducts the actions are text buttons on one 22 px row that never wraps, and they run under the next pane (177 px past the edge at a 413 px pane in Products, 233 px in Byproducts at 260 px). In Ingredients the strip stacks seven lines (header, bar, actions, Comes from with its presets and Import, Leftover alone, Sources… alone, the sentence) and is never shorter than 156 px: 194 px at 413 px, 227 px at 260 px. The design replaces the text buttons with one icon toolbar pattern shared by the three panes, and folds the Comes from block into that toolbar. The design is done and judged; T1 (the toolbar, in Products and Byproducts) is built, T2 and T3 are open.
 
 ## The design
 
@@ -26,7 +26,7 @@ Each has a default the implementer can build; see the page's section for the opt
 
 ## Tickets
 
-- [ ] **T1: shared toolbar, Products and Byproducts.** One icon-toolbar component (side, icon, name, tooltip, badge, danger, disabled through `TipWrap`) used by `SummaryDetailStrip`; `actionsFor` of the two panes in the order of the pattern; the Extra output control moves from `renderKeyExtra` into the toolbar. Accessible names, ids and handlers unchanged. Add a pane-width e2e check for the no-overflow rule.
+- [x] **T1: shared toolbar, Products and Byproducts.** Built: `StripToolbar.tsx` and `StripIcon.tsx`; Ingredients' Find recipe and Receive from… already use it, the rest of its strip is T2. The Extra output control is now the Add extra output / Remove extra pair (accessible name `Add extra output`, was `+ Extra output`). One icon-toolbar component (side, icon, name, tooltip, badge, danger, disabled through `TipWrap`) used by `SummaryDetailStrip`; `actionsFor` of the two panes in the order of the pattern; the Extra output control moves from `renderKeyExtra` into the toolbar. Accessible names, ids and handlers unchanged. Add a pane-width e2e check for the no-overflow rule.
 - [ ] **T2: Ingredients strip.** The sentence under the bar, the toolbar with the rule group, the conditional rows, no `min-h-[156px]`. `ComesFrom` keeps its text layout in the Comes from popover (add a flag or split a row component). Re-derive or drop the `tall` prop and the `max-h-[181px]` growth of the other panes' grids (the strip now grows 21 to 36 px, not 84 px). Review the unit and e2e tests that query by visible text.
 - [ ] **T3: documents.** `spec/ui.md` (the Detail strip paragraph, the Products and Byproducts action lists, Comes from, the chip tooltips paragraph) and the README's "Using the planner" if it names the buttons. Archive this folder when T1 and T2 have shipped.
 
