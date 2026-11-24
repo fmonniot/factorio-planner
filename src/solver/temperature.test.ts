@@ -178,13 +178,18 @@ describe('heat temperature in the LP', () => {
       const r = solveAll([twoAreas('r1000')], gd()).results.A
       expect(heatUnsat(r)).toEqual([])
       expect(rate(r, 'r')).toBeCloseTo(60, 6)
+      expect(rate(r, 'x')).toBeCloseTo(60, 6)
+      expect(r.conversions?.filter(c => c.itemId === HEAT_ITEM_ID)).toEqual([{ itemId: HEAT_ITEM_ID, from: { at: 1000 }, to: { min: 765 }, rate: expect.closeTo(60, 6), areaId: 'B' }])
+      expect((r.areaRoutes ?? []).filter(l => l.itemId === HEAT_ITEM_ID)).toEqual([{ itemId: HEAT_ITEM_ID, from: 'L', to: 'B', rate: expect.closeTo(60, 6), temp: { at: 1000 } }])
     })
 
     it('a too cold one is idle and the leg into the exchanger area is a range import', () => {
       const r = solveAll([twoAreas('r750')], gd()).results.A
       expect(rate(r, 'r')).toBeCloseTo(0, 6)
+      expect(rate(r, 'x')).toBeCloseTo(60, 6)
+      expect(r.conversions?.filter(c => c.itemId === HEAT_ITEM_ID) ?? []).toEqual([])
       expect((r.areaRoutes ?? []).filter(l => l.itemId === HEAT_ITEM_ID && l.from === undefined)).toEqual([
-        expect.objectContaining({ to: 'B', temp: { min: 765 } }),
+        { itemId: HEAT_ITEM_ID, to: 'B', rate: expect.closeTo(60, 6), temp: { min: 765 } },
       ])
     })
   })

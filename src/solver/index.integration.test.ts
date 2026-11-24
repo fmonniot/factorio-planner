@@ -546,7 +546,7 @@ describe('power generation on the real Seablock data', () => {
     expect(nodeOf(r, 'power:steam-engine:steam').machineCountExact).toBeCloseTo(11.111, 3)
     expect(nodeOf(r, 'power:heat-exchanger:power:heat').machineCountExact).toBeCloseTo(2.778, 3)
     expect(nodeOf(r, 'power:nuclear-reactor:uranium-fuel-cell').machineCountExact).toBeCloseTo(20 / 54, 3)
-    expect(r.conversions).toContainEqual({ itemId: 'power:heat', from: { at: 1000 }, to: { min: 315 }, rate: expect.any(Number) })
+    expect(r.conversions).toContainEqual({ itemId: 'power:heat', from: { at: 1000 }, to: { min: 315 }, rate: expect.closeTo(1200, 3) })
     expect(unsatisfiedRate(r, 'uranium-fuel-cell')).toBeCloseTo(0.6, 3)
     expect(unsatisfiedRate(r, 'water')).toBeCloseTo(20000, 3)
     expectSane(r, plan, 'power')
@@ -673,22 +673,27 @@ describe('split fluids on the bundled plans', () => {
   describe('reactor heat temperature', () => {
     const heatBlock = (name: string) => {
       const state = planFile('heat-temperature-seablock.json')
-      return solveAll(state.blocks, seablock).results[state.blocks.find(b => b.name === name)!.id]
+      const block = state.blocks.find(b => b.name === name)!
+      const rowOf = (recipeId: string) => block.rootPlan.nodes.find(n => n.kind === 'game-recipe' && n.recipeId === recipeId)!.id
+      return { r: solveAll(state.blocks, seablock).results[block.id], rowOf }
     }
+    const EXCHANGER = 'power:bob-heat-exchanger-4:power:heat'
     const heatUnsat = (r: SolverResult) => r.unsatisfied.filter(u => u.itemId === 'power:heat')
 
     it('Too cold: the 750 reactor is not run, the block imports heat at 765 or more, with no warning', () => {
-      const r = heatBlock('Too cold')
-      expect(nodeOf(r, r.nodes[0].recipeNodeId).throughput).toBeCloseTo(0, 6)
-      expect(nodeOf(r, r.nodes[1].recipeNodeId).throughput).toBeCloseTo(0.5, 6)
+      const { r, rowOf } = heatBlock('Too cold')
+      expect(nodeOf(r, rowOf('power:bob-burner-reactor:wood')).throughput).toBeCloseTo(0, 6)
+      expect(nodeOf(r, rowOf(EXCHANGER)).throughput).toBeCloseTo(0.5, 6)
+      expect(r.conversions?.filter(c => c.itemId === 'power:heat') ?? []).toEqual([])
       expect(heatUnsat(r)).toEqual([{ itemId: 'power:heat', rate: expect.closeTo(9, 6), temp: { min: 765 } }])
       expect(r.unsatisfied.some(u => u.itemId === 'wood')).toBe(false)
       expect(r.warnings).toEqual([])
     })
 
     it('Hot enough: the 1000 reactor feeds the exchanger, with no import and no warning', () => {
-      const r = heatBlock('Hot enough')
-      expect(nodeOf(r, r.nodes[0].recipeNodeId).throughput).toBeCloseTo(6.428571, 5)
+      const { r, rowOf } = heatBlock('Hot enough')
+      expect(nodeOf(r, rowOf(EXCHANGER)).throughput).toBeCloseTo(0.5, 6)
+      expect(nodeOf(r, rowOf('power:bob-burner-reactor-2:wood')).throughput).toBeCloseTo(6.428571, 5)
       expect(r.unsatisfied.find(u => u.itemId === 'wood')?.rate).toBeCloseTo(6.428571, 5)
       expect(r.conversions).toContainEqual({ itemId: 'power:heat', from: { at: 1000 }, to: { min: 765 }, rate: expect.closeTo(9, 6) })
       expect(r.conversions?.filter(c => c.itemId === 'power:heat')).toHaveLength(1)
@@ -714,9 +719,23 @@ describe('split fluids on the bundled plans', () => {
         const fits = Number(cap) >= Number(min)
         it(`a ${cap} reactor ${fits ? 'feeds' : 'does not feed'} a ${min} exchanger`, () => {
           const r = solve(makePlan([['steam', 60]], [exchangerId, reactorId]), seablock)
-          expect(nodeOf(r, reactorId).throughput > 1e-6).toBe(fits)
-          if (fits) expect(heatUnsat(r)).toEqual([])
-          else expect(heatUnsat(r)).toEqual([expect.objectContaining({ temp: { min: Number(min) } })])
+          // The exchanger runs steam/steamPerRun times and takes heatPerRun each: the heat that has to come from a reactor (or an import).
+          const recipe = seablock.recipes[exchangerId]
+          const steamPerRun = recipe.products.find(p => p.itemId === 'steam')!.amount
+          const heatPerRun = recipe.ingredients.find(i => i.itemId === 'power:heat')!.amount
+          const heat = (60 / steamPerRun) * heatPerRun
+          expect(heat).toBeGreaterThan(0)
+          const conversions = r.conversions?.filter(c => c.itemId === 'power:heat') ?? []
+          expect(nodeOf(r, exchangerId).throughput).toBeCloseTo(60 / steamPerRun, 6)
+          if (fits) {
+            expect(nodeOf(r, reactorId).throughput).toBeGreaterThan(1e-6)
+            expect(conversions).toEqual([{ itemId: 'power:heat', from: { at: Number(cap) }, to: { min: Number(min) }, rate: expect.closeTo(heat, 6) }])
+            expect(heatUnsat(r)).toEqual([])
+          } else {
+            expect(nodeOf(r, reactorId).throughput).toBeCloseTo(0, 6)
+            expect(conversions).toEqual([])
+            expect(heatUnsat(r)).toEqual([{ itemId: 'power:heat', rate: expect.closeTo(heat, 6), temp: { min: Number(min) } }])
+          }
         })
       }
     }
