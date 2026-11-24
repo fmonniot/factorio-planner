@@ -24,6 +24,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
 | Surplus-aware objective     | Future   | [surplus-aware-objective/](surplus-aware-objective/plan.md) |
+| Less text: facts instead of prose | Future | [less-text/](less-text/plan.md) |
 | Summary strip: icon actions | Shipped | [archive/summary-strip-icons/](archive/summary-strip-icons/plan.md) |
 | Block graph past 6–7 blocks | Shipped | [archive/block-graph-scale/](archive/block-graph-scale/plan.md) |
 | Surplus rule: close a loop on purpose | Shipped | [archive/surplus-rule/](archive/surplus-rule/plan.md) |
