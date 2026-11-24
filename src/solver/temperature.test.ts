@@ -296,3 +296,24 @@ describe('flow keys of a fluid two areas touch', () => {
     expect(perArea).toEqual(wide)
   })
 })
+
+describe('a request for a range an area row also takes', () => {
+  // The area has a boiler (steam at 165) and a generator that takes steam of at most 200. A request for steam of at most 200 is on the same
+  // range as the generator's key in that area; the request's conversion must not be taken for the generator's one.
+  const now = new Date().toISOString()
+  const data = () => gameData([boiler('b165', 165), generator('gen', undefined, 200)], STEAM_ITEMS())
+  const inArea = (areaNodes: RecipeNode[]): Block => ({
+    id: 'A', name: 'A', color: '#60a5fa', products: [], sourceRules: {}, inputConnections: [],
+    rootPlan: { id: 'root-A', name: 'root-A', nodes: [], createdAt: now, updatedAt: now,
+      subPlans: [{ id: 'L', name: 'L', nodes: areaNodes, subPlans: [], area: true as const, createdAt: now, updatedAt: now }] },
+  })
+
+  it('delivers the range from the area that makes it, without a no-recipe warning', () => {
+    const plan = flattenBlock(inArea([node('b', 'b165'), node('g', 'gen')]))
+    plan.goals = [{ id: 'req', itemId: 'steam', rate: 10, temp: { max: 200 } }]
+    const { result } = solveBlock(plan, data())
+    expect(result.warnings.filter(w => w.type === 'no-recipe')).toEqual([])
+    expect(result.nodes.find(n => n.recipeNodeId === 'b')!.throughput).toBeCloseTo(10, 6)
+    expect(result.unsatisfied).toEqual([])
+  })
+})
