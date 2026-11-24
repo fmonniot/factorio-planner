@@ -924,7 +924,8 @@ function connectedCaps(block: Block, byId: Map<string, Block>, selfConnectionIds
  * Solve a block with the given goals and `caps`: what it would import (`received`) and its solved
  * nodes. Empty when there is nothing to solve; `failed` when the solver throws (the supply solve
  * reports the error, so a failing block asks for nothing). `cache` is the solve cache, or a memo
- * (block id + plan key → probe) for probes whose caps never change for a block.
+ * (block id + plan key + caps → probe) for one request pass. The caps stay in the key: a short block is probed capped and
+ * unlimited, and the two must not collide (a short cycle member; case 30 row h).
  */
 function probeBlock(
   block: Block,
@@ -974,8 +975,9 @@ interface Probe {
  * and its solved nodes come from `capped` (the item at its first-pass offer), what it needs of the short `items` themselves
  * (their request, credit and served need) from `unlimited`, as in the first pass.
  */
-function withShortNeeds(capped: Probe, unlimited: Probe, items: ReadonlySet<string>): Probe {
-  if (unlimited.failed) return unlimited
+export function withShortNeeds(capped: Probe, unlimited: Probe, items: ReadonlySet<string>): Probe {
+  // A failed probe has no `received`: fall back to the unlimited probe, i.e. the first pass's requests (a failed capped one would drop the block's other requests).
+  if (unlimited.failed || capped.failed) return unlimited
   const received = new Map(capped.received)
   for (const item of items) {
     const need = unlimited.received.get(item)
@@ -992,7 +994,7 @@ function withShortNeeds(capped: Probe, unlimited: Probe, items: ReadonlySet<stri
     }
     areaNeeds = merged
   }
-  return { received, nodes: capped.nodes, conversions: capped.conversions, failed: capped.failed, areaNeeds, areaKeyNeeds: capped.areaKeyNeeds }
+  return { received, nodes: capped.nodes, conversions: capped.conversions, failed: false, areaNeeds, areaKeyNeeds: capped.areaKeyNeeds }
 }
 
 /** What `applyTakeCredits` needs to credit the takes of a split fluid. */
