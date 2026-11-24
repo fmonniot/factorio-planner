@@ -236,7 +236,7 @@ const ok = (cond, msg) => { console.log((cond ? 'ok   ' : 'FAIL ') + msg); if (!
   await width(413)
   ok(/151 px/.test(await page.textContent('#ingRead')), 'and 151 px at 413 px')
   await page.uncheck('#condToggle')
-  ok(await page.$$eval('section.spec', s => s.map(x => x.id).join()) === 'decisions,pattern,products,ingredients,served,icons,open,build,accept', 'the spec sections are in the order the contents list gives')
+  ok(await page.$$eval('section.spec', s => s.map(x => x.id).join()) === 'decisions,pattern,products,ingredients,served,icons,open,build,accept,proposed', 'the spec sections are in the order the contents list gives')
   ok(await page.$$eval('.toc a', a => a.every(x => document.querySelector(x.getAttribute('href')))), 'every contents link has a target')
 
   await page.setViewportSize({ width: 390, height: 900 }); await page.waitForTimeout(200)
