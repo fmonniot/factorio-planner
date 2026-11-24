@@ -63,11 +63,19 @@ Follow-ups of the [surplus rule initiative](archive/surplus-rule/plan.md), which
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective. Two real plans show the objective matters more than the unit: the solver leaves rows at zero and lets an unwanted output pile up. The options (machines, priced surplus, required rows) and the measurements are in [surplus-aware-objective/](surplus-aware-objective/plan.md).
 - [ ] **Module warnings: recipe-level misfits and per-slot rings.** `module-not-allowed` judges the machine or beacon only. A module the recipe refuses (its limitation lists, or productivity on a recipe that disallows it) is not warned about, and the Machine section names the misfit modules in one message instead of ringing the slot that holds each.
 
+## Summary strip icons
+
+Follow-ups of the [summary strip icons initiative](archive/summary-strip-icons/plan.md), which shipped.
+
+- [ ] **Design the summary strip icons from scratch.** The current icons were drawn to fit the existing actions; redesign each one so its shape says what it means, and check each against its tooltip and label.
+- [ ] **Improve the popover that *Sources…* opens.** The popover built for the summary strip's Sources action still reads as a first draft; rework its layout and hierarchy so it fits the rest of the strip.
+
 ## UI / UX
 
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph). **Make in a new block…** records the request in the consumer's history while the new block becomes active, so undo then acts on the new block (nothing to undo) until the user switches back.
 - [~] **Keyboard navigation.** Arrow keys and Enter in the item and recipe pickers (they handle Escape only); shortcuts for add goal, undo, redo. Done: Escape closes modals, popovers and pickers, and the menus (`MenuButton`) and the Comes from control take arrow keys.
 - [ ] **Instant tooltips on the last native `title`s.** The block graph, the machine, module and beacon chips, `TechCost`, `MenuButton`, the workspace menu, the Products pane text, the strip and menu actions and the Sources list use `TooltipLayer` (see [spec/ui.md](../spec/ui.md#icon-chip)). Still native: the **Add product** button (about 42 `getByTitle('Add product')` locators in 19 files; one sed to `getByRole('button', { name: 'Add product' })` later), `RecipeRow` (13 sites; the recipe icon `[title="..."]` locators in about 15 e2e specs, the badges, the tiles), the side panel (group panel, beacons, sourcing, outputs, rate, machine, effects, module slot row, machine picker, research and recipe panels), `ConnectionMenu`, `ServedOrderPopover`, the area matrices, `BlockTabs`, `TableToolbar`, `SourceRuleMarker`, `SourceRulesButton`, `ComesFrom`, the default machines menu, the plan menu and name dialog, `HorizonPicker`, `AreaChipsMore` and the item and recipe pickers.
+- [ ] **Details and Sources panels: less text.** Both panels set long sentences in running prose, for example "Made here by Mono silicon (1 × Casting machine 4) and Quartz crucible (1 × Assembling machine 6)." Find a layout that shows the same facts without a wall of text (a list, a table, chips or icons with a tooltip, or a disclosure for the detail), and apply it to every sentence of this kind in both panels.
 
 ## Data sets
 
