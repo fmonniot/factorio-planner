@@ -9,6 +9,7 @@ import { Icon } from '../../Icon'
 import { fmtItemRateText } from '../ItemTile'
 import { useSourcingSentence } from '../useSourcingSentence'
 import { PanelSection } from './PanelParts'
+import { describedTip } from '../../tipProps'
 
 function SourcingEntry({ itemId, ratePerMin, gameData, areaId }: { itemId: string; ratePerMin: number | undefined; gameData: GameData; areaId: string | undefined }) {
   const block = useBlockStore(selectActiveBlock)
@@ -29,7 +30,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData, areaId }: { itemId: strin
         ) : (
           <span className="w-7 h-7 bg-gray-700 rounded text-[9px] text-gray-300 flex items-center justify-center shrink-0">{name.substring(0, 2).toUpperCase()}</span>
         )}
-        <span className="flex-1 min-w-0 text-xs text-gray-200 truncate" title={name}>{name}</span>
+        <span className="flex-1 min-w-0 text-xs text-gray-200 truncate" data-tip={name}>{name}</span>
         {ratePerMin !== undefined && (
           <span className="text-[11px] text-green-300 tabular-nums">{fmtItemRateText(itemId, ratePerMin / 60, unit)}</span>
         )}
@@ -39,7 +40,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData, areaId }: { itemId: strin
         type="button"
         data-testid="sourcing-change"
         aria-label={`Change where ${name} comes from`}
-        title={areaId !== undefined ? "Choose where this item comes from, for the block or for this row's area" : 'Choose where this item comes from, for every row of the block'}
+        {...describedTip(areaId !== undefined ? "Choose where this item comes from, for the block or for this row's area" : 'Choose where this item comes from, for every row of the block')}
         aria-haspopup="dialog"
         onClick={e => openComesFrom(itemId, anchorOf(e.currentTarget), areaId !== undefined ? { areaId } : undefined)}
         className="mt-1 bg-gray-900 border border-gray-700 rounded px-2 py-0.5 text-[11px] leading-4 text-gray-300 hover:border-gray-500"

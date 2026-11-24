@@ -1,6 +1,7 @@
 import type { BeaconConfig, GameData, GameRecipeNode } from '../../../data/types'
 import { PanelSection } from './PanelParts'
 import { fmtEffect, rowEffects, type EffectKey, type EffectSource } from './effects'
+import { describedTip } from '../../tipProps'
 
 const ROWS: { key: 'speed' | 'productivity' | 'consumption'; label: string }[] = [
   { key: 'speed', label: 'Speed' },
@@ -18,7 +19,7 @@ function Cell({ source, effect, column }: { source: EffectSource; effect: Effect
         role="cell"
         className={`text-right tabular-nums ${ignored ? 'text-amber-400 line-through' : 'text-gray-400'}`}
         data-ignored={ignored ? 'true' : undefined}
-        title={ignored ? `${column}: ${fmtEffect(raw)} does not apply to this row (the recipe, machine or beacon does not allow it)` : undefined}
+        {...describedTip(ignored ? `${column}: ${fmtEffect(raw)} does not apply to this row (the recipe, machine or beacon does not allow it)` : undefined)}
       >
         {ignored ? fmtEffect(raw) : '–'}
       </div>

@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { BeaconsSection } from './BeaconsSection'
 import { fitModules } from './moduleSlots'
+import { expectTip } from '../../../test/byTip'
 import { EffectsSection } from './EffectsSection'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
 import type { BeaconConfig, GameData, GameRecipeNode } from '../../../data/types'
@@ -95,7 +96,8 @@ describe('BeaconsSection — the card', () => {
   it('shows the beacon count, the type, one button per module slot and the efficiency line', () => {
     renderBeacons(makeGameData())
     expect(screen.getByLabelText('Beacon count')).toHaveValue(4)
-    expect(screen.getByTestId('beacon-type-button')).toHaveAttribute('title', 'Beacon')
+    expect(screen.getByTestId('beacon-type-button')).toHaveAttribute('data-tip', 'Beacon')
+    expect(screen.getByTestId('beacon-type-button')).not.toHaveAttribute('title')
     expect(screen.getAllByTestId('beacon-module-slot')).toHaveLength(2)
     expect(screen.getByTestId('beacon-summary')).toHaveTextContent('150% efficiency')
   })
@@ -206,7 +208,8 @@ describe('BeaconsSection — several configurations', () => {
     renderBeacons(makeGameData())
     const add = screen.getByRole('button', { name: '+ Add beacon configuration' })
     expect(add).toBeEnabled()
-    expect(add).toHaveAttribute('title', 'Add a beacon configuration')
+    expectTip(add, 'Add a beacon configuration', { describe: false })
+    expect(add).not.toHaveAccessibleDescription()
   })
 
   it('adds a second card with the default configuration', () => {
@@ -317,14 +320,14 @@ describe('BeaconsSection — research horizon', () => {
     render(<BeaconsSection node={rowNode()} configs={[]} gameData={gd} onChange={() => {}} />)
     const add = screen.getByTestId('add-beacon-config')
     expect(add).toBeDisabled()
-    expect(add).toHaveAttribute('title', 'No machine within research horizon')
+    expectTip(add, 'No machine within research horizon')
   })
 
   it('disables adding when no beacon is within the horizon', () => {
     setRows(rowNode())
     useBlockStore.setState({ horizonTechnologyIds: ['base'] })
     render(<BeaconsSection node={rowNode()} configs={[]} gameData={makeGameData()} onChange={() => {}} />)
-    expect(screen.getByTestId('add-beacon-config')).toHaveAttribute('title', 'No beacon within the research horizon')
+    expectTip(screen.getByTestId('add-beacon-config'), 'No beacon within the research horizon')
   })
 
   it('disables adding when no module is within the horizon', () => {
@@ -334,7 +337,7 @@ describe('BeaconsSection — research horizon', () => {
     setRows(rowNode())
     useBlockStore.setState({ horizonTechnologyIds: ['base'] })
     render(<BeaconsSection node={rowNode()} configs={[]} gameData={gd} onChange={() => {}} />)
-    expect(screen.getByTestId('add-beacon-config')).toHaveAttribute('title', 'No module within the research horizon')
+    expectTip(screen.getByTestId('add-beacon-config'), 'No module within the research horizon')
   })
 })
 
@@ -385,6 +388,9 @@ describe('EffectsSection', () => {
     gd.recipes['iron-plate'].allowProductivity = true
     renderEffects(gd, rowNode({ machineId: 'am1', beaconConfigs: [beacon({ modules: [{ moduleId: 'prod-3', count: 2 }] })] }))
     expect(screen.getByTestId('recipe-effects-note')).toHaveTextContent('productivity of the beacons')
+    const ignored = document.querySelector<HTMLElement>('[role="cell"][data-ignored="true"]')!
+    expect(ignored).toHaveAccessibleDescription(/does not apply to this row/)
+    expect(ignored).not.toHaveAttribute('title')
     expect(screen.getByTestId('effect-total-productivity')).toHaveTextContent('–')
   })
 

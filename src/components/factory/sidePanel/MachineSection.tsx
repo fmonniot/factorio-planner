@@ -14,6 +14,7 @@ import { FuelPicker } from './FuelPicker'
 import { ModuleSlotRow } from './ModuleSlotRow'
 import { setSlot, slotsOf } from './moduleSlots'
 import { machineModuleOptions } from './moduleOptions'
+import { describedTip } from '../../tipProps'
 
 /** "X exact · Y% busy" of a row's machines. */
 function utilisation(solved: SolvedNode | undefined): string | undefined {
@@ -69,7 +70,7 @@ export function MachineSection({ node, solved, gameData }: {
                 type="button"
                 data-testid="machine-picker-button"
                 aria-expanded={open}
-                title={machine?.name ?? 'Select machine'}
+                data-tip={machine?.name ?? 'Select machine'}
                 aria-label={`Machine: ${machine?.name ?? 'none'}`}
                 onClick={toggle}
                 className={`flex items-center gap-1 rounded px-1 py-0.5 bg-gray-800 hover:bg-gray-700 ${row.beyondHorizon || row.noMachineInHorizon ? 'ring-1 ring-amber-500' : ''}`}
@@ -152,7 +153,7 @@ export function MachineSection({ node, solved, gameData }: {
           <button
             type="button"
             data-testid="apply-to-recipe-rows"
-            title={`Copy this row's machine, fuel and modules to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`}
+            {...describedTip(`Copy this row's machine, fuel and modules to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`)}
             onClick={() => applyRowSettingsToRecipe(node.id, 'machine')}
             className="text-xs text-teal-400 hover:text-teal-300"
           >

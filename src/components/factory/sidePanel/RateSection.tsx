@@ -50,6 +50,10 @@ export function RateSection({ node, solved, gameData }: {
     if (isFinite(v) && v > 0) updateNodePinnedRate(node.id, (unit === 'min' ? v : v * 60) / primaryPerRun)
   }
 
+  const pinReason = absorbs && !pinned
+    ? 'A row that absorbs a byproduct runs on surplus and cannot be pinned'
+    : feeds && !pinned ? 'A row that feeds absorbing rows runs as much as they need and cannot be pinned' : undefined
+
   return (
     <PanelSection title="Rate" testId="panel-rate">
       {/*
@@ -60,9 +64,7 @@ export function RateSection({ node, solved, gameData }: {
       <div className="flex items-center gap-x-4 gap-y-1 flex-wrap">
         <label
           className="relative flex items-center gap-2 text-xs text-gray-200 min-h-7 cursor-pointer has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
-          title={absorbs && !pinned
-            ? 'A row that absorbs a byproduct runs on surplus and cannot be pinned'
-            : feeds && !pinned ? 'A row that feeds absorbing rows runs as much as they need and cannot be pinned' : undefined}
+          data-tip={pinReason}
         >
           {/* The native checkbox stays the control (keyboard, label click, form semantics); it is laid invisibly over the track. */}
           <input
@@ -70,10 +72,11 @@ export function RateSection({ node, solved, gameData }: {
             role="switch"
             checked={pinned}
             disabled={(absorbs || feeds) && !pinned}
+            aria-description={pinReason}
             onChange={e => togglePin(e.target.checked)}
             data-testid="pin-checkbox"
             aria-describedby={pinned ? pinNoteId : undefined}
-            className="peer absolute inset-0 m-0 h-full w-full cursor-[inherit] opacity-0"
+            className="peer absolute inset-0 m-0 h-full w-full cursor-[inherit] opacity-0 disabled:pointer-events-none"
           />
           <span
             aria-hidden="true"
@@ -84,7 +87,7 @@ export function RateSection({ node, solved, gameData }: {
         {pinned ? (
           <div
             className="flex items-center gap-2"
-            title={PIN_NOTE}
+            data-tip={PIN_NOTE}
           >
             <input
               type="number"

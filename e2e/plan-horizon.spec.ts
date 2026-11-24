@@ -373,7 +373,7 @@ test.describe('Plan horizon: machines and modules', () => {
     await row.getByLabel('Add beacon', { exact: true }).click()
     await page.locator('[data-testid="module-fill-option"][data-module-id="speed-module"]').click()
     await expect(sidePanel(page).getByRole('heading', { name: 'Beacons' })).toBeVisible()
-    await expect(sidePanel(page).getByTitle('Beacon', { exact: true })).toBeVisible()
+    await expect(sidePanel(page).locator('[data-testid="beacon-type-button"][data-tip="Beacon"]')).toBeVisible()
   })
 })
 
