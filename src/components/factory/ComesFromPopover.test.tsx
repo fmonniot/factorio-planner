@@ -292,3 +292,11 @@ describe('Receive from… in the popover', () => {
     expect(screen.queryByTestId('comes-from-popover')).not.toBeInTheDocument()
   })
 })
+
+describe('on a short window', () => {
+  it('is capped at the window and scrolls, so the foot of the list stays reachable', () => {
+    render(<ComesFromPopover hasSlot={() => false} />)
+    open('ore')
+    expect(popover()).toHaveClass('max-h-[calc(100vh-1rem)]', 'overflow-y-auto')
+  })
+})

@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { areaName as areaNameOf } from '../../data/subPlanTree'
 import type { Product } from '../../data/types'
@@ -73,7 +73,7 @@ export function SourcesList({ view, id, onScope }: {
   /** Switches the control's scope (an area's block lines point to the whole block). */
   onScope: (area: string | undefined) => void
 }) {
-  const { block, blocks, flows, itemId, name, unit, rate, solved, area, makeHere, drawnSide, sideKey, makers, rows, model } = view
+  const { block, blocks, flows, itemId, name, unit, rate, solved, area, makeHere, drawnSide, makers, rows, model } = view
   const setMakeHere = useBlockStore(s => s.setMakeHere)
   const toggleImportOff = useBlockStore(s => s.toggleImportOff)
   const setAreaMakeHere = useBlockStore(s => s.setAreaMakeHere)
@@ -85,11 +85,6 @@ export function SourcesList({ view, id, onScope }: {
   const moveConnectionBy = useBlockStore(s => s.moveConnectionBy)
   const addProduct = useBlockStore(s => s.addProduct)
   const openConnectionMenu = useUiStore(s => s.openConnectionMenu)
-  const setSourcesSide = useUiStore(s => s.setSourcesSide)
-
-  useEffect(() => {
-    if (drawnSide) setSourcesSide(sideKey, itemId, drawnSide)
-  }, [sideKey, itemId, drawnSide, setSourcesSide])
   const listId = useId()
   const listRef = useRef<HTMLUListElement>(null)
   // A move reorders the keyed lines and the browser drops the focus of the one that moved: put it back (a selector, on `refocus`).
@@ -113,7 +108,7 @@ export function SourcesList({ view, id, onScope }: {
   const [lineDrop, setLineDrop] = useState<{ id: string; side: 'before' | 'after' } | null>(null)
   // The connection whose limit is being typed.
   const [editingLimit, setEditingLimit] = useState<string | null>(null)
-  const [pending, setPending] = useState<{ sourceId: string; product: Product; effects: ProductChangeEffect[] } | null>(null)
+  const [pending, setPending] = useState<{ sourceId: string; product: Product; effects: ProductChangeEffect[]; connectionId: string } | null>(null)
 
   const blockById = new Map(blocks.map(b => [b.id, b]))
   const connections = block.inputConnections.filter(c => c.itemId === itemId)
@@ -155,13 +150,16 @@ export function SourcesList({ view, id, onScope }: {
   }
 
   /** *Make it a product* on the source of a line: asks first when other blocks' connections change meaning. */
-  function requestSourceProduct(sourceId: string) {
+  function requestSourceProduct(sourceId: string, connectionId: string) {
     const source = blockById.get(sourceId)
     if (!source || hasProduct(source, itemId)) return
     const product: Product = { id: crypto.randomUUID(), itemId }
     const effects = productChangeEffects(blocks, sourceId, itemId, 'add', flows)
-    if (effects.length === 0) addProduct(product, sourceId)
-    else setPending({ sourceId, product, effects })
+    // The button goes with the product: the focus goes to the line's toggle (after the dialog, when it asks).
+    if (effects.length === 0) {
+      refocus.current = `[data-connection-id="${connectionId}"] [data-testid="sources-line-toggle"]`
+      addProduct(product, sourceId)
+    } else setPending({ sourceId, product, effects, connectionId })
   }
 
   function endDrag() {
@@ -209,6 +207,7 @@ export function SourcesList({ view, id, onScope }: {
       onDrop: e => {
         if (dragRef.current !== 'make-here') return
         e.preventDefault()
+        refocus.current = '[data-line="make-here"] [data-testid="sources-line-toggle"]'
         placeMakeMore(sideOf(e) === 'before' ? 'above' : 'below')
         endDrag()
       },
@@ -252,7 +251,7 @@ export function SourcesList({ view, id, onScope }: {
         e.preventDefault()
         const t = target(e)
         if (moves(dragId, t.beforeId)) {
-          refocus.current = `[data-connection-id="${dragId}"]`
+          refocus.current = `[data-connection-id="${dragId}"] [data-testid="sources-line-toggle"]`
           moveConnection(dragId, t.beforeId)
         }
         endDrag()
@@ -278,7 +277,7 @@ export function SourcesList({ view, id, onScope }: {
         const dragId = draggedRow()
         if (dragId === null) return group.onDrop(e)
         e.preventDefault()
-        refocus.current = `[data-connection-id="${dragId}"]`
+        refocus.current = `[data-connection-id="${dragId}"] [data-testid="sources-line-toggle"]`
         moveConnection(dragId, null)
         endDrag()
       },
@@ -299,7 +298,7 @@ export function SourcesList({ view, id, onScope }: {
     if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
     // The block lines are the block's: an area's list cannot reorder them.
     if (area !== undefined && line.kind === 'block') return
-    const move = altMoveTarget(line.key, e.key === 'ArrowUp' ? -1 : 1, { connectionIds: connections.map(c => c.id), makeHere })
+    const move = altMoveTarget(line.key, e.key === 'ArrowUp' ? -1 : 1, { connectionIds: connections.map(c => c.id), makeHere, greyed: new Set(rows.filter(r => r.greyed).map(r => r.connection.id)) })
     if (!move) return
     e.preventDefault()
     if (move.type === 'connection') {
@@ -393,7 +392,7 @@ export function SourcesList({ view, id, onScope }: {
                           ? [{
                               label: 'Make it a product', icon: 'make-product', testId: 'sources-make-product', describedBy: detailId,
                               ariaDisabled: row.productBlocked !== undefined, title: row.productBlocked,
-                              onSelect: () => requestSourceProduct(c.fromBlockId),
+                              onSelect: () => requestSourceProduct(c.fromBlockId, c.id),
                             } satisfies StripAction]
                           : []),
                         ...(!row.greyed
@@ -622,9 +621,13 @@ export function SourcesList({ view, id, onScope }: {
           blockName={blockById.get(pending.sourceId)?.name ?? ''}
           effects={pending.effects}
           rateUnit={unit}
-          onCancel={() => setPending(null)}
+          onCancel={() => {
+            refocus.current = `[data-connection-id="${pending.connectionId}"] [data-testid="sources-line-toggle"]`
+            setPending(null)
+          }}
           onConfirm={() => {
             // The store refuses a second product of the item, so a source that gained it meanwhile makes this a no-op.
+            refocus.current = `[data-connection-id="${pending.connectionId}"] [data-testid="sources-line-toggle"]`
             addProduct(pending.product, pending.sourceId)
             setPending(null)
           }}

@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { areaIdsOf, areaName as areaNameOf, effectiveAreaRule, storedAreaRule } from '../../data/subPlanTree'
 import { blockAreas } from '../../solver/areas'
 import { hasProduct } from '../../solver/blockGraph'
@@ -131,6 +131,25 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
   )
   // An area whose flag went off is no area: the control falls back to the whole block (an undo brings the area back).
   const area = scope !== undefined && areaIds.has(scope) ? scope : undefined
+  // A link that removes itself on click leaves the focus on <body>: it names where the focus goes once the view has changed
+  // (a selector inside the control), the scope's button of the new scope, or the header's Sources toggle.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const refocus = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    const selector = refocus.current
+    refocus.current = null
+    if (!selector) return
+    const root = rootRef.current
+    ;(root?.querySelector<HTMLElement>(selector) ?? root?.querySelector<HTMLElement>('[data-testid="sources-button"]'))?.focus()
+  })
+  const changeScope = (next: string | undefined) => {
+    refocus.current = `[data-testid="comes-from-scope"] [data-scope="${next ?? 'block'}"]`
+    setScope(next)
+  }
+  const clearOwnRule = (areaId: string) => {
+    refocus.current = '[data-testid="sources-button"]'
+    clearAreaRule(areaId, itemId)
+  }
   const sentence = useSourcingSentence(itemId, gameData, area)
   const unit = useUiStore(s => s.rateUnit)
   // The strip's control draws neither the list nor the bar, so it does none of the work.
@@ -289,9 +308,9 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
     ? (
         <div data-testid="comes-from-scope" data-tip={scopeHint}>
           <Segmented label="Scope" size="xs">
-            <Segment pressed={area === undefined} data-scope="block" onClick={() => setScope(undefined)}>Whole block</Segment>
+            <Segment pressed={area === undefined} data-scope="block" onClick={() => changeScope(undefined)}>Whole block</Segment>
             {scopeAreas.map(a => (
-              <Segment key={a.id} pressed={area === a.id} data-scope={a.id} onClick={() => setScope(a.id)}>{areaNameOf(block.rootPlan, a.id)}</Segment>
+              <Segment key={a.id} pressed={area === a.id} data-scope={a.id} onClick={() => changeScope(a.id)}>{areaNameOf(block.rootPlan, a.id)}</Segment>
             ))}
           </Segmented>
         </div>
@@ -319,7 +338,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
     const chip = ruleChipOf(view.rule, { area, ownRule: stored !== undefined })
     const ownRuleAreas = area === undefined ? (blockAreas(block.rootPlan) ?? []).filter(a => storedAreaRule(block.rootPlan, a.id, itemId) !== undefined) : []
     return (
-      <div role="group" aria-label={COMES_FROM_LABEL} data-testid="comes-from" className={rootClass}>
+      <div role="group" aria-label={COMES_FROM_LABEL} data-testid="comes-from" ref={rootRef} className={rootClass}>
         {header}
         <SourcesBar view={view} />
         <div className="flex flex-col gap-0.5">
@@ -336,7 +355,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
                 {chip.text}
               </span>
               {area !== undefined && stored !== undefined && (
-                <button type="button" data-testid="use-block-rule" aria-label="Use the block's rule" onClick={() => clearAreaRule(area, itemId)} className={LINK_BUTTON_CLASS}>
+                <button type="button" data-testid="use-block-rule" aria-label="Use the block's rule" onClick={() => clearOwnRule(area)} className={LINK_BUTTON_CLASS}>
                   Use the block&apos;s
                 </button>
               )}
@@ -345,14 +364,14 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
           {ownRuleAreas.length > 0 && (
             <div className="flex flex-wrap justify-end gap-x-2">
               {ownRuleAreas.map(a => (
-                <button key={a.id} type="button" data-testid="area-own-rule" data-area-id={a.id} onClick={() => setScope(a.id)} className={LINK_BUTTON_CLASS}>
+                <button key={a.id} type="button" data-testid="area-own-rule" data-area-id={a.id} onClick={() => changeScope(a.id)} className={LINK_BUTTON_CLASS}>
                   {areaNameOf(block.rootPlan, a.id)} has its own
                 </button>
               ))}
             </div>
           )}
         </div>
-        <SourcesList id={`${baseId}-sources`} view={view} onScope={setScope} />
+        <SourcesList id={`${baseId}-sources`} view={view} onScope={changeScope} />
         {takerNotes}
         {noEffectList}
         <div data-testid="leftover-row" className="flex items-center gap-1.5 border-t border-gray-700/70 pt-1.5 text-[11px] text-gray-400">
@@ -364,7 +383,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
               : (
                   <>
                     {LEFTOVER_ROW.areaReading}{' '}
-                    <button type="button" data-testid="leftover-whole-block" aria-label={`${LEFTOVER_BLOCK_BUTTON}: change Leftover`} onClick={() => setScope(undefined)} className={LINK_BUTTON_CLASS}>{LEFTOVER_ROW.changeLabel}</button>
+                    <button type="button" data-testid="leftover-whole-block" aria-label={`${LEFTOVER_BLOCK_BUTTON}: change Leftover`} onClick={() => changeScope(undefined)} className={LINK_BUTTON_CLASS}>{LEFTOVER_ROW.changeLabel}</button>
                   </>
                 )}
           </span>
@@ -374,16 +393,18 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
             testId="leftover-switch"
             compact
             ariaDisabled={area !== undefined}
+            describedBy={area !== undefined ? `${baseId}-leftover-reason` : undefined}
             tip={LEFTOVER_SWITCH.title}
             onToggle={() => toggleLeftoverOff(itemId)}
           />
+          <span id={`${baseId}-leftover-reason`} className="sr-only">{LEFTOVER_BLOCK_NOTE}</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div role="group" aria-label={COMES_FROM_LABEL} data-testid="comes-from" className={rootClass}>
+    <div role="group" aria-label={COMES_FROM_LABEL} data-testid="comes-from" ref={rootRef} className={rootClass}>
       {header}
       {view && <SourcesBar view={view} />}
       {sentenceRow}
@@ -392,7 +413,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
       {area !== undefined && (
         <div className="flex flex-wrap items-center justify-end gap-x-2">
           <span data-testid="leftover-block-note" className="text-[11px] text-gray-500">{LEFTOVER_BLOCK_NOTE}</span>
-          <button type="button" data-testid="leftover-whole-block" aria-label={`${LEFTOVER_BLOCK_BUTTON}: change Leftover`} onClick={() => setScope(undefined)} className={MINI_BUTTON_CLASS}>{LEFTOVER_BLOCK_BUTTON}</button>
+          <button type="button" data-testid="leftover-whole-block" aria-label={`${LEFTOVER_BLOCK_BUTTON}: change Leftover`} onClick={() => changeScope(undefined)} className={MINI_BUTTON_CLASS}>{LEFTOVER_BLOCK_BUTTON}</button>
         </div>
       )}
       {takerNotes}
@@ -402,7 +423,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
           ? <p data-testid="follows-block-rule" className="text-[11px] leading-snug text-gray-400">Follows the block&apos;s rule</p>
           : (
               <div className="flex">
-                <button type="button" data-testid="use-block-rule" onClick={() => clearAreaRule(area, itemId)} className={MINI_BUTTON_CLASS}>
+                <button type="button" data-testid="use-block-rule" onClick={() => clearOwnRule(area)} className={MINI_BUTTON_CLASS}>
                   Use the block&apos;s rule
                 </button>
               </div>

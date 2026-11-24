@@ -486,6 +486,18 @@ describe('focus', () => {
   })
 })
 
+describe('the side of Make more here, from the compact view', () => {
+  it('is recorded when a preset is chosen there, so the list draws the dimmed line where it was', () => {
+    setup({ sourceRules: { ore: { makeHere: 'after-blocks' } } })
+    render(<ComesFrom itemId="ore" />)
+    fireEvent.click(document.querySelector('[data-sourcing-choice="byproducts-first"]')!)
+    expect(ruleOf()).toEqual({ makeHere: 'off' })
+    fireEvent.click(screen.getByTestId('sources-button'))
+    expect(lines()).toEqual(BELOW)
+    expect(line('make-here')).toHaveAttribute('data-off', 'true')
+  })
+})
+
 describe('Alt+Arrow', () => {
   const alt = (el: Element, key: 'ArrowUp' | 'ArrowDown') => fireEvent.keyDown(el, { key, altKey: true })
   const toggleOf = (li: HTMLElement) => within(li).getByTestId('sources-line-toggle')
@@ -667,9 +679,12 @@ describe('the block lines', () => {
       expect(byId('beta').products).toEqual([])
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
       expect(byId('beta').products).toEqual([])
+      expect(document.activeElement).toBe(within(row('c2')).getByTestId('sources-line-toggle'))
       fireEvent.click(within(row('c2')).getByTestId('sources-make-product'))
       fireEvent.click(within(screen.getByTestId('product-change-confirm')).getByRole('button', { name: 'Make it a product' }))
       expect(byId('beta').products).toMatchObject([{ itemId: 'ore' }])
+      // The button went with the product: the focus is on the line's toggle, not <body>.
+      expect(document.activeElement).toBe(within(row('c2')).getByTestId('sources-line-toggle'))
       expect(useBlockStore.getState().activeBlockId).toBe('main')
       expect(useBlockStore.getState().history.beta.undoStack).toHaveLength(1)
       expect(within(row('c2')).getByTestId('sources-block-tag')).toHaveAttribute('data-tag', 'requested')
@@ -701,6 +716,15 @@ describe('the block lines', () => {
       toggleLine(row('c1'))
       fireEvent.click(within(row('c1')).getByTestId('sources-block-remove'))
       expect(order()).toEqual(['c2', 'c3'])
+    })
+
+    it('cannot be moved with Alt+Arrow either', () => {
+      twoSources({ inputConnections: [{ id: 'c1', fromBlockId: 'gone', itemId: 'ore' }, { id: 'c2', fromBlockId: 'main', itemId: 'ore' }, { id: 'c3', fromBlockId: 'alpha', itemId: 'ore' }] })
+      openList()
+      for (const [id, key] of [['c1', 'ArrowDown'], ['c2', 'ArrowDown'], ['c2', 'ArrowUp']] as const) {
+        fireEvent.keyDown(within(row(id)).getByTestId('sources-line-toggle'), { key, altKey: true })
+      }
+      expect(order()).toEqual(['c1', 'c2', 'c3'])
     })
   })
 
@@ -826,6 +850,8 @@ describe('the block lines', () => {
       expect(within(row('c1')).getByTestId('sources-drop-line')).toHaveAttribute('data-side', 'before')
       at('drop', row('c1'), 105)
       expect(order()).toEqual(['c3', 'c1', 'c2'])
+      // The focus follows the line that moved: on its toggle, since the line itself takes none.
+      expect(document.activeElement).toBe(within(row('c3')).getByTestId('sources-line-toggle'))
 
       fireEvent.dragStart(row('c3'), { dataTransfer: dt() })
       at('dragOver', row('c1'), 115)
@@ -1052,6 +1078,50 @@ describe('at area scope', () => {
     fireEvent.click(within(blockLine).getByTestId('sources-whole-block'))
     expect(screen.getByRole('button', { name: 'Whole block' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByTestId('sources-whole-block')).not.toBeInTheDocument()
+    // The button is gone: the focus is on the scope's new button, not <body>.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Whole block' }))
+  })
+
+  it('keeps the focus inside the control when Leftover change, Use the block\'s or an area link remove themselves', () => {
+    setupAreas()
+    useBlockStore.setState(st => ({
+      blocks: st.blocks.map(b => b.id === 'main' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => sp.id === 'L' ? { ...sp, sourceRules: { ore: { importOff: true } } } : sp) } } : b),
+    }))
+    openAreaList()
+    // The Leftover row says it is the block's rule, and describes the inert switch with it.
+    const sw = screen.getByTestId('leftover-switch')
+    expect(sw).toHaveAttribute('aria-disabled', 'true')
+    expect(document.getElementById(sw.getAttribute('aria-describedby')!)).toHaveTextContent(/block/i)
+    fireEvent.click(screen.getByTestId('use-block-rule'))
+    expect(screen.queryByTestId('use-block-rule')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByTestId('sources-button'))
+    fireEvent.click(screen.getByTestId('leftover-whole-block'))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Whole block' }))
+  })
+
+  it('moves the focus to the area\'s scope button when its "has its own" link goes', () => {
+    setupAreas()
+    useBlockStore.setState(st => ({
+      blocks: st.blocks.map(b => b.id === 'main' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => sp.id === 'L' ? { ...sp, sourceRules: { ore: { importOff: true } } } : sp) } } : b),
+    }))
+    render(<ComesFrom itemId="ore" />)
+    fireEvent.click(screen.getByTestId('sources-button'))
+    fireEvent.click(screen.getByTestId('area-own-rule'))
+    expect(screen.queryByTestId('area-own-rule')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Line L' }))
+  })
+
+  it('reads Import as imported, not missing, when an area imports what the block\'s Import off would leave', () => {
+    setupAreas({ block: { ore: { importOff: true } } })
+    useBlockStore.setState(st => ({
+      blocks: st.blocks.map(b => b.id === 'main' ? { ...b, rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(sp => sp.id === 'L' ? { ...sp, sourceRules: { ore: { makeHere: 'after-blocks' as const } } } : sp) } } : b),
+    }))
+    render(<ComesFrom itemId="ore" />)
+    fireEvent.click(screen.getByTestId('sources-button'))
+    solve([into(undefined, 20, 0)], [{ itemId: 'ore', rate: 20 }])
+    expect(reading(line('import'))).toBe('20.0/m')
+    expect(screen.queryByTestId('sources-foot-missing')).not.toBeInTheDocument()
+    expect(screen.getByTestId('sources-foot')).toHaveAttribute('data-missing', '0')
   })
 
   it('has one Other areas line saying so when no other area makes the item', () => {
@@ -1070,7 +1140,7 @@ describe('at area scope', () => {
     fireEvent.click(screen.getByTestId('sources-make-after'))
     expect(lines()).toEqual(['made-here', 'add-block', 'make-here', 'other-area', 'other-area', 'import'])
     expect(useUiStore.getState().sourcesSides['main/L:ore']).toBe('below')
-    expect(useUiStore.getState().sourcesSides['main:ore']).toBeUndefined()
+    expect(useUiStore.getState().sourcesSides['main:ore']).not.toBe('below')
   })
 
   it('draws the list of the block when the area flag goes off', () => {
@@ -1126,13 +1196,13 @@ describe('what the rate column and the foot read', () => {
     expect(screen.getAllByTestId('sources-line').at(-1)!.nextElementSibling).toBe(foot)
   })
 
-  it('names what is missing in the foot with Import off, and still reaches the need', () => {
+  it('names what is missing in the foot with Import off, and totals only what reaches the rows', () => {
     solvedMix()
     openList()
     fireEvent.click(screen.getByTestId('sources-import-switch'))
     expect(screen.getByTestId('sources-foot')).toHaveAttribute('data-missing', '10')
     expect(screen.getByTestId('sources-foot-missing')).toHaveTextContent('10.0/m missing')
-    expect(screen.getByTestId('sources-foot-total')).toHaveTextContent('100/m')
+    expect(screen.getByTestId('sources-foot-total')).toHaveTextContent('90.0/m')
   })
 
   it('reads — in the foot before the first solve', () => {

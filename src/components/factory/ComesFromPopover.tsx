@@ -61,7 +61,8 @@ export function ComesFromPopover({ hasSlot }: {
       const el = ref.current
       if (!el || !anchor) return
       const w = el.offsetWidth
-      const h = el.offsetHeight
+      // Taller than the window: it scrolls (the cap is in the class), and is placed as tall as the window allows.
+      const h = Math.min(el.offsetHeight, document.documentElement.clientHeight - 2 * MARGIN)
       const vw = document.documentElement.clientWidth
       const vh = document.documentElement.clientHeight
       const { rect, avoid } = liveAnchor(anchor)
@@ -113,7 +114,7 @@ export function ComesFromPopover({ hasSlot }: {
       data-item-id={popover.itemId}
       onKeyDown={keepTabInside}
       style={{ position: 'fixed', top: 0, left: 0 }}
-      className="z-50 flex w-[340px] max-w-[calc(100vw-1rem)] flex-col gap-2 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl px-3 py-2.5 text-left"
+      className="z-50 flex w-[340px] max-h-[calc(100vh-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto gap-2 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl px-3 py-2.5 text-left"
     >
       <ComesFrom
         key={`${popover.itemId}:${popover.seq ?? 0}`}

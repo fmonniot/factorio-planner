@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { areaIdsOf, effectiveAreaRule, storedAreaRule } from '../../data/subPlanTree'
 import { areaLPItems, blockAreas } from '../../solver/areas'
 import { flattenBlock } from '../../solver/index'
@@ -7,6 +7,7 @@ import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
 import { areaSupply, supplierLines } from './areaSources'
+import { areaMissingOf } from './summaryRows'
 import { fmtItemRateText } from './ItemTile'
 import { sourcesLineOrder } from './itemSourcing'
 import type { Side } from './itemSourcing'
@@ -41,6 +42,12 @@ export function useSourcesModel(itemId: string, areaId: string | undefined, enab
   const drawnSide: Side | undefined = makeHere === 'after-blocks' ? 'below' : makeHere === undefined ? 'above' : undefined
   const lastSide: Side = drawnSide ?? storedSide ?? 'above'
 
+  // Remember where *Make more here* is drawn, in every view of the control: a preset chosen in the compact view moves it too.
+  const setSourcesSide = useUiStore(s => s.setSourcesSide)
+  useEffect(() => {
+    if (sideKey && drawnSide) setSourcesSide(sideKey, itemId, drawnSide)
+  }, [sideKey, itemId, drawnSide, setSourcesSide])
+
   const hasAreas = useMemo(() => rootPlan !== undefined && blockAreas(rootPlan) !== undefined, [rootPlan])
   const makers = useMemo(
     () => (enabled && block && gameData ? itemMakers(block, gameData, result, itemId, area) : []),
@@ -67,6 +74,17 @@ export function useSourcesModel(itemId: string, areaId: string | undefined, enab
   )
   // A split fluid can be imported over several ranges: all of them count.
   const unsatisfied = (result?.unsatisfied ?? []).filter(u => u.itemId === itemId).reduce((t, u) => t + u.rate, 0)
+  // Block scope: what areas with Import off leave missing of it, the way the Ingredients slot reads it (undefined: the block's rule decides).
+  const areaMissing = useMemo(() => {
+    if (area !== undefined || !enabled || !rootPlan || !block || !result?.areaRoutes) return undefined
+    const missingOf = areaMissingOf(block.sourceRules, rootPlan, result.areaRoutes)
+    let sum: number | undefined
+    for (const u of result.unsatisfied.filter(u => u.itemId === itemId)) {
+      const m = missingOf(itemId, u.rate, u.temp)
+      if (m !== undefined) sum = (sum ?? 0) + m
+    }
+    return sum
+  }, [area, enabled, rootPlan, block, result, itemId])
   // At area scope: the area's own figure (areaSupply), not the block's.
   const supply = area !== undefined ? areaSupply(result?.areaRoutes, itemId, area, rule ?? {}, unsatisfied, split) : undefined
 
@@ -75,7 +93,7 @@ export function useSourcesModel(itemId: string, areaId: string | undefined, enab
     [makeHere, hasAreas, lastSide, suppliers],
   )
   if (!block || !gameData || !enabled) return undefined
-  const model = buildSourcesModel({ block, result, itemId, area, rule, makers, suppliers, supply, unsatisfied, rows, order })
+  const model = buildSourcesModel({ block, result, itemId, area, rule, makers, suppliers, supply, unsatisfied, areaMissing, rows, order })
   return {
     block, blocks, flows, gameData, itemId, name, unit, rate, solved: result !== undefined, area, rule, stored, makeHere, drawnSide, lastSide,
     sideKey: sideKey!, hasAreas, makers, suppliers, rows, supply, unsatisfied, order, model, importOn: !rule?.importOff,

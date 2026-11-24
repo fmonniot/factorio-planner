@@ -46,11 +46,14 @@ export interface SourceLine {
 export interface SourcesModel {
   /** Display order, one block line per connection. */
   lines: SourceLine[]
-  /** items/min the rows consume of the item; undefined before the first solve. */
+  /**
+   * items/min of the item that reach the block or area: what its rows consume, or more when the item passes through (a product of
+   * the block, whose connections and imports bring more than the rows use). Undefined before the first solve.
+   */
   need: number | undefined
   /** items/min missing (Import off and nothing else supplies it). */
   missing: number
-  /** Sum of the lines' rates. */
+  /** What actually reaches the rows: the sum of the lines' rates, less the missing part. */
   total: number
   /** The supplying lines, in list order. */
   bar: { key: string; label: string; rate: number; look: LineLook }[]
@@ -69,6 +72,11 @@ export interface SourcesModelInput {
   supply: AreaSupply | undefined
   /** The block's own unsatisfied rate of the item. */
   unsatisfied: number
+  /**
+   * At block scope, the part of `unsatisfied` that is missing when areas with a rule of their own decide it (`areaMissingPerMin`);
+   * undefined when none has one, so the block's rule alone decides.
+   */
+  areaMissing?: number
   rows: BlockRow[]
   /** The lines top to bottom (`sourcesLineOrder`). */
   order: LineKey[]
@@ -88,15 +96,16 @@ export function consumedOf(result: SolverResult | undefined, itemId: string, nod
 const MADE: LineLook = { kind: 'made' }
 
 export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
-  const { block, result, itemId, area, rule, makers, suppliers, supply, unsatisfied, rows, order } = input
+  const { block, result, itemId, area, rule, makers, suppliers, supply, unsatisfied, areaMissing, rows, order } = input
   const solved = result !== undefined
   const areaNodes = area !== undefined ? new Set(blockAreas(block.rootPlan)?.find(a => a.id === area)?.nodeIds) : undefined
-  const need = consumedOf(result, itemId, areaNodes)
+  const consumed = consumedOf(result, itemId, areaNodes)
   const makeOff = rule?.makeHere === 'off'
   const importOn = !rule?.importOff
 
-  const imported = importOn ? (supply ? supply.imported : unsatisfied) : 0
-  const missing = importOn ? 0 : (supply ? supply.missing : unsatisfied)
+  // Area scope: the area's own figures. Block scope: the part areas with Import off leave missing, else the block's rule decides.
+  const missing = supply ? supply.missing : Math.min(unsatisfied, areaMissing ?? (importOn ? 0 : unsatisfied))
+  const imported = supply ? supply.imported : unsatisfied - missing
 
   // Block lines: the flow's rate at block scope, the share of what reaches the area at area scope.
   const live = rows.filter(r => !r.greyed)
@@ -105,7 +114,7 @@ export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
     if (r.greyed) return undefined
     // The connection's flow is the block solve's own (it has no need of this block's result).
     if (area === undefined) return r.flow?.rate
-    if (!solved) return undefined
+    if (!solved || !r.flow) return undefined
     return flowSum > 0 ? ((r.flow?.rate ?? 0) * (supply?.reaches ?? 0)) / flowSum : 0
   }
 
@@ -113,7 +122,10 @@ export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
 
   // What the rows of the block or area use that no line above accounts for: made here.
   const sum = (xs: (number | undefined)[]) => xs.reduce<number>((t, x) => t + (x ?? 0), 0)
-  const inside = Math.max(0, (need ?? 0) - sum(rows.map(blockRate)) - imported - missing - sum(suppliers.map(areaRate)))
+  // What reaches the block from outside; when the item passes through (a product), it is more than the rows consume.
+  const outside = sum(rows.map(blockRate)) + imported + missing + sum(suppliers.map(areaRate))
+  const need = consumed === undefined ? undefined : Math.max(consumed, outside)
+  const inside = Math.max(0, (need ?? 0) - outside)
   const byproductRate = makers.filter(m => m.byproduct).reduce((t, m) => t + m.rate, 0)
   const madeHereShare = makeOff ? inside : Math.min(inside, byproductRate)
   const makeHereShare = makeOff ? 0 : inside - madeHereShare
@@ -145,8 +157,8 @@ export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
     } else if (key === 'import') {
       const mark: LineMark = missing > EPS ? 'missing' : undefined
       lines.push(line({
-        key, kind: 'import', label: SOURCES_LINES.import.label, rate: solved ? (importOn ? imported : missing) : undefined, off: !importOn,
-        mark, look: importOn ? { kind: 'import' } : { kind: 'missing' },
+        key, kind: 'import', label: SOURCES_LINES.import.label, rate: solved ? imported + missing : undefined, off: !importOn && imported <= EPS,
+        mark, look: missing > EPS && imported <= EPS ? { kind: 'missing' } : { kind: 'import' },
       }))
     } else if (key === 'block') {
       for (const r of rows) {
@@ -169,11 +181,17 @@ export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
     }
   }
 
-  const bar = lines
-    .filter(l => l.supplies)
-    .map(l => ({ key: l.key, label: l.look.kind === 'missing' ? 'Missing' : l.label, rate: l.rate!, look: l.look }))
+  const bar: SourcesModel['bar'] = []
+  for (const l of lines) {
+    if (!l.supplies) continue
+    if (l.kind === 'import') {
+      // Both parts can show at once (areas with their own rules): what is imported, then what is missing.
+      if (imported > EPS) bar.push({ key: l.key, label: l.label, rate: imported, look: { kind: 'import' } })
+      if (missing > EPS) bar.push({ key: imported > EPS ? 'missing' : l.key, label: 'Missing', rate: missing, look: { kind: 'missing' } })
+    } else bar.push({ key: l.key, label: l.label, rate: l.rate!, look: l.look })
+  }
 
-  return { lines, need, missing, total: sum(lines.map(l => l.rate)), bar }
+  return { lines, need, missing, total: sum(lines.map(l => l.rate)) - missing, bar }
 }
 
 /**
@@ -183,10 +201,11 @@ export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
 export function altMoveTarget(
   key: string,
   dir: -1 | 1,
-  ctx: { connectionIds: readonly string[]; makeHere: 'after-blocks' | 'off' | undefined },
+  ctx: { connectionIds: readonly string[]; makeHere: 'after-blocks' | 'off' | undefined; /** Connections drawn greyed (their source is gone or is the block): they do not move. */ greyed?: ReadonlySet<string> },
 ): { type: 'connection'; connectionId: string; delta: -1 | 1 } | { type: 'make-more'; side: Side } | null {
   if (key.startsWith('block:')) {
     const connectionId = key.slice('block:'.length)
+    if (ctx.greyed?.has(connectionId)) return null
     const from = ctx.connectionIds.indexOf(connectionId)
     const to = from + dir
     return from >= 0 && to >= 0 && to < ctx.connectionIds.length ? { type: 'connection', connectionId, delta: dir } : null

@@ -76,6 +76,45 @@ describe('buildSourcesModel', () => {
   it('never lets the inside share go negative', () => {
     const m = buildSourcesModel(input({ result: solve([node('n', 10)]), makers: [maker(50, true)], rows: [row('c1', 'Cheap', 40)] }))
     expect(rates(m)).toMatchObject({ 'made-here': 0, 'make-here': 0, 'block:c1': 40 })
+    // The item passes through: the need is what reaches the block, so the header, the bar and the foot agree.
+    expect(m.need).toBe(40)
+    expect(m.total).toBe(40)
+  })
+
+  it('counts a product\'s pass-through in the need: Import 60 with no row consuming reads need 60', () => {
+    const m = buildSourcesModel(input({ result: solve([node('n', 0)]), rule: { makeHere: 'off' }, unsatisfied: 60 }))
+    expect(m.need).toBe(60)
+    expect(rates(m).import).toBe(60)
+    expect(m.total).toBe(60)
+    expect(m.bar.map(p => [p.key, p.rate])).toEqual([['import', 60]])
+  })
+
+  it('reads the need of a connection the rows use only part of as the whole flow', () => {
+    const m = buildSourcesModel(input({ result: solve([node('n', 10)]), rows: [row('c1', 'Cheap', 40)] }))
+    expect(m.need).toBe(40)
+    expect(m.total).toBe(40)
+  })
+
+  it('at block scope, labels as missing only what areas with Import off leave, the rest being imported', () => {
+    const m = buildSourcesModel(input({ rule: { importOff: true }, unsatisfied: 30, areaMissing: 10 }))
+    expect(m.missing).toBe(10)
+    expect(m.lines.find(l => l.key === 'import')).toMatchObject({ rate: 30, mark: 'missing', off: false })
+    expect(m.bar.filter(p => p.key !== 'make-here' && p.key !== 'made-here').map(p => [p.key, p.label, p.rate])).toEqual([['import', 'Import', 20], ['missing', 'Missing', 10]])
+    expect(m.total).toBe(90)
+  })
+
+  it('at block scope, reads nothing as missing when an area imports it all and the block has Import off', () => {
+    const m = buildSourcesModel(input({ rule: { importOff: true }, unsatisfied: 20, areaMissing: 0 }))
+    expect(m.missing).toBe(0)
+    expect(m.lines.find(l => l.key === 'import')).toMatchObject({ rate: 20, mark: undefined, look: { kind: 'import' } })
+  })
+
+  it('reads a connection with no flow yet as — at area scope too', () => {
+    const m = buildSourcesModel(input({
+      area: 'a', block: (() => { const b = makeEmptyBlock('B'); return b })(),
+      rows: [row('c1', 'Fresh', undefined)], supply: { reaches: 10, imported: 0, missing: 0 } as unknown as SourcesModelInput['supply'],
+    }))
+    expect(rates(m)['block:c1']).toBeUndefined()
   })
 
   it('reads zero need as zero shares', () => {
@@ -101,7 +140,8 @@ describe('buildSourcesModel', () => {
     expect(imp).toMatchObject({ rate: 25, off: true, dim: false, mark: 'missing', look: { kind: 'missing' } })
     expect(m.missing).toBe(25)
     expect(m.bar.find(p => p.key === 'import')?.label).toBe('Missing')
-    expect(m.total).toBe(100)
+    expect(m.need).toBe(100)
+    expect(m.total).toBe(75)
   })
 
   it('dims Import off with nothing missing', () => {
@@ -191,6 +231,10 @@ describe('altMoveTarget', () => {
   it('stops at the first and last connection', () => {
     expect(altMoveTarget('block:a', -1, ctx)).toBeNull()
     expect(altMoveTarget('block:c', 1, ctx)).toBeNull()
+  })
+  it('does not move a greyed block line', () => {
+    expect(altMoveTarget('block:b', 1, { ...ctx, greyed: new Set(['b']) })).toBeNull()
+    expect(altMoveTarget('block:a', 1, { ...ctx, greyed: new Set(['b']) })).toEqual({ type: 'connection', connectionId: 'a', delta: 1 })
   })
   it('moves Make more here to the other side', () => {
     expect(altMoveTarget('make-here', 1, ctx)).toEqual({ type: 'make-more', side: 'below' })
