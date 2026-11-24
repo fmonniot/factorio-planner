@@ -3,21 +3,21 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { StripToolbar } from './StripToolbar'
 import type { StripAction } from './StripToolbar'
 
-const action = (over: Partial<StripAction> & { label: string }): StripAction => ({ icon: 'search', onSelect: () => {}, ...over })
+const action = (over: Partial<StripAction> & { label: string }): StripAction => ({ icon: 'find', onSelect: () => {}, ...over })
 
 describe('StripToolbar', () => {
   it('draws the left cluster, then the right one, each button named by its label', () => {
     render(<StripToolbar actions={[
       action({ label: 'Remove product', icon: 'trash', danger: true }),
       action({ label: 'Find recipe', side: 'left' }),
-      action({ label: 'Served order…', icon: 'list' }),
+      action({ label: 'Served order…', icon: 'served' }),
     ]} />)
     const names = within(screen.getByTestId('strip-toolbar')).getAllByRole('button').map(b => b.getAttribute('aria-label'))
     expect(names).toEqual(['Find recipe', 'Remove product', 'Served order…'])
   })
 
   it('names a badged action with its count and shows the same text as tooltip', () => {
-    render(<StripToolbar actions={[action({ label: 'Served order…', icon: 'list', badge: { count: 2, noun: 'not ranked' } })]} />)
+    render(<StripToolbar actions={[action({ label: 'Served order…', icon: 'served', badge: { count: 2, noun: 'not ranked' } })]} />)
     const button = screen.getByRole('button', { name: 'Served order… · 2 not ranked' })
     expect(button).toHaveAttribute('data-tip', 'Served order… · 2 not ranked')
     expect(screen.getByTestId('strip-action-badge')).toHaveTextContent('2')
@@ -25,7 +25,7 @@ describe('StripToolbar', () => {
 
   it('uses the title as tooltip when there is one, and calls onSelect on click', () => {
     const onSelect = vi.fn()
-    render(<StripToolbar actions={[action({ label: 'Add extra output', icon: 'plus', title: 'Add extra output on top of what is requested', onSelect })]} />)
+    render(<StripToolbar actions={[action({ label: 'Add extra output', icon: 'extra-add', title: 'Add extra output on top of what is requested', onSelect })]} />)
     const button = screen.getByRole('button', { name: 'Add extra output' })
     expect(button).toHaveAttribute('data-tip', 'Add extra output on top of what is requested')
     fireEvent.click(button)

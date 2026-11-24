@@ -67,7 +67,6 @@ Follow-ups of the [surplus rule initiative](archive/surplus-rule/plan.md), which
 
 Follow-ups of the [summary strip icons initiative](archive/summary-strip-icons/plan.md), which shipped.
 
-- [ ] **Design the summary strip icons from scratch.** The current icons were drawn to fit the existing actions; redesign each one so its shape says what it means, and check each against its tooltip and label.
 - [ ] **Improve the popover that *Sources…* opens.** The popover built for the summary strip's Sources action still reads as a first draft; rework its layout and hierarchy so it fits the rest of the strip.
 
 ## UI / UX

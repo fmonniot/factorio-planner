@@ -69,6 +69,8 @@ test.describe('Leftover rule', () => {
     await page.locator(`[data-testid="source-rule"][data-item-id="${USED}"]`).getByTestId('source-rule-item').click()
     const leftover = page.getByTestId('leftover-switch')
     await expect(leftover).toHaveAttribute('aria-checked', 'false')
+    // Off draws the struck icon as well as the unlit button (the on state is in ComesFrom.test.tsx).
+    await expect(leftover.locator('svg')).toHaveAttribute('data-icon', 'leftover-off')
     await leftover.click()
     await expect(pane(page, 'Ingredients').getByTestId('source-rules')).toHaveCount(0)
     await expect(byproduct(page, USED).first()).toBeVisible()
