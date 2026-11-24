@@ -1,6 +1,6 @@
 // Turns every claim of artifact/index.html (the design spec) into an assertion.
 // Run from the repository root, after `npx playwright install chromium`:
-//   node initiatives/summary-strip-icons/check-artifact.mjs [--shots <dir>] [--channel chrome]
+//   node initiatives/archive/summary-strip-icons/check-artifact.mjs [--shots <dir>] [--channel chrome]
 // It opens the page as a file, clicks through both replicas at the four pane widths and exits 1 on any failure.
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
