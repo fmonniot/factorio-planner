@@ -61,7 +61,14 @@ The sentence is a second, poorer reading of the same facts: it names the rows th
 
 ### Layouts per surface (2026-11-24)
 
-The owner reviewed the layouts canvas (four artboards: Details panel, summary strip, Sources line detail, explanations and tooltips; each shows today beside a proposal) and accepted every proposal. Which value of each variant (Details layout rows / chips / bar, rule as icons or chip, preview mark, Ingredient strip legend, Sources help) is still to be picked.
+The owner reviewed the layouts canvas (four artboards: Details panel, summary strip, Sources line detail, explanations and tooltips; each shows today beside a proposal) and accepted every proposal, with these picks:
+
+- **Details panel, inputs and outputs:** rows. Each item lists its sources (inputs) or destinations (outputs) as lines of an icon or block colour, a name, a secondary detail (the machine count) and a rate; the rest of a sentence's detail (offered rate, limit, request kind) moves to the line's tooltip. The lines sit on a rail with an arrow, as in the Sources list: an input's rail ends in an arrow into the row, an output's starts with an arrow out of it. A shared output ("These are the block's rates…") is a "block ×N" tag with a tooltip; a discarded one keeps only "not counted".
+- **A rule that is not the default:** its preset and Import-off icons beside the item's name, from the strip's icon vocabulary, with the rule's name as tooltip.
+- **Summary strip:** no trace hint (a traced source shows as a chip with ×); no mark on a previewed slot (no toolbar and no close button already tell it from a selected one); the selected Ingredients slot drops its sentence and keeps the bar alone, the rule as icons in its toolbar.
+- **Sources list:** a line's help text is its name's tooltip; only lines with controls or a status open, and the rate column carries the reading.
+- **Tooltips:** a name and at most one plain sentence; "click to…" and "right-click to…" tails go.
+- **New figures and controls** the proposals bring: an output's *Block product* line (what is left for the block's goal: the row's rate less consumers and receivers) and a *Make it a separate area* button in place of the sub-factory's instruction.
 
 ### Where an explanation goes (2026-11-24)
 
@@ -69,5 +76,4 @@ No ⓘ button and no disclosure: the owner rejected the ⓘ popover because it g
 
 ## Open questions
 
-- **Variant picks** for the accepted layouts (above).
 - **Tests.** `sourcingText.test.ts`, `outputsText.test.ts` and many component and e2e tests assert the sentences verbatim; they move with the model.
