@@ -12,6 +12,10 @@ import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
 import { SourcesList } from './SourcesList'
 import { Tip } from './Tip'
+import { StripIcon } from './StripIcon'
+import type { StripIconName } from './StripIcon'
+import { Separator, StripToolbar } from './StripToolbar'
+import type { StripAction } from './StripToolbar'
 import { MINI_BUTTON_CLASS, Switch } from './Switch'
 import { anchorOf } from './popoverAnchor'
 
@@ -19,8 +23,9 @@ import { anchorOf } from './popoverAnchor'
 // ComesFrom — where an item of the active block comes from: the three presets, the Import switch, the
 // sentence for the last solve, and any rule of the item that has no effect, with a button to remove it.
 // In a block with areas it has a scope control: the whole block, or one area, whose own rule replaces the block's for its rows.
-// It sits in the strip of a selected Ingredients slot and in the Comes from popover (`ComesFromPopover`), which holds it for
-// an item that has no slot. A rule that has nothing to act on yet ("No connection for X.") offers the way forward. The Sources…
+// It sits in the strip of a selected Ingredients slot (`listInPopover`: the sentence under the bar, then one row of icons, the
+// rule group in the middle of the strip's toolbar, then the rows that show only in some cases) and in the Comes from popover
+// (`ComesFromPopover`), which holds it, with its text layout, for an item that has no slot. A rule that has nothing to act on yet ("No connection for X.") offers the way forward. The Sources…
 // button and its list are at both scopes: the list of an area has one line per supplying area, with a switch.
 // ---------------------------------------------------------------------------
 
@@ -42,7 +47,43 @@ function moveWithArrows(e: React.KeyboardEvent<HTMLDivElement>) {
   next.click()
 }
 
-export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopover = false }: {
+/** The icon of each preset of the strip's rule group, in the order of `ITEM_SOURCING_CHOICES`. */
+const PRESET_ICONS: StripIconName[] = ['factory', 'inbox', 'branch']
+
+const ICON_BUTTON = 'relative inline-flex h-[22px] w-6 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-inset'
+const LIT = 'bg-teal-900/60 text-teal-200'
+const UNLIT = 'text-gray-300 hover:bg-gray-800'
+
+/** An on/off icon button of the strip (`role="switch"`), lit when on; its tooltip says the state, then the rule's help text. */
+function IconSwitch({ id, on, label, help, icon, testId, onToggle }: {
+  /** Id of the hidden help text that describes the switch. */
+  id: string
+  on: boolean
+  label: string
+  help: string
+  icon: StripIconName
+  testId: string
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      aria-describedby={id}
+      data-tip={`${label} ${on ? 'on' : 'off'}. ${help}`}
+      data-testid={testId}
+      onClick={onToggle}
+      className={`${ICON_BUTTON} rounded border ${on ? 'border-teal-600' : 'border-gray-700 bg-gray-900'} ${on ? LIT : UNLIT}`}
+    >
+      <StripIcon name={icon} />
+      <span id={id} className="sr-only">{help}</span>
+    </button>
+  )
+}
+
+export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopover = false, actions = [] }: {
   itemId: string
   /** The area the control is opened for: it starts on that area's scope when the area has a rule for the item, and offers it. */
   areaId?: string
@@ -50,6 +91,8 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
   initialListOpen?: boolean
   /** The control sits where the list has no room (an Ingredients slot's strip): Sources… opens the Comes from popover with the list open. */
   listInPopover?: boolean
+  /** The strip's own actions (Find recipe, Receive from…): they form the left of the toolbar `listInPopover` draws. */
+  actions?: StripAction[]
 }) {
   const baseId = useId()
   const [listOpen, setListOpen] = useState(initialListOpen)
@@ -96,9 +139,126 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
     : blocks.filter(b => b.id !== block.id && b.inputConnections.some(c => c.itemId === itemId && c.fromBlockId === block.id))
   // The areas the scope control offers: the one it was opened for, the one it is on, and those with a rule of their own for the item.
   const scopeAreas = scopeAreasOf(block, itemId, areaId, area)
-  const showScope = !listInPopover && scopeAreas.length > 0
+  const showScope = scopeAreas.length > 0
   // The areas with a rule of their own, for the Ingredients slot's strip (table order).
   const ruledAreas = listInPopover ? (blockAreas(block.rootPlan) ?? []).filter(a => storedAreaRule(block.rootPlan, a.id, itemId) !== undefined) : []
+
+  const takerNotes = takers.map(b => (
+    <p key={b.id} data-testid="leftover-take-note" className="text-[11px] leading-snug text-gray-500">{leftoverTakeNote(b.name, name)}</p>
+  ))
+  const areasButton = area === undefined && ruledAreas.length > 0 && (
+    <div className="flex">
+      <button
+        type="button"
+        data-testid="areas-have-rules"
+        aria-haspopup="dialog"
+        onClick={e => openComesFrom(itemId, anchorOf(e.currentTarget), { areaId: ruledAreas[0].id })}
+        className={MINI_BUTTON_CLASS}
+      >
+        {ruledAreas.length === 1 ? '1 area has its own rule' : `${ruledAreas.length} areas have their own rule`}
+      </button>
+    </div>
+  )
+  const noEffectList = unavailable.length > 0 && (
+    <ul className="flex flex-col gap-0.5">
+      {unavailable.map(rule => (
+        <li
+          key={ruleId(rule)}
+          data-testid="no-effect"
+          data-rule={rule.kind}
+          data-no-effect={rule.noEffect}
+          className="flex items-baseline gap-2 text-[11px] leading-snug text-gray-500"
+        >
+          <span id={`${baseId}-no-effect-${ruleId(rule)}`} className="min-w-0 flex-1">{noEffectText(rule.noEffect!, name, rule.areaId !== undefined, rule.otherAreaId !== undefined ? areaNameOf(block.rootPlan, rule.otherAreaId) : undefined)}</span>
+          <span className="shrink-0 flex items-baseline gap-1">
+            {rule.noEffect === 'no-connection' && (
+              <button
+                type="button"
+                data-testid="receive-from"
+                aria-describedby={`${baseId}-no-effect-${ruleId(rule)}`}
+                title={`Pick the block that sends ${name} to this one`}
+                onClick={e => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  openConnectionMenu(itemId, r.left, r.bottom)
+                }}
+                className="bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 outline-none hover:border-gray-500 focus-visible:ring-2 focus-visible:ring-teal-400"
+              >
+                Receive from…
+              </button>
+            )}
+            <button
+              type="button"
+              aria-describedby={`${baseId}-no-effect-${ruleId(rule)}`}
+              title={`Remove the ${ruleLabel(rule, block.rootPlan)} rule`}
+              onClick={() => removeRule(rule)}
+              className="bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 hover:border-gray-500"
+            >
+              Remove
+            </button>
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+
+  if (listInPopover) {
+    // The strip of a selected Ingredients slot. The rule group is the toolbar's middle: the three presets (one radio group
+    // named after the item), then the two switches. The name of each is its label; the tooltip adds the help text.
+    const sources: StripAction = {
+      label: SOURCES_BUTTON_LABEL,
+      icon: 'layers',
+      testId: 'sources-button',
+      hasPopup: 'dialog',
+      onSelect: e => openComesFrom(itemId, anchorOf(e.currentTarget), { list: true }),
+    }
+    const rules = (
+      <>
+        <div
+          role="radiogroup"
+          aria-label={`Where ${name} comes from`}
+          data-summary-controls
+          onKeyDown={moveWithArrows}
+          className="flex shrink-0 rounded border border-gray-700 bg-gray-900"
+        >
+          {ITEM_SOURCING_CHOICES.map((choice, i) => {
+            const selected = choice.mode === preset
+            const helpId = `${baseId}-preset-${i}`
+            return (
+              <button
+                key={choice.label}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={choice.label}
+                aria-describedby={helpId}
+                data-tip={`${choice.label}. ${choice.title}`}
+                // One tab stop for the group, the chosen preset; the arrows move between presets.
+                tabIndex={selected ? 0 : -1}
+                data-sourcing-choice={choice.mode ?? 'own'}
+                onClick={() => setMakeHere(itemId, makeHereOf(choice.mode))}
+                className={`${ICON_BUTTON} border-r border-gray-700 last:border-r-0 ${selected ? LIT : UNLIT}`}
+              >
+                <StripIcon name={PRESET_ICONS[i]} />
+                <span id={helpId} className="sr-only">{choice.title}</span>
+              </button>
+            )
+          })}
+        </div>
+        <Separator />
+        <IconSwitch id={`${baseId}-import`} on={importOn} label={IMPORT_SWITCH.label} help={IMPORT_SWITCH.title} icon="tray" testId="import-switch" onToggle={() => toggleImportOff(itemId)} />
+        <IconSwitch id={`${baseId}-leftover`} on={leftoverOn} label={LEFTOVER_SWITCH.label} help={LEFTOVER_SWITCH.title} icon="out" testId="leftover-switch" onToggle={() => toggleLeftoverOff(itemId)} />
+      </>
+    )
+    return (
+      <div role="group" aria-label={COMES_FROM_LABEL} data-testid="comes-from" className="flex flex-col gap-[3px]">
+        <p data-testid="sourcing-sentence" title={sentence} className="text-[11px] leading-snug text-gray-400 line-clamp-2">{sentence}</p>
+        <StripToolbar actions={[...actions, sources]} middle={rules} />
+        {takerNotes}
+        {areasButton}
+        {noEffectList}
+      </div>
+    )
+  }
 
   return (
     <div
@@ -173,9 +333,7 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
           <Tip id={`${baseId}-leftover`} align="end">{LEFTOVER_SWITCH.title}</Tip>
         </span>
       </div>
-      {takers.map(b => (
-        <p key={b.id} data-testid="leftover-take-note" className="text-[11px] leading-snug text-gray-500">{leftoverTakeNote(b.name, name)}</p>
-      ))}
+      {takerNotes}
 
       {area !== undefined && (
         stored === undefined
@@ -189,78 +347,23 @@ export function ComesFrom({ itemId, areaId, initialListOpen = false, listInPopov
             )
       )}
 
-      {area === undefined && ruledAreas.length > 0 && (
-        <div className="flex">
-          <button
-            type="button"
-            data-testid="areas-have-rules"
-            aria-haspopup="dialog"
-            onClick={e => openComesFrom(itemId, anchorOf(e.currentTarget), { areaId: ruledAreas[0].id })}
-            className={MINI_BUTTON_CLASS}
-          >
-            {ruledAreas.length === 1 ? '1 area has its own rule' : `${ruledAreas.length} areas have their own rule`}
-          </button>
-        </div>
-      )}
-
       <div className="flex">
         <button
           type="button"
           data-testid="sources-button"
-          aria-expanded={listInPopover ? false : listOpen}
-          aria-controls={!listInPopover && listOpen ? `${baseId}-sources` : undefined}
-          aria-haspopup={listInPopover ? 'dialog' : undefined}
-          onClick={e => listInPopover ? openComesFrom(itemId, anchorOf(e.currentTarget), { list: true }) : setListOpen(o => !o)}
+          aria-expanded={listOpen}
+          aria-controls={listOpen ? `${baseId}-sources` : undefined}
+          onClick={() => setListOpen(o => !o)}
           className={MINI_BUTTON_CLASS}
         >
           {SOURCES_BUTTON_LABEL}
         </button>
       </div>
-      {!listInPopover && listOpen && <SourcesList id={`${baseId}-sources`} itemId={itemId} areaId={area} />}
+      {listOpen && <SourcesList id={`${baseId}-sources`} itemId={itemId} areaId={area} />}
 
       <p data-testid="sourcing-sentence" className="text-[11px] leading-snug text-gray-400">{sentence}</p>
 
-      {unavailable.length > 0 && (
-        <ul className="flex flex-col gap-0.5">
-          {unavailable.map(rule => (
-            <li
-              key={ruleId(rule)}
-              data-testid="no-effect"
-              data-rule={rule.kind}
-              data-no-effect={rule.noEffect}
-              className="flex items-baseline gap-2 text-[11px] leading-snug text-gray-500"
-            >
-              <span id={`${baseId}-no-effect-${ruleId(rule)}`} className="min-w-0 flex-1">{noEffectText(rule.noEffect!, name, rule.areaId !== undefined, rule.otherAreaId !== undefined ? areaNameOf(block.rootPlan, rule.otherAreaId) : undefined)}</span>
-              <span className="shrink-0 flex items-baseline gap-1">
-                {rule.noEffect === 'no-connection' && (
-                  <button
-                    type="button"
-                    data-testid="receive-from"
-                    aria-describedby={`${baseId}-no-effect-${ruleId(rule)}`}
-                    title={`Pick the block that sends ${name} to this one`}
-                    onClick={e => {
-                      const r = e.currentTarget.getBoundingClientRect()
-                      openConnectionMenu(itemId, r.left, r.bottom)
-                    }}
-                    className="bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 outline-none hover:border-gray-500 focus-visible:ring-2 focus-visible:ring-teal-400"
-                  >
-                    Receive from…
-                  </button>
-                )}
-                <button
-                  type="button"
-                  aria-describedby={`${baseId}-no-effect-${ruleId(rule)}`}
-                  title={`Remove the ${ruleLabel(rule, block.rootPlan)} rule`}
-                  onClick={() => removeRule(rule)}
-                  className="bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 hover:border-gray-500"
-                >
-                  Remove
-                </button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {noEffectList}
     </div>
   )
 }

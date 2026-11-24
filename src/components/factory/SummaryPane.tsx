@@ -35,8 +35,8 @@ interface SummaryPaneProps {
   renderRates: (slot: SlotModel, edit: SlotEdit) => React.ReactNode
   /** The toolbar of the strip for a slot; `edit` lets Products offer Extra output only while the field is not open. */
   actionsFor: (slot: SlotModel, edit: SlotEdit) => StripAction[]
-  /** Ingredients: controls under the actions line of the selected slot's strip. */
-  renderControls?: (slot: SlotModel) => React.ReactNode
+  /** Ingredients: what the selected slot's strip shows under its bar, in place of the plain toolbar; it gets the actions to put in its own. */
+  renderControls?: (slot: SlotModel, actions: StripAction[]) => React.ReactNode
   onOpenBlock: (blockId: string) => void
   onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
   /** Products: reorder by dragging; moves the slot so it lands before `toIndex` (an index in the current order). */
@@ -309,7 +309,7 @@ export function SummaryPane({
           onDragOver={onReorder ? handleGridDragOver : undefined}
           onDragEnter={onReorder ? handleGridDragEnter : undefined}
           onDragLeave={onReorder ? handleGridDragLeave : undefined}
-          className={`${pane !== 'ingredients' ? 'max-h-[97px] group-has-[[data-tall=true]]/panes:max-h-[181px]' : 'max-h-[97px]'} min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2.5`}
+          className={`${pane !== 'ingredients' ? 'max-h-[97px] group-has-[[data-tall=true]]/panes:min-h-full' : 'max-h-[97px]'} min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2.5`}
         >
           <div ref={contentRef} className="flex flex-wrap gap-1">
             {slots.map((slot, index) => (
@@ -354,7 +354,7 @@ export function SummaryPane({
         onToggleTrace={key => setTraceKey(prev => (prev === key ? null : key))}
         rates={shown && renderRates(shown, editOf(shown))}
         actions={shown ? actionsFor(shown, editOf(shown)) : []}
-        controls={shown && renderControls && <div data-summary-controls className="contents">{renderControls(shown)}</div>}
+        controls={shown && renderControls && renderControls(shown, actionsFor(shown, editOf(shown)))}
         tall={renderControls !== undefined && selected !== undefined}
         onBack={() => {
           setSelectedId(null)

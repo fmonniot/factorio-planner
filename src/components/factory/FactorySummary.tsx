@@ -557,7 +557,7 @@ export function FactorySummary() {
             }
             return actions
           }}
-          renderControls={slot => <ComesFrom itemId={slot.itemId} listInPopover />}
+          renderControls={(slot, actions) => <ComesFrom itemId={slot.itemId} listInPopover actions={actions} />}
           openRequest={openedSlotId !== undefined ? { seq: opened!.seq, slotId: openedSlotId } : undefined}
           onOpenBlock={setActiveBlock}
           onConnectionContextMenu={(connectionId, e) =>

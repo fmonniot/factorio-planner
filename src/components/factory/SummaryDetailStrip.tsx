@@ -1,5 +1,6 @@
 import type { Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Icon } from '../Icon'
 import { fmtFluidTag } from '../../data/flowKey'
 import { StackedBar } from './StackedBar'
@@ -30,9 +31,12 @@ interface SummaryDetailStripProps {
   /** The slot's header rates (the pane decides what they say and whether they are editable). */
   rates: React.ReactNode
   actions: StripAction[]
-  /** Selected state only: a block of controls under the actions line (the Ingredients pane's Comes from). */
+  /** Selected state only: the pane draws everything under the bar itself, toolbar included (the Ingredients pane's Comes from). */
   controls?: React.ReactNode
-  /** The pane holds controls for its selected slot: the strip keeps room for them while another slot is previewed. */
+  /**
+   * The pane's selected strip is taller than 72px (it has `controls`): content-sized while selected, and it keeps that height
+   * while another slot is previewed, so the panes do not jump when the pointer passes over a slot.
+   */
   tall?: boolean
   onBack: () => void
   onOpenBlock: (blockId: string) => void
@@ -69,11 +73,23 @@ export function SummaryDetailStrip({
   const fmt = (perMin: number) => power ? fmtItemRateText(slot!.itemId, perMin / 60, rateUnit) : fmtRate(perMin / 60, rateUnit)
   const lookOf = (kind: SegmentKind | OverlayKind, blockId: string | undefined, limited?: boolean) =>
     segmentLook(kind, blockId !== undefined ? colorOf(blockId) : undefined, limited)
-  // A fixed 72px: the item's header, a 16px bar and the actions line, or the overview's heading and
-  // bar. The tooltips open upward over the slots, so the strip does not clip. A pane that has controls for its
-  // selected slot keeps a minimum height that holds them, in every state, so the panes do not jump when the
-  // pointer passes over another slot.
-  const root = `${tall ? 'min-h-[156px]' : 'h-[72px]'} shrink-0 border-t border-gray-700 bg-gray-800 rounded-b-md px-2.5 flex flex-col text-[11px]`
+  // A fixed 72px: the item's header, a 16px bar and the toolbar, or the overview's heading and bar. The tooltips open
+  // upward over the slots, so the strip does not clip. A pane that has controls for its selected slot sizes the strip to them,
+  // and holds that height (measured while selected) in the preview of another slot.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [selectedHeight, setSelectedHeight] = useState<number>()
+  const measured = tall && state === 'selected'
+  useLayoutEffect(() => {
+    const el = rootRef.current
+    if (!measured || !el) return
+    setSelectedHeight(el.getBoundingClientRect().height)
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setSelectedHeight(el.getBoundingClientRect().height))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [measured])
+  const heldHeight = tall && state !== 'selected' ? selectedHeight : undefined
+  const root = `${tall ? '' : 'h-[72px]'} shrink-0 border-t border-gray-700 bg-gray-800 rounded-b-md px-2.5 flex flex-col text-[11px]`
 
   if (state === 'overview' || !slot) {
     const maxTotal = Math.max(...rows.map(r => r.total), 0)
@@ -167,7 +183,14 @@ export function SummaryDetailStrip({
   const showActions = editable && actions.length > 0
 
   return (
-    <div data-testid="summary-detail" data-state={state} data-tall={tall ? 'true' : undefined} className={`${root} pt-[5px] pb-[3px] gap-[3px]`}>
+    <div
+      ref={rootRef}
+      data-testid="summary-detail"
+      data-state={state}
+      data-tall={tall ? 'true' : undefined}
+      style={heldHeight !== undefined ? { minHeight: heldHeight } : undefined}
+      className={`${root} pt-[5px] pb-[3px] gap-[3px]`}
+    >
       <div className="flex items-center gap-2 h-5 shrink-0 min-w-0">
         {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />}
         <span className="text-xs font-semibold text-gray-100 truncate">{shownName}</span>
@@ -191,8 +214,7 @@ export function SummaryDetailStrip({
       <div className="shrink-0">
         <StackedBar segments={segments} tickAt={slot.product?.tickAt ?? null} label={`${shownName} allocation`} />
       </div>
-      {showActions && <StripToolbar actions={actions} />}
-      {state === 'selected' && controls}
+      {state === 'selected' && controls ? controls : showActions && <StripToolbar actions={actions} />}
     </div>
   )
 }

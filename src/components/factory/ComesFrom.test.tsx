@@ -191,6 +191,31 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     expect(screen.getByTestId('areas-have-rules')).toHaveTextContent('2 areas have their own rule')
   })
 
+  it('draws the sentence, then one toolbar: the given actions, the rule group, then Sources…', () => {
+    setup()
+    render(<ComesFrom itemId="plate" listInPopover actions={[{ label: 'Find recipe', icon: 'search', side: 'left', onSelect: () => {} }]} />)
+    const root = screen.getByTestId('comes-from')
+    expect(root.firstElementChild).toBe(screen.getByTestId('sourcing-sentence'))
+    const toolbar = within(root).getByTestId('strip-toolbar')
+    expect([...toolbar.querySelectorAll('button')].map(b => b.getAttribute('aria-label')))
+      .toEqual(['Find recipe', 'Make it here', 'Receive it first', "Don't make more here", 'Import', 'Leftover', 'Sources…'])
+    expect(within(toolbar).getByRole('radiogroup')).toHaveAccessibleName('Where Plate comes from')
+    expect(within(toolbar).getByTestId('sources-button')).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(screen.queryByText('Comes from', { selector: 'span' })).not.toBeInTheDocument()
+  })
+
+  it('lights the chosen preset and the switches that are on, and tells the state in the tooltip', () => {
+    setup()
+    render(<ComesFrom itemId="plate" listInPopover />)
+    expect(screen.getByRole('radio', { name: 'Make it here' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'Make it here' })).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('radio', { name: 'Receive it first' })).toHaveAttribute('tabindex', '-1')
+    expect(screen.getByTestId('import-switch')).toHaveAttribute('data-tip', expect.stringMatching(/^Import on\. /))
+    fireEvent.click(screen.getByTestId('leftover-switch'))
+    expect(screen.getByTestId('leftover-switch')).not.toBeChecked()
+    expect(screen.getByTestId('leftover-switch')).toHaveAttribute('data-tip', expect.stringMatching(/^Leftover off\. /))
+  })
+
   it('says it for one area, and says nothing without one', () => {
     setup({ B: { plate: {} } })
     const { unmount } = render(<ComesFrom itemId="plate" listInPopover />)

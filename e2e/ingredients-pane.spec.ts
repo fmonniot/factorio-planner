@@ -101,17 +101,17 @@ test.describe('Ingredients pane', () => {
     for (const [name, text] of help) {
       await expect(preset(page, name)).toHaveAccessibleDescription(text)
       await preset(page, name).hover()
-      await expect(page.getByRole('tooltip').filter({ hasText: text })).toBeVisible()
+      await expect(page.getByTestId('tooltip')).toHaveText(`${name}. ${text}`)
     }
     await importSwitch(page).hover()
-    await expect(page.getByRole('tooltip').filter({ hasText: 'Bring it in from outside the plan.' })).toBeVisible()
+    await expect(page.getByTestId('tooltip')).toContainText('Import on. Bring it in from outside the plan.')
 
     // From the keyboard: Tab from Receive from… lands on the first preset.
     await page.mouse.move(0, 0)
     await stripAction(page, 'Receive from…').focus()
     await page.keyboard.press('Tab')
     await expect(preset(page, 'Make it here')).toBeFocused()
-    await expect(page.getByRole('tooltip').filter({ hasText: 'Made here; connections' })).toBeVisible()
+    await expect(page.getByTestId('tooltip')).toContainText('Made here; connections')
   })
 })
 
