@@ -14,6 +14,7 @@ import { fmtTemperatureRange } from './factory/temperature'
 import type { Item, Recipe, GameData } from '../data/types'
 import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 import { tipProps } from './tipProps'
+import { TipWrap } from './TipWrap'
 
 // ---------------------------------------------------------------------------
 // Recipe detail panel — shown on hover/focus of a recipe slot
@@ -436,35 +437,38 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
     const machineName = machine?.name ?? g.machineId
     const present = g.recipes.every(r => presentRecipes?.ids.has(r.id) === true)
     const beyond = !!available && g.recipes.every(r => !r.hidden && !available.has(r.id))
+    const slotText = present ? `${machineName} (already in ${presentRecipes?.where})` : `${machineName} (${g.recipes.length} recipes)`
     return (
-      <button
-        key={`group:${g.machineId}`}
-        type="button"
-        data-testid="recipe-group-slot"
-        data-machine-id={g.machineId}
-        data-recipe-count={g.recipes.length}
-        data-beyond-horizon={beyond ? 'true' : undefined}
-        data-in-area={present ? 'true' : undefined}
-        disabled={present}
-        title={present ? `${machineName} (already in ${presentRecipes?.where})` : `${machineName} (${g.recipes.length} recipes)`}
-        onClick={() => { setHoveredRecipeId(null); setOpenMachineId(g.machineId) }}
-        className={`relative aspect-square flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 ${
-          present
-            ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed'
-            : beyond
-            ? 'bg-gray-800/60 border-gray-700 opacity-70 hover:opacity-100'
-            : 'bg-green-900/40 hover:bg-green-700/60 border-green-800/60'
-        }`}
-      >
-        {machine?.iconPath
-          ? <Icon iconPath={machine.iconPath} alt={machine.name} className="w-7 h-7 object-contain" />
-          : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{machineName.slice(0, 8)}</span>
-        }
-        <span
-          data-testid="recipe-group-count"
-          className="absolute right-0 bottom-0 min-w-3.5 px-0.5 rounded-tl bg-gray-900/90 text-[10px] leading-tight text-amber-200 text-center"
-        >{g.recipes.length}</span>
-      </button>
+      <TipWrap key={`group:${g.machineId}`} tip={slotText} when={present} className="flex">
+        <button
+          type="button"
+          data-testid="recipe-group-slot"
+          data-machine-id={g.machineId}
+          data-recipe-count={g.recipes.length}
+          data-beyond-horizon={beyond ? 'true' : undefined}
+          data-in-area={present ? 'true' : undefined}
+          disabled={present}
+          aria-label={slotText}
+          data-tip={present ? undefined : ''}
+          onClick={() => { setHoveredRecipeId(null); setOpenMachineId(g.machineId) }}
+          className={`relative aspect-square w-full flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 disabled:pointer-events-none ${
+            present
+              ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed'
+              : beyond
+              ? 'bg-gray-800/60 border-gray-700 opacity-70 hover:opacity-100'
+              : 'bg-green-900/40 hover:bg-green-700/60 border-green-800/60'
+          }`}
+        >
+          {machine?.iconPath
+            ? <Icon iconPath={machine.iconPath} alt={machine.name} className="w-7 h-7 object-contain" />
+            : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{machineName.slice(0, 8)}</span>
+          }
+          <span
+            data-testid="recipe-group-count"
+            className="absolute right-0 bottom-0 min-w-3.5 px-0.5 rounded-tl bg-gray-900/90 text-[10px] leading-tight text-amber-200 text-center"
+          >{g.recipes.length}</span>
+        </button>
+      </TipWrap>
     )
   }
 
@@ -552,7 +556,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
                 data-testid="recipe-group-tab"
                 data-group-id={g.id}
                 data-active={active || undefined}
-                title={g.name}
+                {...tipProps(g.name)}
                 onClick={() => { setPinnedGroupId(g.id); setHoveredRecipeId(null); setOpenMachineId(null) }}
                 className={`p-1 rounded border ${active ? 'bg-amber-900/40 border-amber-600' : 'bg-gray-800 border-gray-700 hover:bg-gray-700'}`}
               >
@@ -754,7 +758,7 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
               data-testid="item-group-tab"
               data-group-id={g.id}
               data-active={active || undefined}
-              title={g.name}
+              {...tipProps(g.name)}
               onClick={() => setPinnedGroupId(g.id)}
               className={`p-1 rounded border ${active ? 'bg-amber-900/40 border-amber-600' : 'bg-gray-800 border-gray-700 hover:bg-gray-700'}`}
             >
@@ -796,7 +800,7 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
                   data-present={present ? 'true' : undefined}
                   // aria-disabled, not disabled: the tooltip and focus keep working.
                   aria-disabled={present || undefined}
-                  title={present ? `${it.name} (already a product of this block)` : it.name}
+                  {...tipProps(present ? `${it.name} (already a product of this block)` : it.name)}
                   onClick={() => pick(it.id)}
                   className={`aspect-square flex items-center justify-center rounded border outline-none focus:ring-1 focus:ring-blue-500 ${present ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed' : active ? 'bg-amber-800/40 border-amber-600' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
                 >
