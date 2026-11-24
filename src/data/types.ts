@@ -104,10 +104,17 @@ export type SolverWarning =
     }
   /**
    * A rewarded absorbing row earns more per run than the producers of what it takes cost, so the objective has no
-   * minimum: the solver returned an arbitrary vertex and the block's rates are not reliable. `recipeIds` are the
-   * block's rewarded rows (the culprits are among them); may be empty.
+   * minimum. Raised only when the re-solve at ordinary costs (`absorber-idle`) is not feasible either: the solver then
+   * returned an arbitrary vertex and the block's rates are not reliable. `recipeIds` are the block's rewarded rows
+   * (the culprits are among them); may be empty.
    */
   | { type: 'unbounded-absorber'; recipeIds: string[] }
+  /**
+   * A rewarded absorbing row would have made the objective unbounded (see `unbounded-absorber`), so the block was solved
+   * again with every absorber reward off: the absorbing rows are idle (0 runs) and the surplus they would take stays as
+   * surplus. The rates are reliable. `recipeIds` are the block's rewarded rows (the culprits are among them); may be empty.
+   */
+  | { type: 'absorber-idle'; recipeIds: string[] }
   /**
    * The block receives over a connection from a block whose rates are arbitrary (`unbounded-absorber`, or itself fed by one), so what
    * it takes is arbitrary too. `blockIds` are the sources that deliver something and are in that state. Added by `solveAll`.

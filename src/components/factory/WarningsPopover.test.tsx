@@ -228,6 +228,45 @@ describe('WarningsPopover — no-fitting-temperature', () => {
 })
 
 // ---------------------------------------------------------------------------
+// absorber-idle
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — absorber-idle', () => {
+  it('names the row, hints at the fix and is amber', () => {
+    setupWithWarnings({ warnings: [{ type: 'absorber-idle', recipeIds: ['boiler'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/Absorber left idle/).className).not.toContain('text-red-400')
+    expect(screen.getByText(/"Boiler Recipe" would earn more per run than the items it takes cost to make/)).toBeInTheDocument()
+    expect(screen.getByText(/the other rates are reliable/)).toBeInTheDocument()
+    expect(screen.getByText(/Stop absorbing byproduct/)).toBeInTheDocument()
+    expect(screen.getByTitle('Show solver warnings').className).not.toContain('text-red')
+  })
+
+  it('links to the row', () => {
+    setupAreaBlock()
+    setupWithWarnings({ warnings: [{ type: 'absorber-idle', recipeIds: ['boiler'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getAllByTestId('warning-link')).toHaveLength(1)
+  })
+
+  it('says "One of" when several rows are listed', () => {
+    setupWithWarnings({ warnings: [{ type: 'absorber-idle', recipeIds: ['boiler', 'mystery'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/One of "Boiler Recipe", "mystery" would earn more per run/)).toBeInTheDocument()
+  })
+
+  it('says "An absorbing row" when no row is named', () => {
+    setupWithWarnings({ warnings: [{ type: 'absorber-idle', recipeIds: [] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/An absorbing row would earn more per run/)).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // unbounded-absorber
 // ---------------------------------------------------------------------------
 

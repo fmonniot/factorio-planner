@@ -20,7 +20,7 @@ import type {
 } from '../data/types'
 import { blockAreas, explicitMainProduct, solveAreaBlock, withAreaRules } from './areas'
 import { buildClassifiedSystem, discardProduct, lockedIngredients, rowProductAmount, type FluidKeySupply, type KeySupply } from './build'
-import { hasUnreliableRates, isUnbounded, solveLP } from './solve'
+import { hasUnreliableRates, isUnbounded, keepIdleWarning, solveLP, withOrdinaryFallback } from './solve'
 import { isFeeder } from './absorbers'
 import { connectionOrder, needsConnectionOrder } from './connectionOrder'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
@@ -351,30 +351,40 @@ export function solveBlock(
   const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
   const keySupplyPlan = keySupplyPlanOf(system)
   const offerFluidCaps = new Map([...(keySupplyPlan?.fluids ?? [])].map(([fluid, f]) => [fluid, f.offers]))
-  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst, markedFeeders, { fluidCaps: offerFluidCaps, leftoverOff: sets.leftoverOff })
+  // The passes run twice when the absorber rewards make the objective unbounded: the second time with no rewards at all.
+  const run = (ordinary: boolean) => {
+    const bc = ordinary ? new Set<string>() : bcRecipeIds
+    const mf = ordinary ? new Set<string>() : markedFeeders
+    let lp = solveLP(system, pinnedRates, bc, pass1NoImport, firstCaps, firstItems, byproductsFirst, mf, { fluidCaps: offerFluidCaps, leftoverOff: sets.leftoverOff })
 
-  // Pass 2: supply fills only the residual of connected intermediates. Capping at
-  // the residual keeps own production at its pass-1 level (replacing it would
-  // bring slack back at BIG_M); raw items need no LP row and are handled below.
-  const pass2 = pass2Plan({
-    totalCaps, intermediates: system.classification.intermediates, firstItems, locked,
-    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow, keySupply: keySupplyPlan,
-  })
-  // An unbounded pass 1 has arbitrary slack and throughput, so pass 2 would be planned from noise: keep pass 1 and its warning.
-  if (pass2.run && !isUnbounded(lp.warnings)) {
-    lp = solveLP(
-      system, pinnedRates, bcRecipeIds, pass2.noImport,
-      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, markedFeeders, { fluidCaps: pass2.fluidCaps, leftoverOff: sets.leftoverOff },
-    )
+    // Pass 2: supply fills only the residual of connected intermediates. Capping at
+    // the residual keeps own production at its pass-1 level (replacing it would
+    // bring slack back at BIG_M); raw items need no LP row and are handled below.
+    const pass2 = pass2Plan({
+      totalCaps, intermediates: system.classification.intermediates, firstItems, locked,
+      slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow, keySupply: keySupplyPlan,
+    })
+    // An unbounded pass 1 has arbitrary slack and throughput, so pass 2 would be planned from noise: keep pass 1 and its warning (the ordinary re-solve replaces it).
+    if (pass2.run && !isUnbounded(lp.warnings)) {
+      lp = solveLP(
+        system, pinnedRates, bc, pass2.noImport,
+        new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, mf, { fluidCaps: pass2.fluidCaps, leftoverOff: sets.leftoverOff },
+      )
+    }
+    return lp
   }
+  const { lp: passes, ordinary } = withOrdinaryFallback(run)
+  const activeBc = ordinary ? new Set<string>() : bcRecipeIds
+  const activeFeeders = ordinary ? new Set<string>() : markedFeeders
+  let lp = passes
 
   // A connection replaces an import: when the two passes still import an intermediate while a connection
   // has offer to spare, the order of connectionOrder.ts decides (least import, least received, fill).
   const order = {
-    system, pinnedRates, bcRecipeIds, markedFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp,
+    system, pinnedRates, bcRecipeIds: activeBc, markedFeeders: activeFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp,
     fluidCaps: offerFluidCaps, keySupply: keySupplyPlan, leftoverOff: sets.leftoverOff,
   }
-  if (needsConnectionOrder(order)) lp = connectionOrder(order) ?? lp
+  if (needsConnectionOrder(order)) lp = keepIdleWarning(lp, connectionOrder(order) ?? lp)
 
   const { throughput: throughputMap, warnings } = lp
 
@@ -393,7 +403,7 @@ export function solveBlock(
     const effects = nodeEffectsMap.get(planNode.recipeId)!
     const prodBonus = productivityMap.get(planNode.recipeId) ?? 0
     nodes.push(solvedNodeOf(
-      planNode, recipe, throughput, effects, prodBonus, gameData, isFeeder(lp.absorbers, bcRecipeIds, planNode.recipeId),
+      planNode, recipe, throughput, effects, prodBonus, gameData, isFeeder(lp.absorbers, activeBc, planNode.recipeId),
     ))
   }
 
@@ -763,6 +773,31 @@ export function backOffersSettled(
 }
 
 const extraWarningCopies = new WeakMap<SolverResult, { key: string; result: SolverResult }>()
+
+/**
+ * A block that takes from a block with arbitrary rates (an unbounded absorber, or one fed by such a block) takes arbitrary
+ * rates too: add `unbounded-source` to it in `results` (mutated). A block that is itself unbounded is never re-marked.
+ */
+export function markUnboundedSources(
+  blocks: readonly { id: string }[],
+  results: Record<string, SolverResult>,
+  flows: readonly ConnectionFlow[],
+): void {
+  const arbitrary = new Set(blocks.filter(b => results[b.id]?.warnings.some(w => w.type === 'unbounded-absorber')).map(b => b.id))
+  const delivering = flows.filter(f => f.rate > FLOW_TOLERANCE)
+  for (let grew = arbitrary.size > 0; grew;) {
+    grew = false
+    for (const f of delivering) {
+      if (arbitrary.has(f.fromBlockId) && !arbitrary.has(f.toBlockId)) { arbitrary.add(f.toBlockId); grew = true }
+    }
+  }
+  for (const b of blocks) {
+    const result = results[b.id]
+    if (!result || result.warnings.some(w => w.type === 'unbounded-absorber')) continue
+    const sources = [...new Set(delivering.filter(f => f.toBlockId === b.id && arbitrary.has(f.fromBlockId)).map(f => f.fromBlockId))]
+    if (sources.length > 0) results[b.id] = withExtraWarnings(result, [{ type: 'unbounded-source', blockIds: sources }])
+  }
+}
 
 /**
  * `result` plus warnings, on a copy (cached results are never mutated). The copy is
@@ -2406,23 +2441,7 @@ export function solveAll(
     }
   }
 
-  // A block that takes from a block with arbitrary rates (an unbounded absorber, or one fed by such a block) takes arbitrary rates too.
-  {
-    const arbitrary = new Set(blocks.filter(b => results[b.id]?.warnings.some(w => w.type === 'unbounded-absorber')).map(b => b.id))
-    const delivering = flows.filter(f => f.rate > FLOW_TOLERANCE)
-    for (let grew = arbitrary.size > 0; grew;) {
-      grew = false
-      for (const f of delivering) {
-        if (arbitrary.has(f.fromBlockId) && !arbitrary.has(f.toBlockId)) { arbitrary.add(f.toBlockId); grew = true }
-      }
-    }
-    for (const b of blocks) {
-      const result = results[b.id]
-      if (!result || result.warnings.some(w => w.type === 'unbounded-absorber')) continue
-      const sources = [...new Set(delivering.filter(f => f.toBlockId === b.id && arbitrary.has(f.fromBlockId)).map(f => f.fromBlockId))]
-      if (sources.length > 0) results[b.id] = withExtraWarnings(result, [{ type: 'unbounded-source', blockIds: sources }])
-    }
-  }
+  markUnboundedSources(blocks, results, flows)
 
   if (hasTemperatureData(gameData)) {
     const recipeIdOfNode = new Map<string, Map<string, string>>()

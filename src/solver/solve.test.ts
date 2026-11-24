@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { solve, solveBlock } from './index'
 import { buildClassifiedSystem } from './build'
-import { BC_BONUS, BIG_M, BYPRODUCTS_FIRST_SLACK_COST, CONVERT_COST, LEFTOVER_COST, buildLPModel, PIN_PROBE_LIMIT, runLP, solveLP } from './solve'
-import type { GameData, GameRecipeNode } from '../data/types'
+import { BC_BONUS, BIG_M, BYPRODUCTS_FIRST_SLACK_COST, CONVERT_COST, LEFTOVER_COST, buildLPModel, PIN_PROBE_LIMIT, runLP, solveLP, keepIdleWarning, withOrdinaryFallback } from './solve'
+import type { GameData, GameRecipeNode, SolverWarning } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -831,6 +831,15 @@ describe('absorber chains', () => {
     expect(result.throughput.get('grow'), 'grow').toBeCloseTo(10, 3)
   })
 
+  it('the 150-tree forest is bounded and leaves the saw idle once the rewards are off', () => {
+    const rows: Row[] = [['grow', { seed: 1 }, { goal: 1, tree: 150 }], ['chop', { tree: 1 }, { wood: 1 }]]
+    const { raw, result } = lpOf(rows, { goal: 10 }, [])
+    expect(raw.bounded, 'raw bounded').not.toBe(false)
+    expect(result.warnings.filter(w => w.type === 'unbounded-absorber')).toEqual([])
+    expect(result.throughput.get('grow'), 'grow').toBeCloseTo(10, 6)
+    expect(result.throughput.get('chop') ?? 0, 'chop').toBeCloseTo(0, 6)
+  })
+
   it('keeps the whole chain out when the supply would take a reward away', () => {
     // An ordinary row (mine) makes the roll and burn also takes it; a supply of roll must not reach make-plate, or make-saw would lose its reward.
     const rows: Row[] = [
@@ -1004,5 +1013,60 @@ describe('flow keys of a split fluid in the LP', () => {
       expect(received.get('used')).toBeCloseTo(150, 6)
       expect(result.unsatisfied.filter(u => u.itemId === 'used').reduce((t, u) => t + u.rate, 0)).toBeCloseTo(50, 6)
     })
+  })
+})
+
+describe('withOrdinaryFallback', () => {
+  const unbounded: SolverWarning = { type: 'unbounded-absorber', recipeIds: ['chop'] }
+  const pins: SolverWarning = { type: 'infeasible-pins', recipeIds: ['grow'] }
+  // A stub pass sequence: `results[0]` for the run with the rewards on, `results[1]` for the ordinary re-solve.
+  const stub = (...results: { feasible: boolean; warnings: SolverWarning[] }[]) => {
+    const calls: boolean[] = []
+    return { calls, run: (ordinary: boolean) => { calls.push(ordinary); return results[calls.length - 1] } }
+  }
+
+  it('runs once when the first result is bounded', () => {
+    const { calls, run } = stub({ feasible: true, warnings: [] })
+    const { lp, ordinary } = withOrdinaryFallback(run)
+    expect(calls).toEqual([false])
+    expect(ordinary).toBe(false)
+    expect(lp.warnings).toEqual([])
+  })
+
+  it('swaps unbounded-absorber for absorber-idle (same rows) when the ordinary run is feasible', () => {
+    const { calls, run } = stub({ feasible: true, warnings: [unbounded] }, { feasible: true, warnings: [pins] })
+    const { lp, ordinary } = withOrdinaryFallback(run)
+    expect(calls).toEqual([false, true])
+    expect(ordinary).toBe(true)
+    expect(lp.warnings, 'after the leading infeasible-pins').toEqual([pins, { type: 'absorber-idle', recipeIds: ['chop'] }])
+  })
+
+  it('puts absorber-idle first when there are no pins', () => {
+    const { run } = stub({ feasible: true, warnings: [unbounded] }, { feasible: true, warnings: [{ type: 'overconstrained', surplusItems: [] }] })
+    expect(withOrdinaryFallback(run).lp.warnings.map(w => w.type)).toEqual(['absorber-idle', 'overconstrained'])
+  })
+
+  it('returns the first result when the ordinary run is infeasible', () => {
+    const first = { feasible: true, warnings: [unbounded] }
+    const { calls, run } = stub(first, { feasible: false, warnings: [] })
+    const { lp, ordinary } = withOrdinaryFallback(run)
+    expect(calls).toEqual([false, true])
+    expect(ordinary).toBe(false)
+    expect(lp).toBe(first)
+  })
+
+  it('returns the first result when the ordinary run is still unbounded', () => {
+    const first = { feasible: true, warnings: [unbounded] }
+    const { run } = stub(first, { feasible: true, warnings: [unbounded] })
+    const { lp, ordinary } = withOrdinaryFallback(run)
+    expect(ordinary).toBe(false)
+    expect(lp).toBe(first)
+  })
+
+  it('keepIdleWarning puts the warning back on a result of the connection order', () => {
+    const idle: SolverWarning = { type: 'absorber-idle', recipeIds: ['chop'] }
+    const before = { feasible: true, warnings: [idle] }
+    expect(keepIdleWarning(before, { feasible: true, warnings: [] }).warnings).toEqual([idle])
+    expect(keepIdleWarning(before, before).warnings, 'same result: no duplicate').toEqual([idle])
   })
 })
