@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { parseAppState } from '../data/loader'
-import { solve, productGoals, solveBlock, solveAll, markUnboundedSources, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
+import { solve, productGoals, solveBlock, solveAll, markUnboundedSources, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance, trimConsumedSurplus } from './index'
 import { coproductDrivenWarning, itemGrossFlow, pass2Plan } from './blockResult'
 import type { LoopShape } from './blockGraph'
 import type { FlowKeys } from './build'
@@ -190,6 +190,46 @@ describe('solveBlock — absorber-idle warning', () => {
     expect(run('c'), 'chop is idle').toBeCloseTo(0, 6)
     const tree = result.warnings.find(w => w.type === 'overconstrained')
     expect(tree?.type === 'overconstrained' && tree.surplusItems.find(i => i.itemId === 'tree')?.rate).toBeCloseTo(1500, 3)
+  })
+})
+
+describe('solveAll — overconstrained and surplus a connection delivers', () => {
+  function block(id: string, products: Product[], nodes: RecipeNode[], connections: Block['inputConnections'] = []): Block {
+    return { ...makeBlock(makeSubPlan(`root-${id}`, nodes), products), id, name: id, inputConnections: connections }
+  }
+  const gd = () => makeGameData({ recipes: {
+    grow: recipe('grow', 1, [product('seed', 1)], [product('goal', 1), product('tree', 150)]),
+    chop: recipe('chop', 1, [product('tree', 1)], [product('wood', 1)]),
+  } })
+  // F grows 10 goal/min and so 1500 tree/min, which only the chop row of F (not run) could use
+  const forest = (): Block => block('F', [{ id: 'pg', itemId: 'goal', extraRate: 10 }], [planNode('g', 'grow'), planNode('c', 'chop')])
+  const consumer = (wood: number): Block =>
+    block('T', [{ id: 'pw', itemId: 'wood', extraRate: wood }], [planNode('c2', 'chop')], [{ id: 'c1', itemId: 'tree', fromBlockId: 'F' }])
+  const tree = (all: ReturnType<typeof solveAll>) => {
+    const w = all.results.F.warnings.find(w => w.type === 'overconstrained')
+    return w?.type === 'overconstrained' ? w.surplusItems.find(i => i.itemId === 'tree')?.rate : undefined
+  }
+
+  it('warns when nothing takes the surplus', () => {
+    expect(tree(solveAll([forest()], gd()))).toBeCloseTo(1500, 3)
+  })
+
+  it('leaves the warning out when a connection takes all of the surplus', () => {
+    const all = solveAll([forest(), consumer(1500)], gd())
+    expect(all.flows.find(f => f.fromBlockId === 'F')?.rate).toBeCloseTo(1500, 3)
+    expect(all.results.F.warnings.some(w => w.type === 'overconstrained')).toBe(false)
+  })
+
+  it('keeps what the connection leaves over', () => {
+    const all = solveAll([forest(), consumer(500)], gd())
+    expect(tree(all)).toBeCloseTo(1000, 3)
+  })
+
+  it('does not touch a result without an outbound flow', () => {
+    const results = { F: solveAll([forest()], gd()).results.F }
+    const before = results.F
+    trimConsumedSurplus([{ id: 'F' }], results, [])
+    expect(results.F).toBe(before)
   })
 })
 
