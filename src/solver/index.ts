@@ -799,6 +799,51 @@ export function markUnboundedSources(
   }
 }
 
+const trimmedCopies = new WeakMap<SolverResult, { key: string; result: SolverResult }>()
+
+/**
+ * Leave the surplus a connection delivers out of `overconstrained` in `results` (mutated): the block's own solve cannot
+ * know what its consumers take, so its net output reads as surplus. Per surplus item (and per key for a split fluid) the
+ * rates of the block's outbound flows are subtracted; an item left with no more than `surplusTolerance` is dropped, and
+ * the warning with its last item. A split fluid's item is matched on its key only (a flow of the item with no parts of
+ * that key takes nothing from it), so the warning is kept when in doubt.
+ */
+export function trimConsumedSurplus(
+  blocks: readonly { id: string }[],
+  results: Record<string, SolverResult>,
+  flows: readonly ConnectionFlow[],
+): void {
+  for (const b of blocks) {
+    const result = results[b.id]
+    if (!result?.warnings.some(w => w.type === 'overconstrained')) continue
+    const taken = new Map<string, number>()
+    const take = (key: string, rate: number) => taken.set(key, (taken.get(key) ?? 0) + rate)
+    for (const f of flows) {
+      if (f.fromBlockId !== b.id || !(f.rate > FLOW_TOLERANCE)) continue
+      if (f.parts) for (const p of f.parts) take(flowKey(f.itemId, p.temp), p.rate)
+      else take(f.itemId, f.rate)
+    }
+    if (taken.size === 0) continue
+    const warnings: SolverWarning[] = []
+    for (const w of result.warnings) {
+      if (w.type !== 'overconstrained') { warnings.push(w); continue }
+      const surplusItems = w.surplusItems
+        .map(u => ({ ...u, rate: u.rate - (taken.get(u.temp === undefined ? u.itemId : flowKey(u.itemId, u.temp)) ?? 0) }))
+        .filter((u, i) => u.rate > surplusTolerance(w.surplusItems[i].rate))
+      if (surplusItems.length > 0) warnings.push({ type: 'overconstrained', surplusItems })
+    }
+    if (JSON.stringify(warnings) === JSON.stringify(result.warnings)) continue
+    const key = JSON.stringify(warnings)
+    const hit = trimmedCopies.get(result)
+    if (hit?.key === key) results[b.id] = hit.result
+    else {
+      const copy = { ...result, warnings }
+      trimmedCopies.set(result, { key, result: copy })
+      results[b.id] = copy
+    }
+  }
+}
+
 /**
  * `result` plus warnings, on a copy (cached results are never mutated). The copy is
  * memoised per result object, so warnings that stay the same keep result identity
@@ -2442,6 +2487,7 @@ export function solveAll(
   }
 
   markUnboundedSources(blocks, results, flows)
+  trimConsumedSurplus(blocks, results, flows)
 
   if (hasTemperatureData(gameData)) {
     const recipeIdOfNode = new Map<string, Map<string, string>>()
