@@ -3057,12 +3057,23 @@ describe('solver synthetic cases', () => {
       })
     })
 
-    it('o: a grower of 150 trees per run makes the saw row earn more than the growing costs', () => {
+    // The reward is off for the whole block once the objective has no minimum: the saw row is idle and the surplus stays as surplus.
+    const idleChecks = (r: SolverResult, saw: string, idOf: (recipeId: string) => string = id => id) => {
+      expect(r.warnings.find(w => w.type === 'absorber-idle'), 'warning').toEqual({ type: 'absorber-idle', recipeIds: [saw] })
+      expect(r.warnings.map(w => w.type), 'no unbounded-absorber').not.toContain('unbounded-absorber')
+      expect(nodeOf(r, idOf('case23-grow-forest')).throughput, 'G').toBeCloseTo(10, 6)
+      for (const id of [saw, 'case23-make-saw', 'case23-make-plate']) expect(nodeOf(r, idOf(id)).throughput, id).toBeCloseTo(0, 6)
+      const over = r.warnings.find(w => w.type === 'overconstrained')
+      expect(over?.type === 'overconstrained' ? over.surplusItems.map(i => [i.itemId, i.rate]) : undefined, 'tree is left over').toEqual([[TREE, 1500]])
+      expect(feeders(r), 'feeders').toEqual([])
+    }
+
+    it('o: a grower of 150 trees per run makes the saw row earn more than the growing costs, so the block is solved again with the rewards off', () => {
       const r = solveRows(GOAL, nodesOf(['case23-saw-wood'], ['case23-grow-forest', 'case23-make-saw', 'case23-make-plate']))
-      expect(r.warnings.find(w => w.type === 'unbounded-absorber'), 'warning').toEqual({ type: 'unbounded-absorber', recipeIds: ['case23-saw-wood'] })
+      idleChecks(r, 'case23-saw-wood')
     })
 
-    it('o3: o in an area of its own names recipes, not columns, and skips the co-product check', () => {
+    it('o3: o in an area of its own names recipes, not columns', () => {
       const wood = subPlan('Wood', [
         { ...rowIn('case23-saw-wood', 'Wood'), byproductConsumer: true },
         rowIn('case23-make-saw', 'Wood'), rowIn('case23-make-plate', 'Wood'),
@@ -3074,8 +3085,8 @@ describe('solver synthetic cases', () => {
         rootPlan: subPlan('root', [rowIn('case23-grow-forest', 'root')], [wood]),
       }
       const r = solve(flattenBlock(block), makeGameData())
-      expect(r.warnings.find(w => w.type === 'unbounded-absorber'), 'warning').toEqual({ type: 'unbounded-absorber', recipeIds: ['case23-saw-wood'] })
-      expect(r.warnings.map(w => w.type), 'no coproduct-driven').not.toContain('coproduct-driven')
+      idleChecks(r, 'case23-saw-wood', id => `${id}@${id === 'case23-grow-forest' ? 'root' : 'Wood'}`)
+      expect(r.warnings.map(w => w.type), 'order').toEqual(['absorber-idle', 'overconstrained'])
     })
 
     it('o2: at 99 trees per run the reward stays below the cost: no warning', () => {

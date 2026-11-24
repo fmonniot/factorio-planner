@@ -1553,20 +1553,25 @@ describe('area rules: a connection replaces an import (phase 6, T3)', () => {
     })
   })
 
-  describe('an unbounded block keeps its first pass (no pass 2, no connection order)', () => {
+  describe('an unbounded block falls back to ordinary costs (the passes and the connection order run again)', () => {
     const forest = (): RecipeNode[] => [row('grow-forest', 'M'), row('chop-tree', 'M', { byproductConsumer: true })]
     const blockOf = (rows: Record<string, RecipeNode[]>, blockRules: Block['sourceRules'] = {}) =>
       plateBlock(['L', 'M'], { L: rows.L, M: [...rows.M, ...forest()] }, {}, blockRules, [['pgear', 50], ['widget', 5], ['fgoal', 10]])
-    const warnings = (b: Block, offers: Offers) => solveWith(b, offers).result.warnings.filter(w => w.type === 'unbounded-absorber')
-    it('the connection order stays closed: pass 1 only (2 calls, against 6 without the forest)', () => {
+    const warningsOf = (b: Block, offers: Offers) => solveWith(b, offers).result.warnings.map(w => w.type)
+    it('the connection order runs on the ordinary re-solve (2 + 6 calls)', () => {
       const b = blockOf(baseRows())
-      expect(warnings(b, BASE_OFFERS)).toEqual([{ type: 'unbounded-absorber', recipeIds: ['chop-tree'] }])
-      expect(callsOf(b, BASE_OFFERS)).toBe(2)
+      const { result } = solveWith(b, BASE_OFFERS)
+      expect(result.warnings.filter(w => w.type === 'absorber-idle')).toEqual([{ type: 'absorber-idle', recipeIds: ['chop-tree'] }])
+      expect(warningsOf(b, BASE_OFFERS)).not.toContain('unbounded-absorber')
+      expect(node(result, 'chop-tree@M').throughput, 'chop is idle').toBeCloseTo(0, 6)
+      expect(node(result, 'grow-forest@M').throughput, 'grow').toBeCloseTo(10, 6)
+      expect(callsOf(b, BASE_OFFERS)).toBe(8)
     })
-    it('pass 2 is skipped (2 calls, against 10 without the forest)', () => {
+    it('pass 2 runs on the ordinary re-solve (2 + 10 calls)', () => {
       const b = blockOf(rodRows(true), { rod: off })
-      expect(warnings(b, ROD_OFFERS)).toEqual([{ type: 'unbounded-absorber', recipeIds: ['chop-tree'] }])
-      expect(callsOf(b, ROD_OFFERS)).toBe(2)
+      expect(solveWith(b, ROD_OFFERS).result.warnings.filter(w => w.type === 'absorber-idle')).toEqual([{ type: 'absorber-idle', recipeIds: ['chop-tree'] }])
+      expect(warningsOf(b, ROD_OFFERS)).not.toContain('unbounded-absorber')
+      expect(callsOf(b, ROD_OFFERS)).toBe(12)
     })
   })
 

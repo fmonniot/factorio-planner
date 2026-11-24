@@ -151,6 +151,7 @@ function warningTitle(w: SolverWarning): string {
     case 'duplicate-recipe': return 'Duplicate recipe'
     case 'infeasible-pins': return w.conflict ? 'Pinned rate is impossible' : 'Pins cap a product'
     case 'unbounded-absorber': return 'Absorber has no limit'
+    case 'absorber-idle': return 'Absorber left idle'
     case 'unbounded-source': return 'Fed by a block with no limit'
     case 'overconstrained': return "Recipe network can't fully balance"
     case 'coproduct-driven': return 'Recipe runs for its co-product'
@@ -201,6 +202,14 @@ function warningBody(
         : names.length === 1
           ? `${names[0]} earns more per run than the items it takes cost to make, so the solver found no limit and the rates in this block are not reliable.`
           : `One of ${names.join(', ')} earns more per run than the items it takes cost to make, so the solver found no limit and the rates in this block are not reliable.`
+    }
+    case 'absorber-idle': {
+      const names = w.recipeIds.map(id => `"${gameData.recipes[id]?.name ?? id}"`)
+      return names.length === 0
+        ? 'An absorbing row would earn more per run than the items it takes cost to make, so the solver found no limit. All absorber rewards in this block were switched off, so absorbing rows run only where a pin or a goal needs them and the surplus they would take stays as surplus; the other rates are reliable, but an ingredient they take is still not imported by other rows.'
+        : names.length === 1
+          ? `${names[0]} would earn more per run than the items it takes cost to make, so the solver found no limit. All absorber rewards in this block were switched off, so absorbing rows run only where a pin or a goal needs them and the surplus they would take stays as surplus; the other rates are reliable, but an ingredient they take is still not imported by other rows.`
+          : `One of ${names.join(', ')} would earn more per run than the items it takes cost to make, so the solver found no limit. All absorber rewards in this block were switched off, so absorbing rows run only where a pin or a goal needs them and the surplus they would take stays as surplus; the other rates are reliable, but an ingredient they take is still not imported by other rows.`
     }
     case 'unbounded-source': {
       const names = w.blockIds.map(id => `"${blockName(id)}"`)
@@ -274,6 +283,7 @@ function warningHint(w: SolverWarning): string {
         : 'Remove the duplicate nodes from the production table.'
     case 'infeasible-pins': return w.conflict ? 'Unpin it, or change which recipes are active.' : 'Raise the pin, unpin it, or change which recipes are active.'
     case 'unbounded-absorber': return 'Right-click the row and choose Stop absorbing byproduct, or make fewer of the items it takes per run in the recipe that makes them.'
+    case 'absorber-idle': return 'Right-click the row and choose Stop absorbing byproduct, or make fewer of the items it takes per run in the recipe that makes them.'
     case 'unbounded-source': return 'Open the block it names and follow its own warning upstream to the absorbing row; the rates here follow once that is fixed.'
     case 'area-shortfall': return 'Unpin that row, or turn Import on for its inputs.'
     case 'area-cut-off': return 'Switch a supplying area back on, or turn Import on for it.'

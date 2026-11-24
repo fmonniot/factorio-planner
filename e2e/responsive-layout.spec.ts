@@ -105,7 +105,10 @@ test.describe('phone width: pickers, flyouts and errors', () => {
   test('a menu flyout is pinned inside the viewport', async ({ page }) => {
     await load(page)
     const menu = await openAppMenu(page)
-    await menu.getByRole('menuitem', { name: /Default machines/ }).click()
+    // Open it from the keyboard: below md the flyout is a fixed overlay, so a mouse move onto the item opens it
+    // over the very item Playwright is about to click, and on a slow runner the click retries until the timeout.
+    await menu.getByRole('menuitem', { name: /Default machines/ }).focus()
+    await page.keyboard.press('ArrowRight')
     const flyout = page.getByRole('menu', { name: 'Default machines' }).or(page.getByRole('dialog', { name: 'Default machines' }))
     await expect(flyout).toBeVisible()
     await expectWithinViewport(page, flyout)

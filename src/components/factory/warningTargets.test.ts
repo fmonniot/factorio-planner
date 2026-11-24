@@ -45,9 +45,9 @@ describe('warningTargets of a connection-temperature warning', () => {
   })
 })
 
-describe('warningTargets of an unbounded-absorber warning', () => {
+describe.each(['unbounded-absorber', 'absorber-idle'] as const)('warningTargets of an %s warning', type => {
   it('links each row once', () => {
-    const w: SolverWarning = { type: 'unbounded-absorber', recipeIds: ['turbine', 'turbine', 'engine'] }
+    const w: SolverWarning = { type, recipeIds: ['turbine', 'turbine', 'engine'] }
     const t = warningTargets(w, plan(row('n1', 'turbine'), row('n2', 'engine')), gameData, name, undefined, links)
     expect(t).toEqual([
       { kind: 'row', label: 'Go to Steam turbine', nodeId: 'n1' },

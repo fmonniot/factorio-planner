@@ -487,6 +487,37 @@ export function isUnbounded(warnings: readonly SolverWarning[]): boolean {
 }
 
 /**
+ * Run a block's pass sequence (`run(false)`: the absorber rewards on); when it ends unbounded, run it again with the
+ * absorber sets empty (`run(true)`: every row costs its ordinary cost, which cannot be unbounded). A feasible ordinary
+ * result replaces the first one and swaps `unbounded-absorber` for `absorber-idle` (same rows); otherwise the first
+ * result stays, with its warning.
+ */
+export function withOrdinaryFallback<R extends { feasible: boolean; warnings: SolverWarning[] }>(
+  run: (ordinary: boolean) => R,
+): { lp: R; ordinary: boolean } {
+  const first = run(false)
+  if (!isUnbounded(first.warnings)) return { lp: first, ordinary: false }
+  const second = run(true)
+  if (!second.feasible || isUnbounded(second.warnings)) return { lp: first, ordinary: false }
+  const culprit = first.warnings.find(w => w.type === 'unbounded-absorber')
+  const recipeIds = culprit?.type === 'unbounded-absorber' ? [...culprit.recipeIds] : []
+  insertIdleWarning(second.warnings, { type: 'absorber-idle', recipeIds })
+  return { lp: second, ordinary: true }
+}
+
+/** `absorber-idle` goes right after a leading `infeasible-pins`, else first. */
+function insertIdleWarning(warnings: SolverWarning[], idle: SolverWarning): void {
+  warnings.splice(warnings[0]?.type === 'infeasible-pins' ? 1 : 0, 0, idle)
+}
+
+/** The connection order solves afresh and drops the warning `withOrdinaryFallback` added: put it back (mutates `after`). */
+export function keepIdleWarning<R extends { warnings: SolverWarning[] }>(before: R, after: R): R {
+  const idle = before.warnings.find(w => w.type === 'absorber-idle')
+  if (idle && after !== before && !after.warnings.includes(idle)) insertIdleWarning(after.warnings, idle)
+  return after
+}
+
+/**
  * Solve `constraints` / `variables` for `optimize` (minimised); javascript-lp-solver does not modify them. A result
  * with `bounded: false` is an arbitrary vertex; only the `__obj__` / `__s2` objectives (the only ones with a negative
  * coefficient, the absorber reward) can be unbounded.

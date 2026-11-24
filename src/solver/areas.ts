@@ -21,7 +21,7 @@ import { leftoverOffItems } from '../data/sourceRules'
 import { keySupplyPlanOf } from './keySupplyPlan'
 import { flowKey, parseFlowKey, splitFluids, productTag, rangeOf, type FluidRange } from '../data/flowKey'
 import {
-  BIG_M, BYPRODUCTS_FIRST_SLACK_COST, LEFTOVER_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, hasUnreliableRates, isUnbounded, readLPResult, runLP, supplyUseVar,
+  BIG_M, BYPRODUCTS_FIRST_SLACK_COST, LEFTOVER_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, hasUnreliableRates, isUnbounded, readLPResult, keepIdleWarning, runLP, supplyUseVar, withOrdinaryFallback,
   type LPModel, type LPResult,
 } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
@@ -1199,8 +1199,14 @@ export function solveAreaBlock(
   for (const col of columns) {
     if (col.node.pinnedRate !== undefined) pinnedRates.set(col.id, col.node.pinnedRate)
   }
-  const bcColumns = new Set(columns.filter(c => c.node.byproductConsumer).map(c => c.id))
-  const feederColumns = new Set(columns.filter(c => c.node.absorberFeeder && !c.node.byproductConsumer).map(c => c.id))
+  const rewardedColumns = new Set(columns.filter(c => c.node.byproductConsumer).map(c => c.id))
+  const markedColumns = new Set(columns.filter(c => c.node.absorberFeeder && !c.node.byproductConsumer).map(c => c.id))
+  // The active pair: the rewarded rows and marked feeders, or empty sets in the ordinary re-solve (see `withOrdinaryFallback`).
+  const pairOf = (ordinary: boolean) => ordinary
+    ? { bc: new Set<string>(), feeders: new Set<string>() }
+    : { bc: rewardedColumns, feeders: markedColumns }
+  // Set once, from the flag `withOrdinaryFallback` returns, before the connection order and the rows read it.
+  let active = pairOf(false)
 
   // Ingredients of byproduct consumers (see solveBlock).
   const consumerIngredients = new Set<string>()
@@ -1315,8 +1321,6 @@ export function solveAreaBlock(
     }
   })
 
-  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs(), undefined, offerFluidCaps, leftoverOff)
-
   /**
    * The order of connectionOrder.ts on the area LP: when the passes end with an import (a slack at BIG_M, per area for an
    * area item) while a default-rule connected intermediate has offer to spare, measure the least import with every such
@@ -1367,7 +1371,7 @@ export function solveAreaBlock(
     const step = (
       order: AreaOrder, noImport: Set<string>, stepCaps: Map<string, number>, connectionsFirst: Set<string>, stepSpecs: AreaItemSpec[],
       fluidCaps: ReadonlyMap<string, number> = offerFluidCaps,
-    ) => solveAreaLP(system, columns, pinnedRates, bcColumns, feederColumns, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order, fluidCaps, leftoverOff)
+    ) => solveAreaLP(system, columns, pinnedRates, active.bc, active.feeders, noImport, stepCaps, connectionsFirst, byproductsFirst, stepSpecs, order, fluidCaps, leftoverOff)
     const base = { defaults: plainDefaults, byproductsFirst }
     const defaultsFirst = new Set([...firstItems, ...plainDefaults])
     const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
@@ -1433,31 +1437,40 @@ export function solveAreaBlock(
     )
   }
 
-  const pass2 = pass2Plan({
-    totalCaps: plainCaps, intermediates: system.classification.intermediates, firstItems, locked,
-    slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow, keySupply: keySupplyPlan,
-  })
-  // An area item runs pass 2 when the residuals of its areas that are not connections-first add up to more than the item's noise
-  // (as `pass2Plan`, on the item's total).
-  const residual = new Map<string, Map<number, number>>()
-  const openResidual = new Map<string, number>()
-  for (const o of lp.outside) {
-    if (o.slack <= FLOW_TOLERANCE) continue
-    const m = residual.get(o.itemId) ?? new Map<number, number>()
-    m.set(o.area, o.slack)
-    residual.set(o.itemId, m)
-    if (totalCaps.has(o.itemId) && !isFirst(o.area, o.itemId)) openResidual.set(o.itemId, (openResidual.get(o.itemId) ?? 0) + o.slack)
+  // The passes run twice when the absorber rewards make the objective unbounded: the second time with no rewards at all.
+  const run = (ordinary: boolean) => {
+    const { bc, feeders } = pairOf(ordinary)
+    let lp = solveAreaLP(system, columns, pinnedRates, bc, feeders, pass1NoImport, firstCaps, firstItems, byproductsFirst, areaItemSpecs(), undefined, offerFluidCaps, leftoverOff)
+    const pass2 = pass2Plan({
+      totalCaps: plainCaps, intermediates: system.classification.intermediates, firstItems, locked,
+      slack: lp.slack, S: system.S, throughput: lp.throughput, flow: system.flow, keySupply: keySupplyPlan,
+    })
+    // An area item runs pass 2 when the residuals of its areas that are not connections-first add up to more than the item's noise
+    // (as `pass2Plan`, on the item's total).
+    const residual = new Map<string, Map<number, number>>()
+    const openResidual = new Map<string, number>()
+    for (const o of lp.outside) {
+      if (o.slack <= FLOW_TOLERANCE) continue
+      const m = residual.get(o.itemId) ?? new Map<number, number>()
+      m.set(o.area, o.slack)
+      residual.set(o.itemId, m)
+      if (totalCaps.has(o.itemId) && !isFirst(o.area, o.itemId)) openResidual.set(o.itemId, (openResidual.get(o.itemId) ?? 0) + o.slack)
+    }
+    const areaPass2 = [...openResidual].some(([itemId, r]) => r > surplusTolerance(itemGrossFlow(system.S.get(itemId), lp.throughput)))
+    // An unbounded pass 1 has arbitrary slack and throughput, so pass 2 would be planned from noise: keep pass 1 and its warning.
+    if ((pass2.run || areaPass2) && !isUnbounded(lp.warnings)) {
+      lp = solveAreaLP(
+        system, columns, pinnedRates, bc, feeders, pass2.noImport,
+        new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual), undefined, pass2.fluidCaps, leftoverOff,
+      )
+    }
+    return lp
   }
-  const areaPass2 = [...openResidual].some(([itemId, r]) => r > surplusTolerance(itemGrossFlow(system.S.get(itemId), lp.throughput)))
-  // An unbounded pass 1 has arbitrary slack and throughput, so pass 2 would be planned from noise: keep pass 1 and its warning.
-  if ((pass2.run || areaPass2) && !isUnbounded(lp.warnings)) {
-    lp = solveAreaLP(
-      system, columns, pinnedRates, bcColumns, feederColumns, pass2.noImport,
-      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, areaItemSpecs(residual), undefined, pass2.fluidCaps, leftoverOff,
-    )
-  }
-
-  lp = areaConnectionOrder(lp) ?? lp
+  const { lp: passes, ordinary } = withOrdinaryFallback(run)
+  // The connection order and the rows below read the pair of the run that was kept.
+  active = pairOf(ordinary)
+  let lp = passes
+  lp = keepIdleWarning(lp, areaConnectionOrder(lp) ?? lp)
 
   const { throughput, warnings } = lp
   const columnOf = new Map(columns.map(c => [c.node.id, c]))
@@ -1471,7 +1484,7 @@ export function solveAreaBlock(
     if (!col.recipe) continue
     nodes.push(solvedNodeOf(
       planNode, col.recipe, throughput.get(col.id) ?? 0, col.effects, col.effects.productivityBonus, gameData,
-      isFeeder(lp.absorbers, bcColumns, col.id),
+      isFeeder(lp.absorbers, active.bc, col.id),
     ))
   }
 
