@@ -121,7 +121,7 @@ const ICONS = {
   trash: () => <path d="M2 3.5h8M4.5 3.5V2h3v1.5M3 3.5l.4 6.5h5.2L9 3.5" />,
   /** Add consumer recipe…: a machine with a plus. */
   consumer: m => corner(MACHINE_SMALL, PLUS, m),
-  /** Use it all here: the Leftover chest, struck. */
+  /** Use it all here: the Leftover chest, struck. Deliberately the same drawing as `leftover-off`: the action and the switch's off state are the same thing. */
   'use-all': m => struck(CHEST, m),
   /** Make it a product: the slot, promoted by an up arrow. */
   'make-product': m => corner(SLOT, RAISE, m),
@@ -164,8 +164,8 @@ const ICONS = {
 export type StripIconName = keyof typeof ICONS
 
 export function StripIcon({ name }: { name: StripIconName }) {
-  // useId returns ":r1:"-style ids, which are valid in url(#…) once the colons are escaped away.
-  const mask = `strip-mask-${useId().replace(/:/g, '')}`
+  // Keep only word characters of the id useId returns, so that it is a valid url(#…) fragment whatever the React version's format.
+  const mask = `strip-mask-${useId().replace(/\W/g, '')}`
   return (
     <svg
       width="12"

@@ -235,6 +235,10 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     expect(screen.getByRole('radio', { name: 'Make it here' })).toBeChecked()
     expect(screen.getByRole('radio', { name: 'Make it here' })).toHaveAttribute('tabindex', '0')
     expect(screen.getByRole('radio', { name: 'Receive it first' })).toHaveAttribute('tabindex', '-1')
+    // Each preset has its own icon.
+    expect(screen.getByRole('radio', { name: 'Make it here' }).querySelector('svg')).toHaveAttribute('data-icon', 'make')
+    expect(screen.getByRole('radio', { name: 'Receive it first' }).querySelector('svg')).toHaveAttribute('data-icon', 'receive-first')
+    expect(screen.getByRole('radio', { name: "Don't make more here" }).querySelector('svg')).toHaveAttribute('data-icon', 'dont-make')
     expect(screen.getByTestId('import-switch')).toHaveAttribute('data-tip', expect.stringMatching(/^Import on\. /))
     fireEvent.click(screen.getByTestId('leftover-switch'))
     expect(screen.getByTestId('leftover-switch')).not.toBeChecked()
