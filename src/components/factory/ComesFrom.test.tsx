@@ -183,6 +183,31 @@ describe('ComesFrom, an area with no rule', () => {
   })
 })
 
+describe('ComesFrom, in the Comes from popover', () => {
+  it('draws the sentence, then one toolbar: the rule group, then Sources…, with no text buttons', () => {
+    setup()
+    render(<ComesFrom itemId="plate" />)
+    const root = screen.getByTestId('comes-from')
+    expect(root.firstElementChild).toBe(screen.getByTestId('sourcing-sentence'))
+    const toolbar = within(root).getByTestId('strip-toolbar')
+    expect([...toolbar.querySelectorAll('button')].map(b => b.getAttribute('aria-label')))
+      .toEqual(['Make it here', 'Receive it first', "Don't make more here", 'Import', 'Leftover', 'Sources…'])
+    expect(toolbar.firstElementChild).toBe(within(toolbar).getByRole('radiogroup'))
+  })
+
+  it('shows the scope control above the sentence, and the area rule writes through the icons', () => {
+    setup({ L: { plate: {} } })
+    render(<ComesFrom itemId="plate" areaId="L" />)
+    const root = screen.getByTestId('comes-from')
+    expect(root.firstElementChild).toBe(screen.getByTestId('comes-from-scope'))
+    fireEvent.click(within(root).getByRole('radio', { name: "Don't make more here" }))
+    expect(areaRules('L')).toEqual({ plate: { makeHere: 'off' } })
+    fireEvent.click(screen.getByTestId('import-switch'))
+    expect(areaRules('L')).toEqual({ plate: { makeHere: 'off', importOff: true } })
+    expect(mainBlock().sourceRules).toEqual({})
+  })
+})
+
 describe('ComesFrom, the strip of an Ingredients slot', () => {
   it('has no scope control, and says how many areas have their own rule', () => {
     setup({ L: { plate: { makeHere: 'off' } }, B: { plate: {} } })
@@ -308,7 +333,7 @@ describe('ComesFrom, the Leftover switch', () => {
       expect(scope('Line L')).toHaveAttribute('aria-pressed', 'true')
       // The area's own rule replaces the block's whole, but the switch still reads the block's.
       expect(leftover()).toHaveAttribute('aria-checked', 'false')
-      expect(leftover()).toBeDisabled()
+      expect(leftover()).toHaveAttribute('aria-disabled', 'true')
       expect(screen.getByTestId('leftover-block-note')).toHaveTextContent('Set for the whole block')
       fireEvent.click(leftover())
       expect(mainBlock().sourceRules).toEqual({ plate: { leftoverOff: true } })
@@ -321,7 +346,7 @@ describe('ComesFrom, the Leftover switch', () => {
       fireEvent.click(screen.getByTestId('leftover-whole-block'))
       expect(scope('Whole block')).toHaveAttribute('aria-pressed', 'true')
       expect(screen.queryByTestId('leftover-block-note')).not.toBeInTheDocument()
-      expect(leftover()).toBeEnabled()
+      expect(leftover()).not.toHaveAttribute('aria-disabled')
     })
 
     it('has neither the note nor the button at the whole-block scope', () => {

@@ -17,6 +17,12 @@ const PATHS = {
   left: <path d="M7.5 2.5L4 6l3.5 3.5" />,
   /** Move later. */
   right: <path d="M4.5 2.5L8 6 4.5 9.5" />,
+  /** Move up, in the Sources list. */
+  up: <path d="M2.5 7.5L6 4l3.5 3.5" />,
+  /** Move down, in the Sources list. */
+  down: <path d="M2.5 4.5L6 8l3.5-3.5" />,
+  /** Remove a connection, in the Sources list. */
+  x: <path d="M3 3l6 6M9 3l-6 6" />,
   /** Remove product. */
   trash: <path d="M2 3.5h8M4.5 3.5V2h3v1.5M3 3.5l.4 6.5h5.2L9 3.5" />,
   /** Make it a product. */

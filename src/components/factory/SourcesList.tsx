@@ -23,6 +23,8 @@ import { itemMakers } from './sourcingText'
 import type { ItemMaker } from './sourcingText'
 import { Tip } from './Tip'
 import { MINI_BUTTON_CLASS, Switch } from './Switch'
+import { Cluster } from './StripToolbar'
+import type { StripAction } from './StripToolbar'
 
 // ---------------------------------------------------------------------------
 // SourcesList — the Sources list of one item of the active block (phase 2 of sourcing priority): every place the item may
@@ -107,8 +109,8 @@ function Line({ line, connectionId, areaId, helpId, name, help, reading, off, co
       )}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-h-5">
         {name && <span className="flex items-center gap-1.5 text-[11px] font-medium shrink-0">{name}</span>}
-        <span data-testid="sources-reading" className={`min-w-0 flex-1 text-[11px] leading-snug break-words ${off ? 'text-gray-500' : 'text-gray-400'}`}>{reading}</span>
-        {controls}
+        <span data-testid="sources-reading" className={`min-w-[7rem] flex-1 text-[11px] leading-snug break-words ${off ? 'text-gray-500' : 'text-gray-400'}`}>{reading}</span>
+        {controls && <div className="ml-auto">{controls}</div>}
       </div>
       <Tip id={helpId} align="start" hoverOnly>{help}</Tip>
       {/* The tooltip is the line's one description (aria-describedby); the help line repeats it for the eye only. */}
@@ -508,64 +510,50 @@ export function SourcesList({ itemId, id, areaId }: {
               dropSide={edge(index)}
               controls={
                 <span className="flex shrink-0 flex-wrap items-center gap-1">
-                  {area === undefined && row.canMakeProduct && (
+                  {area === undefined && !row.greyed && editingLimit !== c.id && (
                     <button
-                      type="button" data-testid="sources-make-product" aria-describedby={rowHelpId}
-                      aria-disabled={row.productBlocked !== undefined || undefined} data-tip={row.productBlocked}
-                      onClick={() => { if (!row.productBlocked) requestSourceProduct(c.fromBlockId) }}
+                      type="button" data-testid="sources-limit" aria-label={`Limit of ${sourceName}`} aria-describedby={rowHelpId}
+                      data-tip={limit ? 'Change or clear the limit' : 'Set a limit on what is received over this connection'}
+                      onClick={() => setEditingLimit(c.id)}
                       className={MINI_BUTTON_CLASS}
                     >
-                      Make it a product
+                      {limit ? `Limit ${limit}` : 'No limit'}
                     </button>
                   )}
-                  {area === undefined && !row.greyed && (editingLimit === c.id
-                    ? (
-                      <RateInput
-                        initial={c.maxRate !== undefined ? fmtRate(c.maxRate / 60, inputRateUnit(itemId, unit)) : ''}
-                        rateUnit={inputRateUnit(itemId, unit)}
-                        ariaLabel={`Limit of ${sourceName}`}
-                        allowClear
-                        onCommit={perMin => setConnectionMaxRate(c.id, perMin)}
-                        onStop={how => {
-                          // Enter and Escape give the focus back to the button; a blur means it went elsewhere on purpose.
-                          if (how === 'key') refocus.current = `[data-connection-id="${c.id}"] [data-testid="sources-limit"]`
-                          setEditingLimit(null)
-                        }}
-                      />
-                    )
-                    : (
-                      <button
-                        type="button" data-testid="sources-limit" aria-label={`Limit of ${sourceName}`} aria-describedby={rowHelpId}
-                        data-tip={limit ? 'Change or clear the limit' : 'Set a limit on what is received over this connection'}
-                        onClick={() => setEditingLimit(c.id)}
-                        className={MINI_BUTTON_CLASS}
-                      >
-                        {limit ? `Limit ${limit}` : 'No limit'}
-                      </button>
-                    ))}
-                  {area === undefined && !row.greyed && (
-                    <>
-                      <button
-                        type="button" data-testid="sources-block-move-up" aria-label="Move up" aria-describedby={rowHelpId}
-                        aria-disabled={first} onClick={() => moveRow(c.id, -1)}
-                        className={MINI_BUTTON_CLASS}
-                      >
-                        <span aria-hidden="true">▲</span>
-                      </button>
-                      <button
-                        type="button" data-testid="sources-block-move-down" aria-label="Move down" aria-describedby={rowHelpId}
-                        aria-disabled={end} onClick={() => moveRow(c.id, 1)}
-                        className={MINI_BUTTON_CLASS}
-                      >
-                        <span aria-hidden="true">▼</span>
-                      </button>
-                    </>
+                  {area === undefined && !row.greyed && editingLimit === c.id && (
+                    <RateInput
+                      initial={c.maxRate !== undefined ? fmtRate(c.maxRate / 60, inputRateUnit(itemId, unit)) : ''}
+                      rateUnit={inputRateUnit(itemId, unit)}
+                      ariaLabel={`Limit of ${sourceName}`}
+                      allowClear
+                      onCommit={perMin => setConnectionMaxRate(c.id, perMin)}
+                      onStop={how => {
+                        // Enter and Escape give the focus back to the button; a blur means it went elsewhere on purpose.
+                        if (how === 'key') refocus.current = `[data-connection-id="${c.id}"] [data-testid="sources-limit"]`
+                        setEditingLimit(null)
+                      }}
+                    />
                   )}
-                  {area === undefined && (
-                    <button type="button" data-testid="sources-block-remove" aria-label={`Remove ${sourceName}`} aria-describedby={rowHelpId} onClick={() => removeRow(c.id)} className={MINI_BUTTON_CLASS}>
-                      Remove
-                    </button>
-                  )}
+                  <Cluster
+                    actions={[
+                      ...(area === undefined && row.canMakeProduct
+                        ? [{
+                            label: 'Make it a product', icon: 'flag', testId: 'sources-make-product', describedBy: rowHelpId,
+                            ariaDisabled: row.productBlocked !== undefined, title: row.productBlocked,
+                            onSelect: () => requestSourceProduct(c.fromBlockId),
+                          } satisfies StripAction]
+                        : []),
+                      ...(area === undefined && !row.greyed
+                        ? [
+                            { label: 'Move up', icon: 'up', testId: 'sources-block-move-up', describedBy: rowHelpId, ariaDisabled: first, onSelect: () => moveRow(c.id, -1) } satisfies StripAction,
+                            { label: 'Move down', icon: 'down', testId: 'sources-block-move-down', describedBy: rowHelpId, ariaDisabled: end, joined: true, onSelect: () => moveRow(c.id, 1) } satisfies StripAction,
+                          ]
+                        : []),
+                      ...(area === undefined
+                        ? [{ label: `Remove ${sourceName}`, icon: 'x', testId: 'sources-block-remove', describedBy: rowHelpId, danger: true, onSelect: () => removeRow(c.id) } satisfies StripAction]
+                        : []),
+                    ]}
+                  />
                 </span>
               }
               {...focusProps(key)}
@@ -590,18 +578,15 @@ export function SourcesList({ itemId, id, areaId }: {
           dropSide={edge(last)}
           controls={
             <span className="flex shrink-0 items-center">
-              <button
-                type="button"
-                data-testid="sources-receive-from"
-                aria-describedby={`${helpId}-add`}
-                onClick={e => {
-                  const r = e.currentTarget.getBoundingClientRect()
-                  openConnectionMenu(itemId, r.left, r.bottom)
-                }}
-                className={MINI_BUTTON_CLASS}
-              >
-                Receive from…
-              </button>
+              <Cluster
+                actions={[{
+                  label: 'Receive from…', icon: 'arrowL', testId: 'sources-receive-from', describedBy: `${helpId}-add`, hasPopup: 'menu',
+                  onSelect: e => {
+                    const r = e.currentTarget.getBoundingClientRect()
+                    openConnectionMenu(itemId, r.left, r.bottom)
+                  },
+                }]}
+              />
             </span>
           }
           {...focusProps('add-block')}
@@ -663,20 +648,12 @@ export function SourcesList({ itemId, id, areaId }: {
             controls={
               <span className="flex shrink-0 items-center gap-1">
                 {/* Moving is across the whole group of block lines; a line switched off has no place to move to. */}
-                <button
-                  type="button" data-testid="sources-move-up" aria-label="Move up" aria-describedby={helpId}
-                  aria-disabled={off || drawnSide === 'above'} onClick={() => { if (!off && drawnSide === 'below') moveMakeMore('above') }}
-                  className={MINI_BUTTON_CLASS}
-                >
-                  <span aria-hidden="true">▲</span>
-                </button>
-                <button
-                  type="button" data-testid="sources-move-down" aria-label="Move down" aria-describedby={helpId}
-                  aria-disabled={off || drawnSide === 'below'} onClick={() => { if (!off && drawnSide === 'above') moveMakeMore('below') }}
-                  className={MINI_BUTTON_CLASS}
-                >
-                  <span aria-hidden="true">▼</span>
-                </button>
+                <Cluster
+                  actions={[
+                    { label: 'Move up', icon: 'up', testId: 'sources-move-up', describedBy: helpId, ariaDisabled: off || drawnSide === 'above', onSelect: () => { if (!off && drawnSide === 'below') moveMakeMore('above') } },
+                    { label: 'Move down', icon: 'down', testId: 'sources-move-down', describedBy: helpId, ariaDisabled: off || drawnSide === 'below', joined: true, onSelect: () => { if (!off && drawnSide === 'above') moveMakeMore('below') } },
+                  ]}
+                />
                 <Switch on={!off} label={SOURCES_LINES['make-here'].label} testId="sources-make-here-switch" describedBy={helpId} onToggle={toggleMakeMore} />
               </span>
             }
