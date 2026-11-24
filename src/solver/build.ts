@@ -342,7 +342,7 @@ export function addFlowKeys(
       if (areas) {
         for (const goalKey of goalKeysOf.get(itemId) ?? []) {
           if (!fitsRange(tag, info.get(goalKey)!.tag as FluidRange)) continue
-          for (const a of madeIn.get(from) ?? []) convert(itemId, from, goalKey, a, `conv:${from}→${goalKey}#${a}`)
+          for (const a of madeIn.get(from) ?? []) convert(itemId, from, goalKey, a, `conv:${from}→${goalKey}#goal${a}`)
         }
       }
     }
