@@ -25,7 +25,7 @@ test.describe('Byproduct: add consumer recipe', () => {
   })
 
   test('row tile: right-click, pick a consumer, row appears', async ({ page }) => {
-    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Steam electrolysis"]') }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Steam electrolysis"]') }).first()
     await row.getByLabel(/^Oxygen — Set as primary/).click({ button: 'right' })
     await expect(page.getByRole('menu').getByRole('menuitem', { name: 'Add consumer recipe…' })).toBeVisible()
     await page.getByRole('menuitem', { name: 'Add consumer recipe…' }).click()
@@ -42,7 +42,7 @@ test.describe('Byproduct: add consumer recipe', () => {
     await slot.click()
 
     await expect(page.getByRole('heading', { name: 'Add recipe' })).not.toBeVisible()
-    await expect(page.locator('main table tbody tr [title="Nitric acid"]').first()).toBeVisible()
+    await expect(page.locator('main table tbody tr [data-testid="recipe-name"][data-tip="Nitric acid"]').first()).toBeVisible()
   })
 
   test('summary slot: right-click, pick a consumer, row appears', async ({ page }) => {
@@ -56,7 +56,7 @@ test.describe('Byproduct: add consumer recipe', () => {
     await overlay.getByPlaceholder('Search…').fill('nullius-acid-sulfuric')
     await overlay.locator('[data-testid="recipe-slot"][data-recipe-id="nullius-acid-sulfuric"]').click()
 
-    await expect(page.locator('main table tbody tr [title="Sulfuric acid"]').first()).toBeVisible()
+    await expect(page.locator('main table tbody tr [data-testid="recipe-name"][data-tip="Sulfuric acid"]').first()).toBeVisible()
   })
 
   test('Escape closes the menu without opening the picker', async ({ page }) => {

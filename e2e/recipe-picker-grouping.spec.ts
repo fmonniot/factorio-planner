@@ -82,7 +82,7 @@ test.describe('Recipe picker grouping', () => {
     await page.getByRole('button', { name: 'Add recipe' }).click()
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
     await page.keyboard.press('Escape')
-    // And the recipe row carries the recipe name as a title attribute.
-    await expect(page.locator('main').locator(`[title*="ron"]`).first()).toBeVisible()
+    // And the recipe row carries the recipe name as its tooltip.
+    await expect(page.locator('main').locator(`[data-testid="recipe-name"][data-tip*="ron"]`).first()).toBeVisible()
   })
 })

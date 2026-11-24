@@ -6,6 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
 import type { GameData, RecipeNode, SubPlanNode } from '../../data/types'
+import { expectTip, getByTip } from '../../test/byTip'
 
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
@@ -98,7 +99,7 @@ describe('ProductionTable', () => {
     })
     render(<ProductionTable />)
     // Recipe icon/placeholder has the recipe name in its title attribute
-    expect(screen.getByTitle('Iron Plate')).toBeInTheDocument()
+    expect(getByTip('Iron Plate')).toBeInTheDocument()
   })
 
   it('the toolbar Add recipe button opens the picker in an empty block', async () => {
@@ -132,7 +133,7 @@ describe('ProductionTable', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
 
     // Click the Iron Plate recipe slot in the picker
-    const recipeButton = screen.getByTitle('Iron Plate')
+    const recipeButton = getByTip('Iron Plate')
     fireEvent.click(recipeButton)
 
     const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
@@ -230,7 +231,7 @@ describe('ProductionTable', () => {
       render(<ProductionTable />)
       await openConsumerPicker()
 
-      fireEvent.click(screen.getByTitle('Slag To Plate'))
+      fireEvent.click(getByTip('Slag To Plate'))
       const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
       expect(nodes).toHaveLength(2)
       expect(nodes[1].kind === 'game-recipe' && nodes[1].recipeId).toBe('slag-to-plate')
@@ -251,7 +252,7 @@ describe('ProductionTable', () => {
       fireEvent.click(screen.getByRole('button', { name: /^Expand / }))
       await openConsumerPicker()
 
-      fireEvent.click(screen.getByTitle('Slag To Plate'))
+      fireEvent.click(getByTip('Slag To Plate'))
       const root = useBlockStore.getState().blocks[0].rootPlan
       expect(root.nodes).toHaveLength(1)
       expect(root.subPlans[0].nodes).toHaveLength(2)
@@ -425,7 +426,8 @@ describe('ProductionTable — recipe picker', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
     const slot = screen.getAllByTestId('recipe-slot').find(e => e.getAttribute('data-recipe-id') === 'iron-plate')!
     expect(slot).toHaveAttribute('aria-disabled', 'true')
-    expect(slot).toHaveAttribute('title', 'Iron Plate (already in this block)')
+    expect(slot).toHaveAttribute('aria-label', 'Iron Plate (already in this block)')
+    expectTip(slot, 'Iron Plate (already in this block)', { describe: false })
   })
 })
 
@@ -514,7 +516,7 @@ describe('ProductionTable — filter', () => {
     fireEvent.change(field(), { target: { value: 'copper' } })
     fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
-    fireEvent.click(screen.getByTitle('Iron Plate'))
+    fireEvent.click(getByTip('Iron Plate'))
     expect(field()).toHaveValue('')
     expect(document.querySelectorAll('tr[data-node-id]')).toHaveLength(2)
   })
@@ -531,13 +533,22 @@ describe('ProductionTable — filter', () => {
     expect(within(row()).getByRole('button', { name: 'Move up' })).toBeEnabled()
   })
 
+  it('disables the reorder buttons while filtering, with the reason as tooltip and description', () => {
+    loadGroup()
+    render(<ProductionTable />)
+    fireEvent.change(field(), { target: { value: 'copper' } })
+    const up = screen.getAllByRole('button', { name: 'Move up' })[0]
+    expect(up).toBeDisabled()
+    expectTip(up, 'Clear the filter to reorder rows')
+  })
+
   it('disables the group chevron while filtering, with a title saying why', () => {
     loadGroup()
     render(<ProductionTable />)
     fireEvent.change(field(), { target: { value: 'copper' } })
     const chevron = screen.getByRole('button', { name: 'Collapse Smelters' })
     expect(chevron).toBeDisabled()
-    expect(chevron).toHaveAttribute('title', 'Groups open automatically while filtering')
+    expectTip(chevron, 'Groups open automatically while filtering')
   })
 
   it('opens a name-matching empty group so its drop target shows', () => {

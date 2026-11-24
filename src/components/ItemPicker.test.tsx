@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within, cleanup } from '@testing-library/rea
 import { ItemPicker } from './ItemPicker'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
+import { expectTip } from '../test/byTip'
 import type { GameData, Recipe } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -143,7 +144,8 @@ describe('ItemPicker — recipes mode', () => {
     const present = slot('iron-plate')
     expect(present).toHaveAttribute('aria-disabled', 'true')
     expect(present).toHaveAttribute('data-in-area', 'true')
-    expect(present).toHaveAttribute('title', 'Iron Plate (already in this area)')
+    expect(present).toHaveAttribute('aria-label', 'Iron Plate (already in this area)')
+    expectTip(present, 'Iron Plate (already in this area)', { describe: false })
     fireEvent.click(present)
     expect(onSelect).not.toHaveBeenCalled()
     expect(slot('copper-plate')).toBeEnabled()

@@ -28,6 +28,8 @@ import { chipsInLines, chipsOnOneLine, useChipsPerLine } from './oneLineChips'
 import { RecipeChipsMore } from './RecipeChipsMore'
 import { useNarrowTable } from './useNarrowTable'
 import { AreasIcon, FolderIcon } from '../icons'
+import { TipWrap } from '../TipWrap'
+import { describedTip } from '../tipProps'
 import {
   buildAlsoInOptions,
   duplicateToOptions,
@@ -453,19 +455,21 @@ export function RecipeRow({
         >
           {dropZone === 'before' && <DropLine edge="top" />}
           <div className={`flex items-center gap-1.5 min-w-0 ${narrow ? 'flex-wrap content-center gap-y-0' : ''}`}>
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              disabled={filtering}
-              title={filtering ? 'Groups open automatically while filtering' : undefined}
-              aria-expanded={isExpanded === true}
-              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${label}`}
-              className="w-[22px] h-[22px] shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-200"
-            >
-              <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
-                <path d={isExpanded ? 'M1 3l4 4 4-4' : 'M3 1l4 4-4 4'} fill="none" stroke="currentColor" strokeWidth="1.5" />
-              </svg>
-            </button>
+            <TipWrap tip={GROUPS_OPEN_WHILE_FILTERING} when={filtering}>
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                disabled={filtering}
+                {...(filtering ? { 'aria-description': GROUPS_OPEN_WHILE_FILTERING } : {})}
+                aria-expanded={isExpanded === true}
+                aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${label}`}
+                className="w-[22px] h-[22px] shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-200 disabled:pointer-events-none"
+              >
+                <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+                  <path d={isExpanded ? 'M1 3l4 4 4-4' : 'M3 1l4 4-4 4'} fill="none" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+              </button>
+            </TipWrap>
             {childPlan?.area === true
               ? <AreasIcon className={groupIconClass} title="Separate area" testId="area-marker" />
               : <FolderIcon className={groupIconClass} title="Sub-factory" testId="group-marker" />}
@@ -473,7 +477,7 @@ export function RecipeRow({
               type="button"
               onClick={select}
               aria-pressed={isSelected}
-              title={label}
+              data-tip={label}
               className={`${isSelected ? SELECTED_NAME_CLASS : 'font-semibold'} text-xs whitespace-nowrap truncate min-w-0 text-left rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-teal-400`}
             >
               {label}
@@ -754,7 +758,7 @@ export function RecipeRow({
               <span
                 role="img"
                 aria-label="Absorbs byproduct"
-                title={BYPRODUCT_CONSUMER_HINT}
+                {...describedTip(BYPRODUCT_CONSUMER_HINT)}
                 className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-600 text-white text-[9px] leading-none flex items-center justify-center select-none"
               >
                 ↓
@@ -764,21 +768,23 @@ export function RecipeRow({
               <span
                 role="img"
                 aria-label="Feeds an absorbing row"
-                title={isMarkedFeeder ? MARKED_FEEDER_HINT : FEEDER_HINT}
+                {...describedTip(isMarkedFeeder ? MARKED_FEEDER_HINT : FEEDER_HINT)}
                 className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border border-amber-500 bg-gray-900 text-amber-400 text-[9px] leading-none flex items-center justify-center select-none"
               >
                 ↓
               </span>
             )}
           </div>
-          <span data-testid="recipe-name" title={recipe.name} className={`text-[11px] ${isSelected ? SELECTED_NAME_CLASS : 'font-medium'} truncate min-w-0`}>
+          <span data-testid="recipe-name" data-tip={recipe.name} className={`text-[11px] ${isSelected ? SELECTED_NAME_CLASS : 'font-medium'} truncate min-w-0`}>
             {recipe.name}
           </span>
           </button>
           {index && areaView && recipeAreaCount >= 2 && hereAreaId && (
             <span
               data-testid="multi-area-badge"
-              title={multiAreaBadgeTitle}
+              role="img"
+              aria-label={`Built in ${recipeAreaCount} areas`}
+              {...describedTip(multiAreaBadgeTitle)}
               className="text-[10px] px-1 rounded border border-teal-700 text-teal-300 tabular-nums select-none"
             >
               {recipeAreaCount}
@@ -1052,6 +1058,7 @@ function AreaFlowChips({ lines, direction, items, rateUnit, testId }: AreaFlowCe
 // ReorderCell
 // ---------------------------------------------------------------------------
 
+const GROUPS_OPEN_WHILE_FILTERING = 'Groups open automatically while filtering'
 const FILTERING_REORDER_TITLE = 'Clear the filter to reorder rows'
 
 interface ReorderCellProps {
@@ -1085,26 +1092,30 @@ function ReorderCell({ nodeId, selected, className = '', isFirst, isLast, filter
   return (
     <td className={`px-1 py-0.5 w-8 ${className}`} style={selected ? { boxShadow: 'inset 3px 0 0 #2dd4bf' } : undefined}>
       <div className="flex flex-col items-center gap-0">
-        <button
-          type="button"
-          onClick={() => moveUp(nodeId)}
-          disabled={isFirst || filtering}
-          title={filtering ? FILTERING_REORDER_TITLE : undefined}
-          className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
-          aria-label="Move up"
-        >
-          ▲
-        </button>
-        <button
-          type="button"
-          onClick={() => moveDown(nodeId)}
-          disabled={isLast || filtering}
-          title={filtering ? FILTERING_REORDER_TITLE : undefined}
-          className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
-          aria-label="Move down"
-        >
-          ▼
-        </button>
+        <TipWrap tip={FILTERING_REORDER_TITLE} when={filtering}>
+          <button
+            type="button"
+            onClick={() => moveUp(nodeId)}
+            disabled={isFirst || filtering}
+            {...(filtering ? { 'aria-description': FILTERING_REORDER_TITLE } : {})}
+            className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px] disabled:pointer-events-none"
+            aria-label="Move up"
+          >
+            ▲
+          </button>
+        </TipWrap>
+        <TipWrap tip={FILTERING_REORDER_TITLE} when={filtering}>
+          <button
+            type="button"
+            onClick={() => moveDown(nodeId)}
+            disabled={isLast || filtering}
+            {...(filtering ? { 'aria-description': FILTERING_REORDER_TITLE } : {})}
+            className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px] disabled:pointer-events-none"
+            aria-label="Move down"
+          >
+            ▼
+          </button>
+        </TipWrap>
       </div>
     </td>
   )

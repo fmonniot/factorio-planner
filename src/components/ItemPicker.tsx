@@ -13,6 +13,7 @@ import { ENERGY_ITEM_IDS, isEnergyItem } from '../data/electricity'
 import { fmtTemperatureRange } from './factory/temperature'
 import type { Item, Recipe, GameData } from '../data/types'
 import { useOverlayOpen } from './factory/sidePanel/useDismiss'
+import { tipProps } from './tipProps'
 
 // ---------------------------------------------------------------------------
 // Recipe detail panel — shown on hover/focus of a recipe slot
@@ -399,7 +400,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
         data-in-area={present ? 'true' : undefined}
         // aria-disabled, not disabled: a disabled button gets no hover or focus, so the detail panel would never open.
         aria-disabled={present || undefined}
-        title={present ? `${r.name} (already in ${presentRecipes.where})` : beyond ? `${r.name} (beyond research horizon)` : r.name}
+        {...tipProps(present ? `${r.name} (already in ${presentRecipes.where})` : beyond ? `${r.name} (beyond research horizon)` : r.name)}
         onClick={() => { if (present) return; onSelect(r.id); onClose() }}
         onMouseEnter={() => setHoveredRecipeId(r.id)}
         onMouseLeave={() => setHoveredRecipeId(null)}

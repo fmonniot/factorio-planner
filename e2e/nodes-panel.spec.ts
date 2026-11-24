@@ -33,10 +33,10 @@ test.describe('Nodes panel', () => {
 
     // 4. Search and select nullius-chemical-pack recipe
     await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
-    await pickerOverlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
+    await pickerOverlay.locator('[data-testid="recipe-slot"][aria-label="Chemistry research 1"]').click()
 
     // 5. Recipe row appears in the production table
-    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
     // 6. "No recipes yet" is gone
@@ -53,10 +53,10 @@ test.describe('Nodes panel', () => {
 
     await page.getByRole('button', { name: 'Add recipe' }).click()
     await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
-    await pickerOverlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
+    await pickerOverlay.locator('[data-testid="recipe-slot"][aria-label="Chemistry research 1"]').click()
 
     // Wait for the row to appear.
-    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
     // The empty module chip opens the fill-all picker; choosing a module fills every slot.

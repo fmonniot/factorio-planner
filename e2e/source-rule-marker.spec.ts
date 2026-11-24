@@ -47,8 +47,8 @@ const table = (page: Page) => page.locator('main table')
 const rows = (page: Page) => table(page).locator('tbody tr')
 /** The rows that use oxygen: nitric acid synthesis at the top level, methanol in the sub-factory. */
 const userRows = (page: Page) => rows(page).filter({ has: page.locator('[data-variant="ingredient"][aria-label^="Oxygen"]') })
-const acidRow = (page: Page) => rows(page).filter({ has: page.locator('[title="Nitric acid"]') })
-const methanolRow = (page: Page) => rows(page).filter({ has: page.locator('[title="Methanol"]') })
+const acidRow = (page: Page) => rows(page).filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Nitric acid"]') })
+const methanolRow = (page: Page) => rows(page).filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Methanol"]') })
 const markers = (scope: Page | Locator) => scope.getByTestId('source-rule-marker')
 /** Every chip of oxygen in the table, whatever its column. */
 const oxygenChips = (page: Page) => table(page).locator('[data-variant][aria-label^="Oxygen"]')

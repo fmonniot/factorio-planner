@@ -33,7 +33,7 @@ test.describe('Primary product override', () => {
     await overlay.locator('[data-testid="recipe-slot"][data-recipe-id="nullius-brine-electrolysis"]').click()
 
     // Wait for the row to appear.
-    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Brine electrolysis"]') }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Brine electrolysis"]') }).first()
     await expect(row).toBeVisible()
 
     // By default Hydrogen is primary — it appears in the Products column.
@@ -69,9 +69,9 @@ test.describe('Primary product override', () => {
     // Add Chemistry research 1 recipe (single-output).
     await page.getByRole('button', { name: 'Add recipe' }).click()
     await overlay.getByPlaceholder('Search…').fill('Chemistry research 1')
-    await overlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
+    await overlay.locator('[data-testid="recipe-slot"][aria-label="Chemistry research 1"]').click()
 
-    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
     // Single-output: no "Set as primary" tiles (nothing to switch to).

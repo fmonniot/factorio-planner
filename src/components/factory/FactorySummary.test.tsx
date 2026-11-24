@@ -129,7 +129,6 @@ describe('FactorySummary — header row', () => {
     render(<FactorySummary />)
     expect(screen.queryByText('/sec')).not.toBeInTheDocument()
     expect(screen.queryByText('/min')).not.toBeInTheDocument()
-    expect(screen.queryByTitle('Click to rename')).not.toBeInTheDocument()
     expect(queryByTip('Show solver warnings')).not.toBeInTheDocument()
   })
 })
@@ -2052,7 +2051,7 @@ describe('FactorySummary — byproduct consumer recipe', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
     expect(screen.getByText("Choose a recipe that consumes 'Slag'")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTitle('Slag To Plate'))
+    fireEvent.click(getByTip('Slag To Plate'))
     const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
     expect(nodes).toHaveLength(1)
     expect(nodes[0].kind === 'game-recipe' && nodes[0].recipeId).toBe('slag-to-plate')
@@ -2064,7 +2063,7 @@ describe('FactorySummary — byproduct consumer recipe', () => {
     select('Byproducts', 'Slag')
     fireEvent.click(within(strip('Byproducts')).getByRole('button', { name: 'Add consumer recipe…' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
-    fireEvent.click(screen.getByTitle('Slag To Plate'))
+    fireEvent.click(getByTip('Slag To Plate'))
     expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(1)
   })
 
@@ -2106,7 +2105,7 @@ describe('FactorySummary — Find recipe', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
     expect(screen.getByText("Choose a recipe to produce 'Iron Plate'")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTitle('Smelt Iron'))
+    fireEvent.click(getByTip('Smelt Iron'))
     const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
     expect(nodes).toHaveLength(1)
     expect(nodes[0].kind === 'game-recipe' && nodes[0].recipeId).toBe('smelt-iron')
@@ -2121,7 +2120,7 @@ describe('FactorySummary — Find recipe', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
     expect(screen.getByText("Choose a recipe to produce 'Iron Ore'")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTitle('Mine Iron'))
+    fireEvent.click(getByTip('Mine Iron'))
     expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(1)
   })
 

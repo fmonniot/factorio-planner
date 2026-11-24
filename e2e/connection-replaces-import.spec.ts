@@ -34,7 +34,7 @@ async function setup(page: Page, fixture: string, firstSlot: string) {
 
 /** The sentence the selected row's panel gives for one ingredient. */
 async function sentence(page: Page, recipeTitle: string, itemId: string) {
-  const row = page.locator('main table tbody tr').filter({ has: page.locator(`[title="${recipeTitle}"]`) }).first()
+  const row = page.locator('main table tbody tr').filter({ has: page.locator(`[data-testid="recipe-name"][data-tip="${recipeTitle}"]`) }).first()
   await selectRow(page, row)
   return sidePanel(page).locator(`[data-testid="sourcing-entry"][data-item-id="${itemId}"]`).getByTestId('sourcing-sentence')
 }

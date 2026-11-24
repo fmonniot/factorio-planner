@@ -9,7 +9,7 @@ import { openLine } from './support/sourcesList'
 const FIXTURE = path.resolve('e2e/fixtures/item-sourcing.json')
 
 const acidRow = (page: Page) =>
-  page.locator('main table tbody tr').filter({ has: page.locator('[title="Nitric acid"]') }).first()
+  page.locator('main table tbody tr').filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Nitric acid"]') }).first()
 
 async function setup(page: Page) {
   await loadPlanFixture(page, FIXTURE)

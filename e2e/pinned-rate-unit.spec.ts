@@ -15,7 +15,7 @@ test('pinned rate is stored per minute and shown in the current unit', async ({ 
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 
   const row = page.locator('main table tbody tr')
-    .filter({ has: page.locator('[title="Saline electrolysis"]') }).first()
+    .filter({ has: page.locator('[data-testid="recipe-name"][data-tip="Saline electrolysis"]') }).first()
   await expect(row).toBeVisible({ timeout: 5000 })
 
   const panel = await selectRow(page, row)
