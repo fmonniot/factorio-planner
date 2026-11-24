@@ -24,6 +24,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
 | Surplus-aware objective     | Future   | [surplus-aware-objective/](surplus-aware-objective/plan.md) |
+| Summary strip: icon actions | Future   | [summary-strip-icons/](summary-strip-icons/plan.md)    |
 | Block graph past 6–7 blocks | Shipped | [archive/block-graph-scale/](archive/block-graph-scale/plan.md) |
 | Surplus rule: close a loop on purpose | Shipped | [archive/surplus-rule/](archive/surplus-rule/plan.md) |
 | Fluid temperatures as first-class items | Shipped | [archive/fluid-temperatures/](archive/fluid-temperatures/plan.md) |

@@ -1,0 +1,1259 @@
+<title>Summary strip redesign</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: a sticky width control, then one section per pane group; each section has variant tabs above a
+   replica of the real panes at the real pane width, and a measured readout below it. */
+:root {
+  --bg: #f4f7f6;
+  --surface: #ffffff;
+  --ink: #12201e;
+  --muted: #566a67;
+  --line: #d6e1df;
+  --accent: #0b6f66;
+  --accent-soft: #dff0ed;
+  --accent-ink: #ffffff;
+  --bad: #b42318;
+  --bad-soft: #fde8e6;
+  --good: #1a7f4b;
+  --font-body: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "Space Grotesk", Inter, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1211; --surface: #111c1b; --ink: #e5efed; --muted: #94aaa6; --line: #25383a;
+    --accent: #3fd3c2; --accent-soft: #123a37; --accent-ink: #04201d;
+    --bad: #ff8a80; --bad-soft: #3a1714; --good: #5fd49a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1211; --surface: #111c1b; --ink: #e5efed; --muted: #94aaa6; --line: #25383a;
+  --accent: #3fd3c2; --accent-soft: #123a37; --accent-ink: #04201d;
+  --bad: #ff8a80; --bad-soft: #3a1714; --good: #5fd49a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font: 400 15px/1.55 var(--font-body); margin: 0; }
+.wrap { max-width: 1060px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--font-head); font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
+h1 { font-size: 30px; line-height: 1.15; }
+h2 { font-size: 22px; line-height: 1.2; }
+h3 { font-size: 15px; }
+p { margin: 0; }
+.lede { color: var(--muted); max-width: 68ch; margin-top: 10px; }
+.problems { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 20px; }
+.problem { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.problem b { display: block; font-family: var(--font-head); font-size: 14px; margin-bottom: 4px; }
+.problem span { color: var(--muted); font-size: 13.5px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+
+.widthbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line);
+  margin: 28px 0 0; padding-block: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+.widthbar .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.seg button { font: 500 13px/1 var(--font-body); color: var(--ink); background: none; border: 0; border-right: 1px solid var(--line); padding: 8px 12px; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.seg button small { display: block; font-size: 10.5px; opacity: 0.75; margin-top: 3px; font-weight: 400; }
+.seg button:focus-visible, .tog:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.widthbar .hint { color: var(--muted); font-size: 12.5px; }
+
+section.group { margin-top: 44px; }
+section.group > .head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.vtabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
+.vtab { font: 500 13.5px/1.2 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 13px; cursor: pointer; text-align: left; }
+.vtab[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.vtab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vtab small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; margin-top: 3px; }
+.vdesc { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; display: grid; gap: 6px; font-size: 14px; }
+.vdesc .try { color: var(--muted); }
+.vdesc .try b, .vdesc .cost b { color: var(--ink); font-weight: 600; }
+.vdesc .cost { color: var(--muted); }
+
+.stagebox { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 14px; }
+.stage { overflow-x: clip; padding-bottom: 6px; }
+.stage-inner { transform-origin: top left; width: max-content; }
+.log { margin-top: 10px; font: 12.5px/1.4 var(--font-mono); color: var(--muted); min-height: 1.4em; }
+.readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin-top: 12px; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; background: var(--bg); }
+.card .k { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.card .v { font: 600 16px/1.3 var(--font-head); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.card .v.bad { color: var(--bad); } .card .v.good { color: var(--good); }
+.card .s { font-size: 12.5px; color: var(--muted); }
+.notdrawn { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+.pick { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: 14px 16px; margin-top: 16px; font-size: 14px; }
+.pick b { font-family: var(--font-head); }
+footer { margin-top: 48px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+footer ul { margin: 6px 0 0; padding-left: 18px; }
+
+/* ---------- the replica: the app's own dark palette (Tailwind gray / teal), fixed in both page themes ---------- */
+.app { --g100:#f3f4f6; --g300:#d1d5dc; --g400:#99a1af; --g500:#6a7282; --g600:#4a5565; --g700:#364153; --g800:#1e2939; --g900:#101828;
+  --t200:#96f7e4; --t400:#00d5be; --t600:#009689; --t900:#0b4f4a; --red:#ff6467; --amber:#ffd230;
+  background: var(--g900); color: var(--g300); font: 400 11px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 8px 12px 10px; border-radius: 8px; width: max-content; }
+.app *, .app *::before, .app *::after { box-sizing: border-box; }
+.app button { font: inherit; color: inherit; }
+.panes { display: flex; gap: 8px; align-items: stretch; }
+.pane { width: var(--pw); flex: none; border: 1px solid var(--g700); border-radius: 6px; display: flex; flex-direction: column; min-width: 0; }
+.pane-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; padding: 8px 8px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--g400); }
+.pane-h .n { font-variant-numeric: tabular-nums; margin-left: 4px; }
+.tool { width: 22px; height: 20px; display: inline-flex; align-items: center; justify-content: center; color: var(--g400); border: 1px solid var(--g700); border-radius: 4px; background: none; cursor: pointer; }
+.tool:hover { color: var(--g100); border-color: var(--g500); }
+.mini { background: var(--g900); border: 1px solid var(--g700); border-radius: 4px; padding: 0 6px; font-size: 11px; line-height: 16px; color: var(--g300); cursor: pointer; text-transform: none; letter-spacing: 0; }
+.mini:hover { border-color: var(--g500); }
+.grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 10px; max-height: 97px; min-height: 58px; overflow-y: auto; flex: 1; align-content: flex-start; }
+.slot { width: 50px; height: 54px; flex: none; position: relative; border: 1px solid var(--g700); border-radius: 5px; background: var(--g900); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.slot:hover { border-color: var(--g500); }
+.slot[aria-pressed="true"] { border-color: var(--t600); background: rgba(11,79,74,0.45); }
+.slot .glyph { width: 24px; height: 24px; margin-bottom: 6px; }
+.slot .r { position: absolute; right: 3px; bottom: 7px; font: 700 10px/1 ui-monospace, Menlo, monospace; color: var(--g100); text-shadow: 0 0 3px #000, 0 0 3px #000; }
+.slot .mb { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 4px; display: flex; gap: 1px; border-radius: 1px; overflow: hidden; }
+.slot .mb i { display: block; height: 100%; }
+.glyph { border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font: 700 9px/1 system-ui; color: #fff; flex: none; text-shadow: 0 1px 1px rgba(0,0,0,0.4); }
+
+.strip { border-top: 1px solid var(--g700); background: var(--g800); border-radius: 0 0 5px 5px; padding: 5px 10px 3px; display: flex; flex-direction: column; gap: 3px; flex: none; min-height: 72px; font-size: 11px; position: relative; }
+.strip.fixed72 { height: 72px; min-height: 0; }
+.strip.tall { min-height: 156px; }
+.hdr { display: flex; align-items: center; gap: 8px; height: 20px; min-width: 0; flex: none; }
+.hdr .name { font-size: 12px; font-weight: 600; color: var(--g100); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hdr .rates { margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--g300); white-space: nowrap; }
+.hdr .rates b { font: 600 12px ui-monospace, Menlo, monospace; }
+.hdr .rates u { text-decoration: none; color: var(--g400); font-size: 10px; }
+.hdr .rates em { font-style: normal; color: var(--t200); }
+.x { background: none; border: 0; color: var(--g400); padding: 0 0 0 4px; cursor: pointer; display: inline-flex; }
+.x:hover { color: var(--g100); }
+.bar { display: flex; gap: 1px; width: 100%; height: 16px; flex: none; position: relative; }
+.bar .sg { height: 100%; min-width: 3px; border-radius: 3px; display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 10px; line-height: 1.15; white-space: nowrap; overflow: hidden; color: #fff; }
+.bar .sg span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.bar .sg b { font: 700 10px ui-monospace, Menlo, monospace; flex: none; }
+.bar .sg.miss { background: repeating-linear-gradient(135deg, #7f1d1d 0 4px, #991b1b 4px 8px); }
+.acts { display: flex; align-items: center; gap: 6px; height: 22px; flex: none; position: relative; }
+.acts.wraps { flex-wrap: wrap; height: auto; row-gap: 4px; padding-bottom: 2px; }
+.btn { background: var(--g900); border: 1px solid var(--g700); border-radius: 4px; padding: 2px 8px; line-height: 16px; white-space: nowrap; color: var(--g300); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; flex: none; position: relative; }
+.btn:hover:not(:disabled) { border-color: var(--g500); }
+.btn.danger { color: var(--red); }
+.btn.dashed { border-style: dashed; border-color: var(--g600); color: var(--g400); background: none; }
+.btn.dashed:hover { color: var(--g100); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn .badge { background: rgba(123,51,6,0.5); color: #ffd230; border-radius: 3px; padding: 0 4px; font-size: 10px; margin-left: 2px; }
+.btn.ico { padding: 0; width: 24px; height: 22px; justify-content: center; }
+.btn.ico .badge { position: absolute; top: -5px; right: -5px; margin: 0; padding: 0 3px; line-height: 12px; background: #7b3306; }
+.btn[hidden] { display: none; }
+.pair { display: inline-flex; flex: none; }
+.pair .btn { border-radius: 0; }
+.pair .btn:first-child { border-radius: 4px 0 0 4px; border-right-width: 0; }
+.pair .btn:last-child { border-radius: 0 4px 4px 0; }
+.sp { flex: 1; min-width: 0; }
+.ic { stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.ic .dot { fill: currentColor; }
+.ov { display: flex; align-items: center; justify-content: space-between; height: 20px; flex: none; }
+.ov b { font-size: 12px; color: var(--g100); font-weight: 600; }
+.ov span { font-size: 10px; color: var(--g400); }
+
+/* tooltips: the app's black instant tooltip */
+[data-tip]:hover::after, [data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; z-index: 60; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: #000; color: var(--g100); border: 1px solid var(--g700); border-radius: 4px; padding: 3px 7px; font: 400 11px/1.4 system-ui; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.6); }
+[data-tip][data-tip-end]:hover::after { left: auto; right: 0; transform: none; }
+
+.menu, .pop { position: absolute; z-index: 50; background: #0b111c; border: 1px solid var(--g600); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.65); }
+.menu { top: calc(100% + 4px); right: 0; min-width: 170px; padding: 3px; display: flex; flex-direction: column; }
+.menu[hidden], .pop[hidden] { display: none; }
+.menu button { background: none; border: 0; text-align: left; padding: 4px 8px; border-radius: 4px; color: var(--g300); display: flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; }
+.menu button:hover:not(:disabled), .menu button:focus-visible { background: var(--g800); color: var(--g100); outline: none; }
+.menu button.danger { color: var(--red); }
+.menu button:disabled { opacity: 0.4; cursor: default; }
+.menu hr { border: 0; border-top: 1px solid var(--g700); margin: 3px 0; }
+.menu .badge { margin-left: auto; background: rgba(123,51,6,0.5); color: #ffd230; border-radius: 3px; padding: 0 4px; font-size: 10px; }
+.anchor { position: relative; display: inline-flex; flex: none; }
+.pop { top: calc(100% + 4px); width: 250px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.pop.r { right: 0; } .pop.l { left: 0; }
+.pop h4 { margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--g400); font-weight: 600; }
+.pop .srcline { display: flex; justify-content: space-between; gap: 8px; color: var(--g300); }
+.pop .srcline b { font: 600 11px ui-monospace, Menlo, monospace; color: var(--g100); }
+
+/* Comes from controls, as in ComesFrom.tsx */
+.cf { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid rgba(54,65,83,0.7); }
+.cf .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.cf .lab { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--g400); }
+.presets { display: flex; border: 1px solid var(--g700); border-radius: 4px; background: var(--g900); }
+.presets button { background: none; border: 0; border-right: 1px solid var(--g700); padding: 2px 6px; line-height: 16px; white-space: nowrap; color: var(--g300); cursor: pointer; }
+.presets button:last-child { border-right: 0; }
+.presets button:hover { background: var(--g800); }
+.presets button[aria-checked="true"] { background: rgba(11,79,74,0.6); color: var(--t200); }
+.presets.fill { flex: 1 1 100%; } .presets.fill button { flex: 1 1 0; padding-left: 2px; padding-right: 2px; overflow: hidden; text-overflow: ellipsis; }
+.sw { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 2px 4px; line-height: 16px; color: var(--g300); cursor: pointer; border-radius: 4px; white-space: nowrap; }
+.sw:hover { color: var(--g100); }
+.sw i { position: relative; width: 24px; height: 12px; border-radius: 6px; background: var(--g600); display: inline-block; }
+.sw i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--g100); }
+.sw[aria-checked="true"] i { background: var(--t600); }
+.sw[aria-checked="true"] i::after { left: 14px; }
+.sent { color: var(--g400); line-height: 1.35; margin: 0; }
+.sent.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.app :is(button):focus-visible { outline: 2px solid var(--t400); outline-offset: 1px; }
+.radios { display: flex; flex-direction: column; gap: 1px; }
+.radios button { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 1px 4px 1px 0; text-align: left; color: var(--g300); cursor: pointer; line-height: 16px; white-space: nowrap; }
+.radios button i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--g500); flex: none; position: relative; }
+.radios button[aria-checked="true"] { color: var(--t200); }
+.radios button[aria-checked="true"] i { border-color: var(--t400); }
+.radios button[aria-checked="true"] i::after { content: ""; position: absolute; inset: 1.5px; border-radius: 50%; background: var(--t400); }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding-top: 4px; }
+.cols .l { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cols .rr { border-left: 1px solid rgba(54,65,83,0.9); padding-left: 10px; display: flex; flex-direction: column; gap: 3px; }
+.cols .l .acts { height: auto; flex-wrap: wrap; row-gap: 4px; }
+.summ { max-width: 100%; }
+.summ span.t { overflow: hidden; text-overflow: ellipsis; }
+/* ---------- spec presentation ---------- */
+.status { display: inline-flex; gap: 8px; align-items: center; font: 600 12px/1 var(--font-body); letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 6px 12px; margin-bottom: 14px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 20px; }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+.fact .k { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.fact .v { font: 600 15px/1.35 var(--font-head); margin-top: 3px; }
+.fact .s { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.toc { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 22px 0 0; padding: 12px 0; border-block: 1px solid var(--line); font-size: 13.5px; }
+.toc a { color: var(--accent); text-decoration: none; font-weight: 500; }
+.toc a:hover { text-decoration: underline; }
+section.spec { margin-top: 48px; scroll-margin-top: 16px; }
+section.spec > h2 { display: flex; align-items: baseline; gap: 10px; }
+section.spec > h2 .tag { font: 500 12px/1 var(--font-body); color: var(--muted); letter-spacing: 0.04em; }
+h3.sub { margin: 28px 0 8px; font-size: 16px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table.spec { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 760px; }
+table.spec th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; padding: 9px 12px; border-bottom: 1px solid var(--line); background: var(--bg); white-space: nowrap; }
+table.spec td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.spec tr:last-child td { border-bottom: 0; }
+table.spec td:first-child { white-space: nowrap; }
+table.spec .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.spec .bad { color: var(--bad); } table.spec .good { color: var(--good); font-weight: 600; }
+table.spec code { font-size: 12px; }
+.ico-chip { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 22px; border-radius: 4px; border: 1px solid #364153; background: #101828; color: #d1d5dc; vertical-align: middle; margin-right: 6px; }
+.ico-chip.txt { width: auto; padding: 0 8px; font: 11px/16px system-ui; }
+.ico-chip.lit { background: rgba(11,79,74,0.6); border-color: #009689; color: #96f7e4; }
+.ico-chip.danger { color: #ff6467; }
+.callout { border: 1px solid var(--line); border-left: 4px solid var(--accent); background: var(--surface); border-radius: 8px; padding: 12px 16px; margin-top: 14px; font-size: 14px; }
+.callout.warn { border-left-color: #b7791f; }
+.callout b { font-family: var(--font-head); }
+.callout ul { margin: 6px 0 0; padding-left: 20px; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; font-size: 13.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; }
+details.code { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+details.code summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 14px; }
+details.code pre { margin: 0; padding: 12px 14px; border-top: 1px solid var(--line); overflow-x: auto; font: 12px/1.55 var(--font-mono); }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 14px; }
+.checklist li::before { content: ""; width: 14px; height: 14px; border: 1.5px solid var(--muted); border-radius: 3px; margin-top: 4px; }
+.stagehead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
+.stagehead .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.stagehead label { font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.stagebox .try { color: var(--muted); font-size: 13.5px; margin-bottom: 10px; }
+.stagebox .try b { color: var(--ink); }
+/* variant D: icon-only rule controls */
+.presets.ico button { width: 24px; height: 20px; padding: 0; display: inline-flex; align-items: center; justify-content: center; position: relative; }
+.btn.tg[aria-checked="true"] { background: rgba(11,79,74,0.6); border-color: var(--t600); color: var(--t200); }
+.vsep { width: 1px; height: 16px; background: var(--g700); flex: none; }
+.acts.tight { gap: 4px; }
+.condrow { display: flex; align-items: center; gap: 8px; }
+.condrow.noeff { justify-content: space-between; color: var(--g500); line-height: 1.35; }
+.condrow .grp { display: inline-flex; gap: 4px; flex: none; }
+
+/* the served order popover, as ServedOrderPopover.tsx draws it */
+.app.svpop { position: fixed; z-index: 80; padding: 10px 12px; width: 420px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--g700); border-radius: 8px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); text-align: left; outline: none; }
+.svpop .top { display: flex; align-items: center; gap: 8px; }
+.svpop h5 { margin: 0; flex: 1; font: 600 12px/1.4 system-ui; color: var(--g100); }
+.svpop .hint { font-size: 11px; color: var(--g400); }
+.svpop ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--g300); }
+.svpop li { position: relative; display: flex; flex-direction: column; gap: 2px; border-radius: 4px; padding: 2px 4px; }
+.svpop li.br { border-left: 2px solid rgba(96,165,250,0.6); padding-left: 6px; }
+.svpop li.br.first { border-top: 2px solid rgba(96,165,250,0.6); border-top-left-radius: 6px; }
+.svpop li.br.last { border-bottom: 2px solid rgba(96,165,250,0.6); border-bottom-left-radius: 6px; }
+.svpop li.dragging { opacity: 0.4; }
+.svpop .l1 { display: flex; align-items: center; gap: 8px; }
+.svpop .rk { width: 16px; font: 12px ui-monospace, Menlo, monospace; color: var(--g500); font-variant-numeric: tabular-nums; }
+.svpop .sdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.svpop .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--g100); }
+.svpop .fig { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; padding-left: 24px; }
+.svpop .fig .m { font: 12px ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.svpop .fig .dim { color: var(--g400); }
+.svpop .fig .short { color: var(--amber); }
+.svpop .tag { border-radius: 4px; background: rgba(123,51,6,0.45); color: var(--amber); padding: 0 4px; font-size: 10px; }
+.svpop .mini { padding: 0 6px; }
+.svpop .mini.pressed { border-color: #60a5fa; background: #172554; color: #bfdbfe; }
+.svpop .mini[aria-disabled="true"] { opacity: 0.4; cursor: default; }
+.svpop .mini[aria-disabled="true"]:hover { border-color: var(--g700); }
+.svpop input { width: 56px; border: 1px solid var(--g700); border-radius: 4px; background: var(--g900); padding: 0 4px; text-align: right; font: 11px ui-monospace, Menlo, monospace; color: var(--g100); -moz-appearance: textfield; }
+.svpop input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.svpop input:focus-visible { outline: 2px solid var(--t400); }
+.svpop .pc { margin-left: -6px; color: var(--g500); }
+.svpop .divider { position: relative; border-top: 1px solid var(--g700); padding-top: 4px; font-size: 11px; color: var(--g400); }
+.svpop .dl { position: absolute; left: 0; right: 0; height: 2px; background: #3b82f6; pointer-events: none; }
+.svpop .dl.before { top: -1px; } .svpop .dl.after { bottom: -1px; }
+.svpop .dj { position: absolute; inset: 0; border-radius: 4px; box-shadow: 0 0 0 2px #3b82f6; pointer-events: none; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="status">Design spec · decided 2026-11-23 · ready to implement</span>
+    <h1>Summary detail strip: icon actions</h1>
+    <p class="lede">When an item is selected in a summary pane, its detail strip has more to show than the pane can hold. Products and Byproducts run their buttons under the next pane. Ingredients stack seven lines in a strip that is never shorter than 156 px. This spec gives the three panes one pattern: an icon-only toolbar on a single row, with the same icon button, the same tooltips and the same order of meaning, and the Comes from block of Ingredients folded into that row. Each section has a replica built at the real pane widths, the exact controls to build, and the checks that say it is done.</p>
+    <div class="facts">
+      <div class="fact"><div class="k">Changes</div><div class="v">The selected strip of three panes</div><div class="s">Products, Byproducts, Ingredients. Slot grid, bars, header rates and right-click menus stay as they are.</div></div>
+      <div class="fact"><div class="k">Does not change</div><div class="v">Served order popover</div><div class="s">Only the button that opens it becomes an icon. <code>ServedOrderPopover.tsx</code> is untouched.</div></div>
+      <div class="fact"><div class="k">Measured result</div><div class="v">No overflow; 194 → 93 px</div><div class="s">Products and Byproducts fit at 260 px. The Ingredients strip is 93 px at 413 px (was 194) and 108 px at 260 px (was 227).</div></div>
+    </div>
+    <nav class="toc" aria-label="Sections">
+      <a href="#decisions">Decisions</a><a href="#pattern">One pattern</a><a href="#products">Products and Byproducts</a><a href="#ingredients">Ingredients</a><a href="#served">Served order popover</a><a href="#icons">Icons and styles</a><a href="#open">Open decisions</a><a href="#build">Implementation notes</a><a href="#accept">Acceptance checks</a>
+    </nav>
+  </header>
+
+  <section class="spec" id="decisions">
+    <h2>Decisions</h2>
+    <div class="tablewrap" style="margin-top:12px"><table class="spec">
+      <thead><tr><th>Pane, selected state</th><th>Today</th><th>Decided</th><th>Measured</th></tr></thead>
+      <tbody>
+        <tr><td><b>Products</b></td><td>Up to 6 text buttons on one 22 px row that never wraps: Find recipe, Remove extra (or + Extra output), Move earlier, Move later, Remove product, Served order….</td><td>Every action is a 24 px icon button on the same row: Find recipe on the left, then after the spacer Served order, extra output, the move arrows as a pair, and Remove product last and red. The strip stays 72 px.</td><td class="num"><span class="bad">177 px past the pane edge at 413</span> → <span class="good">fits at 260</span></td></tr>
+        <tr><td><b>Byproducts</b></td><td>Up to 4 text buttons: Served order…, Use it all here, Add consumer recipe…, Make it a product.</td><td>All icons: Add consumer recipe… on the left, then after the spacer Served order, Use it all here and Make it a product, in that order.</td><td class="num"><span class="bad">233 px past at 260</span> → <span class="good">fits at 260</span></td></tr>
+        <tr><td><b>Ingredients</b></td><td>Seven lines: header, bar, actions, Comes from (presets and Import), Leftover, Sources…, sentence. Minimum height 156 px.</td><td>Header, bar, the sentence (two lines at most), then one row of eight icons: Find recipe, Receive from…, the three presets, Import, Leftover, Sources…. No minimum height.</td><td class="num"><span class="bad">194 px at 413, 227 at 260</span> → <span class="good">93 px at 413, 108 at 260</span></td></tr>
+        <tr><td><b>Served order popover</b></td><td>Opens from the Served order… button.</td><td>Opens from the list icon. Same popover, same behaviour.</td><td>No change</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout"><b>How to read the replicas.</b> Each one opens on the decided layout. The Current tab shows today's layout in the same state so you can compare. Both are built at the pane widths the app produces: one third of the window minus the 24 px padding and the two 8 px gaps (260 px at 820 wide, 413 px at 1280, 467 px at 1440; 333 px on a phone, where a pane is 85% of the width).</div>
+  </section>
+
+  <section class="spec" id="pattern">
+    <h2>One pattern for all three panes <span class="tag">build this once, use it three times</span></h2>
+    <p class="lede">The three strips share one toolbar component. The rules below hold in every pane; the sections after this one only list which controls each pane puts in it.</p>
+    <dl class="kv" style="margin-top:12px">
+      <dt>Toolbar</dt><dd>One row, 22 px high, icon buttons only (24 × 22 px), 4 px between them, never wrapping, no text labels. Same row in the selected state and in the preview state.</dd>
+      <dt>Order of meaning</dt><dd><b>Left:</b> ways to make or supply the item (Find recipe, Receive from…, Add consumer recipe…). <b>Middle, Ingredients only:</b> the rule group (three presets, Import, Leftover), between two separators. <b>Right, after the spacer:</b> information first (Served order…, Sources…), then changes to the block, with the most destructive at the far edge (Remove product, Make it a product).</dd>
+      <dt>Same meaning, same icon</dt><dd>An icon means one thing in every pane: the magnifier is always "find a recipe", the list is always "served order", the two arrows are "receive from another block" (pointing in) and "add a block that consumes this" (pointing out). No icon is reused for a different action.</dd>
+      <dt>Name and tooltip</dt><dd>The accessible name is the action's name. The tooltip (<code>data-tip</code>, the app's instant tooltip) is the same text, unless the action already has a longer help text, which it keeps.</dd>
+      <dt>States</dt><dd>Lit (teal) for a chosen preset and an on switch. Disabled at 40% opacity with the reason as tooltip. A count badge on the top right corner. Red for Remove product only.</dd>
+      <dt>Height</dt><dd>Products and Byproducts strips stay 72 px. The Ingredients strip is content-sized, because it also carries the sentence.</dd>
+    </dl>
+    <h3 class="sub">Which pane has which control</h3>
+    <div class="tablewrap"><table class="spec">
+      <thead><tr><th>Control</th><th>Icon</th><th>Products</th><th>Byproducts</th><th>Ingredients</th></tr></thead>
+      <tbody>
+        <tr><td>Find recipe</td><td><span class="ico-chip" data-ic="search"></span></td><td>left</td><td>–</td><td>left</td></tr>
+        <tr><td>Receive from…</td><td><span class="ico-chip" data-ic="arrowL"></span></td><td>–</td><td>–</td><td>left, when connectable</td></tr>
+        <tr><td>Add consumer recipe…</td><td><span class="ico-chip" data-ic="arrowR"></span></td><td>–</td><td>left</td><td>–</td></tr>
+        <tr><td>Presets</td><td><span class="ico-chip" data-ic="factory"></span><span class="ico-chip" data-ic="inbox"></span><span class="ico-chip" data-ic="branch"></span></td><td>–</td><td>–</td><td>middle</td></tr>
+        <tr><td>Import, Leftover</td><td><span class="ico-chip" data-ic="tray"></span><span class="ico-chip" data-ic="out"></span></td><td>–</td><td>–</td><td>middle</td></tr>
+        <tr><td>Served order…</td><td><span class="ico-chip" data-ic="list"></span></td><td>right, first</td><td>right, first</td><td>–</td></tr>
+        <tr><td>Sources…</td><td><span class="ico-chip" data-ic="layers"></span></td><td>–</td><td>–</td><td>right</td></tr>
+        <tr><td>Extra output</td><td><span class="ico-chip" data-ic="plus"></span><span class="ico-chip" data-ic="minus"></span></td><td>right</td><td>–</td><td>–</td></tr>
+        <tr><td>Move earlier, later</td><td><span class="ico-chip" data-ic="left"></span><span class="ico-chip" data-ic="right"></span></td><td>right, pair</td><td>–</td><td>–</td></tr>
+        <tr><td>Use it all here</td><td><span class="ico-chip" data-ic="flame"></span></td><td>–</td><td>right, second</td><td>–</td></tr>
+        <tr><td>Make it a product</td><td><span class="ico-chip" data-ic="flag"></span></td><td>–</td><td>right, last</td><td>–</td></tr>
+        <tr><td>Remove product</td><td><span class="ico-chip danger" data-ic="trash"></span></td><td>right, last</td><td>–</td><td>–</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout"><b>What changed to make them consistent.</b> Find recipe and Add consumer recipe… were text buttons beside icons, which made Products and Byproducts look unlike Ingredients; now every action is an icon. Served order… was last in Products and first in Byproducts; it is now the first icon of the right cluster in both. Use it all here has its own flame icon so it is not mistaken for Import (the tray). Make it a product moved from first to last in Byproducts, where it is a change to the block, like Remove product in Products.</div>
+  </section>
+
+  <section class="spec group" id="products">
+    <h2>Products and Byproducts <span class="tag">selected strip, actions line</span></h2>
+    <p class="lede">Only the actions line of the selected (and previewed) strip changes. The strip stays <b>72 px</b> in every state, and the header, the bar and the Edit extra field are as today.</p>
+
+    <div class="stagebox" style="margin-top:16px">
+      <div class="stagehead"><span class="lbl">Pane width</span><div class="seg widthSeg"></div></div>
+      <div class="vtabs" id="prodTabs" role="group" aria-label="Layout" style="margin-top:0"></div>
+      <div class="try" id="prodDesc"></div>
+      <div class="stage" id="prodStage"></div>
+      <div class="log" id="prodLog" role="status" aria-live="polite"></div>
+      <div class="readout" id="prodRead"></div>
+    </div>
+
+    <h3 class="sub">Layout of the actions line</h3>
+    <dl class="kv">
+      <dt>Row</dt><dd><code>flex items-center gap-1 h-[22px]</code>: the left cluster, a flexible spacer (<code>flex-1</code>), then the right cluster. Today's row is <code>gap-1.5</code>.</dd>
+      <dt>Never wraps or hides</dt><dd>The widest case needs 160 px in Products (Find recipe, served, extra, move pair, remove) and 108 px in Byproducts (consumer, served, use it all, make a product); the narrowest pane gives 238 px, so there is room for a few more icons later. The Ingredients row, with the rule group, needs 224 px. No overflow menu and no wrapping are needed, and none of the text labels that caused the overflow remain.</dd>
+      <dt>Disabled</dt><dd>A disabled icon keeps its place at 40% opacity. Its tooltip is the reason, through <code>TipWrap</code> (a natively disabled button gets no hover in Firefox and Safari).</dd>
+    </dl>
+
+    <h3 class="sub">Products: controls, left to right</h3>
+    <div class="tablewrap"><table class="spec">
+      <thead><tr><th>Control</th><th>Visible when</th><th>Accessible name</th><th>Tooltip (<code>data-tip</code>)</th><th>Behaviour</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ico-chip" data-ic="search"></span> Find recipe</td><td>Always</td><td>Find recipe</td><td>Find recipe</td><td>Unchanged: opens the recipe picker for the item.</td></tr>
+        <tr><td colspan="5" style="color:var(--muted);font-size:12.5px;padding-block:4px">spacer (<code>flex-1</code>): everything below sits at the right edge of the row</td></tr>
+        <tr><td><span class="ico-chip" data-ic="list"></span> Served order…</td><td>When the order is worth showing (today's rule: two or more lines, or one line and the extra output)</td><td><code>Served order…</code>, or <code>Served order… · N not ranked</code> while N lines are outside the stored list</td><td>Same text as the accessible name</td><td>Unchanged: opens the served order popover under the button. The amber count chip becomes a badge on the icon's top right corner. Keep the stable action id so the button stays mounted while the popover is open.</td></tr>
+        <tr><td><span class="ico-chip" data-ic="plus"></span> Extra output</td><td>The product has no extra output, and the strip is not editing it</td><td>Add extra output</td><td>Add extra output on top of what is requested</td><td>Today's <code>+ Extra output</code> (<code>renderKeyExtra</code>): starts editing the extra field in the header.</td></tr>
+        <tr><td><span class="ico-chip" data-ic="minus"></span> Remove extra</td><td>The product has an extra output</td><td>Remove extra</td><td>Remove extra output</td><td>Unchanged: <code>updateProductExtra(id, undefined)</code>. Takes the place of the plus; the two never show together.</td></tr>
+        <tr><td><span class="ico-chip" data-ic="left"></span><span class="ico-chip" data-ic="right"></span> Move earlier, Move later</td><td>Two or more products</td><td>Move earlier, Move later</td><td>The same; disabled: Already the first product, Already the last product</td><td>Unchanged. Drawn as one joined pair (shared border, outer corners rounded).</td></tr>
+        <tr><td><span class="ico-chip danger" data-ic="trash"></span> Remove product</td><td>Always; last in the row</td><td>Remove product</td><td>Remove product</td><td>Unchanged: asks first when other blocks depend on it. Red icon (<code>text-red-400</code>).</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub">Byproducts: controls, left to right</h3>
+    <div class="tablewrap"><table class="spec">
+      <thead><tr><th>Control</th><th>Visible when</th><th>Accessible name</th><th>Tooltip (<code>data-tip</code>)</th><th>Behaviour</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ico-chip" data-ic="arrowR"></span> Add consumer recipe…</td><td>Always</td><td>Add consumer recipe…</td><td>Add consumer recipe…</td><td>Unchanged: opens the recipe picker for a recipe that uses the item. The arrow points out, the opposite of Receive from… in Ingredients.</td></tr>
+        <tr><td colspan="5" style="color:var(--muted);font-size:12.5px;padding-block:4px">spacer</td></tr>
+        <tr><td><span class="ico-chip" data-ic="list"></span> Served order…</td><td>Same rule as in Products</td><td>Same as in Products</td><td>Same as in Products</td><td>Same as in Products.</td></tr>
+        <tr><td><span class="ico-chip" data-ic="flame"></span> Use it all here</td><td>The slot has a leftover (not on an export-only slot)</td><td>Use it all here</td><td>Today's title: Turn Leftover off for this item: the rows of this block use all of it they can. Disabled: the existing "already off" text</td><td>Unchanged: <code>toggleLeftoverOff</code>. Disabled once the rule is already off.</td></tr>
+        <tr><td><span class="ico-chip" data-ic="flag"></span> Make it a product</td><td>Always; last in the row</td><td>Make it a product</td><td>Make it a product</td><td>Unchanged (asks first when another block takes the item).</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout warn"><b>Replica limits.</b> Item icons are initials, the bar's tooltips and the pickers are not drawn, and the products can't be dragged. Move earlier, Move later, Extra output and Remove extra do change the list above. The other buttons write what they would do in the line under the replica.</div>
+  </section>
+
+  <section class="spec group" id="ingredients">
+    <h2>Ingredients <span class="tag">selected strip, Comes from</span></h2>
+    <p class="lede">The strip for a selected ingredient becomes four rows: header, bar, sentence, controls. The sentence that says what the rule does moves from the bottom to under the bar, and the controls collapse into one row of icons. Behaviour, accessible names, test ids and the Sources list do not change.</p>
+
+    <div class="stagebox" style="margin-top:16px">
+      <div class="stagehead"><span class="lbl">Pane width</span><div class="seg widthSeg"></div>
+        <label><input type="checkbox" id="condToggle"> Show the conditional rows</label></div>
+      <div class="vtabs" id="ingTabs" role="group" aria-label="Layout" style="margin-top:0"></div>
+      <div class="try" id="ingDesc"></div>
+      <div class="stage" id="ingStage"></div>
+      <div class="log" id="ingLog" role="status" aria-live="polite"></div>
+      <div class="readout" id="ingRead"></div>
+    </div>
+
+    <h3 class="sub">Rows, top to bottom</h3>
+    <div class="tablewrap"><table class="spec">
+      <thead><tr><th>Row</th><th>Height</th><th>Content</th></tr></thead>
+      <tbody>
+        <tr><td>Header</td><td class="num">20 px</td><td>Unchanged: icon, name, <code>need N/m</code>, ✕.</td></tr>
+        <tr><td>Bar</td><td class="num">16 px</td><td>Unchanged.</td></tr>
+        <tr><td>Sentence</td><td class="num">1 to 2 lines (14 px each)</td><td>The text of <code>useSourcingSentence</code>, <code>data-testid="sourcing-sentence"</code>, <code>text-[11px] leading-snug text-gray-400</code>, clamped to two lines (<code>line-clamp-2</code>) with the full text in <code>title</code>.</td></tr>
+        <tr><td>Controls</td><td class="num">22 px</td><td>One row, <code>flex items-center gap-1</code>, the eight controls below. It never wraps: the row needs 224 px and the narrowest pane gives 238 px.</td></tr>
+        <tr><td>Conditional rows</td><td class="num">only when present</td><td>See below. Absent in the common case.</td></tr>
+      </tbody>
+    </table></div>
+    <dl class="kv" style="margin-top:12px">
+      <dt>Strip height</dt><dd>Content-sized, no <code>min-h-[156px]</code>. Measured: 93 px at 413 px (one-line sentence), 108 px at 260 px (two lines). That is 21 to 36 px more than the unselected 72 px strip, against 84 px today.</dd>
+      <dt>The <code>tall</code> prop</dt><dd><code>SummaryPane</code> passes <code>tall</code> to keep the three panes level while a slot is selected, and <code>FactorySummary</code> raises the other panes' slot grids to <code>max-h-[181px]</code> by <code>group-has-[[data-tall=true]]</code>. Re-derive that growth from the new height (about 36 px, not 84 px) or drop it if the panes stay level without it.</dd>
+    </dl>
+
+    <h3 class="sub">Controls, left to right</h3>
+    <div class="tablewrap"><table class="spec">
+      <thead><tr><th>Control</th><th>Visible when</th><th>Accessible name</th><th>Tooltip (<code>data-tip</code>)</th><th>Behaviour and test ids</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ico-chip" data-ic="search"></span> Find recipe</td><td>Always</td><td>Find recipe</td><td>Find recipe</td><td>Unchanged: opens the recipe picker.</td></tr>
+        <tr><td><span class="ico-chip" data-ic="arrowL"></span> Receive from…</td><td>The item can be connected (<code>connectable</code>)</td><td>Receive from…</td><td>Receive from…</td><td>Unchanged: opens the connection menu under the button. The arrow points in, the opposite of Add consumer recipe… in Byproducts.</td></tr>
+        <tr><td colspan="5" style="color:var(--muted);font-size:12.5px;padding-block:4px">1 px separator, 16 px high (<code>bg-gray-700</code>)</td></tr>
+        <tr><td><span class="ico-chip" data-ic="factory"></span><span class="ico-chip" data-ic="inbox"></span><span class="ico-chip" data-ic="branch"></span> Presets</td><td>Always</td><td>The choice's label: <code>Make it here</code>, <code>Receive it first</code>, <code>Byproducts first</code>. The group is <code>role="radiogroup"</code> named <code>Where &lt;item&gt; comes from</code>, as today.</td><td>Label, a full stop, then today's help text (<code>ITEM_SOURCING_CHOICES[i].title</code>)</td><td>Unchanged: <code>role="radio"</code>, one tab stop on the chosen preset, arrow keys move and choose (<code>moveWithArrows</code>), <code>data-sourcing-choice</code>. The chosen one is lit. Drawn as one bordered group of three 24 px buttons.</td></tr>
+        <tr><td colspan="5" style="color:var(--muted);font-size:12.5px;padding-block:4px">separator</td></tr>
+        <tr><td><span class="ico-chip" data-ic="tray"></span> Import</td><td>Always</td><td>Import</td><td><code>Import on.</code> or <code>Import off.</code> followed by <code>IMPORT_SWITCH.title</code></td><td>Unchanged: <code>role="switch"</code>, <code>aria-checked</code>, <code>data-testid="import-switch"</code>. Lit when on.</td></tr>
+        <tr><td><span class="ico-chip" data-ic="out"></span> Leftover</td><td>Always</td><td>Leftover</td><td><code>Leftover on.</code> or <code>Leftover off.</code> followed by <code>LEFTOVER_SWITCH.title</code></td><td>Unchanged: <code>data-testid="leftover-switch"</code>. Lit when on.</td></tr>
+        <tr><td colspan="5" style="color:var(--muted);font-size:12.5px;padding-block:4px">spacer (<code>flex-1</code>)</td></tr>
+        <tr><td><span class="ico-chip" data-ic="layers"></span> Sources…</td><td>Always</td><td>Sources…</td><td>Sources…</td><td>Unchanged: <code>aria-haspopup="dialog"</code>, <code>data-testid="sources-button"</code>, opens the Comes from popover with the list open (<code>listInPopover</code>).</td></tr>
+      </tbody>
+    </table></div>
+    <p class="lede" style="margin-top:10px">The visible "Comes from" label goes. The radio group's accessible name carries it, and the icons are lit and described by their tooltips.</p>
+
+    <h3 class="sub">Conditional rows: proposed placement</h3>
+    <p class="lede" style="margin-top:0">Three parts of <code>ComesFrom</code> show in the strip only in some cases. They were not part of the icon decision. The proposal is to keep them as text, in today's order, under the controls row, so they add height only when present. Tick "Show the conditional rows" above to see all three at once, which is the worst case: the strip is then 151 px at 413 px and 193 px at 260 px. Today's strip would grow by the same rows on top of its 194 px and 227 px.</p>
+    <div class="tablewrap" style="margin-top:10px"><table class="spec">
+      <thead><tr><th>Row</th><th>Shown when</th><th>Today's element</th></tr></thead>
+      <tbody>
+        <tr><td>Takers note</td><td>Leftover is off and other blocks take the item from this one</td><td><code>data-testid="leftover-take-note"</code>, <code>leftoverTakeNote(...)</code></td></tr>
+        <tr><td>Areas button</td><td>One or more areas have their own rule for the item</td><td><code>data-testid="areas-have-rules"</code>, "N areas have their own rule"</td></tr>
+        <tr><td>Rules with no effect</td><td>A stored rule cannot act (for example no connection)</td><td><code>data-testid="no-effect"</code> lines with <code>receive-from</code> and Remove buttons</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout"><b>Scope and the area rows are not in the strip.</b> The scope control and the area notes (<code>leftover-block-note</code>, <code>follows-block-rule</code>, <code>use-block-rule</code>) only render when <code>listInPopover</code> is false, that is in the Comes from popover, which keeps today's text layout. The icon row is for the strip only: add a flag (or split a <code>ComesFromRow</code>) so the popover is not changed.</div>
+  </section>
+
+  <section class="spec" id="served">
+    <h2>Served order popover <span class="tag">no change, shown for reference</span></h2>
+    <p class="lede">Nothing in <code>ServedOrderPopover.tsx</code> changes. Select Steel plate in the Products replica above and click the list icon to open it. It is drawn here as a reference for what the icon opens, so a reviewer can judge the badge and the trigger. It serves a made-up supply of 60/m with the app's rules, not the solver's, and does not model areas inside a consumer block.</p>
+  </section>
+
+  <section class="spec" id="icons">
+    <h2>Icons and styles <span class="tag">copy from here</span></h2>
+    <p class="lede">Seventeen icons on a 12 × 12 viewBox, stroke 1.5, round caps and joins, <code>currentColor</code>. The repository has <code>IconButton.tsx</code> and <code>icons.tsx</code>; reuse them if the paths fit, otherwise add these.</p>
+    <div class="tablewrap" style="margin-top:12px"><table class="spec">
+      <thead><tr><th>Icon</th><th>Used for</th><th>Path data</th></tr></thead>
+      <tbody id="iconRows"></tbody>
+    </table></div>
+    <dl class="kv" style="margin-top:12px">
+      <dt>Icon button</dt><dd>24 × 22 px, radius 4, 1 px border <code>gray-700</code>, background <code>gray-900</code>, text <code>gray-300</code>, border <code>gray-500</code> on hover, 40% opacity when disabled, 12 px icon.</dd>
+      <dt>Lit (radio, switch)</dt><dd>Background <code>teal-900/60</code>, border <code>teal-600</code>, text <code>teal-200</code>.</dd>
+      <dt>Danger</dt><dd>Text <code>red-400</code>.</dd>
+      <dt>Count badge</dt><dd>Amber, on the icon's top right corner (−5 px, −5 px): background <code>amber-900</code>, text <code>amber-300</code>, 10 px, 3 px side padding.</dd>
+      <dt>Gaps</dt><dd>6 px between the controls of Products and Byproducts, 4 px in Ingredients. The move pair has no gap and a shared border.</dd>
+      <dt>Focus</dt><dd><code>focus-visible:ring-2 ring-teal-400</code>, as the other strip controls.</dd>
+    </dl>
+    <details class="code"><summary>Class strings used by the replica</summary>
+<pre>icon button   relative inline-flex h-[22px] w-6 items-center justify-center rounded border border-gray-700 bg-gray-900 text-gray-300 hover:border-gray-500 disabled:opacity-40
+lit           border-teal-600 bg-teal-900/60 text-teal-200
+danger        text-red-400
+badge         absolute -right-[5px] -top-[5px] rounded bg-amber-900 px-[3px] text-[10px] leading-3 text-amber-300
+separator     h-4 w-px bg-gray-700
+preset group  flex rounded border border-gray-700 bg-gray-900      (each: w-6 py-0.5, border-r last:border-r-0)
+sentence      text-[11px] leading-snug text-gray-400 line-clamp-2</pre></details>
+  </section>
+
+  <section class="spec" id="open">
+    <h2>Open decisions</h2>
+    <p class="lede">Settled for this spec unless the owner says otherwise. Each has a default the implementer can build.</p>
+    <div class="callout warn"><b>1. Touch.</b> <code>TooltipLayer</code> never opens on touch, so on a phone the icons have an accessible name but no visible label. The backlog already tracks hover-only and right-click-only gaps. <b>Default:</b> ship it that way and address touch with the rest of that backlog item. The right-click menu on a slot keeps the full text list of actions, so nothing is unreachable.</div>
+    <div class="callout warn"><b>2. Legibility of the icons.</b> The least guessable are Make it a product (flag), Use it all here (flame), Leftover (arrow out of a tray) and the pair of arrows, Receive from… (in) and Add consumer recipe… (out). <b>Default:</b> keep them all as icons, since the same tooltip and the same icon in every pane is the consistency the owner asked for. If some read badly in use, change that icon or give that one action a text label in all the panes that have it, never in one pane only.</div>
+    <div class="callout warn"><b>3. Conditional rows.</b> Placement above is a proposal; the owner has not looked at it in a real strip. <b>Default:</b> as shown.</div>
+  </section>
+
+  <section class="spec" id="build">
+    <h2>Implementation notes</h2>
+    <div class="tablewrap" style="margin-top:12px"><table class="spec">
+      <thead><tr><th>File</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td><code>SummaryDetailStrip.tsx</code></td><td>Build the one toolbar of the pattern: give <code>StripAction</code> an <code>icon</code> and a side (left cluster or right cluster, after the spacer), and draw every action as an icon button with <code>data-tip</code> and the name as <code>aria-label</code>; keep <code>badge</code>, <code>danger</code>, <code>disabled</code>, <code>TipWrap</code>. The Ingredients strip adds the rule group (radio group, two switches) in the middle. Remove <code>min-h-[156px]</code> and the <code>tall</code> prop. Draw the Ingredients rows described above.</td></tr>
+        <tr><td><code>FactorySummary.tsx</code></td><td><code>actionsFor</code> of the three panes: side, order, icons, tooltip texts (the table "Which pane has which control" above); move the Extra output control from <code>renderKeyExtra</code> into the same list (plus when none, minus when set). Revisit <code>group-has-[[data-tall=true]]</code> and the <code>max-h-[181px]</code> grid.</td></tr>
+        <tr><td><code>SummaryPane.tsx</code></td><td>Drop <code>tall</code> or recompute it; nothing else.</td></tr>
+        <tr><td><code>ComesFrom.tsx</code></td><td>The strip usage (<code>listInPopover</code>) gets the sentence and the icon row. The popover usage keeps today's text layout. Keep every <code>data-testid</code>, accessible name and <code>moveWithArrows</code>.</td></tr>
+        <tr><td><code>spec/ui.md</code></td><td>The Detail strip paragraph (the 156 px minimum), the Products and Byproducts actions lists, Comes from, and the Chip tooltips paragraph (the strip's action buttons now use <code>data-tip</code> on icons).</td></tr>
+        <tr><td><code>README.md</code></td><td>"Using the planner", if it describes the strip's buttons by their text.</td></tr>
+      </tbody>
+    </table></div>
+    <h3 class="sub">Tests to review</h3>
+    <p class="lede" style="margin-top:0">Accessible names and test ids do not change, so queries by role and name keep working. Queries by visible text will break. Files that touch these controls: <code>FactorySummary.test.tsx</code>, <code>ComesFrom.test.tsx</code>, <code>ComesFromPopover.test.tsx</code>, <code>SourcesList.test.tsx</code>, and the e2e specs <code>ingredients-pane</code>, <code>item-sourcing</code>, <code>leftover-rule</code>, <code>served-order</code> (and its edit, groups and areas variants), <code>summary-bars</code>, <code>sources-list</code>, <code>area-rules</code>, <code>block-requests</code> and <code>goal-tile-producer-picker</code>. Add a pane-width check for the no-overflow rule below.</p>
+  </section>
+
+  <section class="spec" id="accept">
+    <h2>Acceptance checks</h2>
+    <ul class="checklist" style="margin-top:12px">
+      <li><span>With a middle product that has an extra output and a Served order badge selected, the toolbar of the Products pane does not overflow at pane widths 260, 333, 413 and 467 px, and the Byproducts and Ingredients toolbars do not at 260 px.</span></li>
+      <li><span>All three toolbars use the same icon button (24 × 22 px, 4 px gap) with no text labels, the same icon for the same action in every pane, and the order of the pattern: make or supply on the left, information then changes on the right.</span></li>
+      <li><span>The selected strip of Products and Byproducts is 72 px high in the selected, preview and editing states.</span></li>
+      <li><span>Every icon button has an accessible name equal to the tables above, and a tooltip. A disabled one shows its reason on hover.</span></li>
+      <li><span>Tab order is the visual order. The presets are one tab stop; the arrow keys move and choose.</span></li>
+      <li><span>The Served order icon opens the existing popover and carries the badge with the name <code>Served order… · N not ranked</code>; Escape returns focus to it.</span></li>
+      <li><span>The selected Ingredients strip has no minimum height and is at most 108 px with a one or two line sentence at 260 px wide, with no horizontal overflow.</span></li>
+      <li><span>Changing a preset, Import or Leftover from the icon row has the same effect as today, and the sentence under the bar updates.</span></li>
+      <li><span>The Comes from popover (opened for an item without a slot) is unchanged.</span></li>
+      <li><span>The existing unit and e2e tests pass, with queries by visible text updated.</span></li>
+    </ul>
+  </section>
+
+  <div id="svHost"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  var ICON = {
+    search: '<circle cx="5" cy="5" r="3.2"/><path d="M7.6 7.6l3 3"/>',
+    plus: '<path d="M6 2v8M2 6h8"/>',
+    minus: '<path d="M2 6h8"/>',
+    list: '<path d="M4.5 3h6M4.5 6h6M4.5 9h6"/><path class="dot" d="M1.6 3h.1M1.6 6h.1M1.6 9h.1"/>',
+    left: '<path d="M7.5 2.5L4 6l3.5 3.5"/>',
+    right: '<path d="M4.5 2.5L8 6 4.5 9.5"/>',
+    trash: '<path d="M2 3.5h8M4.5 3.5V2h3v1.5M3 3.5l.4 6.5h5.2L9 3.5"/>',
+    tray: '<path d="M6 1.5v5.5M3.8 5L6 7.2 8.2 5M2 10h8"/>',
+    flag: '<path d="M3 10.5V2M3 2.5h6L7.6 4.5 9 6.5H3"/>',
+    arrowR: '<path d="M1.5 6h9M7.2 2.9L10.3 6 7.2 9.1"/>',
+    arrowL: '<path d="M10.5 6h-9M4.8 2.9L1.7 6 4.8 9.1"/>',
+    flame: '<path d="M6 1.4c.4 1.9 2.7 2.7 2.7 5.1a2.7 2.7 0 01-5.4 0c0-1 .4-1.6 1-2.2.1.8.5 1.1.9 1.2C5.1 4.1 5.4 2.7 6 1.4z"/>',
+    more: '<path class="dot" d="M2.2 6h.1M6 6h.1M9.8 6h.1" stroke-width="2.2"/>',
+    x: '<path d="M3 3l6 6M9 3l-6 6"/>',
+    caret: '<path d="M3 4.5L6 7.5 9 4.5"/>',
+    factory: '<path d="M1.5 10V5.2l3 1.8V5.2l3 1.8V2.5h3V10z"/>',
+    inbox: '<path d="M1.5 6.5h2.5l.8 1.5h2.4l.8-1.5h2.5M1.5 6.5L3 2.5h6l1.5 4v3h-9z"/>',
+    branch: '<circle cx="3" cy="2.6" r="1"/><circle cx="3" cy="9.4" r="1"/><circle cx="9" cy="4.4" r="1"/><path d="M3 3.6v4.8M3 7.4c0-2 3.4-1.4 5.2-2.4"/>',
+    out: '<path d="M6 7.5V1.8M3.8 4L6 1.8 8.2 4M2 10h8"/>',
+    layers: '<path d="M6 1.6L10.4 4 6 6.4 1.6 4zM1.6 6.1L6 8.5l4.4-2.4M1.6 8.1L6 10.5l4.4-2.4"/>'
+  };
+  var ic = function (n, s) { s = s || 12; return '<svg class="ic" viewBox="0 0 12 12" width="' + s + '" height="' + s + '" aria-hidden="true">' + ICON[n] + '</svg>'; };
+
+  /* ---------------------------------------------------------------- state */
+  var WIDTHS = [
+    { w: 260, label: '260', sub: 'iPad, Fold inner' },
+    { w: 333, label: '333', sub: 'phone strip' },
+    { w: 413, label: '413', sub: '1280 laptop' },
+    { w: 467, label: '467', sub: '1440 laptop' }
+  ];
+  var S = {
+    width: 413,
+    pv: 'b', iv: 'd', cond: false,
+    products: [
+      { id: 'copper', name: 'Copper plate', g: 'Cu', hue: '#b45f2b', rate: 120, extra: null, served: 0, segs: [['→ Circuits', 70, '#2563eb'], ['→ Mod 1', 30, '#7c3aed'], ['Export', 20, '#52525b']] },
+      { id: 'steel', name: 'Steel plate', g: 'St', hue: '#64748b', rate: 60, extra: 15, served: 2, segs: [['→ Hub', 35, '#0d9488'], ['→ Circuits', 25, '#2563eb'], ['Extra', 15, '#a16207']] },
+      { id: 'circuit', name: 'Electronic circuit', g: 'Ec', hue: '#15803d', rate: 45, extra: null, served: null, segs: [['→ Sciences', 45, '#c2410c']] },
+      { id: 'sulfur', name: 'Sulfur', g: 'S', hue: '#ca8a04', rate: 12, extra: null, served: null, segs: [['→ Sludge', 12, '#be185d']] }
+    ],
+    byps: [
+      { id: 'slag', name: 'Slag', g: 'Sl', hue: '#78716c', made: 28, served: 2, useAll: true, segs: [['→ Clay Brick', 18, '#a16207'], ['Export', 10, '#52525b']] },
+      { id: 'acid', name: 'Sulfuric acid', g: 'H₂', hue: '#a3a30f', made: 16, served: 0, useAll: false, segs: [['→ Sludge', 16, '#be185d']] },
+      { id: 'oxy', name: 'Oxygen', g: 'O₂', hue: '#0284c7', made: 40, served: null, useAll: true, segs: [['Export', 40, '#52525b']] }
+    ],
+    sel: { products: 'steel', byps: null, ing: 'iron' },
+    ings: [
+      { id: 'iron', name: 'Iron plate', g: 'Fe', hue: '#64748b', need: 90, C: 25, B: 0, S: 50, from: 'Metals' },
+      { id: 'coal', name: 'Coal', g: 'C', hue: '#374151', need: 36, C: 0, B: 0, S: 20, from: 'Ores' },
+      { id: 'water', name: 'Water', g: 'H₂O', hue: '#0369a1', need: 450, C: 300, B: 0, S: 0, from: 'Pumps' },
+      { id: 'acid', name: 'Sulfuric acid', g: 'H₂', hue: '#a3a30f', need: 24, C: 0, B: 10, S: 24, from: 'Sulfur' }
+    ],
+    rules: {},
+    menu: null,   // 'products' | 'byps'
+    pop: null,    // 'sources' | 'rules'
+    srcOpen: false,
+    logs: { prod: '', ing: '' }
+  };
+  S.ings.forEach(function (i) { S.rules[i.id] = { preset: 'make', imp: true, left: true }; });
+
+  var PROD_VARIANTS = [
+    { id: 'current', name: 'Current', sub: 'one fixed row, no wrap',
+      what: 'The app today: every action is a button on one 22 px row that does not wrap. Remove extra, Move earlier, Move later, Remove product, Served order… and + Extra output all compete for the same line.',
+      try: 'Select Steel plate, then drag the pane width down to 413 or 333. The buttons run under the Byproducts pane. The readout counts the pixels.', cost: '' },
+    { id: 'b', name: 'Proposed', sub: 'icon toolbar',
+      what: '',
+      try: 'Select Steel plate (it has an extra output and 2 lines not ranked, the busiest case) or a byproduct, and change the pane width. Hover the icons for their tooltips; click the list icon to open the served order popover.' }
+  ];
+  var ING_VARIANTS = [
+    { id: 'current', name: 'Current', sub: 'seven lines',
+      what: 'Header, bar, actions, then the Comes from block: presets and Import, Leftover on its own line, Sources… on its own line, and the sentence. Never shorter than 156 px.',
+      try: 'Select Iron plate and compare the height readout with the other variants at the same width.', cost: '' },
+    { id: 'd', name: 'Proposed', sub: 'sentence, then one icon row',
+      what: '',
+      try: 'Hover each icon for its tooltip. Click a preset, or switch Import off on Iron plate: the bar and the sentence change and a red shortfall appears. Sources… opens its list. The Leftover switch toggles but changes nothing in this replica.' }
+  ];
+
+  /* ------------------------------------------------------------ helpers */
+  var fmt = function (n) { return (Math.round(n * 10) / 10) + '/m'; };
+  function glyph(o, size) { size = size || 24; return '<span class="glyph" style="width:' + size + 'px;height:' + size + 'px;background:' + o.hue + '">' + esc(o.g) + '</span>'; }
+  function barHtml(segs) {
+    var tot = segs.reduce(function (a, s) { return a + s[1]; }, 0) || 1;
+    return '<div class="bar" role="group">' + segs.map(function (s) {
+      var cls = s[3] ? ' ' + s[3] : '';
+      return '<div class="sg' + cls + '" style="flex:' + s[1] + ' 1 0;' + (s[3] ? '' : 'background:' + s[2]) + '" title="' + esc(s[0] + ' ' + fmt(s[1])) + '"><span>' + esc(s[0]) + '</span><b>' + fmt(s[1]).replace('/m', '') + '</b></div>';
+    }).join('') + '</div>';
+  }
+  function microBar(segs) { return '<span class="mb">' + segs.map(function (s) { return '<i style="flex:' + s[1] + ';background:' + s[2] + '"></i>'; }).join('') + '</span>'; }
+  function btn(a, cls) {
+    cls = cls || '';
+    return '<button type="button" class="btn ' + (a.danger ? 'danger ' : '') + (a.dashed ? 'dashed ' : '') + cls + '" data-act="' + a.id + '"' + (a.disabled ? ' disabled' : '') +
+      (a.tip && !a.disabled ? ' data-tip="' + esc(a.tip) + '"' : '') + (a.badge ? ' aria-label="' + esc(a.label + ' · ' + a.badge + ' not ranked') + '"' : '') + '>' +
+      esc(a.label) + (a.badge ? '<span class="badge">' + a.badge + '</span>' : '') + '</button>';
+  }
+  function icoBtn(a, end) {
+    var name = a.badge ? a.label + ' · ' + a.badge + ' not ranked' : a.label.replace(/^\+ Extra output$/, 'Add extra output');
+    var tip = a.disabled ? (a.dtip || name) : (a.itip || name);
+    return '<button type="button" class="btn ico ' + (a.danger ? 'danger' : '') + '" data-act="' + a.id + '"' + (a.disabled ? ' disabled' : '') +
+      ' aria-label="' + esc(name) + '" data-tip="' + esc(tip) + '"' + (end ? ' data-tip-end' : '') + '>' +
+      ic(a.icon) + (a.badge ? '<span class="badge">' + a.badge + '</span>' : '') + '</button>';
+  }
+
+  /* --------------------------------------------------- action models */
+  function prodModel(p, i, n) {
+    var m = {
+      find: { id: 'find', label: 'Find recipe', icon: 'search' },
+      served: servedAction(p.id),
+      extra: p.extra === null ? { id: 'extra', label: '+ Extra output', icon: 'plus', dashed: true, tip: 'Add extra output on top of what is requested', itip: 'Add extra output on top of what is requested' } : null,
+      rmextra: p.extra !== null ? { id: 'rmextra', label: 'Remove extra', icon: 'minus', itip: 'Remove extra output' } : null,
+      earlier: { id: 'earlier', label: 'Move earlier', icon: 'left', disabled: i === 0, dtip: 'Already the first product' },
+      later: { id: 'later', label: 'Move later', icon: 'right', disabled: i === n - 1, dtip: 'Already the last product' },
+      remove: { id: 'remove', label: 'Remove product', icon: 'trash', danger: true }
+    };
+    return m;
+  }
+  function bypModel(b) {
+    return {
+      served: servedAction(b.id),
+      useall: b.useAll ? { id: 'useall', label: 'Use it all here', icon: 'flame', tip: 'Turn Leftover off for this item: the rows of this block use all of it they can.', itip: 'Turn Leftover off for this item: the rows of this block use all of it they can.' } : null,
+      consumer: { id: 'consumer', label: 'Add consumer recipe…', icon: 'arrowR' },
+      product: { id: 'product', label: 'Make it a product', icon: 'flag' }
+    };
+  }
+  function actionLists(pane, v) {
+    // current: today's buttons, in today's order. left / right: the proposed icon toolbar, one pattern for every pane:
+    // ways to make or supply the item on the left, then after the spacer information first, changes to the block last.
+    if (pane === 'products') {
+      var i = S.products.findIndex(function (p) { return p.id === S.sel.products; }), p = S.products[i];
+      var m = prodModel(p, i, S.products.length);
+      return {
+        current: [m.find, m.rmextra, m.earlier, m.later, m.remove, m.served, m.extra].filter(Boolean),
+        left: [m.find], right: [m.served, m.extra || m.rmextra, 'pair', m.remove].filter(Boolean), m: m
+      };
+    }
+    var b = S.byps.filter(function (x) { return x.id === S.sel.byps; })[0];
+    var k = bypModel(b);
+    return {
+      current: [k.served, k.useall, k.consumer, k.product].filter(Boolean),
+      left: [k.consumer], right: [k.served, k.useall, k.product].filter(Boolean), m: k
+    };
+  }
+
+  /* ------------------------------------------------- served order popover
+     The model follows servedOrder.ts: a source's stored list is a list of places (groups); lines in one place share what
+     is left by their percentages; lines not in the list are served after it, in the solver's order. */
+  var G = function () { return Array.prototype.slice.call(arguments).map(function (ks) { return ks.map(function (k) { return { k: k }; }); }); };
+  S.served = {
+    copper: { supply: 120, lines: [{ k: 'circ', name: 'Circuits', color: '#2563eb', want: 70 }, { k: 'mod1', name: 'Mod 1', color: '#7c3aed', want: 30 }, { k: 'sci', name: 'Sciences', color: '#c2410c' }], stored: G(['circ'], ['mod1'], ['sci']) },
+    steel: { supply: 60, lines: [{ k: 'hub', name: 'Hub', color: '#0d9488', want: 35 }, { k: 'circ', name: 'Circuits', color: '#2563eb', want: 25 }, { k: 'extra', name: 'Extra output', kind: 'extra', want: 15 }], stored: G(['hub']) },
+    slag: { supply: 28, lines: [{ k: 'clay', name: 'Clay Brick', color: '#a16207', want: 18 }, { k: 'glass', name: 'Glass', color: '#0891b2', want: 14 }, { k: 'metals', name: 'Metals', color: '#2563eb' }], stored: G(['clay']) },
+    acid: { supply: 16, lines: [{ k: 'sludge', name: 'Sludge', color: '#be185d', want: 10 }, { k: 'sulfur', name: 'Sulfur', color: '#ca8a04', want: 12 }], stored: G(['sludge'], ['sulfur']) }
+  };
+  var svMax = function (id) { return S.served[id] ? S.served[id].lines.length : 0; };
+  var fmtPct = function (p) { return String(Math.round(p * 10) / 10); };
+  var clone = function (o) { return JSON.parse(JSON.stringify(o)); };
+  function servedAction(id) {
+    var sv = S.served[id];
+    if (!sv) return null;
+    var n = svBadge(id);
+    return { id: 'served', label: 'Served order…', icon: 'list', badge: n > 0 ? n : undefined, tip: n > 0 ? n + ' not ranked' : undefined };
+  }
+  function svBadge(id) {
+    var sv = S.served[id]; if (!sv || !sv.stored) return 0;
+    var inList = {}; sv.stored.forEach(function (g) { g.forEach(function (i) { inList[i.k] = 1; }); });
+    return sv.lines.filter(function (l) { return !inList[l.k]; }).length;
+  }
+  function svFix(stored) {
+    stored = stored.filter(function (g) { return g.length; });
+    stored.forEach(function (g) {
+      if (g.length === 1) { delete g[0].pct; return; }
+      var sum = g.reduce(function (a, i) { return a + (i.pct || 0); }, 0);
+      if (g.some(function (i) { return !i.pct; }) || Math.abs(sum - 100) > 0.01) g.forEach(function (i) { i.pct = 100 / g.length; });
+    });
+    return stored;
+  }
+  /** The lines as the popover draws them: ranked places, the lines left out, and what each got. */
+  function svView(sv) {
+    var by = {}; sv.lines.forEach(function (l) { by[l.k] = l; });
+    var has = !!sv.stored;
+    var groups = has ? sv.stored : sv.lines.map(function (l) { return [{ k: l.k }]; });
+    var inList = {}; groups.forEach(function (g) { g.forEach(function (i) { inList[i.k] = 1; }); });
+    var unranked = has ? sv.lines.filter(function (l) { return !inList[l.k]; }) : [];
+    var left = sv.supply, got = {};
+    groups.concat(unranked.map(function (l) { return [{ k: l.k }]; })).forEach(function (g) {
+      var m = g.map(function (i) { var w = by[i.k].want; return { k: i.k, pct: i.pct || 100 / g.length, room: w === undefined ? Infinity : w, give: 0 }; });
+      var open = m.slice();
+      while (open.length && left > 1e-9) {
+        var tot = open.reduce(function (a, x) { return a + x.pct; }, 0), next = [], used = 0, budget = left;
+        open.forEach(function (x) {
+          var share = budget * x.pct / tot, t = Math.min(share, x.room - x.give);
+          x.give += t; used += t;
+          if (x.room - x.give > 1e-9) next.push(x);
+        });
+        left -= used; open = next; if (used < 1e-9) break;
+      }
+      m.forEach(function (x) { got[x.k] = x.give; });
+    });
+    var ranked = [];
+    groups.forEach(function (g, gi) { g.forEach(function (it, ii) { ranked.push({ line: by[it.k], rank: gi + 1, gi: gi, ii: ii, size: g.length, pct: g.length > 1 ? (it.pct || 100 / g.length) : null }); }); });
+    return { has: has, ranked: ranked, unranked: unranked, got: got };
+  }
+  function svLoc(stored, k) {
+    for (var gi = 0; gi < stored.length; gi++) for (var ii = 0; ii < stored[gi].length; ii++) if (stored[gi][ii].k === k) return [gi, ii];
+    return null;
+  }
+  function svEnsure(sv) { if (!sv.stored) sv.stored = sv.lines.map(function (l) { return [{ k: l.k }]; }); }
+  /** A line put at a place of its own (top/bottom of `target`'s place), in `target`'s place (middle), or last (target null). Null when nothing would move. */
+  function svPlace(stored, k, target, zone) {
+    if (k === target) return null;
+    var next = clone(stored), at = svLoc(next, k);
+    if (at) next[at[0]].splice(at[1], 1);
+    next = next.filter(function (g) { return g.length; });
+    if (target === null) next.push([{ k: k }]);
+    else {
+      var t = svLoc(next, target); if (!t) return null;
+      if (zone === 'middle') next[t[0]].splice(t[1] + 1, 0, { k: k });
+      else next.splice(zone === 'top' ? t[0] : t[0] + 1, 0, [{ k: k }]);
+    }
+    next = svFix(next);
+    return JSON.stringify(next.map(function (g) { return g.map(function (i) { return i.k; }); })) === JSON.stringify(stored.map(function (g) { return g.map(function (i) { return i.k; }); })) ? null : next;
+  }
+  var svSay = function (t) { S.svSay = t; S.logs.prod = 'Served order: ' + t; };
+  var plural = function (n) { return n === 1 ? '' : 's'; };
+  function svWhere(sv, k) {
+    var v = svView(sv), me = v.ranked.filter(function (r) { return r.line.k === k; })[0];
+    if (!me) return '';
+    var others = v.ranked.filter(function (r) { return r.rank === me.rank; }).length - 1;
+    return 'place ' + me.rank + (others > 0 ? ', shared with ' + others + ' other line' + plural(others) : '');
+  }
+  function svName(sv, k) { return sv.lines.filter(function (l) { return l.k === k; })[0].name; }
+  /** After an edit, focus an enabled button of the moved line (the one pressed, else the other one). */
+  function svKeepFocus(sv, k, prefer) {
+    var v = svView(sv), i = v.ranked.findIndex(function (r) { return r.line.k === k; });
+    var up = i > 0, down = i < v.ranked.length - 1;
+    var pick = prefer === 'down' ? (down ? 'down' : up ? 'up' : null) : prefer === 'tie' ? 'tie' : (up ? 'up' : down ? 'down' : null);
+    S.svFocus = pick ? 'li[data-k="' + k + '"] [data-sv-act="' + pick + '"]' : null;
+  }
+  function svAction(sv, act, k, extra) {
+    var name = k ? svName(sv, k) : '';
+    if (act === 'up' || act === 'down') {
+      svEnsure(sv);
+      var d = act === 'up' ? -1 : 1, loc = svLoc(sv.stored, k), gi = loc[0], ii = loc[1], g = sv.stored[gi];
+      if (g.length === 1) {
+        var j = gi + d; if (j < 0 || j >= sv.stored.length) return;
+        var t = sv.stored[gi]; sv.stored[gi] = sv.stored[j]; sv.stored[j] = t;
+      } else {
+        var j2 = ii + d;
+        if (j2 >= 0 && j2 < g.length) { var tmp = g[ii]; g[ii] = g[j2]; g[j2] = tmp; }
+        else { var it = g.splice(ii, 1)[0]; sv.stored.splice(d < 0 ? gi : gi + 1, 0, [it]); }
+      }
+      sv.stored = svFix(sv.stored);
+      svSay(name + ' moved to ' + svWhere(sv, k) + '.'); svKeepFocus(sv, k, act);
+    } else if (act === 'tie') {
+      svEnsure(sv);
+      var l2 = svLoc(sv.stored, k), gj = l2[0], ij = l2[1];
+      if (gj === 0 && ij === 0) return;
+      if (ij > 0) { var tail = sv.stored[gj].splice(ij); sv.stored.splice(gj + 1, 0, tail); sv.stored = svFix(sv.stored); svSay(name + ' left its group and has its own ' + svWhere(sv, k) + '.'); }
+      else { var prev = svView(sv).ranked.filter(function (r) { return r.gi === gj - 1; })[0].line.k; sv.stored.splice(gj - 1, 2, sv.stored[gj - 1].concat(sv.stored[gj])); sv.stored = svFix(sv.stored); svSay(name + ' now shares ' + svWhere(sv, k).replace(/, shared.*/, '') + ' with ' + svName(sv, prev) + '.'); }
+      svKeepFocus(sv, k, 'tie');
+    } else if (act === 'add') {
+      svEnsure(sv); sv.stored.push([{ k: k }]); sv.stored = svFix(sv.stored);
+      svSay(name + ' added to the list at ' + svWhere(sv, k) + '.'); svKeepFocus(sv, k, 'up');
+    } else if (act === 'reset') {
+      sv.stored = null; svSay('order reset to the solver\'s.'); S.svFocus = 'dialog';
+    } else if (act === 'share') {
+      var l3 = svLoc(sv.stored, k), grp = sv.stored[l3[0]], p = extra;
+      grp.forEach(function (i) { i.pct = i.k === k ? p : (100 - p) / (grp.length - 1); });
+      svSay(name + ' now has ' + fmtPct(p) + ' percent of ' + svWhere(sv, k).replace(/, shared.*/, '') + '.');
+    } else if (act === 'place') {
+      svEnsure(sv);
+      var next = svPlace(sv.stored, k, extra.target, extra.zone);
+      if (!next) return;
+      sv.stored = next;
+      svSay(name + (extra.zone === 'middle' ? ' now shares ' + svWhere(sv, k).replace(/, shared.*/, '') + ' with ' + svName(sv, extra.target) : ' moved to its own ' + svWhere(sv, k)) + '.');
+      svKeepFocus(sv, k, 'up');
+    }
+  }
+  function svItem(id) {
+    return S.products.filter(function (p) { return p.id === id; })[0] || S.byps.filter(function (p) { return p.id === id; })[0];
+  }
+  var svRendering = false;
+  function svRender() {
+    var host = $('#svHost');
+    if (svRendering) return;
+    // Removing a focused field fires its blur: let that pass without committing or rendering again.
+    if (!S.sv) { svRendering = true; host.innerHTML = ''; svRendering = false; return; }
+    var sv = S.served[S.sv.key], item = svItem(S.sv.key), v = svView(sv);
+    var old = host.firstElementChild, scroll = old ? old.scrollTop : 0;
+    var amount = function (n) { return fmt(n); };
+    var figs = function (l) {
+      var got = v.got[l.k], short = l.want !== undefined && l.want - got > 0.05 ? l.want - got : null;
+      return (l.want === undefined ? '<span class="dim">takes what is left</span>' : '<span class="m">' + (l.kind === 'extra' ? 'asked ' : 'needs ') + amount(l.want) + '</span>') +
+        '<span class="m">got ' + amount(got) + '</span>' + (short !== null ? '<span class="m short" data-testid="served-short">short ' + amount(short) + '</span>' : '');
+    };
+    var line = function (l, i, isRanked, r) {
+      var br = isRanked && r.size > 1, sameAbove = br && r.ii > 0, sameBelow = br && r.ii < r.size - 1;
+      var cls = br ? 'br' + (!sameAbove ? ' first' : '') + (!sameBelow ? ' last' : '') : '';
+      var head = '<span class="rk">' + (isRanked ? (r.ii === 0 ? r.rank : '') : '–') + '</span>' + (l.color ? '<span class="sdot" style="background:' + l.color + '"></span>' : '') + '<span class="nm">' + esc(l.name) + '</span>';
+      if (br) head += '<input type="number" step="any" min="0" max="100" data-sv-share data-k="' + l.k + '" aria-label="Share of ' + esc(l.name) + ' in its group (%)" value="' + fmtPct(r.pct) + '"><span class="pc">%</span>';
+      if (isRanked) {
+        var tied = r.ii > 0, first = i === 0, last = i === v.ranked.length - 1;
+        head += '<button type="button" class="mini ' + (tied ? 'pressed' : '') + '" data-sv-act="tie" aria-pressed="' + tied + '" aria-disabled="' + first + '" title="Share with the line above">Share</button>' +
+          '<button type="button" class="mini" data-sv-act="up" aria-label="Move up" aria-disabled="' + first + '">▲</button>' +
+          '<button type="button" class="mini" data-sv-act="down" aria-label="Move down" aria-disabled="' + last + '">▼</button>';
+      } else head += '<button type="button" class="mini" data-sv-act="add">Add to list</button>';
+      return '<li data-testid="served-line" data-k="' + l.k + '" data-ranked="' + isRanked + '" draggable="true" class="' + cls + '"><div class="l1">' + head + '</div><div class="fig">' + figs(l) + '</div></li>';
+    };
+    svRendering = true;
+    host.innerHTML = '<div class="app svpop" role="dialog" aria-label="Served order of ' + esc(item.name) + '" tabindex="-1" data-testid="served-order-popover" style="left:' + S.sv.x + 'px;top:' + S.sv.y + 'px">' +
+      '<div class="top"><h5>Served in this order</h5>' + (v.has ? '<button type="button" class="mini" data-sv-act="reset">Reset order</button>' : '') + '</div>' +
+      '<div class="hint">' + (v.has ? 'Ranked by you. When the source is short, the lines at the bottom go without first. Lines in a bracket share a place and split what is left by their percentages. Drop a line on the middle of another to share its place, between two lines for a place of its own.'
+        : 'Today\'s order: the order the solver served them in. Move a line to rank it.') + '</div>' +
+      '<ol data-testid="served-ranked">' + v.ranked.map(function (r, i) { return line(r.line, i, true, r); }).join('') + '</ol>' +
+      (v.unranked.length ? '<div class="divider" role="separator" data-testid="served-divider">Not ranked: served after the list</div><ol data-testid="served-unranked">' + v.unranked.map(function (l, i) { return line(l, i, false); }).join('') + '</ol>' : '') +
+      '<div class="sr" role="status">' + esc(S.svSay || '') + '</div></div>';
+    svRendering = false;
+    var el = host.firstElementChild;
+    el.scrollTop = scroll;
+    var b = el.getBoundingClientRect();
+    el.style.left = Math.max(0, Math.min(S.sv.x, window.innerWidth - b.width)) + 'px';
+    el.style.top = Math.max(0, Math.min(S.sv.y, window.innerHeight - b.height)) + 'px';
+    var f = S.svFocus === 'dialog' ? el : (S.svFocus && el.querySelector(S.svFocus));
+    S.svFocus = null;
+    if (f) f.focus({ preventScroll: true });
+  }
+  function svOpen(key, rect) {
+    S.sv = { key: key, x: rect.left, y: rect.bottom + 4 };
+    S.svSay = ''; S.svFocus = 'dialog';
+  }
+  function svClose(refocus) {
+    if (!S.sv) return;
+    S.sv = null; svRender();
+    if (refocus) { var f = $('#prodStage [data-pane] [data-act="served"]:not([hidden]), #prodStage [data-pane] [data-act="more"]'); if (f) f.focus(); }
+  }
+  var svDrag = null;
+  function svZone(e, li) {
+    var r = li.getBoundingClientRect(), y = e.clientY - r.top;
+    return y < r.height * 0.3 ? 'top' : y > r.height * 0.7 ? 'bottom' : 'middle';
+  }
+  function svMark(li, zone, divider) {
+    $$('#svHost .dl, #svHost .dj').forEach(function (n) { n.remove(); });
+    if (!li) return;
+    var mk = document.createElement('span'); mk.setAttribute('aria-hidden', 'true');
+    if (zone === 'middle') { mk.className = 'dj'; mk.setAttribute('data-testid', 'served-drop-join'); }
+    else { mk.className = 'dl ' + (zone === 'bottom' ? 'after' : 'before'); mk.setAttribute('data-testid', 'served-drop-line'); }
+    li.appendChild(mk);
+  }
+  var hostEl = document.getElementById('svHost');
+  hostEl.addEventListener('dragstart', function (e) {
+    var li = e.target.closest && e.target.closest('li'); if (!li || e.target !== li) return;
+    svDrag = li.getAttribute('data-k'); e.dataTransfer.setData('application/x-served-line', svDrag); e.dataTransfer.effectAllowed = 'move';
+    setTimeout(function () { if (svDrag === li.getAttribute('data-k')) li.classList.add('dragging'); }, 0);
+  });
+  hostEl.addEventListener('dragend', function () { svDrag = null; svMark(null); $$('#svHost li.dragging').forEach(function (n) { n.classList.remove('dragging'); }); });
+  function svTarget(e) {
+    var sv = S.served[S.sv.key];
+    var div = e.target.closest && e.target.closest('.divider'), li = e.target.closest && e.target.closest('li[data-ranked="true"]');
+    if (!svDrag || !(div || li)) return null;
+    var base = sv.stored || sv.lines.map(function (l) { return [{ k: l.k }]; });
+    if (div) { var nd = svPlace(base, svDrag, null); return nd ? { el: div, zone: 'top', target: null, divider: true } : null; }
+    var zone = svZone(e, li), target = li.getAttribute('data-k'), nx = svPlace(base, svDrag, target, zone);
+    return nx ? { el: li, zone: zone, target: target } : null;
+  }
+  hostEl.addEventListener('dragover', function (e) {
+    if (!S.sv) return;
+    var t = svTarget(e);
+    if (!t) { svMark(null); return; }
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move'; svMark(t.el, t.divider ? 'bottom' : t.zone);
+    if (t.divider) { var m = t.el.querySelector('.dl'); if (m) { m.className = 'dl before'; } }
+  });
+  hostEl.addEventListener('dragleave', function (e) { if (!hostEl.contains(e.relatedTarget)) svMark(null); });
+  hostEl.addEventListener('drop', function (e) {
+    var t = svTarget(e); if (!t) return;
+    e.preventDefault();
+    var k = svDrag; svDrag = null;
+    svAction(S.served[S.sv.key], 'place', k, { target: t.target, zone: t.zone });
+    renderProd(); svRender();
+  });
+  hostEl.addEventListener('focusin', function (e) { var li = e.target.closest && e.target.closest('li'); if (li && e.target.matches('[data-sv-share]')) li.draggable = false; });
+  hostEl.addEventListener('focusout', function (e) {
+    if (svRendering || !e.target.matches || !e.target.matches('[data-sv-share]') || !S.sv) return;
+    var li = e.target.closest('li'); if (li) li.draggable = true;
+    svCommit(e.target);
+  });
+  function svCommit(input) {
+    var sv = S.served[S.sv.key], k = input.getAttribute('data-k'), text = input.value.trim(), val = Number(text);
+    if (text === input.defaultValue) return;
+    if (text === '' || !isFinite(val) || val <= 0 || val >= 100) { svSay('Share must be above 0 and below 100.'); input.value = input.defaultValue; svRender(); renderProd(); return; }
+    svAction(sv, 'share', k, val); renderProd(); svRender();
+  }
+  hostEl.addEventListener('keydown', function (e) {
+    if (!e.target.matches || !e.target.matches('[data-sv-share]')) return;
+    if (e.key === 'Enter') { e.preventDefault(); svCommit(e.target); }
+    else if (e.key === 'Escape' && e.target.value !== e.target.defaultValue) { e.target.value = e.target.defaultValue; e.preventDefault(); e.stopPropagation(); }
+  });
+
+  /* ------------------------------------------------------------ panes */
+  function slotHtml(o, id, rateText, segs, pressed) {
+    return '<button type="button" class="slot" data-slot="' + id + '" aria-pressed="' + pressed + '" aria-label="' + esc(o.name + ', ' + rateText) + '" title="' + esc(o.name) + '">' +
+      glyph(o, 24) + '<span class="r">' + esc(rateText.replace('/m', '')) + '</span>' + microBar(segs) + '</button>';
+  }
+  function paneShell(key, label, count, action, grid, strip) {
+    return '<section class="pane" data-pane="' + key + '" aria-label="' + label + '"><div class="pane-h"><div>' + label + '<span class="n">· ' + count + '</span></div>' + (action || '') + '</div><div class="grid">' + grid + '</div>' + strip + '</section>';
+  }
+  function overviewStrip(segs) {
+    return '<div class="strip fixed72" data-state="overview"><div class="ov"><b>Overview</b><span>click a segment to trace it</span></div>' + barHtml(segs) + '</div>';
+  }
+  function actsRow(pane, v) {
+    var L = actionLists(pane, v), html = '';
+    if (v === 'current') {
+      html = '<div class="acts" data-row="' + pane + '" data-n="' + L.current.length + '">' + L.current.map(function (a) { return btn(a); }).join('') + '</div>';
+    } else {
+      var last = L.right[L.right.length - 1];
+      var one = function (a) {
+        if (a === 'pair') return '<span class="pair">' + icoBtn(L.m.earlier) + icoBtn(L.m.later) + '</span>';
+        return icoBtn(a, a === last);
+      };
+      var count = L.left.length + L.right.reduce(function (n, a) { return n + (a === 'pair' ? 2 : 1); }, 0);
+      html = '<div class="acts tight" data-row="' + pane + '" data-n="' + count + '">' + L.left.map(one).join('') + '<span class="sp"></span>' + L.right.map(one).join('') + '</div>';
+    }
+    return html;
+  }
+  function productsPane(v) {
+    var sel = S.products.filter(function (p) { return p.id === S.sel.products; })[0];
+    var grid = S.products.map(function (p) { return slotHtml(p, p.id, fmt(p.rate), p.segs, p.id === S.sel.products); }).join('');
+    var strip;
+    if (!sel) {
+      strip = overviewStrip(S.products.map(function (p) { return [p.name, p.rate, p.hue]; }));
+    } else {
+      strip = '<div class="strip fixed72" data-state="selected" data-strip="products"><div class="hdr">' + glyph(sel, 18) + '<span class="name">' + esc(sel.name) + '</span>' +
+        '<span class="rates"><b>' + sel.rate + '</b><u>/m</u>' + (sel.extra !== null ? '<em>+ ' + sel.extra + ' extra</em>' : '') + '</span><button type="button" class="x" data-act="back" aria-label="Back to overview">' + ic('x') + '</button></div>' +
+        barHtml(sel.segs) + actsRow('products', v) + '</div>';
+    }
+    var add = '<button type="button" class="tool" aria-label="Add product" data-act="logonly" data-msg="Add product → opens the product picker (not drawn)">' + ic('plus', 10) + '</button>';
+    return paneShell('products', 'Products', S.products.length, add, grid, strip);
+  }
+  function bypsPane(v) {
+    var sel = S.byps.filter(function (b) { return b.id === S.sel.byps; })[0];
+    var grid = S.byps.map(function (b) { return slotHtml(b, 'b-' + b.id, fmt(b.made), b.segs, b.id === S.sel.byps); }).join('');
+    var strip;
+    if (!sel) {
+      strip = overviewStrip(S.byps.map(function (b) { return [b.name, b.made, b.hue]; }));
+    } else {
+      strip = '<div class="strip fixed72" data-state="selected" data-strip="byps"><div class="hdr">' + glyph(sel, 18) + '<span class="name">' + esc(sel.name) + '</span>' +
+        '<span class="rates">made <b>' + sel.made + '</b><u>/m</u></span><button type="button" class="x" data-act="back" aria-label="Back to overview">' + ic('x') + '</button></div>' +
+        barHtml(sel.segs) + actsRow('byps', v) + '</div>';
+    }
+    return paneShell('byps', 'Byproducts', S.byps.length, '', grid, strip);
+  }
+
+  /* ------------------------------------------------------- ingredients */
+  var PRESETS = [['make', 'Make it here', 'Made here; connections and imports cover what is missing.', 'factory'], ['receive', 'Receive it first', 'Take what connections offer first, then make the rest.', 'inbox'], ['byp', 'Byproducts first', 'Use this block\'s own byproducts first.', 'branch']];
+  function alloc(it, r) {
+    var rem = it.need, out = [], order = r.preset === 'make' ? ['here', 'byp', 'conn'] : r.preset === 'receive' ? ['conn', 'here', 'byp'] : ['byp', 'conn', 'here'];
+    var cap = { here: it.C, byp: it.B, conn: it.S }, col = { here: '#0d9488', byp: '#7c3aed', conn: '#2563eb' };
+    var nm = { here: 'Made here', byp: 'Byproduct', conn: '← ' + it.from };
+    order.forEach(function (k) { var t = Math.min(rem, cap[k]); rem -= t; if (t > 0) out.push({ k: k, n: t, name: nm[k], color: col[k] }); });
+    var imp = 0, miss = 0;
+    if (rem > 0) { if (r.imp) imp = rem; else miss = rem; }
+    if (imp > 0) out.push({ k: 'imp', n: imp, name: 'Import', color: '#52525b' });
+    if (miss > 0) out.push({ k: 'miss', n: miss, name: 'Missing', color: '#991b1b', cls: 'miss' });
+    return out;
+  }
+  function sentence(it, r) {
+    var parts = alloc(it, r).map(function (a) {
+      return a.k === 'here' ? 'makes ' + fmt(a.n) + ' here' : a.k === 'byp' ? 'uses ' + fmt(a.n) + ' of this block\'s byproducts' : a.k === 'conn' ? 'receives ' + fmt(a.n) + ' from ' + it.from : a.k === 'imp' ? 'imports ' + fmt(a.n) : fmt(a.n) + ' is missing';
+    });
+    var s = parts.join(', ');
+    s = s.charAt(0).toUpperCase() + s.slice(1) + '.';
+    if (!r.imp && alloc(it, r).some(function (a) { return a.k === 'miss'; })) s += ' Import is off.';
+    return s;
+  }
+  function presetsHtml(r, cls) {
+    return '<div class="presets ' + (cls || '') + '" role="radiogroup" aria-label="Where it comes from">' + PRESETS.map(function (p) {
+      return '<button type="button" role="radio" aria-checked="' + (r.preset === p[0]) + '" data-preset="' + p[0] + '" data-tip="' + esc(p[2]) + '">' + p[1] + '</button>';
+    }).join('') + '</div>';
+  }
+  function sw(name, on, key, tip) { return '<button type="button" class="sw" role="switch" aria-checked="' + on + '" data-sw="' + key + '"' + (name ? '' : ' aria-label="' + (key === 'imp' ? 'Import' : 'Leftover') + '"') + ' data-tip="' + esc(tip) + '">' + name + '<i></i></button>'; }
+  var IMP_TIP = 'Bring it in from outside the plan. Off: what the other sources leave is shown as missing.';
+  var LEFT_TIP = 'What the rows cannot use goes out as a byproduct.';
+  function sourcesList(it, r) {
+    return '<h4>Sources</h4>' + alloc(it, r).map(function (a) { return '<div class="srcline"><span>' + esc(a.name) + '</span><b>' + fmt(a.n) + '</b></div>'; }).join('') +
+      '<div class="srcline"><span>Import is ' + (r.imp ? 'on' : 'off') + '</span>' + sw('', r.imp, 'imp', IMP_TIP) + '</div>';
+  }
+  function sourcesBtn(it, r, align) {
+    return '<span class="anchor"><button type="button" class="btn" data-act="sources" aria-haspopup="dialog" aria-expanded="' + (S.pop === 'sources') + '">Sources…</button>' +
+      '<div class="pop ' + align + '" role="dialog" aria-label="Sources" ' + (S.pop === 'sources' ? '' : 'hidden') + '>' + sourcesList(it, r) + '</div></span>';
+  }
+  function ingStripHtml(v, width) {
+    var it = S.ings.filter(function (i) { return i.id === S.sel.ing; })[0];
+    if (!it) return overviewStrip(S.ings.map(function (i) { return [i.name, i.need, i.hue]; }));
+    var r = S.rules[it.id], segs = alloc(it, r).map(function (a) { return [a.name, a.n, a.color, a.cls]; });
+    var find = '<button type="button" class="btn" data-act="find">Find recipe</button>';
+    var recv = '<button type="button" class="btn" data-act="receive">Receive from…</button>';
+    var hdr = '<div class="hdr">' + glyph(it, 18) + '<span class="name">' + esc(it.name) + '</span><span class="rates">need <b>' + it.need + '</b><u>/m</u></span><button type="button" class="x" data-act="back" aria-label="Back to overview">' + ic('x') + '</button></div>';
+    var bar = barHtml(segs), sent = '<p class="sent" data-sentence>' + esc(sentence(it, r)) + '</p>';
+    var cls = 'strip', body = '';
+    if (v === 'current') {
+      cls += ' tall';
+      body = hdr + bar + '<div class="acts" data-row="ing">' + find + recv + '</div>' +
+        '<div class="cf" data-testid="comes-from"><div class="row"><span class="lab">Comes from</span>' + presetsHtml(r) + '<span style="margin-left:auto">' + sw('Import', r.imp, 'imp', IMP_TIP) + '</span></div>' +
+        '<div class="row" style="justify-content:flex-end">' + sw('Leftover', r.left, 'left', LEFT_TIP) + '</div>' +
+        '<div class="row">' + sourcesBtn(it, r, 'l') + '</div>' + sent + '</div>';
+    } else {
+      var igroup = '<div class="presets ico" role="radiogroup" aria-label="Where ' + esc(it.name) + ' comes from">' + PRESETS.map(function (p) {
+        return '<button type="button" role="radio" aria-checked="' + (r.preset === p[0]) + '" data-preset="' + p[0] + '" aria-label="' + p[1] + '" data-tip="' + esc(p[1] + '. ' + p[2]) + '">' + ic(p[3]) + '</button>';
+      }).join('') + '</div>';
+      var itog = function (name, on, key, icon, tip) {
+        return '<button type="button" class="btn ico tg" role="switch" aria-checked="' + on + '" data-sw="' + key + '" aria-label="' + name + '" data-tip="' + esc(name + (on ? ' on. ' : ' off. ') + tip) + '">' + ic(icon) + '</button>';
+      };
+      var isrc = '<span class="anchor"><button type="button" class="btn ico" data-act="sources" aria-label="Sources…" aria-haspopup="dialog" aria-expanded="' + (S.pop === 'sources') + '" data-tip="Sources…" data-tip-end>' + ic('layers') + '</button>' +
+        '<div class="pop r" role="dialog" aria-label="Sources" ' + (S.pop === 'sources' ? '' : 'hidden') + '>' + sourcesList(it, r) + '</div></span>';
+      var sentD = '<p class="sent clamp" data-sentence title="' + esc(sentence(it, r)) + '">' + esc(sentence(it, r)) + '</p>';
+      var cond = !S.cond ? '' :
+        '<p class="sent" data-testid="leftover-take-note">Hub takes only what the rows here cannot use.</p>' +
+        '<div class="condrow"><button type="button" class="mini" data-act="logonly" data-msg="2 areas have their own rule → opens the Comes from popover on the first area (not drawn)">2 areas have their own rule</button></div>' +
+        '<div class="condrow noeff" data-testid="no-effect"><span>No connection for ' + esc(it.name) + '.</span><span class="grp"><button type="button" class="mini" data-act="receive">Receive from…</button><button type="button" class="mini" data-act="logonly" data-msg="Remove → removes the rule (not drawn)">Remove</button></span></div>';
+      body = hdr + bar + sentD + '<div class="acts wraps tight" data-row="ing">' +
+        '<button type="button" class="btn ico" data-act="find" aria-label="Find recipe" data-tip="Find recipe">' + ic('search') + '</button>' +
+        '<button type="button" class="btn ico" data-act="receive" aria-label="Receive from…" data-tip="Receive from…">' + ic('arrowL') + '</button>' +
+        '<span class="vsep"></span>' + igroup + '<span class="vsep"></span>' +
+        itog('Import', r.imp, 'imp', 'tray', IMP_TIP) + itog('Leftover', r.left, 'left', 'out', LEFT_TIP) + '<span class="sp"></span>' + isrc + '</div>' + cond;
+    }
+    return '<div class="' + cls + '" data-state="selected" data-strip="ing" data-v="' + v + '">' + body + '</div>';
+  }
+  function ingPane(v, width, forcedStrip) {
+    var sel = S.sel.ing;
+    var grid = S.ings.map(function (i) {
+      var r = S.rules[i.id];
+      return slotHtml(i, 'i-' + i.id, fmt(i.need), alloc(i, r).map(function (a) { return [a.name, a.n, a.color]; }), i.id === sel);
+    }).join('');
+    var action = '<button type="button" class="mini" data-act="logonly" data-msg="Source rules → opens the list of every rule in the block (not drawn)">Source rules</button>';
+    return paneShell('ing', 'Ingredients', S.ings.length, action, grid, forcedStrip || ingStripHtml(v, width));
+  }
+
+  /* ----------------------------------------------------------- render */
+  var focusKey = null;
+  function scaleStage(stage) {
+    var inner = stage.firstElementChild; if (!inner) return;
+    inner.style.zoom = ''; stage.style.height = '';
+    var need = inner.offsetWidth, have = stage.clientWidth;
+    if (need > have && have > 0) inner.style.zoom = String(have / need);
+  }
+  function renderProd() {
+    var v = S.pv, stage = $('#prodStage');
+    stage.innerHTML = '<div class="stage-inner"><div class="app" style="--pw:' + S.width + 'px"><div class="panes">' + productsPane(v) + bypsPane(v) + '</div></div></div>';
+    scaleStage(stage);
+    measureProd();
+    $('#prodLog').textContent = S.logs.prod;
+  }
+  function renderIng() {
+    var v = S.iv, stage = $('#ingStage');
+    stage.innerHTML = '<div class="stage-inner"><div class="app" style="--pw:' + S.width + 'px"><div class="panes">' + ingPane(v, S.width - 20) + '</div></div></div>';
+    scaleStage(stage);
+    measureIng();
+    $('#ingLog').textContent = S.logs.ing;
+  }
+  function card(k, v, s, cls) { return '<div class="card"><div class="k">' + k + '</div><div class="v ' + (cls || '') + '">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'; }
+  function overflowPx(row) {
+    var last = null; $$(':scope > *', row).forEach(function (c) { if (!c.hidden && c.offsetWidth) last = c; });
+    if (!last) return 0;
+    return Math.max(0, last.offsetLeft + last.offsetWidth - row.clientWidth);
+  }
+  function measureProd() {
+    var out = [];
+    [['products', 'Products'], ['byps', 'Byproducts']].forEach(function (pk) {
+      var row = $('[data-row="' + pk[0] + '"]');
+      if (!row) { out.push(card(pk[1], 'Nothing selected', 'Select an item to measure its actions.')); return; }
+      var n = +row.getAttribute('data-n'), ov = overflowPx(row);
+      var main = ov > 0 ? ov + ' px past the edge' : 'fits', cls = ov > 0 ? 'bad' : 'good';
+      var kids = $$(':scope > *:not(.sp)', row), need = kids.reduce(function (a, c) { return a + c.offsetWidth; }, 0) + (S.pv === 'current' ? 6 : 4) * (kids.length - 1);
+      var sub = S.pv === 'current' ? n + ' buttons on one row' + (ov > 0 ? ', the end of the row is under the next pane' : '') : n + ' controls need ' + need + ' px of the ' + row.clientWidth + ' px row';
+      out.push(card(pk[1] + ' actions', main, sub, cls));
+    });
+    $('#prodRead').innerHTML = out.join('');
+  }
+  function measureIng() {
+    var strip = $('[data-strip="ing"]'), out = '';
+    if (!strip) { $('#ingRead').innerHTML = card('Strip height', 'Overview', 'Select an ingredient.'); return; }
+    // Measure the current layout at the same width and rule, off screen.
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden';
+    probe.innerHTML = '<div class="app" style="--pw:' + S.width + 'px"><div class="panes">' + ingPane('current', S.width - 20) + '</div></div>';
+    document.body.appendChild(probe);
+    var cur = $('[data-strip="ing"]', probe).offsetHeight; document.body.removeChild(probe);
+    var h = strip.offsetHeight, d = h - cur;
+    out += card('Strip height', h + ' px', 'current at this width: ' + cur + ' px', d < 0 ? 'good' : d > 0 ? 'bad' : '');
+    out += card('Saved vs current', d === 0 ? 'none' : (d < 0 ? (-d) + ' px' : '+' + d + ' px'), d < 0 ? Math.round(-d / cur * 100) + '% of the strip' : 'the baseline', d < 0 ? 'good' : d > 0 ? 'bad' : '');
+    out += card('Grows when selected', '+' + (h - 72) + ' px', 'an unselected strip is 72 px; the table below moves by this much', h - 72 > 90 ? 'bad' : '');
+    var crow = $('[data-row="ing"]', strip);
+    if (S.iv === 'd' && crow) {
+      var ck = $$(':scope > *:not(.sp)', crow), cneed = ck.reduce(function (a, c) { return a + c.offsetWidth; }, 0) + 4 * (ck.length - 1);
+      out += card('Controls row', cneed + ' px of ' + crow.clientWidth + ' px', 'one line, no wrapping', cneed <= crow.clientWidth ? 'good' : 'bad');
+    }
+    $('#ingRead').innerHTML = out;
+  }
+  function renderTabs(id, list, cur) {
+    $('#' + id).innerHTML = list.map(function (v) { return '<button type="button" class="vtab" data-v="' + v.id + '" aria-pressed="' + (v.id === cur) + '">' + esc(v.name) + '<small>' + esc(v.sub) + '</small></button>'; }).join('');
+  }
+  function renderDesc(id, list, cur) {
+    var v = list.filter(function (x) { return x.id === cur; })[0];
+    $('#' + id).innerHTML = '<b>' + (v.id === 'current' ? 'Today: ' : 'Try: ') + '</b>' + v.what + (v.what && v.try ? ' ' : '') + v.try;
+  }
+  function renderWidth() {
+    var html = WIDTHS.map(function (x) { return '<button type="button" data-w="' + x.w + '" aria-pressed="' + (x.w === S.width) + '">' + x.label + ' px<small>' + x.sub + '</small></button>'; }).join('');
+    $$('.widthSeg').forEach(function (el) { el.innerHTML = html; });
+  }
+  /** The icon legend and the icons drawn in the spec tables. */
+  var ICON_USE = [['search', 'Find recipe (Products, Ingredients)'], ['arrowL', 'Receive from… (Ingredients)'], ['arrowR', 'Add consumer recipe… (Byproducts)'], ['factory', 'Preset: Make it here'], ['inbox', 'Preset: Receive it first'], ['branch', 'Preset: Byproducts first'], ['tray', 'Import'], ['out', 'Leftover'], ['layers', 'Sources…'], ['list', 'Served order… (Products, Byproducts)'], ['plus', 'Add extra output'], ['minus', 'Remove extra'], ['left', 'Move earlier'], ['right', 'Move later'], ['trash', 'Remove product'], ['flame', 'Use it all here'], ['flag', 'Make it a product']];
+  function renderSpecIcons() {
+    $$('[data-ic]').forEach(function (el) { el.innerHTML = ic(el.getAttribute('data-ic')); });
+    $('#iconRows').innerHTML = ICON_USE.map(function (u) {
+      return '<tr><td><span class="ico-chip">' + ic(u[0]) + '</span> <code>' + u[0] + '</code></td><td>' + esc(u[1]) + '</td><td><code>' + esc(ICON[u[0]]) + '</code></td></tr>';
+    }).join('');
+  }
+  function renderAll() {
+    S.sv = null; svRender();
+    renderWidth();
+    renderTabs('prodTabs', PROD_VARIANTS, S.pv); renderDesc('prodDesc', PROD_VARIANTS, S.pv);
+    renderTabs('ingTabs', ING_VARIANTS, S.iv); renderDesc('ingDesc', ING_VARIANTS, S.iv);
+    renderProd(); renderIng();
+  }
+
+  /* ----------------------------------------------------------- events */
+  function logP(t) { S.logs.prod = t; }
+  function logI(t) { S.logs.ing = t; }
+  function move(delta) {
+    var i = S.products.findIndex(function (p) { return p.id === S.sel.products; }), j = i + delta;
+    if (j < 0 || j >= S.products.length) return;
+    var p = S.products.splice(i, 1)[0]; S.products.splice(j, 0, p);
+    logP('Moved ' + p.name + ' ' + (delta < 0 ? 'earlier' : 'later') + ': now ' + (j + 1) + ' of ' + S.products.length + '.');
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.closest('#svHost')) {
+      var sb = t.closest('[data-sv-act]');
+      if (sb && sb.getAttribute('aria-disabled') !== 'true') {
+        var li = sb.closest('li');
+        svAction(S.served[S.sv.key], sb.getAttribute('data-sv-act'), li ? li.getAttribute('data-k') : null);
+        renderProd(); svRender();
+      }
+      return;
+    }
+    var svWasOpen = !!S.sv;
+    if (svWasOpen) { S.sv = null; svRender(); }
+    var w = t.closest('[data-w]'); if (w) { S.width = +w.getAttribute('data-w'); S.pop = null; renderAll(); return; }
+    var vt = t.closest('.vtab');
+    if (vt) { var inProd = !!vt.closest('#prodTabs'); if (inProd) S.pv = vt.getAttribute('data-v'); else S.iv = vt.getAttribute('data-v'); S.pop = null; renderAll(); return; }
+    var app = t.closest('.app');
+    var inProdStage = !!t.closest('#prodStage'), inIngStage = !!t.closest('#ingStage');
+    var closed = false;
+    if (S.pop && !t.closest('.pop') && !t.closest('[data-act="sources"]')) { S.pop = null; closed = true; }
+    if (!app) { if (closed) renderAll(); return; }
+    var slot = t.closest('[data-slot]');
+    if (slot) {
+      var id = slot.getAttribute('data-slot');
+      if (inProdStage) { if (id.indexOf('b-') === 0) { var bid = id.slice(2); S.sel.byps = S.sel.byps === bid ? null : bid; } else { S.sel.products = S.sel.products === id ? null : id; } renderProd(); }
+      else { var iid = id.slice(2); S.sel.ing = S.sel.ing === iid ? null : iid; S.pop = null; renderIng(); }
+      return;
+    }
+    var pre = t.closest('[data-preset]');
+    if (pre && inIngStage) { var it = S.sel.ing; S.rules[it].preset = pre.getAttribute('data-preset'); logI('Comes from → ' + PRESETS.filter(function (x) { return x[0] === S.rules[it].preset; })[0][1] + '.'); renderIng(); return; }
+    var swb = t.closest('[data-sw]');
+    if (swb && inIngStage) { var k = swb.getAttribute('data-sw'), r = S.rules[S.sel.ing]; r[k] = !r[k]; logI((k === 'imp' ? 'Import ' : 'Leftover ') + (r[k] ? 'on' : 'off') + '.'); renderIng(); return; }
+    var act = t.closest('[data-act]');
+    if (!act) { if (closed) { inProdStage ? renderProd() : renderIng(); } return; }
+    var a = act.getAttribute('data-act');
+    if (inProdStage) {
+      var pane = act.closest('[data-pane]').getAttribute('data-pane');
+      // The popover opens under the button that asked for it.
+      var anchorRect = act.getBoundingClientRect();
+      if (a === 'back') { S.sel[pane === 'products' ? 'products' : 'byps'] = null; }
+      else {
+        var nm = pane === 'products' ? (S.products.filter(function (p) { return p.id === S.sel.products; })[0] || {}).name : (S.byps.filter(function (p) { return p.id === S.sel.byps; })[0] || {}).name;
+        if (a === 'earlier') move(-1);
+        else if (a === 'later') move(1);
+        else if (a === 'extra') { S.products.filter(function (p) { return p.id === S.sel.products; })[0].extra = 10; logP('Extra output added: + 10/m on ' + nm + '.'); }
+        else if (a === 'rmextra') { S.products.filter(function (p) { return p.id === S.sel.products; })[0].extra = null; logP('Extra output removed from ' + nm + '.'); }
+        else if (a === 'find') logP('Find recipe → opens the recipe picker for ' + nm + ' (not drawn).');
+        else if (a === 'served') {
+          if (!svWasOpen) { svOpen(pane === 'products' ? S.sel.products : S.sel.byps, anchorRect); logP('Served order… → opens the served-order popover for ' + nm + '.'); }
+        }
+        else if (a === 'remove') logP('Remove product → asks to confirm before removing ' + nm + ' (not drawn; nothing removed here).');
+        else if (a === 'useall') logP('Use it all here → turns Leftover off for ' + nm + ' (not drawn).');
+        else if (a === 'consumer') logP('Add consumer recipe… → opens the recipe picker for a recipe that uses ' + nm + ' (not drawn).');
+        else if (a === 'product') logP('Make it a product → adds ' + nm + ' to Products (not drawn).');
+        else if (a === 'logonly') logP(act.getAttribute('data-msg'));
+      }
+      renderProd(); svRender(); return;
+    }
+    if (inIngStage) {
+      if (a === 'back') { S.sel.ing = null; S.pop = null; }
+      else if (a === 'sources') S.pop = S.pop === 'sources' ? null : 'sources';
+      else if (a === 'find') logI('Find recipe → opens the recipe picker (not drawn).');
+      else if (a === 'receive') logI('Receive from… → opens the connection menu (not drawn).');
+      else if (a === 'logonly') logI(act.getAttribute('data-msg'));
+      renderIng();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    if (S.sv) { svClose(true); return; }
+    if (S.pop) { S.pop = null; renderIng(); }
+  });
+  document.getElementById('condToggle').addEventListener('change', function (e) { S.cond = e.target.checked; renderIng(); });
+  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { S.sv = null; svRender(); renderProd(); renderIng(); }, 80); });
+  renderSpecIcons();
+  renderAll();
+  window.__strip = { S: S, renderAll: renderAll };
+})();
+</script>
