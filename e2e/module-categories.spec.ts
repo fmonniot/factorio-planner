@@ -24,7 +24,7 @@ test('a module the machine does not accept by category is flagged, listed nowher
   await expect(chip).toContainText('2/2')
 
   // The warnings pill names the module, the machine and the category.
-  const pill = page.getByTitle('Show solver warnings')
+  const pill = page.locator('[data-tip="Show solver warnings"]')
   await expect(pill).toContainText('1 warning')
   await pill.click()
   const popover = page.getByTestId('warnings-popover')

@@ -105,7 +105,7 @@ test.describe('block colours', () => {
     const tab = page.locator('[data-testid="block-tab"] button[aria-label="Block 3"]')
     await expect(tab).toBeVisible()
 
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     const overlay = page.locator('.fixed.inset-0')
     await overlay.getByPlaceholder('Search…').fill('Compressed oxygen')
     await overlay.locator('[data-testid="item-slot"][data-item-id="nullius-compressed-oxygen"]').click()
@@ -135,7 +135,7 @@ test.describe('block colours', () => {
     await ready(page)
     await page.getByRole('button', { name: 'Add block', exact: true }).click()
     await expect(page.locator('[data-testid="block-tab"] button[aria-label="Block 3"]')).toBeVisible()
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     const overlay = page.locator('.fixed.inset-0')
     await overlay.getByPlaceholder('Search…').fill('Compressed oxygen')
     await overlay.locator('[data-testid="item-slot"][data-item-id="nullius-compressed-oxygen"]').click()

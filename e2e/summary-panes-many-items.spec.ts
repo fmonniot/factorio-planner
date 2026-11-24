@@ -33,7 +33,7 @@ test.describe('summary panes with many items', () => {
     await setup(page)
     await expect(pane(page, 'Products')).toContainText('· 16')
 
-    const add = page.getByTitle('Add product')
+    const add = page.getByRole('button', { name: 'Add product', exact: true })
     await expect(add).toBeInViewport()
     await grid(page, 'Products').evaluate(el => { el.scrollTop = el.scrollHeight })
     await expect(add).toBeInViewport()
@@ -143,7 +143,7 @@ test.describe('summary panes with many items', () => {
     await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'preview')
     await expect(detail(page, 'Products')).toContainText(name)
 
-    await page.getByTitle('Add product').hover()
+    await page.getByRole('button', { name: 'Add product', exact: true }).hover()
     await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'overview')
   })
 
@@ -164,7 +164,7 @@ test.describe('summary panes with many items', () => {
     await first.click()
     await page.keyboard.press('Escape')
     // The pointer still rests on the slot, which would preview it.
-    await page.getByTitle('Add product').hover()
+    await page.getByRole('button', { name: 'Add product', exact: true }).hover()
     await expect(strip).toHaveAttribute('data-state', 'overview')
   })
 

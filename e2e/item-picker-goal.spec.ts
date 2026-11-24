@@ -17,7 +17,7 @@ test.describe('Item picker (goal)', () => {
 
   test('renders group tabs and a slot grid', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Add product' })).toBeVisible()
 
     const tabs = overlay.locator('[data-testid="item-group-tab"]')
@@ -29,7 +29,7 @@ test.describe('Item picker (goal)', () => {
 
   test('switching tabs swaps the visible items', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
 
     const tabs = overlay.locator('[data-testid="item-group-tab"]')
     if (await tabs.count() < 2) test.skip(true, 'Need at least 2 groups to test switching')
@@ -49,7 +49,7 @@ test.describe('Item picker (goal)', () => {
 
   test('clicking a slot adds a goal with the entered amount', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
 
     // Enter a non-default amount.
     const amount = overlay.getByLabel('Amount')
@@ -68,7 +68,7 @@ test.describe('Item picker (goal)', () => {
 
   test('the amount starts empty, so a new goal has no extra output', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await expect(overlay.getByLabel('Amount')).toHaveValue('')
 
     const slot = overlay.locator('[data-testid="item-slot"]').first()
@@ -81,12 +81,12 @@ test.describe('Item picker (goal)', () => {
 
   test('an item that is already a product is disabled', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     const itemId = await overlay.locator('[data-testid="item-slot"]').first().getAttribute('data-item-id')
     await overlay.locator(`[data-testid="item-slot"][data-item-id="${itemId}"]`).click()
     await expect(overlay).not.toBeVisible()
 
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     const again = overlay.locator(`[data-testid="item-slot"][data-item-id="${itemId}"]`)
     await expect(again).toHaveAttribute('aria-disabled', 'true')
     await again.click({ force: true })
@@ -96,7 +96,7 @@ test.describe('Item picker (goal)', () => {
 
   test('Cancel button closes the picker without adding a goal', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await overlay.getByText('Cancel').click()
     await expect(overlay).not.toBeVisible()
   })

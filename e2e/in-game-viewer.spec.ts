@@ -77,7 +77,7 @@ async function expectBadge(page: Page, label: string, timeout = 5000) {
 /** Edits the plan: a goal of 250 for the first item in the picker. */
 async function addGoal(page: Page) {
   const overlay = page.locator('.fixed.inset-0')
-  await page.getByTitle('Add product').click()
+  await page.getByRole('button', { name: 'Add product', exact: true }).click()
   await overlay.getByLabel('Amount').fill('250')
   await overlay.locator('[data-testid="item-slot"]').first().click()
   await expect(overlay).not.toBeVisible()

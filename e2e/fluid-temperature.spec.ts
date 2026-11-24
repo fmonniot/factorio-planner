@@ -37,7 +37,7 @@ test('a steam turbine on boiler steam imports steam at ≥465°C without a warni
   await expect(page.locator('main [aria-label^="Steam (165°C)"]').first()).toContainText('165°C')
 
   // The block imports the steam at the range the turbine accepts, and nothing is wrong with that.
-  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+  await expect(page.locator('[data-tip="Show solver warnings"]')).toHaveCount(0)
   await expect(pane(page, 'Ingredients').locator('[data-testid="summary-slot"][data-item-id="steam"] [data-testid="summary-slot-temperature"]')).toHaveText('≥465°C')
 })
 
@@ -46,7 +46,7 @@ test('a steam engine on boiler steam raises no warning', async ({ page }) => {
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
   await page.locator('[data-testid="block-tab"] button[aria-label="Match"]').click()
   await expect(page.locator('main [aria-label^="Steam (165°C)"]').first()).toBeVisible()
-  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+  await expect(page.locator('[data-tip="Show solver warnings"]')).toHaveCount(0)
 })
 
 /** Two Seablock blocks making electricity from reactor heat on a heat exchanger 4 (needs heat of at least 765°C): a burner reactor (750°C) and a burner reactor 2 (1000°C). */
@@ -60,7 +60,7 @@ test('a burner reactor under a heat exchanger 4 is not run: the block imports he
   await expect(page.locator('main [aria-label^="Heat (≥765°C)"]').first()).toContainText('≥765°C')
 
   // The 750°C reactor cannot feed the exchanger, so the block imports the heat at the range and the reactor's fuel is not needed.
-  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+  await expect(page.locator('[data-tip="Show solver warnings"]')).toHaveCount(0)
   await expect(pane(page, 'Ingredients').locator('[data-testid="summary-slot"][data-item-id="power:heat"] [data-testid="summary-slot-temperature"]')).toHaveText('≥765°C')
   await expect(slotById(page, 'Ingredients', 'wood')).toHaveCount(0)
 })
@@ -70,7 +70,7 @@ test('a burner reactor 2 under a heat exchanger 4 runs it with no warning', asyn
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
   await page.locator('[data-testid="block-tab"] button[aria-label="Hot enough"]').click()
   await expect(page.locator('main [aria-label^="Heat (≥765°C)"]').first()).toBeVisible()
-  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+  await expect(page.locator('[data-tip="Show solver warnings"]')).toHaveCount(0)
   await expect(slotById(page, 'Ingredients', 'power:heat')).toHaveCount(0)
   await expect(slotById(page, 'Ingredients', 'wood')).toHaveCount(1)
 })
@@ -92,7 +92,7 @@ test('a boiler pinned at 165°C feeding a turbine shows a steam 165°C byproduct
   const ingredient = slot(page, 'Ingredients', 'Steam ≥465°C')
   await expect(byproduct.getByTestId('summary-slot-temperature')).toHaveText('165°C')
   await expect(ingredient.getByTestId('summary-slot-temperature')).toHaveText('≥465°C')
-  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+  await expect(page.locator('[data-tip="Show solver warnings"]')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Collapse summary' }).click()
   await expect(pane(page, 'Byproducts').getByTestId('summary-line-temperature')).toHaveText('165°C')
@@ -108,7 +108,7 @@ test('a connection delivering 465°C steam shows no import and its tooltip lists
   await selectSlot(page, 'Ingredients', 'Steam ≥465°C')
   await expect(detail(page, 'Ingredients').locator('[data-kind="source"]')).toHaveCount(1)
   await expect(detail(page, 'Ingredients').locator('[data-kind="import"]')).toHaveCount(0)
-  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+  await expect(page.locator('[data-tip="Show solver warnings"]')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Block graph' }).click()
   await pinEdge(page, { connectionId: HOT_STEAM_TO_TURBINES })

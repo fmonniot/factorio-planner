@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useOverlayOpen } from './sidePanel/useDismiss'
+import { describedTip } from '../tipProps'
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../store/uiStore'
 import type { RateUnit } from '../../store/uiStore'
@@ -82,7 +83,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
         <button
           type="button"
           aria-label="Clear filter"
-          title="Clear filter"
+          data-tip=""
           onClick={() => filter.onQueryChange('')}
           className="inline-flex items-center justify-center size-6 rounded text-gray-400 hover:text-gray-100 shrink-0 md:absolute md:right-0.5 md:top-1/2 md:-translate-y-1/2"
         >
@@ -119,7 +120,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
           <span
             data-testid="block-power-total"
             role="img"
-            title="Total power draw of the block"
+            data-tip="Total power draw of the block"
             aria-label={`Total power draw, ${power.value} ${power.unit}`}
             className="font-mono tabular-nums text-cyan-300"
           >
@@ -381,7 +382,7 @@ export function WarningsPopover() {
         aria-haspopup="dialog"
         aria-expanded={open}
         className={`flex items-center gap-1 h-7 max-md:whitespace-nowrap px-2.5 max-md:px-2 rounded-full border text-xs ${badgeColor}`}
-        title="Show solver warnings"
+        {...describedTip('Show solver warnings')}
       >
         <span>⚠</span>
         {/* Below 768px the pill is "⚠ 1": the count shows, the words stay for assistive technology. */}

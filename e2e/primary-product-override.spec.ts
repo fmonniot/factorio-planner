@@ -20,7 +20,7 @@ test.describe('Primary product override', () => {
     const overlay = page.locator('.fixed.inset-0')
 
     // Add Hydrogen as a goal.
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await overlay.getByLabel('Amount').fill('60')
     await overlay.getByPlaceholder('Search…').fill('Hydrogen')
     // The hydrogen fluid lives in the "fluids" group — switch tab to find it.
@@ -62,7 +62,7 @@ test.describe('Primary product override', () => {
     const overlay = page.locator('.fixed.inset-0')
 
     // Add Chemistry research as a goal.
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     await overlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
     await overlay.locator('[data-testid="item-slot"]').first().click()
 

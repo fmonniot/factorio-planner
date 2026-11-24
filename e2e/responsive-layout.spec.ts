@@ -96,7 +96,7 @@ test.describe('phone width: pickers, flyouts and errors', () => {
 
   test('the Add product picker fits the viewport', async ({ page }) => {
     await load(page)
-    await page.getByTitle('Add product').click()
+    await page.getByRole('button', { name: 'Add product', exact: true }).click()
     const heading = page.getByRole('heading', { name: 'Add product' })
     await expect(heading).toBeVisible()
     await expectWithinViewport(page, heading.locator('xpath=ancestor::div[contains(@class,"max-h-")][1]'))

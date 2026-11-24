@@ -120,7 +120,7 @@ describe('FactorySummary — without loaded game data', () => {
     useGameDataStore.setState({ status })
     render(<FactorySummary />)
     expect(screen.queryByText('Products'), 'summary must be hidden').not.toBeInTheDocument()
-    expect(screen.queryByTitle('Add product')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add product' })).not.toBeInTheDocument()
   })
 })
 
@@ -130,7 +130,7 @@ describe('FactorySummary — header row', () => {
     expect(screen.queryByText('/sec')).not.toBeInTheDocument()
     expect(screen.queryByText('/min')).not.toBeInTheDocument()
     expect(screen.queryByTitle('Click to rename')).not.toBeInTheDocument()
-    expect(screen.queryByTitle('Show solver warnings')).not.toBeInTheDocument()
+    expect(queryByTip('Show solver warnings')).not.toBeInTheDocument()
   })
 })
 
@@ -811,7 +811,7 @@ describe('FactorySummary — add product, item already a product', () => {
   it('disables the item in the picker and still adds another one', async () => {
     setupStore([ironGoal])
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add product'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     const slotOf = (id: string) => screen.getAllByTestId('item-slot').find(b => b.getAttribute('data-item-id') === id)!
     expect(slotOf('iron-plate')).toHaveAttribute('aria-disabled', 'true')
@@ -825,14 +825,14 @@ describe('FactorySummary — add product, item already a product', () => {
 describe('FactorySummary — add product', () => {
   it('clicking + opens item picker', async () => {
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add product'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Add product' })).toBeInTheDocument())
   })
 
   it('adding a product via the picker adds a product', async () => {
     setupStore([])
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add product'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     const slots = screen.getAllByTestId('item-slot')
     const ironSlot = slots.find(b => b.getAttribute('data-item-id') === 'iron-plate')!
@@ -846,7 +846,7 @@ describe('FactorySummary — add product', () => {
   it('adds a product with the amount typed in the picker as its extra output', async () => {
     setupStore([])
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add product'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '60' } })
     fireEvent.click(screen.getAllByTestId('item-slot').find(b => b.getAttribute('data-item-id') === 'iron-plate')!)
@@ -1668,7 +1668,7 @@ describe('FactorySummary — requests', () => {
 
   describe('adding a product', () => {
     const openPicker = async () => {
-      fireEvent.click(screen.getByTitle('Add product'))
+      fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
       await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     }
     const pickOre = () =>
@@ -1982,7 +1982,7 @@ describe('FactorySummary — pane layout', () => {
     setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', extraRate: 10 }])
     render(<FactorySummary />)
     expect(pane('Products').textContent).toContain('· 2')
-    expect(screen.getByTitle('Add product').closest('.overflow-y-auto')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Add product' }).closest('.overflow-y-auto')).toBeNull()
   })
 
   it('caps the slot grid height and gives the strip a fixed height', () => {
@@ -2346,7 +2346,7 @@ describe('FactorySummary — collapsed summary', () => {
     expect(within(pane('Byproducts')).getByTestId('summary-line-count')).toHaveTextContent('1')
     expect(screen.queryAllByTestId('summary-slot')).toHaveLength(0)
     expect(screen.queryByTestId('summary-detail')).toBeNull()
-    expect(screen.queryByTitle('Add product')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add product' })).toBeNull()
   })
 
   it('draws as many chips as fit, each with its quantity, the goal in the title, and no +N when they all fit', () => {

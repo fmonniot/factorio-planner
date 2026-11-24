@@ -30,7 +30,7 @@ async function pickerRecipeIds(page: Page): Promise<string[]> {
 }
 
 async function pickerGoalItemIds(page: Page): Promise<string[]> {
-  await page.getByTitle('Add product').click()
+  await page.getByRole('button', { name: 'Add product', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Add product' })).toBeVisible()
   const ids = await page.locator('[data-testid="item-slot"]').evaluateAll(
     els => els.map(e => e.getAttribute('data-item-id') ?? ''),
@@ -274,7 +274,7 @@ async function setHorizon(page: Page, ...techIds: string[]) {
 }
 
 async function addGoal(page: Page, itemId: string) {
-  await page.getByTitle('Add product').click()
+  await page.getByRole('button', { name: 'Add product', exact: true }).click()
   await page.locator('.fixed.inset-0').getByLabel('Amount').fill('60')
   await page.locator(`[data-testid="item-slot"][data-item-id="${itemId}"]`).click()
 }
