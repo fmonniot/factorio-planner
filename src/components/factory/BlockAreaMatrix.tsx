@@ -11,7 +11,7 @@ import { fmtFluidTag } from '../../data/flowKey'
 import { fmtAmount, fmtAmountUnit, fmtSigned, tradeRateText } from './matrixFormat'
 import { isEnergyItem } from '../../data/electricity'
 import { FoldedList } from './FoldedList'
-import { describedTip } from '../tipProps'
+import { TIPPED_LABEL_CLASS, describedTip, tippedLabel } from '../tipProps'
 
 // ---------------------------------------------------------------------------
 // One block's areas as a balance matrix (items x areas), with an optional focus on one area.
@@ -387,6 +387,30 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   )
 }
 
+/** The tooltip of the Trades with heading: how a short supply is shared among the areas. */
+export const TRADES_ORDER_TIP = 'Areas higher in the table supply first; an area with its own row for the item is served before the others.'
+
+/** Contents names this many rows before a "+N more" chip. */
+const CONTENT_ROWS_CAP = 4
+
+/** One labelled list of names of an area's contents; nothing when the list is empty. */
+function ContentsLine({ testId, label, names, cap }: { testId: string; label: string; names: string[]; cap?: number }) {
+  if (names.length === 0) return null
+  const shown = cap !== undefined ? names.slice(0, cap) : names
+  const more = names.length - shown.length
+  return (
+    <div data-testid={testId} className="flex gap-2">
+      <dt className="w-24 shrink-0 text-gray-400">{label}</dt>
+      <dd className="min-w-0 flex-1">
+        <ul className="flex flex-wrap gap-1">
+          {shown.map((n, i) => <li key={`${n}:${i}`} className="rounded bg-gray-800 px-1.5 text-gray-200">{n}</li>)}
+          {more > 0 && <li data-testid="area-contents-more" className="rounded px-1.5 text-gray-400">+{more} more</li>}
+        </ul>
+      </dd>
+    </div>
+  )
+}
+
 /** Trades with lists this many items per partner until "Show all" is pressed. */
 const TRADE_LINES_CAP = 4
 
@@ -400,11 +424,6 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
   onOpenArea: (area: MatrixArea) => void
 }) {
   const c = area.contents
-  const names = c.recipeNames
-  const rowsText =
-    names.length === 0 ? 'No rows.'
-      : names.length <= 4 ? `Rows: ${names.join(', ')}.`
-        : `Rows include ${names.slice(0, 4).join(', ')} and ${names.length - 4} more.`
   return (
     <aside aria-label={area.name} className="w-[340px] shrink-0 border-l border-gray-700 overflow-y-auto p-3 flex flex-col gap-3 text-xs text-gray-300">
       <div className="flex items-start gap-2">
@@ -431,15 +450,21 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
         Show in table
       </button>
 
-      <section className="flex flex-col gap-1">
-        <h4 className="text-[11px] uppercase tracking-wide text-gray-400">Contents</h4>
-        <p>{c.subFactories.length === 0 ? 'No sub-factories.' : `Sub-factories: ${c.subFactories.join(', ')}.`}</p>
-        {c.nestedAreas.length > 0 && <p>Areas inside: {c.nestedAreas.join(', ')}.</p>}
-        <p>{rowsText}</p>
-      </section>
+      {(c.subFactories.length > 0 || c.nestedAreas.length > 0 || c.recipeNames.length > 0) && (
+        <section data-testid="area-contents" className="flex flex-col gap-1">
+          <h4 className="text-[11px] uppercase tracking-wide text-gray-400">Contents</h4>
+          <dl className="flex flex-col gap-1">
+            <ContentsLine testId="area-contents-subfactories" label="Sub-factories" names={c.subFactories} />
+            <ContentsLine testId="area-contents-areas" label="Areas inside" names={c.nestedAreas} />
+            <ContentsLine testId="area-contents-rows" label="Rows" names={c.recipeNames} cap={CONTENT_ROWS_CAP} />
+          </dl>
+        </section>
+      )}
 
       <section className="flex flex-col gap-1">
-        <h4 className="text-[11px] uppercase tracking-wide text-gray-400">Trades with</h4>
+        <h4 className="text-[11px] uppercase tracking-wide text-gray-400">
+          <span data-testid="trades-with-label" {...tippedLabel(TRADES_ORDER_TIP)} className={TIPPED_LABEL_CLASS}>Trades with</span>
+        </h4>
         {trades.length === 0 ? (
           <p className="text-gray-400">No trades.</p>
         ) : (
@@ -497,9 +522,6 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
         )}
       </section>
 
-      <p className="text-[11px] text-gray-400">
-        Counterpart cells read {'“'}13.8 {'→'}{'”'}: the part of that area{'’'}s output that goes to the focused area.
-      </p>
     </aside>
   )
 }

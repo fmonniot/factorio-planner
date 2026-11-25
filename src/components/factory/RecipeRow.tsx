@@ -41,6 +41,7 @@ import {
 } from './recipeAreas'
 import { dedicatedProduct } from '../../solver/areas'
 import { pinSeedRate } from './pinRate'
+import { SEPARATE_AREA_ACTION_TIP } from './areaHelp'
 import { countSubPlanContents, sumSubPlanSolved } from './subPlanContents'
 import { ingredientTemperatureLabels, productTemperatureLabels } from './temperature'
 
@@ -503,7 +504,7 @@ export function RecipeRow({
                 {
                   label: 'Separate area',
                   checked: childPlan?.area === true,
-                  title: 'Its rows serve it first, and the summary lists what it receives and sends.',
+                  title: SEPARATE_AREA_ACTION_TIP,
                   onSelect: () => setSubPlanArea(subPlanId, !(childPlan?.area === true)),
                 },
                 ...(dupOptions.length > 0

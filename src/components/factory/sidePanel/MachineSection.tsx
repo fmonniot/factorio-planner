@@ -13,7 +13,7 @@ import { MachinePicker } from './MachinePicker'
 import { FuelPicker } from './FuelPicker'
 import { ModuleSlotRow } from './ModuleSlotRow'
 import { setSlot, slotsOf } from './moduleSlots'
-import { describeMisfit, machineModuleOptions, misfitNote } from './moduleOptions'
+import { describeMisfit, machineModuleOptions } from './moduleOptions'
 import { describedTip } from '../../tipProps'
 
 /** "X exact · Y% busy" of a row's machines. */
@@ -59,15 +59,6 @@ export function MachineSection({ node, solved, gameData }: {
       : undefined
     return reason && { reason, text: describeMisfit(reason, mod.name, machine?.name ?? '', recipe?.name ?? node.recipeId) }
   }
-  const note = misfitNote(
-    node.modules.flatMap(m => {
-      const mod = gameData.modules[m.moduleId]
-      const verdict = mod && misfit(mod)
-      return verdict ? [verdict.reason] : []
-    }),
-    machine?.name ?? '',
-    recipe?.name ?? node.recipeId,
-  )
   const util = utilisation(solved)
 
   return (
@@ -151,7 +142,6 @@ export function MachineSection({ node, solved, gameData }: {
             label="Machine module slot"
             misfit={misfit}
           />
-          {note && <div data-testid="machine-module-not-allowed" className="text-xs text-amber-400 mt-1.5">{note}</div>}
         </div>
       )}
 

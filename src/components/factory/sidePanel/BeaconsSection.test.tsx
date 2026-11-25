@@ -4,7 +4,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { BeaconsSection } from './BeaconsSection'
 import { fitModules } from './moduleSlots'
 import { expectTip } from '../../../test/byTip'
-import { EffectsSection } from './EffectsSection'
+import { EFFECTS_HELP, EffectsSection } from './EffectsSection'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
 import type { BeaconConfig, GameData, GameRecipeNode } from '../../../data/types'
 
@@ -270,12 +270,13 @@ describe('BeaconsSection — module picker and productivity', () => {
     expect(openSlots(true, ['speed', 'consumption', 'productivity'])).toEqual(['prod-3', 'speed-3', 'eff-1'])
   })
 
-  it('notes a selected module the beacon cannot take', () => {
+  it('rings a selected module the beacon cannot take', () => {
     const gd = makeGameData()
     gd.recipes['iron-plate'].allowProductivity = true
     renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ modules: [{ moduleId: 'prod-3', count: 2 }] })] }))
-    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Ringed modules cannot be inserted in Beacon')
     expect(screen.getAllByTestId('beacon-module-slot')[0]).toHaveAttribute('data-misfit', 'effect')
+    expect(screen.getAllByTestId('beacon-module-slot')[0].getAttribute('aria-description')).toBe('Prod 3 cannot be inserted in Beacon')
+    expect(screen.queryByText(/Ringed modules/), 'no note under the slots').toBeNull()
   })
 
   it('rings a module the recipe does not take, though the beacon allows productivity', () => {
@@ -286,7 +287,7 @@ describe('BeaconsSection — module picker and productivity', () => {
     const slot = screen.getAllByTestId('beacon-module-slot')[0]
     expect(slot).toHaveAttribute('data-misfit', 'recipe')
     expect(slot.getAttribute('data-tip')).toContain('Prod 3 cannot be used for')
-    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('cannot be used for')
+    expect(screen.queryByText(/Ringed modules/)).toBeNull()
   })
 
   it('gives no verdict for a beacon without a resolvable entity', () => {
@@ -294,15 +295,14 @@ describe('BeaconsSection — module picker and productivity', () => {
     gd.recipes['iron-plate'].allowProductivity = false
     renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ beaconId: undefined, modules: [{ moduleId: 'prod-3', count: 1 }] })] }))
     expect(screen.getAllByTestId('beacon-module-slot')[0]).not.toHaveAttribute('data-misfit')
-    expect(screen.queryByTestId('module-not-allowed')).toBeNull()
   })
 
-  it('rejects a module by category: options omit it and a stored one is noted', () => {
+  it('rejects a module by category: options omit it and a stored one is ringed', () => {
     const gd = makeGameData()
     gd.beacons.beacon.allowedModuleCategories = ['speed']
     renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ modules: [{ moduleId: 'eff-1', count: 1 }] })] }))
-    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Ringed modules cannot be inserted in Beacon')
     expect(screen.getAllByTestId('beacon-module-slot')[0]).toHaveAttribute('data-misfit', 'category')
+    expect(screen.queryByText(/Ringed modules/)).toBeNull()
     fireEvent.click(screen.getAllByTestId('beacon-module-slot')[1])
     expect(screen.getAllByTestId('beacon-module-option').map(e => e.getAttribute('data-module-id'))).toEqual(['speed-3'])
   })
@@ -311,8 +311,7 @@ describe('BeaconsSection — module picker and productivity', () => {
     const gd = makeGameData()
     gd.recipes['iron-plate'].allowProductivity = true
     renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ modules: [{ moduleId: 'prod-3', count: 1 }, { moduleId: 'speed-3', count: 1 }] })] }))
-    const note = screen.getByTestId('module-not-allowed')
-    expect(note).toHaveTextContent('Ringed modules cannot be inserted in Beacon')
+    expect(screen.queryByText(/Ringed modules/)).toBeNull()
     const slots = screen.getAllByTestId('beacon-module-slot')
     expect(slots[0]).toHaveAttribute('data-misfit')
     expect(slots[1], 'Speed 3 slot not ringed').not.toHaveAttribute('data-misfit')
@@ -393,7 +392,8 @@ describe('EffectsSection', () => {
     expect(screen.getAllByRole('columnheader').map(h => h.textContent)).toEqual(['', 'Machine', 'Beacons', 'Total'])
     // 0.5 speed × 1.5 efficiency × 2 modules × 4 beacons
     expect(screen.getByTestId('effect-total-speed')).toHaveTextContent('+600%')
-    expect(screen.getByText('Beacon effect = for each module, its effect × efficiency × its count × beacons, added up. All sources add up.', { exact: false })).toBeInTheDocument()
+    expectTip(screen.getByTestId('panel-effects-title'), EFFECTS_HELP)
+    expect(screen.queryByText(/Beacon effect = /), 'the sentence is a tooltip, not a paragraph').toBeNull()
   })
 
   it('shows one Beacons column per configuration', () => {
@@ -405,15 +405,14 @@ describe('EffectsSection', () => {
   it('shows no effects as dashes', () => {
     renderEffects(makeGameData(), rowNode({ machineId: 'am1' }))
     expect(screen.getByTestId('effect-total-speed')).toHaveTextContent('–')
-    expect(screen.queryByTestId('recipe-effects-note')).not.toBeInTheDocument()
   })
 
-  it('notes the effects the recipe does not allow and counts none of them, as the solver does', () => {
+  it('strikes the effects the recipe does not allow and counts none of them, as the solver does', () => {
     const gd = makeGameData()
     gd.machines.am1.allowedEffects = ['speed', 'consumption', 'productivity']
     gd.recipes['iron-plate'].allowProductivity = true
     renderEffects(gd, rowNode({ machineId: 'am1', beaconConfigs: [beacon({ modules: [{ moduleId: 'prod-3', count: 2 }] })] }))
-    expect(screen.getByTestId('recipe-effects-note')).toHaveTextContent('productivity of the beacons')
+    expect(screen.queryByText(/Recipe effects:/), 'the struck cell says why; no amber paragraph').toBeNull()
     const ignored = document.querySelector<HTMLElement>('[role="cell"][data-ignored="true"]')!
     expect(ignored).toHaveAccessibleDescription(/does not apply to this row/)
     expect(ignored).toHaveAccessibleDescription(/^Beacons\n\S+ does not apply to this row, because the recipe, machine or beacon does not allow it\.$/)

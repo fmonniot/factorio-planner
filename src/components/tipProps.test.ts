@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describedTip, tipProps } from './tipProps'
+import { TIPPED_LABEL_CLASS, describedTip, tipProps, tippedLabel } from './tipProps'
 
 describe('tipProps', () => {
   it('names the element and shows its name as the tooltip', () => {
@@ -17,5 +17,15 @@ describe('describedTip', () => {
   it('gives nothing for empty or missing text', () => {
     expect(describedTip('')).toStrictEqual({})
     expect(describedTip(undefined)).toStrictEqual({})
+  })
+})
+
+describe('tippedLabel', () => {
+  it('describes the text and makes the label focusable', () => {
+    expect(tippedLabel('Hello')).toStrictEqual({ 'data-tip': 'Hello', 'aria-description': 'Hello', tabIndex: 0 })
+  })
+  it('has a class that shows the help cursor and a dotted underline', () => {
+    expect(TIPPED_LABEL_CLASS).toContain('cursor-help')
+    expect(TIPPED_LABEL_CLASS).toContain('border-dotted')
   })
 })

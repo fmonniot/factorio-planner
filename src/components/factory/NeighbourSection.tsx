@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useBlockStore } from '../../store/blockStore'
 import { NeighbourGrid } from './NeighbourGrid'
-import { MAX_SIDE, findRectangle, formatAverage, rectangleAverage } from './neighbourLayout'
+import { TIPPED_LABEL_CLASS, tippedLabel } from '../tipProps'
+import { MAX_SIDE, NEIGHBOURS_TIP, findRectangle, formatAverage, rectangleAverage } from './neighbourLayout'
 
 const EPSILON = 1e-9
 const MAX_NEIGHBOURS = 4
@@ -115,12 +116,13 @@ export function NeighbourSection({ nodeId, neighbourCount, neighbourBonus }: Nei
 
   return (
     <div data-testid="neighbour-section" className="whitespace-normal">
-      <label htmlFor="neighbour-cols" className="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5 block">
+      <div
+        data-testid="neighbour-title"
+        {...tippedLabel(NEIGHBOURS_TIP)}
+        className={`text-[10px] uppercase tracking-wide text-gray-400 mb-3 inline-block ${TIPPED_LABEL_CLASS}`}
+      >
         Neighbours
-      </label>
-      <p className="text-xs text-gray-300 mb-3">
-        Draw one cluster of reactors that touch each other. The planner uses the average number of neighbours per reactor.
-      </p>
+      </div>
 
       <div className="flex gap-4">
         <div className="w-[148px] shrink-0 flex flex-col gap-3.5">
@@ -153,14 +155,10 @@ export function NeighbourSection({ nodeId, neighbourCount, neighbourBonus }: Nei
         </div>
       </div>
 
-      <p className="text-[11px] text-gray-400 mt-2">
-        Each number is how many reactors share a side with that one. Diagonals don't count, and only working reactors do.
-      </p>
-
       <div className="border-t border-gray-800 mt-3 pt-3">
         <div className="flex items-center gap-3">
           <label htmlFor="neighbour-count" className="flex-1 text-xs text-gray-300">
-            <b className="font-semibold text-gray-200">Not a rectangle?</b> Type the average number of neighbours instead.
+            <b className="font-semibold text-gray-200">Not a rectangle?</b> Your own average
           </label>
           <input
             id="neighbour-count"
@@ -181,7 +179,6 @@ export function NeighbourSection({ nodeId, neighbourCount, neighbourBonus }: Nei
         )}
         {ownInUse && (
           <p className="text-xs text-gray-400 mt-1.5">
-            Change the size above to use the drawing again.
             <button
               type="button"
               onClick={() => applyDrawing(cols, rows)}

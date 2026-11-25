@@ -1,9 +1,12 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { TIPPED_LABEL_CLASS, tippedLabel } from '../../tipProps'
 import { useUiStore, type PanelHighlightSection } from '../../../store/uiStore'
 
 /** A titled section of the side panel. */
-export function PanelSection({ title, testId, children, className = '', highlightKey }: {
+export function PanelSection({ title, titleTip, testId, children, className = '', highlightKey }: {
   title: string
+  /** Help for the title: the title becomes a tipped label. */
+  titleTip?: string
   testId?: string
   children: ReactNode
   className?: string
@@ -30,7 +33,11 @@ export function PanelSection({ title, testId, children, className = '', highligh
       aria-label={title}
       className={`px-4 py-3 border-b border-gray-800 ${seq !== undefined ? 'ring-2 ring-inset ring-teal-500 bg-teal-950/30' : ''} ${className}`}
     >
-      <h3 className="text-[10px] uppercase tracking-wide text-gray-400 mb-2">{title}</h3>
+      <h3 className="text-[10px] uppercase tracking-wide text-gray-400 mb-2">
+        {titleTip
+          ? <span data-testid={testId ? `${testId}-title` : undefined} {...tippedLabel(titleTip)} className={TIPPED_LABEL_CLASS}>{title}</span>
+          : title}
+      </h3>
       {children}
     </section>
   )
@@ -40,7 +47,7 @@ export function PanelSection({ title, testId, children, className = '', highligh
 export function PanelHeader({ icon, title, subtitle, onClose }: {
   icon: ReactNode
   title: string
-  subtitle?: string
+  subtitle?: ReactNode
   onClose: () => void
 }) {
   return (
@@ -48,7 +55,7 @@ export function PanelHeader({ icon, title, subtitle, onClose }: {
       <span className="shrink-0">{icon}</span>
       <div className="flex-1 min-w-0">
         <h2 data-testid="panel-title" className="text-sm font-semibold text-gray-100 truncate" data-tip={title}>{title}</h2>
-        {subtitle && <div className="text-[11px] text-gray-400 truncate">{subtitle}</div>}
+        {subtitle && <div data-testid="panel-subtitle" className="text-[11px] text-gray-400 truncate">{subtitle}</div>}
       </div>
       <button
         type="button"

@@ -69,6 +69,11 @@ test('focusing an area shows its counterparts and jumps to its row', async ({ pa
   await expect(matrix(page).getByRole('button', { name: 'Chlorides' })).toHaveAttribute('aria-pressed', 'true')
   const panel = page.getByRole('complementary', { name: 'Chlorides' })
   await expect(panel).toContainText('Area in Hydrogen')
+  await expect(panel).not.toContainText('Counterpart cells read')
+  await expect(panel.getByTestId('area-contents')).toBeVisible()
+  await expect(panel.getByTestId('area-contents')).not.toContainText('No sub-factories')
+  await panel.getByTestId('trades-with-label').hover()
+  await expect(page.getByTestId('tooltip')).toHaveText('Areas higher in the table supply first; an area with its own row for the item is served before the others.')
   const counterparts = matrix(page).locator('td[data-counterpart="true"]')
   await expect(counterparts.first()).toHaveText(/→$/)
 
@@ -110,6 +115,13 @@ test('All blocks puts the blocks side by side with what no block takes', async (
   await expect(page.getByRole('columnheader', { name: /Acid/ }).getByRole('button')).toHaveCount(0)
   await expect(hcl.locator('td[data-col="not-taken"]')).toHaveText('1200')
 
+  // The headers explain themselves in tooltips; the footer keeps the unit only.
+  await page.getByRole('columnheader', { name: 'Not taken' }).getByText('Not taken').hover()
+  await expect(page.getByTestId('tooltip')).toHaveText('Not taken by any block: extra output, byproduct or surplus.')
+  await page.getByRole('columnheader', { name: 'Net' }).first().hover()
+  await expect(page.getByTestId('tooltip')).toHaveText('What the block takes or leaves across its boundary.')
+  await expect(page.getByText(/Each block column is what the block takes/)).toHaveCount(0)
+
   // The figure counts every block, so unticking the filter does not change it.
   await page.getByRole('checkbox', { name: 'Only items that cross a block boundary' }).uncheck()
   await expect(hcl.locator('td[data-col="not-taken"]')).toHaveText('1200')
@@ -119,7 +131,11 @@ test('All blocks puts the blocks side by side with what no block takes', async (
   const inspector = page.getByRole('region', { name: 'Hydrogen chloride across blocks' })
   await expect(inspector).toContainText('leaves the block')
   await expect(inspector).toContainText('enters the block')
-  await expect(inspector).toContainText('1200/m is not taken')
+  await expect(inspector.getByTestId('inspector-not-taken')).toContainText('Not taken')
+  await expect(inspector.getByTestId('inspector-not-taken')).toContainText('1200/m')
+  await expect(inspector).not.toContainText('is not taken by any block')
+  await inspector.getByTestId('inspector-not-taken').getByText('Not taken').hover()
+  await expect(page.getByTestId('tooltip')).toHaveText('Not taken by any block: extra output, byproduct or surplus.')
 })
 
 test('Escape closes the viewer', async ({ page }) => {

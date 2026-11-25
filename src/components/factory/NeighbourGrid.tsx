@@ -1,4 +1,5 @@
-import { foldAxis, formatAverage, tileNeighbours } from './neighbourLayout'
+import { describedTip } from '../tipProps'
+import { NEIGHBOUR_GRID_TIP, foldAxis, formatAverage, tileNeighbours } from './neighbourLayout'
 
 // Fill / border per neighbour count (0–4). The number is always drawn too, so
 // colour is never the only signal.
@@ -32,6 +33,7 @@ export function NeighbourGrid({ cols, rows, average, dimmed }: NeighbourGridProp
       <div
         data-testid="neighbour-grid"
         role="img"
+        {...describedTip(NEIGHBOUR_GRID_TIP)}
         aria-label={`${cols} by ${rows} cluster, ${formatAverage(average)} neighbours on average`}
         className={`grid gap-1 ${dimmed ? 'opacity-30' : ''}`}
         style={{

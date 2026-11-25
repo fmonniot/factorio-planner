@@ -4,6 +4,44 @@ Every place the app is overly verbose, found by sweeping `src/components/` on 20
 
 ---
 
+## Outcome
+
+Every item of sections 1 to 4 below is shipped or left on purpose. The bullets themselves are kept as they were found. T1 to T7 are the tickets of [plan.md](plan.md).
+
+| Section and item | Outcome |
+|---|---|
+| 1. Where inputs come from | Shipped (T3, T4): the Sources model laid out as lines |
+| 1. Where outputs go | Shipped (T1): the outputs model laid out as lines |
+| 1. Comes from: the leftover-take note, rules without effect | Shipped (T4) |
+| 1. Area matrices: not taken, not supplied, an area's contents | Shipped (T7): label and figure rows in the Inspector, a definition list of name chips in the area panel |
+| 2. Sources list, line detail | Shipped (T5): the help is the name's tooltip |
+| 2. Group panel | Shipped (T7): a tooltip on the "Separate area" label and a **Make it a separate area** button |
+| 2. Effects section | Shipped (T7): the formula is the title's tooltip; the amber note is gone |
+| 2. Neighbours section | Shipped (T7): a tooltip on the title and one on the drawing; the other paragraphs are gone |
+| 2. Module misfit note | Shipped (T7): dropped, the ringed slot's tooltip says it |
+| 2. Served order popover | Shipped (T7): the first rule is the title's tooltip; the rest of the manual is gone |
+| 2. Area matrix panel note | Shipped (T7): the ordering rule is the tooltip of the Trades with heading; the note is gone |
+| 2. Plan areas legend | Shipped (T7): tooltips on the Net, Not taken and Not supplied headers; the footer keeps the unit |
+| 3. Labels and tooltip tails (all) | Shipped (T6) |
+| 4. Long tooltips (all) | Shipped (T6) |
+
+Left on purpose:
+
+| What | Why |
+|---|---|
+| The block graph connection chip's dash-chained data tooltip (`useConnectionDetail().title`) | Facts, not hints |
+| The "No connection for {name}." notice of the Sources list | State, not help (T5) |
+| The accessible-description duplication of two-line tips under `describedTip` (the description repeats the name) | Fixing it needs `tipProps(name, detail)` and about ten test changes: a follow-up |
+| The warnings popover, empty states, confirmation dialogs and screen-reader announcements | Out of scope from the start |
+| The served-order popover's one conditional hint ("Lines of one place that are not in a bracket (a block's areas) are served in table order. Move or share one to rank them apart.") | Only for a legacy plain entry that covers several areas; not in the manual or this inventory; the owner may drop it |
+| The Inspector's "leaves the block" / "enters the block" and connection lines | Data sentences |
+| The overview segments' "N items" | Kept in T6 |
+| The Leftover tooltip's lost caveats and the rule chip no longer saying how to change the rule | Accepted in the T6 pull request |
+| The Neighbours grid's "Not used: you typed your own average below." and the invalid-average note | Validation and state, not help |
+| The Machine section's "No machine within research horizon…" amber sentence | A state; it was never in this inventory |
+
+---
+
 ## 1. Running-prose sentences built from data
 
 ### Where inputs come from — `factory/sourcingText.ts:60-125`

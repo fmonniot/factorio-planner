@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { AllBlocksMatrix, type AllBlocksMatrixProps } from './AllBlocksMatrix'
+import { render, screen, fireEvent, within } from '@testing-library/react'
+import { AllBlocksMatrix, NET_TIP, NOT_SUPPLIED_TIP, NOT_TAKEN_TIP, type AllBlocksMatrixProps } from './AllBlocksMatrix'
+import { expectTip } from '../../test/byTip'
 import type { PlanMatrixRow } from './planAreaMatrix'
 import type { GameData } from '../../data/types'
 
@@ -66,8 +67,38 @@ describe('AllBlocksMatrix power units', () => {
     const text = container.textContent ?? ''
     expect(text).toContain('Alpha +10.0MW leaves the block')
     expect(text).toContain('Alpha → Bravo: 5.0MW')
-    expect(text).toContain('5.0MW is not taken by any block')
+    expect(screen.getByTestId('inspector-not-taken')).toHaveTextContent(/^Not taken\s*5\.0MW$/)
+    expect(text).not.toMatch(/not taken by any block|not supplied by any block/)
     expect(text).not.toContain('/m')
+  })
+
+  it('shows what is not supplied as a label and a figure', () => {
+    renderMatrix({
+      model: {
+        blocks: [{ blockId: 'A', name: 'Alpha', color: '#111111', areas: [] }, { blockId: 'B', name: 'Bravo', color: '#222222', areas: [] }],
+        rows: [{ ...row, notTaken: 0, notSupplied: 600 }],
+      },
+      selectedKey: ELEC,
+    })
+    expect(screen.getByTestId('inspector-not-supplied')).toHaveTextContent(/^Not supplied\s*10\.0MW$/)
+    expect(screen.queryByTestId('inspector-not-taken')).toBeNull()
+    expectTip(within(screen.getByTestId('inspector-not-supplied')).getByText('Not supplied'), NOT_SUPPLIED_TIP)
+    expect(document.body.textContent).not.toMatch(/is not supplied by any block/)
+  })
+
+  it('explains the Net, Not taken and Not supplied headers in tooltips', () => {
+    renderMatrix({ model: {
+      blocks: [{ blockId: 'A', name: 'Alpha', color: '#111111', areas: [] }, { blockId: 'B', name: 'Bravo', color: '#222222', areas: [] }],
+      rows: [{ ...row, notSupplied: 600 }],
+    } })
+    const nets = screen.getAllByRole('columnheader', { name: 'Net' })
+    expect(nets).toHaveLength(2)
+    for (const net of nets) expectTip(net, NET_TIP)
+    expectTip(screen.getByText('Not taken'), NOT_TAKEN_TIP)
+    expectTip(screen.getByText('Not supplied'), NOT_SUPPLIED_TIP)
+    expect(NET_TIP).toBe('What the block takes or leaves across its boundary.')
+    expect(NOT_TAKEN_TIP).toBe('Not taken by any block: extra output, byproduct or surplus.')
+    expect(NOT_SUPPLIED_TIP).toBe('Not supplied by any block: it is imported.')
   })
 })
 

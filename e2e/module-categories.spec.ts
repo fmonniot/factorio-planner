@@ -36,8 +36,9 @@ test('a module the machine does not accept by category is flagged, listed nowher
 
   // The Machine section says so, and its slot pickers no longer offer the module.
   const panel = await selectRow(page, row)
-  await expect(panel.getByTestId('machine-module-not-allowed')).toContainText('Ringed modules cannot be inserted in Assembling machine 2')
   const machine = panel.getByTestId('panel-machine')
+  await expect(machine.locator('[data-testid="module-slot"][data-misfit="category"]').first()).toHaveAttribute('aria-description', /cannot be inserted in Assembling machine 2/)
+  await expect(panel).not.toContainText('Ringed modules')
   const option = (id: string) => page.locator(`[data-testid="module-option"][data-module-id="${id}"]`)
 
   await machine.getByTestId('module-slot').first().click()
@@ -50,7 +51,7 @@ test('a module the machine does not accept by category is flagged, listed nowher
   await machine.getByTestId('module-slot').first().click()
   await option('productivity-module').click()
   await expect(pill).toHaveCount(0)
-  await expect(panel.getByTestId('machine-module-not-allowed')).toHaveCount(0)
+  await expect(machine.locator('[data-misfit]')).toHaveCount(0)
 
   // The fill-all shortcut of an empty chip leaves the module out too.
   for (let i = 0; i < 2; i++) {
@@ -84,7 +85,7 @@ test('a productivity module on a recipe that disallows productivity is flagged, 
   const machine = panel.getByTestId('panel-machine')
   const ringed = machine.locator('[data-testid="module-slot"][data-misfit="recipe"]')
   await expect(ringed).toHaveCount(2)
-  await expect(panel.getByTestId('machine-module-not-allowed')).toContainText('Ringed modules cannot be used for')
+  await expect(panel).not.toContainText('Ringed modules')
 
   await machine.getByTestId('module-slot').first().click()
   await page.locator('[data-testid="module-option"][data-module-id="speed-module"]').click()

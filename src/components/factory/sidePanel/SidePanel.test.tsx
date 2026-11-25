@@ -7,7 +7,8 @@ import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
 import { useUiStore } from '../../../store/uiStore'
 import { useSolverStore } from '../../../store/solverStore'
 import { useGameDataStore } from '../../../store/gameDataStore'
-import { expectTip } from '../../../test/byTip'
+import { expectTip, tipOf } from '../../../test/byTip'
+import { SEPARATE_AREA_ACTION_TIP, SEPARATE_AREA_NOTE } from '../areaHelp'
 import type { Block, GameData, GameRecipeNode, SolverResult, SubPlan } from '../../../data/types'
 
 /** Fresh each call: iron plate (from ore) and plastic, one furnace. */
@@ -234,7 +235,51 @@ describe('SidePanel — sub-factories', () => {
     expect(screen.getByTestId('group-power-total')).toHaveTextContent('540.0 kW')
     expect(screen.getAllByTestId('group-child')).toHaveLength(3)
     expect(screen.queryByTestId('panel-area-receives')).not.toBeInTheDocument()
-    expect(screen.getByText(/only organises rows/)).toBeInTheDocument()
+    expect(screen.queryByText(/only organises rows/), 'the button says it').toBeNull()
+    expect(screen.queryByText(/solved on its own/)).toBeNull()
+    expect(screen.getByTestId('panel-subtitle')).toHaveTextContent('Sub-factory · level 1 of 4')
+    expect(tipOf(screen.getByTestId('panel-subtitle')), 'a plain sub-factory has no tooltip').toBe('')
+  })
+
+  it('offers Make it a separate area on a plain sub-factory, and the click turns it into an area with focus on its label', () => {
+    nested()
+    select('h-outer')
+    const { rerender } = renderPanel(result())
+    const button = screen.getByRole('button', { name: 'Make it a separate area' })
+    expect(button).toHaveAttribute('data-testid', 'group-make-area')
+    expectTip(button, SEPARATE_AREA_ACTION_TIP)
+    fireEvent.click(button)
+    expect(useBlockStore.getState().blocks[0].rootPlan.subPlans[0].area).toBe(true)
+    const b = useBlockStore.getState().blocks[0]
+    rerender(<SidePanel blockId={b.id} rootPlan={b.rootPlan} result={result()} gameData={gd} />)
+    expect(screen.getByTestId('panel-subtitle')).toHaveTextContent('Separate area · level 1 of 4')
+    expect(screen.getByTestId('panel-area-receives')).toBeInTheDocument()
+    expect(screen.queryByTestId('group-make-area')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByTestId('separate-area-label'))
+    // Undo puts the plain sub-factory and its button back.
+    act(() => useBlockStore.getState().undo())
+    const u = useBlockStore.getState().blocks[0]
+    rerender(<SidePanel blockId={u.id} rootPlan={u.rootPlan} result={result()} gameData={gd} />)
+    expect(screen.getByTestId('group-make-area')).toBeInTheDocument()
+    expect(screen.queryByTestId('separate-area-label')).toBeNull()
+  })
+
+  it('explains a separate area in the tooltip of its label and prints no closing paragraph', () => {
+    const area = sub('sp-area', 'Oil', [row('n1', 'r-plate')], { area: true })
+    setPlan([{ kind: 'subplan', id: 'h-area', subPlanId: 'sp-area' }], [area])
+    select('h-area')
+    renderPanel()
+    expectTip(screen.getByTestId('separate-area-label'), SEPARATE_AREA_NOTE)
+    expect(screen.queryByText(/solved on its own/)).toBeNull()
+    expect(screen.queryByTestId('group-make-area')).toBeNull()
+  })
+
+  it('titles a section with a tooltip when it has one', () => {
+    setPlan([{ ...row('n1', 'r-plate'), modules: [{ moduleId: 'speed-1', count: 1 }] }])
+    select('n1')
+    renderPanel()
+    expect(within(screen.getByTestId('panel-effects')).getByRole('heading', { level: 3 })).toHaveTextContent('Effects on this row')
+    expect(screen.getByTestId('panel-effects')).toHaveAccessibleName('Effects on this row')
   })
 
   it('selects a row or group below it from its button', () => {
@@ -268,7 +313,7 @@ describe('SidePanel — sub-factories', () => {
       ],
     }
     renderPanel(res)
-    expect(screen.getByText('Separate area · level 1 of 4')).toBeInTheDocument()
+    expect(screen.getByTestId('panel-subtitle')).toHaveTextContent('Separate area · level 1 of 4')
     const receives = screen.getByTestId('area-receives')
     expect(receives).toHaveTextContent('Iron Ore')
     expect(receives).toHaveTextContent('from outside the block')
