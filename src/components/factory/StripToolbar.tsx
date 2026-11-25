@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { TipWrap } from '../TipWrap'
 import { StripIcon } from './StripIcon'
 import type { StripIconName } from './StripIcon'
@@ -94,7 +95,7 @@ export function Cluster({ actions }: { actions: StripAction[] }) {
  * The one row of icon buttons under a selected strip: 22 px high, 24 × 22 px buttons 4 px apart, no text, never
  * wrapping. The left cluster makes or supplies the item; after the spacer come information, then changes to the block.
  */
-export function StripToolbar({ actions }: { actions: StripAction[] }) {
+export function StripToolbar({ actions, trailing }: { actions: StripAction[]; /** Drawn after the right cluster, in the same row (the item's rule icons). */ trailing?: ReactNode }) {
   const left = actions.filter(a => a.side === 'left')
   const right = actions.filter(a => a.side !== 'left')
   return (
@@ -102,6 +103,7 @@ export function StripToolbar({ actions }: { actions: StripAction[] }) {
       <Cluster actions={left} />
       <span className="flex-1 min-w-0" />
       <Cluster actions={right} />
+      {trailing}
     </div>
   )
 }

@@ -64,11 +64,6 @@ export const USE_IT_ALL_ACTION = {
   offTitle: 'Leftover is already off for this item: no row of this block can use more of it.',
 }
 
-/** The grey note under the Leftover switch for a block that takes the item from this one. */
-export function leftoverTakeNote(blockName: string, itemName: string): string {
-  return `${blockName} takes ${itemName} from this block. It gets only what the rows here cannot use; make ${itemName} a product to send it more.`
-}
-
 /** The name of each kind of rule: the preset's name, and the Import and Leftover switches turned off. */
 export const SOURCE_RULE_NAMES: Record<SourceRuleKind, string> = {
   'connections-first': ITEM_SOURCING_CHOICES[1].label,
@@ -89,6 +84,11 @@ export function ruleLabel(rule: Pick<SourceRulePart, 'kind' | 'areaId' | 'otherA
   const area = areaName(rootPlan, rule.areaId)
   if (rule.kind === 'takes-nothing' && rule.otherAreaId !== undefined) return `${area}: takes nothing from ${areaName(rootPlan, rule.otherAreaId)}`
   return areaRuleLabel(area, SOURCE_RULE_NAMES[rule.kind])
+}
+
+/** The names of several parts of a rule, as a marker reads them: "Receive it first, Import off". Empty without parts. */
+export function ruleNamesLabel(parts: readonly SourceRulePart[], rootPlan: SubPlan): string {
+  return parts.map(p => ruleLabel(p, rootPlan)).join(', ')
 }
 
 // ---------------------------------------------------------------------------

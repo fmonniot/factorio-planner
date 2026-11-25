@@ -5,7 +5,7 @@ import type { AreaSupply, SupplierLine } from './areaSources'
 import { SOURCES_LINES } from './itemSourcing'
 import type { LineKey, Side } from './itemSourcing'
 import type { BlockRow } from './sourcesRows'
-import type { ItemMaker } from './sourcingText'
+import type { ItemMaker } from './sourcesMakers'
 
 // ---------------------------------------------------------------------------
 // The model of the Sources list: what each line reads (its consumed share of the item's need), its status and look, the parts

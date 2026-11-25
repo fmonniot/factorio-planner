@@ -91,7 +91,7 @@ try {
   const { solveAll } = await server.ssrLoadModule('/src/solver/index.ts')
   const { blockAreas } = await server.ssrLoadModule('/src/solver/areas.ts')
   const { areaLPItemsOf, supplierLines } = await server.ssrLoadModule('/src/components/factory/areaSources.ts')
-  const { itemMakers } = await server.ssrLoadModule('/src/components/factory/sourcingText.ts')
+  const { itemMakers } = await server.ssrLoadModule('/src/components/factory/sourcesMakers.ts')
   const { buildBlockRows } = await server.ssrLoadModule('/src/components/factory/sourcesRows.ts')
   const { areaMissingOf } = await server.ssrLoadModule('/src/components/factory/summaryRows.ts')
   const { rowRuleItems } = await server.ssrLoadModule('/src/components/factory/sourceRules.ts')

@@ -68,9 +68,10 @@ test.describe('summary panes with many items', () => {
     const ingredient = slots(page, 'Ingredients').first()
     await ingredient.click()
     await expect(detail(page, 'Ingredients')).toHaveAttribute('data-tall', 'true')
-    // The strip is content-sized now (it gains 21 to 36px over its 72px); the Products grid takes up exactly what it gains.
+    // The strip is content-sized (its toolbar under the header and the bar: a pixel or two over its 72px; a row of text adds to it);
+    // the Products grid takes up exactly what it gains.
     const gained = (await detail(page, 'Ingredients').boundingBox())!.height - 72
-    expect(gained).toBeGreaterThan(15)
+    expect(gained).toBeGreaterThanOrEqual(0)
     expect(gained).toBeLessThan(45)
     await expect.poll(async () => (await grid(page, 'Products').boundingBox())!.height).toBeCloseTo(before + gained, 0)
     expect((await grid(page, 'Ingredients').boundingBox())!.height, 'the Ingredients grid keeps its cap').toBe(ownBefore)

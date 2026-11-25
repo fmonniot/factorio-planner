@@ -97,8 +97,9 @@ test.describe('item sourcing', () => {
     await expect(oxygenSlot(page)).toContainText('100')
     await expect(compressedSlot(page)).toHaveCount(0)
     await expect(comesFromPopover(page).getByTestId('comes-from-show-slot')).toBeVisible()
-    // The rule shows on the row that uses oxygen: a marker beside its chip, named with the sentence.
-    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes \(/)
+    // The rule shows on the row that uses oxygen: a marker beside its chip, named by the rule.
+    await acidRow(page).getByTestId('source-rule-marker').hover()
+    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAttribute('aria-label', /^Don't make more here\n/)
     await expect(oxygenChip(page)).toHaveAttribute('aria-label', /^Oxygen — Find producer recipe — /)
 
     const acid = await exportedAcid(page)
@@ -209,7 +210,7 @@ test.describe('item sourcing', () => {
     await expect(pane(page, 'Ingredients').getByTestId('summary-slot')).toHaveCount(count)
     expect((await page.getByTestId('summary-pane').first().boundingBox())!.height).toBe(summaryHeight)
     const control = popoverControl(page)
-    await expect(control.getByTestId('no-effect')).toContainText('No connection for Oxygen.')
+    await expect(control.getByTestId('no-effect-reason')).toHaveText('No connection')
     expect((await exportedAcid(page)).sourceRules).toEqual({ 'nullius-oxygen': { makeHere: 'after-blocks' } })
 
     // Escape closes the popover; the rule is kept, and is there again when it opens. Removing it there leaves no slot either.
@@ -227,7 +228,7 @@ test.describe('item sourcing', () => {
   test('Receive from… in the popover connects the item, and the rule then acts; Escape closes the menu before the popover', async ({ page }) => {
     await choose(page, 'connections-first')
     const control = popoverControl(page)
-    await expect(control.getByTestId('no-effect')).toContainText('No connection for Oxygen.')
+    await expect(control.getByTestId('no-effect-reason')).toHaveText('No connection')
     await expect(oxygenSlot(page)).toHaveCount(0)
 
     // The menu opens over the popover; Escape closes it and only it.
@@ -305,7 +306,8 @@ test.describe('stored rules', () => {
     await loadPlanFixture(page, file)
     await expect(oxygenSlot(page)).toContainText('100', { timeout: 10000 })
     await expect(compressedSlot(page)).toHaveCount(0)
-    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes \(/)
+    await acidRow(page).getByTestId('source-rule-marker').hover()
+    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAttribute('aria-label', /^Don't make more here\n/)
     await expectOxygenRule(page)
   })
 

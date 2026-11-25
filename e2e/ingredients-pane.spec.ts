@@ -8,7 +8,7 @@ import { expectPreset, importSwitch as listImportSwitch, setPreset } from './sup
 /**
  * Fixture: active block "Gears" needs plates and rods from outside. Selecting an
  * Ingredients slot offers Find recipe and Receive from… in the detail strip, with the
- * Comes from control under them (the sentence and Sources…, which opens the popover
+ * Comes from control under them (Sources…, which opens the popover
  * where the rule is set); the right-click menu holds the connection entries.
  */
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
@@ -71,7 +71,7 @@ test.describe('Ingredients pane', () => {
 
     const line = control.getByTestId('no-effect')
     await expect(line).toHaveAttribute('data-no-effect', 'not-made')
-    await expect(line).toContainText('No row in this block makes Iron rod.')
+    await expect(line.getByTestId('no-effect-reason')).toHaveText('No row here makes it')
     // The strip behind the popover says it too.
     await expect(comesFrom(page).getByTestId('no-effect')).toHaveCount(1)
     await line.getByRole('button', { name: 'Remove' }).click()
@@ -138,7 +138,7 @@ test.describe('Ingredients pane — an item the block makes and still imports', 
 
     await setPreset(control, 'connections-first')
     await setPreset(control, 'byproducts-first')
-    await expect(comesFrom(page).getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes (Iron plate')
+    await expect(comesFrom(page).locator('[data-testid="strip-rule-icon"][data-rule="byproducts-first"]')).toHaveAccessibleName("Don't make more here")
     await setPreset(control, 'own')
   })
 
@@ -151,7 +151,7 @@ test.describe('Ingredients pane — an item the block makes and still imports', 
     await expect(control.getByTestId('sources-make-here-switch')).not.toHaveAttribute('aria-disabled', 'true')
     await setPreset(control, 'byproducts-first')
     await expect(listImportSwitch(control)).toHaveAttribute('aria-checked', 'false')
-    await expect(comesFrom(page).getByTestId('sourcing-sentence')).toContainText('Import is off')
+    await expect(comesFrom(page).locator('[data-testid="strip-rule-icon"][data-rule="import-off"]')).toBeVisible()
     await expect(control.getByTestId('no-effect')).toHaveCount(0)
 
     // Then the switch back on, and off again, with the preset chosen.

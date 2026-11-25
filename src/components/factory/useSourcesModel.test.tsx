@@ -111,8 +111,9 @@ describe('useSourcesModel', () => {
     expect(useUiStore.getState().sourcesSides['main:plate']).toBe('above')
   })
 
-  it('returns nothing when disabled, and still remembers the side', () => {
-    const v = renderHook(() => useSourcesModel('plate', undefined, false)).result.current
+  it('returns nothing without game data, and still remembers the side', () => {
+    useGameDataStore.setState({ status: { type: 'idle' } as never })
+    const v = renderHook(() => useSourcesModel('plate', undefined)).result.current
     expect(v).toBeUndefined()
     expect(useUiStore.getState().sourcesSides['main:plate']).toBe('above')
   })

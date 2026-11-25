@@ -1,17 +1,25 @@
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { Block, GameData } from '../../data/types'
+import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useBlockSourcingSentence, useSourcingSentence } from './useSourcingSentence'
+import { ruleNamesLabel } from './itemSourcing'
+import { rulePartsOf } from './sourceRules'
+import { sourcesReading } from './sourcesModel'
+import { useBlockSourcesModel } from './useSourcesModel'
 
 // ---------------------------------------------------------------------------
 // The source rule marker: the small grey dot that says "this item has a source rule with an effect". It only shows the rule:
-// it is an image with the item's sentence as its tooltip and accessible name, and a click on it does nothing. The rule is
-// set in the Comes from control, reached from a right-click on an ingredient chip or from the side panel's Sources….
+// it is an image whose tooltip and accessible name are the rule's name ("Import off", "Line L: Receive it first") and, once the
+// pointer has been over it, the Sources model's reading of what supplies the item, one line per source. A click on it does
+// nothing. The rule is set in the Comes from control, reached from a right-click on an ingredient chip or from the side panel's
+// Sources….
 // One component for every surface. `SourceRuleMarker` draws it and knows nothing of where it sits or of the stores;
 // `ItemSourceRuleMarker` is the same marker for an item of the active block, `BlockSourceRuleMarker` for an item of any
 // block. Which items of a block get one is `useSourceRuleItems` (`useSourceRuleItems.ts`).
 // ---------------------------------------------------------------------------
 
-/** Shown when there is no sentence to read (no active block, no game data). */
+/** Shown when there is no rule to name (no active block, no game data). */
 const FALLBACK_LABEL = 'Has a source rule'
 
 /**
@@ -22,29 +30,60 @@ const BOX_CLASS = 'w-3.5 h-3.5 shrink-0 inline-flex items-center justify-center 
 const DOT_CLASS = 'block w-1.5 h-1.5 rounded-full bg-gray-400 ring-1 ring-gray-900'
 
 interface SourceRuleMarkerProps {
-  /** The item's sentence (`sourcingText`): the tooltip and the accessible name. */
-  sentence: string
+  /** The first line of the tooltip and, until the reading arrives, the accessible name: the rule's name. */
+  label: string
+  /** What supplies the item, one line per source: the second line of the tooltip once the parent has it. */
+  reading?: string
   /** Written as `data-item-id`, for the surfaces where the marker is not inside the item's own element. */
   itemId?: string
+  /** Called when the pointer is over the marker (idempotent): the parent starts reading the model then. */
+  onArm?: () => void
+  /** The reader the parent mounts once armed; it draws nothing. */
+  children?: ReactNode
 }
 
 /**
  * The marker itself: an inline 14px box holding the dot, to be placed by its parent (a badge corner is
  * `absolute -top-1 -right-1`). It is not interactive: a click on it is a click on whatever it sits on.
  */
-export function SourceRuleMarker({ sentence, itemId }: SourceRuleMarkerProps) {
-  const label = sentence || FALLBACK_LABEL
+export function SourceRuleMarker({ label, reading, itemId, onArm, children }: SourceRuleMarkerProps) {
+  const name = reading ? `${label}\n${reading}` : (label || FALLBACK_LABEL)
   return (
-    <span role="img" aria-label={label} data-tip="" data-testid="source-rule-marker" data-item-id={itemId} className={BOX_CLASS}>
+    <span role="img" aria-label={name} data-tip="" data-testid="source-rule-marker" data-item-id={itemId} onPointerOver={onArm} className={BOX_CLASS}>
       <span className={DOT_CLASS} />
+      {children}
     </span>
   )
 }
 
-/** The marker of an item of the active block: its sentence is the one every other surface shows (`useSourcingSentence`); `areaId` is the area whose own rule the row follows, when it has one. Render it only for an item `useSourceRuleItems` holds; it does not test that itself. */
+/** Reads the Sources model of the item and hands the reading up. Mounted only once the marker has been hovered. */
+function MarkerReading({ block, itemId, areaId, onReading }: { block: Block; itemId: string; areaId?: string; onReading: (reading: string | undefined) => void }) {
+  const view = useBlockSourcesModel(block, itemId, areaId)
+  const reading = view ? sourcesReading(view.model, view.rate) : undefined
+  useEffect(() => { onReading(reading) }, [reading, onReading])
+  return null
+}
+
+/**
+ * The marker of an item of `block` (undefined: none yet), named by its rule and, once hovered, read from the Sources model. It
+ * arms once and never disarms: an unarmed marker costs one store read and a cached lookup. `areaId` is the area whose own rule the
+ * row follows, when it has one.
+ */
+function RuleMarker({ block, itemId, gameData, areaId }: { block: Block | undefined; itemId: string; gameData: GameData | undefined; areaId?: string }) {
+  const blocks = useBlockStore(s => s.blocks)
+  const [armed, setArmed] = useState(false)
+  const [reading, setReading] = useState<string>()
+  const label = block && gameData ? ruleNamesLabel(rulePartsOf(block, gameData, blocks, itemId, areaId), block.rootPlan) : ''
+  return (
+    <SourceRuleMarker label={label} reading={reading} itemId={itemId} onArm={() => setArmed(true)}>
+      {armed && block && <MarkerReading block={block} itemId={itemId} areaId={areaId} onReading={setReading} />}
+    </SourceRuleMarker>
+  )
+}
+
+/** The marker of an item of the active block; `areaId` is the area whose own rule the row follows, when it has one. Render it only for an item `useSourceRuleItems` holds; it does not test that itself. */
 export function ItemSourceRuleMarker({ itemId, gameData, areaId }: { itemId: string; gameData: GameData | undefined; areaId?: string }) {
-  const sentence = useSourcingSentence(itemId, gameData, areaId)
-  return <SourceRuleMarker sentence={sentence} itemId={itemId} />
+  return <RuleMarker block={useBlockStore(selectActiveBlock)} itemId={itemId} gameData={gameData} areaId={areaId} />
 }
 
 /**
@@ -65,10 +104,8 @@ interface BlockSourceRuleMarkerProps {
 
 /**
  * The marker of an item of `block`, for the surfaces that show blocks other than the active one (the areas matrix,
- * the block graph): its sentence is the item's in that block (`useBlockSourcingSentence`). Like the others it does
- * not test that the item has a rule.
+ * the block graph). Like the others it does not test that the item has a rule.
  */
 export function BlockSourceRuleMarker({ block, itemId, gameData }: BlockSourceRuleMarkerProps) {
-  const sentence = useBlockSourcingSentence(block, itemId, gameData)
-  return <SourceRuleMarker sentence={sentence} itemId={itemId} />
+  return <RuleMarker block={block} itemId={itemId} gameData={gameData} />
 }

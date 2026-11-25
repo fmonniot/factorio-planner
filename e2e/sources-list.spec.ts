@@ -78,7 +78,6 @@ test.describe('the Sources list', () => {
     const popover = comesFromPopover(page)
     await expect(popover.getByTestId('sources-list')).toBeVisible()
     await expect(popover.getByRole('radiogroup')).toHaveCount(0)
-    await expect(popover.getByTestId('sourcing-sentence')).toHaveCount(0)
     await expect(popover.getByTestId('sources-rule-chip')).toHaveText('Make it here')
     await popover.locator('[data-line="make-here"]').dragTo(popover.locator('[data-line="add-block"]'), { targetPosition: { x: 20, y: 18 } })
     await expect(popover.getByTestId('sources-rule-chip')).toHaveText('Receive it first')

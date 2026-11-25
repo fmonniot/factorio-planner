@@ -1238,7 +1238,7 @@ describe('FactorySummary — connections', () => {
       patch({ rootPlan: { ...consumer().rootPlan, nodes: [makeRecipeNode('ore-synth')] } })
     }
 
-    it('is in the strip of a selected slot, with the sentence and Sources…, and no rule controls', () => {
+    it('is in the strip of a selected slot, with Sources… and no sentence, and no rule controls', () => {
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       render(<FactorySummary />)
       expect(within(strip('Ingredients')).queryByTestId('comes-from')).not.toBeInTheDocument()
@@ -1247,7 +1247,7 @@ describe('FactorySummary — connections', () => {
       expect(within(group()).queryByRole('radio')).not.toBeInTheDocument()
       expect(within(group()).queryByRole('switch')).not.toBeInTheDocument()
       expect(within(group()).getByTestId('sources-button')).toHaveAccessibleName('Sources…')
-      expect(within(group()).getByTestId('sourcing-sentence')).toHaveTextContent(/^Made here|^No row here makes Iron Ore/)
+      expect(group().firstElementChild).toBe(within(group()).getByTestId('strip-toolbar'))
     })
 
     it('opens the Comes from popover with the list from Sources…', () => {
@@ -1288,7 +1288,7 @@ describe('FactorySummary — connections', () => {
       expect(consumer().sourceRules).toEqual({})
     })
 
-    it('turns Import off and on, and the strip\'s sentence follows', () => {
+    it('turns Import off and on, and the strip\'s rule icons follow', () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       withOreRow()
       render(<FactorySummary />)
@@ -1297,9 +1297,10 @@ describe('FactorySummary — connections', () => {
       fireEvent.click(importSwitch())
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { importOff: true } })
       expect(importSwitch()).not.toBeChecked()
-      expect(within(group()).getByTestId('sourcing-sentence')).toHaveTextContent(/ Import is off\.$/)
+      expect(group().querySelector('[data-testid="strip-rule-icon"][data-rule="import-off"]')).not.toBeNull()
       fireEvent.click(importSwitch())
       expect(consumer().sourceRules).toEqual({})
+      expect(group().querySelector('[data-testid="strip-rule-icon"]')).toBeNull()
     })
 
     it("lets Don't make more here and Import off be chosen together, in either order", () => {
@@ -1364,7 +1365,8 @@ describe('FactorySummary — connections', () => {
         ['connections-first', 'not-made'],
         ['import-off', 'not-made'],
       ])
-      expect(lines[0]).toHaveTextContent('No row in this block makes Iron Ore.')
+      expect(within(lines[0]).getByTestId('no-effect-reason')).toHaveTextContent('No row here makes it')
+      expect(within(lines[0]).getByTestId('no-effect-rule')).toHaveTextContent('Receive it first')
       fireEvent.click(within(lines[1]).getByRole('button', { name: 'Remove' }))
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'after-blocks' } })
       fireEvent.click(within(within(group()).getByTestId('no-effect')).getByRole('button', { name: 'Remove' }))
@@ -2193,7 +2195,7 @@ describe('FactorySummary — import lock', () => {
     fireEvent.click(switchEl)
     expect(noImport()).toEqual(['iron-ore'])
     const line = within(strip('Ingredients')).getByTestId('no-effect')
-    expect(line).toHaveTextContent('No row in this block makes Iron Ore.')
+    expect(within(line).getByTestId('no-effect-reason')).toHaveTextContent('No row here makes it')
     fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
     expect(noImport()).toEqual([])
   })
@@ -2231,7 +2233,8 @@ describe('FactorySummary — import lock', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     select('Ingredients', 'Iron Plate')
     const line = within(strip('Ingredients')).getByTestId('no-effect')
-    expect(line).toHaveTextContent('Iron Plate is a product of this block, so the block always makes it.')
+    expect(within(line).getByTestId('no-effect-reason')).toHaveTextContent('Always made here')
+    expect(within(line).getByTestId('no-effect-reason')).toHaveAttribute('data-tip', 'It is a product of this block, so the block always makes it.')
     fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
     expect(noImport()).toEqual([])
   })
@@ -2723,20 +2726,24 @@ describe('FactorySummary — source rule marker', () => {
     const ore = slot('Ingredients', 'Iron Ore')
     expect(ore).toHaveAccessibleName('Iron Ore, 120 per minute, has a source rule')
     expect(markers(ore)).toHaveLength(1)
-    // It shows the rule and takes no click of its own: the slot is the way to the control. Its tooltip is the sentence.
+    // It shows the rule and takes no click of its own: the slot is the way to the control. Its tooltip is the rule's name.
     const marker = markers(ore)[0]
     expect(marker.tagName).toBe('SPAN')
-    expect(marker).toHaveAttribute('aria-label', expect.stringContaining('Iron Ore'))
+    expect(marker).toHaveAttribute('aria-label', "Don't make more here")
     expect(marker).not.toHaveAttribute('title')
     // The slot's name already says it: the marker is out of the accessibility tree.
     expect(marker.closest('[aria-hidden="true"]')).not.toBeNull()
     expect(within(ore).queryByRole('img')).toBeNull()
 
-    // A click on it is a click on the slot, which selects it; the strip then says the same sentence.
+    // A click on it is a click on the slot, which selects it; the strip then shows the rule's icon, named as the marker's first line.
     fireEvent.click(marker)
     expect(ore).toHaveAttribute('aria-pressed', 'true')
     expect(markers(ore)).toHaveLength(1)
-    expect(within(strip('Ingredients')).getByTestId('sourcing-sentence')).toHaveTextContent(marker.getAttribute('aria-label')!)
+    const icon = within(strip('Ingredients')).getByTestId('strip-rule-icon')
+    expect(icon).toHaveAttribute('data-rule', 'byproducts-first')
+    expect(icon).toHaveAttribute('aria-label', marker.getAttribute('aria-label')!.split('\n')[0])
+    fireEvent.pointerOver(marker)
+    expect(marker.getAttribute('aria-label')).toMatch(/^Don't make more here\n/)
   })
 
   it('follows the status in the slot name, and sits after the status badge of a short slot', () => {
@@ -2794,7 +2801,7 @@ describe('FactorySummary — source rule marker', () => {
     expect(chip.contains(marker)).toBe(false)
     expect(chip.parentElement).toHaveAttribute('data-chip-frame')
     expect(chip.parentElement).toContainElement(marker)
-    expect(marker).toHaveAccessibleName(/Iron Ore|Ore Synth/)
+    expect(marker).toHaveAccessibleName("Don't make more here")
     // Byproduct and product chips never show one.
     expect(markers(pane('Byproducts'))).toHaveLength(0)
     expect(markers(pane('Products'))).toHaveLength(0)

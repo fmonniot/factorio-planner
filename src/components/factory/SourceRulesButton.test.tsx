@@ -7,6 +7,7 @@ import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
 import { sourceRulesOf } from '../../test/sourceRulesOf'
+import { LEFTOVER_SWITCH } from './itemSourcing'
 import type { AreaSourceRule, Block, GameData, SourceRule } from '../../data/types'
 
 // Smelt turns Ore into Plate; Ore Synth makes Ore. So Ore and Plate are made by the block, Water is not.
@@ -69,7 +70,11 @@ const popover = () => screen.getByTestId('source-rules-popover')
 const entries = () => within(popover()).getAllByTestId('source-rule')
 const entry = (itemId: string, kind: string) =>
   entries().find(e => e.dataset.itemId === itemId && e.dataset.rule === kind)!
-const text = (el: HTMLElement) => within(el).getByTestId('source-rule-text').textContent
+/** The short reason an off rule shows. No entry holds a sentence: `source-rule-text` is gone. */
+const reason = (el: HTMLElement) => {
+  expect(within(el).queryByTestId('source-rule-text')).toBeNull()
+  return within(el).getByTestId('source-rule-reason')
+}
 const remove = (el: HTMLElement) => within(el).getByRole('button', { name: /^Remove/ })
 const openPopover = () => fireEvent.click(button())
 
@@ -133,7 +138,10 @@ describe('Source rules — Leftover off', () => {
     ])
     const e = entry('plate', 'leftover-off')
     expect(within(e).getByTestId('source-rule-name')).toHaveTextContent('Leftover off')
-    expect(text(e)).toContain('the rows of this block use all of it they can')
+    // The explanation is the name's tooltip, not text of the page.
+    expect(within(e).getByTestId('source-rule-name')).toHaveAttribute('data-tip', LEFTOVER_SWITCH.help)
+    expect(within(e).queryByTestId('source-rule-reason')).toBeNull()
+    expect(within(e).queryByTestId('source-rule-text')).toBeNull()
     expect(remove(e)).toHaveAccessibleName('Remove the Leftover off rule of Plate')
   })
 
@@ -143,7 +151,7 @@ describe('Source rules — Leftover off', () => {
     openPopover()
     const e = entry('water', 'leftover-off')
     expect(e).toHaveAttribute('data-no-effect', 'not-made')
-    expect(text(e)).toBe('No row in this block makes Water.')
+    expect(reason(e)).toHaveTextContent('No row here makes it')
     fireEvent.click(remove(e))
     expect(mainBlock().sourceRules).toEqual({ water: { importOff: true } })
   })
@@ -175,10 +183,10 @@ describe('Source rules — the list', () => {
   })
 
   it.each([
-    ['connections-first', 'Receive it first', { sourcing: { ore: 'connections-first' }, connected: true }, 'Taken from Source first'],
-    ['byproducts-first', "Don't make more here", { sourcing: { ore: 'byproducts-first' } }, 'No row here already makes Ore; it is imported.'],
-    ['import-off', 'Import off', { locked: ['ore'] }, 'Import is off.'],
-  ] as [string, string, Rules, string][])('shows a %s rule with its item, the name "%s" and the item\'s sentence', (kind, name, rules, sentence) => {
+    ['connections-first', 'Receive it first', { sourcing: { ore: 'connections-first' }, connected: true }],
+    ['byproducts-first', "Don't make more here", { sourcing: { ore: 'byproducts-first' } }],
+    ['import-off', 'Import off', { locked: ['ore'] }],
+  ] as [string, string, Rules][])('shows a %s rule with its item and the name "%s", and no sentence', (kind, name, rules) => {
     setup(rules)
     render(<SourceRulesButton />)
     openPopover()
@@ -186,7 +194,8 @@ describe('Source rules — the list', () => {
     expect(e).not.toHaveAttribute('data-no-effect')
     expect(within(e).getByTestId('source-rule-item')).toHaveTextContent('Ore')
     expect(within(e).getByTestId('source-rule-name')).toHaveTextContent(name)
-    expect(text(e)).toContain(sentence)
+    expect(within(e).queryByTestId('source-rule-reason')).toBeNull()
+    expect(within(e).queryByTestId('source-rule-text')).toBeNull()
     expect(within(e).getByTestId('source-rule-item')).toHaveClass('text-gray-100')
     expect(remove(e)).toHaveAccessibleName(`Remove the ${name} rule of Ore`)
   })
@@ -202,15 +211,15 @@ describe('Source rules — the list', () => {
   })
 
   it.each([
-    ['not-made', { sourcing: { water: 'byproducts-first' } }, 'water', 'byproducts-first', 'No row in this block makes Water.'],
-    ['no-connection', { sourcing: { ore: 'connections-first' } }, 'ore', 'connections-first', 'No connection for Ore.'],
-  ] as [string, Rules, string, string, string][])('greys a rule with no effect (%s) and says why in place of the sentence', (reason, rules, itemId, kind, why) => {
+    ['not-made', { sourcing: { water: 'byproducts-first' } }, 'water', 'byproducts-first', 'No row here makes it'],
+    ['no-connection', { sourcing: { ore: 'connections-first' } }, 'ore', 'connections-first', 'No connection'],
+  ] as [string, Rules, string, string, string][])('greys a rule with no effect (%s) and says why in a short label', (noEffect, rules, itemId, kind, why) => {
     setup(rules)
     render(<SourceRulesButton />)
     openPopover()
     const e = entry(itemId, kind)
-    expect(e).toHaveAttribute('data-no-effect', reason)
-    expect(text(e)).toBe(why)
+    expect(e).toHaveAttribute('data-no-effect', noEffect)
+    expect(reason(e)).toHaveTextContent(why)
     expect(within(e).getByTestId('source-rule-item')).toHaveClass('text-gray-400')
     expect(within(e).getByTestId('source-rule-name')).toHaveClass('text-gray-400')
     // It can still be removed.
@@ -223,7 +232,8 @@ describe('Source rules — the list', () => {
     render(<SourceRulesButton />)
     openPopover()
     expect(entry('plate', 'import-off')).toHaveAttribute('data-no-effect', 'product')
-    expect(text(entry('plate', 'import-off'))).toBe('Plate is a product of this block, so the block always makes it.')
+    expect(reason(entry('plate', 'import-off'))).toHaveTextContent('Always made here')
+    expect(reason(entry('plate', 'import-off'))).toHaveAttribute('data-tip', 'It is a product of this block, so the block always makes it.')
   })
 
   it('lists an item with a preset and Import off as two entries', () => {
@@ -424,7 +434,6 @@ describe('Source rules — the rules of an area', () => {
     openPopover()
     expect(names()).toEqual(['Line L: Receive it first', 'Line L: Import off'])
     expect(entries().map(e => e.dataset.areaId)).toEqual(['L', 'L'])
-    expect(text(entries()[1])).toMatch(/^Line L: /)
     expect(within(entries()[1]).getByRole('button', { name: 'Remove the Line L: Import off rule of Plate' })).toBeInTheDocument()
   })
 
@@ -498,7 +507,6 @@ describe('Source rules — the rules of an area', () => {
     openPopover()
     expect(names()).toEqual(['Line L: takes nothing from Line B'])
     expect(entries()[0].dataset).toMatchObject({ rule: 'takes-nothing', areaId: 'L', otherAreaId: 'B' })
-    expect(text(entries()[0])).toMatch(/^Line L: .* Takes nothing from Line B\.$/)
     expect(within(entries()[0]).getByRole('button', { name: 'Remove the Line L: takes nothing from Line B rule of Plate' })).toBeInTheDocument()
   })
 
@@ -544,7 +552,7 @@ describe('Source rules — the rules of an area', () => {
     render(<SourceRulesButton />)
     openPopover()
     expect(entries()[0]).toHaveAttribute('data-no-effect', 'not-made')
-    expect(text(entries()[0])).toBe('No row in Line B makes Plate.')
+    expect(reason(entries()[0])).toHaveTextContent('No row in Line B makes it')
   })
 
   it('expands the Comes from control on the scope of the area', () => {

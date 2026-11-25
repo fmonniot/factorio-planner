@@ -241,7 +241,7 @@ describe('Receive from… in the popover', () => {
 
   it('is offered on a "No connection" line, beside Remove, and not on another reason', () => {
     const line = openWithNoConnection()
-    expect(line).toHaveTextContent('No connection for Ore.')
+    expect(within(line).getByTestId('no-effect-reason')).toHaveTextContent('No connection')
     expect(within(line).getByTestId('receive-from')).toHaveTextContent('Receive from…')
     expect(within(line).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
     // An item no row makes (the rule has another reason not to act) gets no such button.
@@ -249,7 +249,9 @@ describe('Receive from… in the popover', () => {
     setup({ sourceRules: { plate: { makeHere: 'off' as const } } })
     useBlockStore.setState(s => ({ blocks: s.blocks.map(b => b.id === 'main' ? { ...b, products: [{ id: 'q', itemId: 'plate' }] } : b) }))
     open('plate')
-    expect(within(popover()).getByTestId('no-effect')).toHaveTextContent('Plate is a product of this block')
+    const reason = within(within(popover()).getByTestId('no-effect')).getByTestId('no-effect-reason')
+    expect(reason).toHaveTextContent('Always made here')
+    expect(reason).toHaveAttribute('data-tip', 'It is a product of this block, so the block always makes it.')
     expect(within(popover()).queryByTestId('receive-from')).not.toBeInTheDocument()
   })
 

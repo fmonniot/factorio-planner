@@ -34,7 +34,7 @@ interface SummaryDetailStripProps {
   /** Selected state only: the pane draws everything under the bar itself, toolbar included (the Ingredients pane's Comes from). */
   controls?: React.ReactNode
   /**
-   * The pane's selected strip is taller than 72px (it has `controls`): content-sized while selected, and it keeps that height
+   * The pane's selected strip has `controls` and is as tall as its content (a pixel or two over 72px, more with rows of text): content-sized while selected, and it keeps that height
    * while another slot is previewed, so the panes do not jump when the pointer passes over a slot.
    */
   tall?: boolean

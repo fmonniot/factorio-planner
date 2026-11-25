@@ -9,10 +9,10 @@ import { anchorOf } from '../popoverAnchor'
 import { Icon } from '../../Icon'
 import { fmtItemRate, fmtItemRateText } from '../ItemTile'
 import { RailLine, RailList, type RailTarget } from '../RailList'
-import { StripIcon } from '../StripIcon'
+import { RuleIcons } from '../RuleIcons'
 import { Cluster, type StripAction } from '../StripToolbar'
-import { SOURCES_BUTTON_LABEL, ruleLabel } from '../itemSourcing'
-import { INPUT_EMPTY_LABEL, buildInputLines, inputEmptyState, inputLineTip, inputsReading, ruleIconsOf, type InputLine } from '../inputsModel'
+import { SOURCES_BUTTON_LABEL } from '../itemSourcing'
+import { INPUT_EMPTY_LABEL, buildInputLines, inputEmptyState, inputLineTip, inputsReading, type InputLine } from '../inputsModel'
 import { useBlockSourcesModel } from '../useSourcesModel'
 import { PanelSection } from './PanelParts'
 
@@ -46,7 +46,6 @@ function SourcingEntry({ itemId, ratePerMin, gameData, areaId }: { itemId: strin
   const lineRate = isEnergyItem(itemId) ? fmt : (perMin: number) => fmtItemRate(itemId, perMin / 60, unit).value
   const lines = view ? buildInputLines(view.model, view.rows) : []
   const empty = inputEmptyState(view?.model)
-  const icons = ruleIconsOf(view?.rule)
 
   const sources: StripAction = {
     label: `Sources of ${name}`,
@@ -67,18 +66,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData, areaId }: { itemId: strin
           <span className="w-7 h-7 bg-gray-700 rounded text-[9px] text-gray-300 flex items-center justify-center shrink-0">{name.substring(0, 2).toUpperCase()}</span>
         )}
         <span className="flex-1 min-w-0 text-xs text-gray-200 truncate" data-tip={name}>{name}</span>
-        {block && icons.length > 0 && (
-          <span data-testid="input-rule-icons" className="inline-flex shrink-0 gap-1 text-teal-300">
-            {icons.map(i => {
-              const ruleName = ruleLabel({ kind: i.kind, areaId: scopeArea }, block.rootPlan)
-              return (
-                <span key={i.kind} data-testid="input-rule-icon" data-rule={i.kind} role="img" aria-label={ruleName} data-tip={ruleName}>
-                  <StripIcon name={i.icon} />
-                </span>
-              )
-            })}
-          </span>
-        )}
+        {block && <RuleIcons rule={view?.rule} areaId={scopeArea} rootPlan={block.rootPlan} testId="input-rule-icons" iconTestId="input-rule-icon" />}
         {ratePerMin !== undefined && (
           <span className="text-[11px] text-green-300 tabular-nums">{fmt(ratePerMin)}</span>
         )}

@@ -10,10 +10,9 @@ import { LEFTOVER_SWITCH, ruleLabel } from './itemSourcing'
 import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
 import { keepTabInside } from './keepTabInside'
-import { noEffectText, ruleId, sourceRules } from './sourceRules'
+import { noEffectLabel, ruleId, sourceRules } from './sourceRules'
 import type { SourceRulePart } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
-import { useSourcingSentence } from './useSourcingSentence'
 import { describedTip } from '../tipProps'
 
 // ---------------------------------------------------------------------------
@@ -38,10 +37,12 @@ function RuleEntry({ rule, block, gameData, expanded, onToggle, onRemove }: {
   const controlId = useId()
   const item = gameData.items[rule.itemId]
   const name = item?.name ?? rule.itemId
-  const sentence = useSourcingSentence(rule.itemId, gameData, rule.areaId)
   // The rule of an area reads "Line L: Receive it first", a switch "Line L: takes nothing from Line M1".
   const ruleName = ruleLabel(rule, block.rootPlan)
   const off = rule.noEffect !== undefined
+  const why = off
+    ? noEffectLabel(rule.noEffect!, { inArea: rule.areaId !== undefined, otherAreaName: rule.otherAreaId !== undefined ? areaNameOf(block.rootPlan, rule.otherAreaId) : undefined })
+    : undefined
   return (
     <li
       data-testid="source-rule"
@@ -69,13 +70,17 @@ function RuleEntry({ rule, block, gameData, expanded, onToggle, onRemove }: {
               )}
               <span className="min-w-0 break-words">{name}</span>
             </button>
-            <span data-testid="source-rule-name" className={`text-[11px] ${off ? 'text-gray-400' : 'text-teal-300'}`}>{ruleName}</span>
+            <span
+              data-testid="source-rule-name"
+              {...(rule.kind === 'leftover-off' && !off ? describedTip(LEFTOVER_SWITCH.help) : {})}
+              className={`text-[11px] ${off ? 'text-gray-400' : 'text-teal-300'}`}
+            >
+              {ruleName}
+            </span>
+            {why && (
+              <span data-testid="source-rule-reason" data-tip={why.tip} className="rounded border border-gray-700 px-1.5 text-[11px] leading-4 text-gray-400">{why.label}</span>
+            )}
           </div>
-          <p data-testid="source-rule-text" className={`mt-0.5 text-[11px] leading-snug break-words ${off ? 'text-gray-400' : 'text-gray-300'}`}>
-            {off
-              ? noEffectText(rule.noEffect!, name, rule.areaId !== undefined, rule.otherAreaId !== undefined ? areaNameOf(block.rootPlan, rule.otherAreaId) : undefined)
-              : rule.kind === 'leftover-off' ? LEFTOVER_SWITCH.help : sentence}
-          </p>
         </div>
         <button
           type="button"
