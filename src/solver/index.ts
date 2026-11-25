@@ -1044,9 +1044,10 @@ function creditAlone(itemId: string, take: BlockConnection, offers: ReadonlyMap<
  * keys go to the consumer's ranges (a one-member allocation: a key only to a range it fits, the least versatile first), the
  * parts are recorded in `split.creditParts`.
  *
- * A ranked take that is blocked (`rankedRest` or `rankedCredit` says `null`: its source, or a take above it, is not credited yet) is
- * credited 0, unless `defer` accepts it: `defer(itemId, takes, needed)` gets the consumer's takes of the item from the blocked one
- * on and the need still left, keeps them to credit later, and the consumer's takes of that item stop here.
+ * A ranked take that is blocked (`rankedRest` or `rankedCredit` says `null`: its source, or a take above it, is not credited yet; an unranked
+ * takes-first take is blocked while its source is not processed) is credited 0, unless `defer` accepts it: `defer(itemId, takes, needed)` gets
+ * the consumer's takes of the item from the blocked one on and the need still left, keeps them to credit later (a takes-first consumer's
+ * requests of the item with them), and the consumer's takes of that item stop here.
  */
 function applyTakeCredits(
   takes: Map<string, BlockConnection[]> | undefined,
@@ -1125,16 +1126,18 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
  * takes will not cover, and what a take is credited is reserved for it at its source like a
  * request share. The estimate of a take source is what it has left after the amounts
  * requested of it; sources are processed before their take consumers where the request order
- * allows it. A takes-first take whose source is not processed yet gets no credit; a take of a consumer
- * that requests nothing of the item waits for its source instead (`deferFor`, `resolveDeferred`): that
- * credit feeds no request, so it can be given later, once its source and the takes above it are done.
+ * allows it. A take whose source is not processed yet, or that is ranked below a take not credited yet, waits (`deferFor`, `resolveDeferred`):
+ * the consumer's takes of the item from there on are parked with the need still left, and credited once the source and the takes above
+ * them are done. A takes-first consumer's requests of the item wait with them (they are shared out when the slice resumes), so the blocks it
+ * requests the item from are ordered after the blockers (wait edges) and a parked slice is flushed (`flushFor`: credited with what it has) before
+ * the goals of a block it requests from are read.
  *
  * A pair the source's served list ranks (`ranked`; see `rankedPairs`) is credited by rank: a listed
  * take is credited what is left of the source's estimate after the extra (when listed above it) and
  * the credits of the takes above it, so a take that requests nothing is probed too, and the listed
  * consumers are ordered by extra edges (never one that would close a cycle). A listed take of a consumer that requests nothing of
  * the item, whose source or higher-ranked takes are not credited yet (the request order reached it first), is parked and credited once they
- * are; a takes-first take in that position gets no credit and is flagged. Takes-first consumers the
+ * are; so is a takes-first take, but a block its consumer requests the item from that has to come before the blocker leaves it no credit (flagged). Takes-first consumers the
  * list does not name are credited after the listed ones. The takes of a `tied` group are credited together, by need, when the first
  * member is reached (`creditGroups`: the other members are probed ahead, the source's leftover is water-filled by weight; readiness
  * edges put the blocks that request of a member before the members), unless the pass cannot know every need in time, or a consumer of
@@ -1380,10 +1383,15 @@ function computeRequests(
   const depBlocks = blocks.map(b => ({ ...b, inputConnections: [...(reversed.get(b.id) ?? [])] }))
   const depConsumers = consumersOf(depBlocks) // kept up to date as take edges are added
   const takeSources = new Set<string>()
+  const waitTakes = new Set<string>() // takes-first takes whose edge was refused: the source comes after the consumer, the take waits for it
   for (const dep of depBlocks) {
     for (const [itemId, takes] of takeOf.get(dep.id) ?? []) {
       for (const t of takes) {
-        if (reaches(depConsumers, dep.id, t.fromBlockId)) continue // the edge would close a loop
+        if (reaches(depConsumers, dep.id, t.fromBlockId)) { // the edge would close a loop
+          waitTakes.add(t.id)
+          takeSources.add(t.fromBlockId)
+          continue
+        }
         dep.inputConnections.push({ id: `take\0${t.id}`, itemId, fromBlockId: t.fromBlockId })
         depConsumers.set(t.fromBlockId, [...(depConsumers.get(t.fromBlockId) ?? []), dep.id])
         takeSources.add(t.fromBlockId)
@@ -1482,6 +1490,48 @@ function computeRequests(
       }
     }
   }
+  // A takes-first take waits for its source (and for the takes ranked above it): its consumer's requests of the item are shared out
+  // once it is credited (`deferFor`), so the blocks the consumer requests the item from must be probed after the blockers. A wait edge
+  // puts such a block after each blocker that certainly comes after the consumer; one that would close a loop is left out (the
+  // slice is then flushed before that block, see `flushFor`).
+  const after = (consumerId: string, id: string): boolean => id !== consumerId && reaches(depConsumers, consumerId, id)
+  const waitBlockers = (t: BlockConnection, consumerId: string): string[] => {
+    const out: string[] = []
+    const add = (id: string): void => {
+      if (!out.includes(id)) out.push(id)
+    }
+    if (after(consumerId, t.fromBlockId)) add(t.fromBlockId)
+    const at = rankedTake.get(t.id)
+    if (!at) return out
+    const { pair } = at
+    const sp = splitPairs.get(pair)
+    if (sp?.status === 'pending') {
+      // The pair is allocated once, when its first member is reached: every member has to be after the consumer to be waited for.
+      if (!sp.members.some(m => m.blockId === consumerId) && sp.members.every(m => after(consumerId, m.blockId))) for (const m of sp.members) add(m.blockId)
+      return out
+    }
+    const end = at.position < 0 ? pair.listed.length : at.position
+    for (let i = 0; i < end; i++) {
+      const g = sharedAt.get(pair)?.get(i)
+      if (g && g.status === 'pending') {
+        if (g !== groupOfTake.get(t.id) && g.members.every(m => after(consumerId, m.blockId))) for (const m of g.members) add(m.blockId)
+        i = g.end - 1
+        continue
+      }
+      const e = pair.listed[i]
+      if (e.kind !== 'block' || !rankedTake.has(e.connection.id) || e.blockId === consumerId) continue
+      if (after(consumerId, e.blockId)) add(e.blockId)
+    }
+    return out
+  }
+  for (const b of blocks) {
+    for (const [itemId, takes] of takeOf.get(b.id) ?? []) {
+      const requestSources = (requestsOf.get(b.id) ?? []).filter(c => c.itemId === itemId).map(c => c.fromBlockId)
+      for (const t of takes) {
+        for (const p of waitBlockers(t, b.id)) for (const a of requestSources) orderEdge(p, a, itemId, `wait\0${t.id}\0${p}\0${a}`)
+      }
+    }
+  }
   const { components } = orderBlocks(depBlocks)
   // Cycle shapes before a served list adds edges: those edges could make another member the entry, and a list never
   // changes member order. Those edges never close or merge a cycle, so with no cycle (or no edge) there is nothing to redo.
@@ -1532,6 +1582,13 @@ function computeRequests(
       needed.set(c.itemId, left - amount)
       share(c, amount)
     }
+  }
+  // Share out what `needed` still holds over a block's requests: each gets its `requested` amount and is added to its source's goals.
+  const shareRequests = (requests: BlockConnection[], needed: Map<string, number>): void => {
+    shareOut(requests, needed, (c, amount, parts) => {
+      info.set(c.id, { requested: amount, ...(parts ? { parts } : {}) })
+      addRequest(c, amount, parts)
+    })
   }
   // Blocks whose takes have been credited so far, and what is left of a ranked take's source for it:
   // the source's leftover estimate less the extra (when listed above it) and the credits of the takes above it.
@@ -1595,15 +1652,17 @@ function computeRequests(
   }
   const needs = new Map<string, number>()
   const uncredited = new Set<string>()
-  // Takes of a take-only consumer that wait for their source (or a take above them): `deferFor` parks them, `resolveDeferred` credits them
-  // once they can be. A parked take reads as not credited yet to the takes ranked below it.
+  // Takes that wait for their source (or a take above them): `deferFor` parks them, `resolveDeferred` credits them once they can be. A parked
+  // take reads as not credited yet to the takes ranked below it. A takes-first slice carries the consumer's requests of the item: they are shared
+  // out once the slice is credited, before the first block they ask is probed (`flushFor` credits it with what it has then).
   // `held`: what the unranked takes after the blocked one were set aside at their sources, so a consumer processed meanwhile cannot use it up.
   interface Held { sourceId: string; itemId: string; amount: number }
-  interface DeferredTake { blockId: string; itemId: string; takes: BlockConnection[]; needed: Map<string, number>; held: Held[] }
+  interface DeferredTake { blockId: string; itemId: string; takes: BlockConnection[]; needed: Map<string, number>; held: Held[]; requests?: BlockConnection[] }
   const deferred: DeferredTake[] = []
   const deferredTakes = new Set<string>()
   const deferFor = (blockId: string) => (itemId: string, takes: BlockConnection[], needed: ReadonlyMap<string, number>): boolean => {
-    if (takeOf.get(blockId)?.has(itemId)) return false // takes first: the take feeds the consumer's requests, so it cannot wait
+    // Takes first: the take feeds the consumer's requests of the item, which wait with it.
+    const requests = takeOf.get(blockId)?.has(itemId) ? (requestsOf.get(blockId) ?? []).filter(c => c.itemId === itemId) : undefined
     const held: Held[] = []
     if (!split.has(itemId)) {
       let need = needed.get(itemId) ?? 0
@@ -1618,12 +1677,18 @@ function computeRequests(
         need -= amount
       }
     }
-    deferred.push({ blockId, itemId, takes, needed: new Map(needed), held })
+    deferred.push({ blockId, itemId, takes, needed: new Map(needed), held, ...(requests ? { requests } : {}) })
     for (const t of takes) deferredTakes.add(t.id)
     return true
   }
   const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) && !deferredTakes.has(id) ? (credits.get(id) ?? 0) : undefined)
-  const rankedRest = (t: BlockConnection, itemId: string) => restOf(t, itemId, estimates, outerCreditOf, uncredited)
+  // An unranked takes-first take whose source is not processed yet (the request order reached the consumer first) is blocked like a ranked one,
+  // so it can wait; it is not added to `uncredited` (that flag is for ranked takes).
+  const waitsForSource = (t: BlockConnection): boolean => waitTakes.has(t.id) && !rankedTake.has(t.id) && !processed.has(t.fromBlockId)
+  const rankedRest = (t: BlockConnection, itemId: string) => {
+    const r = restOf(t, itemId, estimates, outerCreditOf, uncredited)
+    return r === undefined && waitsForSource(t) ? null : r
+  }
   // A request probe: every connected item unlimited. A block with a short item (second pass) is probed twice and
   // merged: the unlimited probe gives what it needs of that item, the capped one everything else (see `withShortNeeds`).
   const probeFor = (block: Block, goals: SolverGoal[], memo: SolveCache | Map<string, Probe> | undefined = cache): Probe => {
@@ -1644,6 +1709,7 @@ function computeRequests(
   // for are kept: the member's own turn reuses the probe when they are still its goals.
   const ahead = new Map<string, { goals: string; probe: Probe }>()
   const aheadProbe = (id: string): Probe => {
+    flushFor(new Set([id]))
     const b = byId.get(id)!
     const aheadGoals = productGoals(b.products, requested.get(id))
     const kept = ahead.get(id)
@@ -1736,7 +1802,10 @@ function computeRequests(
   const outerCreditPartsOf: CreditPartsOf = (blockId, id) => (processed.has(blockId) && !deferredTakes.has(id) ? (creditParts.get(id) ?? new Map<string, number>()) : undefined)
   const splitCredit: SplitCredit = {
     items: split, ranges, creditParts,
-    rankedCredit: (t, itemId, needed) => splitCreditOf(t, itemId, needed, estimates, outerCreditPartsOf, uncredited),
+    rankedCredit: (t, itemId, needed) => {
+      const r = splitCreditOf(t, itemId, needed, estimates, outerCreditPartsOf, uncredited)
+      return r === undefined && waitsForSource(t) ? null : r
+    },
   }
   // Credit the parked takes that can be now, in the order they were parked, until a full pass changes nothing: a take is credited
   // once its source and the takes above it are (the ones above it may be parked too). A slice that parks again at its first take is
@@ -1756,15 +1825,34 @@ function computeRequests(
       progress = false
       for (const d of deferred.splice(0)) {
         unpark(d)
+        const needed = new Map(d.needed)
         if (last) { // nothing else will come: credit the take, or flag it, now
-          applyTakeCredits(new Map([[d.itemId, d.takes]]), new Map(d.needed), estimates, credits, rankedRest, needs, splitCredit)
+          applyTakeCredits(new Map([[d.itemId, d.takes]]), needed, estimates, credits, rankedRest, needs, splitCredit)
+          if (d.requests) shareRequests(d.requests, needed) // unreachable: a takes-first slice is flushed before any block it requests from
           continue
         }
         const before = deferred.length
-        applyTakeCredits(new Map([[d.itemId, d.takes]]), new Map(d.needed), estimates, credits, rankedRest, needs, splitCredit, deferFor(d.blockId))
+        applyTakeCredits(new Map([[d.itemId, d.takes]]), needed, estimates, credits, rankedRest, needs, splitCredit, deferFor(d.blockId))
         const again = deferred.length > before ? deferred[deferred.length - 1] : undefined
+        if (!again && d.requests) shareRequests(d.requests, needed)
         if (!again || again.takes.length < d.takes.length) progress = true
       }
+    }
+  }
+  // Finish the takes-first slices whose requests ask a block of `ids`, before that block's goals are read: they are credited with what they
+  // have now (a take still blocked gets 0, a ranked one is flagged) and the consumer's requests are shared out, in the order they were parked.
+  const flushFor = (ids: ReadonlySet<string>): void => {
+    for (let i = 0; i < deferred.length;) {
+      const d = deferred[i]
+      if (!d.requests?.some(c => ids.has(c.fromBlockId))) {
+        i++
+        continue
+      }
+      deferred.splice(i, 1)
+      unpark(d)
+      const needed = new Map(d.needed)
+      applyTakeCredits(new Map([[d.itemId, d.takes]]), needed, estimates, credits, rankedRest, needs, splitCredit)
+      shareRequests(d.requests, needed)
     }
   }
   // Allocate the pairs `block` has a listed take in, once, when the first member is reached: the source's keys go to the members' ranges
@@ -1858,6 +1946,7 @@ function computeRequests(
   }
 
   for (const component of components) {
+    flushFor(new Set(component.blocks.map(b => b.id)))
     const loop = component.loop && shapeOf(component.loop)
     if (!loop) {
       const block = byId.get(component.blocks[0].id)!
@@ -1880,10 +1969,8 @@ function computeRequests(
         const needed = new Map(probe.received) // flow key → what the block would import
         applyTakeCredits(takesOf(block.id), needed, estimates, credits, rankedRest, needs, splitCredit, deferFor(block.id))
         if (requests) {
-          shareOut(requests, needed, (c, amount, parts) => {
-            info.set(c.id, { requested: amount, ...(parts ? { parts } : {}) })
-            addRequest(c, amount, parts)
-          })
+          // The requests of an item whose takes-first slice is parked are shared out when it resumes.
+          shareRequests(requests.filter(c => !deferred.some(d => d.blockId === block.id && d.itemId === c.itemId && d.requests)), needed)
         }
       }
       processed.add(block.id)
