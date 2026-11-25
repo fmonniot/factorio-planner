@@ -41,6 +41,8 @@ import type { ProductChangeEffect } from '../../store/connections'
 
 /** The name of the first line of the Sources list: where the focus goes when what had it is gone. */
 const FIRST_LINE = '[data-testid="sources-line-toggle"]'
+/** Make it a product, in the takers note: where the focus returns on Cancel. */
+const MAKE_PRODUCT_BUTTON = '[data-testid="leftover-make-product"]'
 
 /** A text link: the rule chip's "Use the block's", the Leftover row's "change". */
 const LINK_BUTTON_CLASS = 'text-[11px] text-teal-300 underline underline-offset-2 outline-none hover:text-teal-200 focus-visible:ring-2 focus-visible:ring-teal-400 rounded'
@@ -104,6 +106,8 @@ export function ComesFrom({ itemId, areaId, listInPopover = false, actions = [],
     refocus.current = FIRST_LINE
     clearAreaRule(areaId, itemId)
   }
+  // The question is about the item it was asked for: another item (the strip's selected slot changed) drops it.
+  if (pendingProduct && pendingProduct.product.itemId !== itemId) setPendingProduct(null)
   const unit = useUiStore(s => s.rateUnit)
   const view = useSourcesModel(itemId, area)
 
@@ -141,10 +145,11 @@ export function ComesFrom({ itemId, areaId, listInPopover = false, actions = [],
       const product: Product = { id: crypto.randomUUID(), itemId }
       const effects = productChangeEffects(blocks, block.id, itemId, 'add', flows)
       const received = receivedFromSources(blocks, block.id, itemId)
-      // The button goes with the takers (the item becomes a product): the focus goes to Sources…, or to the list's first line.
-      refocus.current = afterProductFocus
-      if (effects.length === 0 && received.length === 0) addProduct(product)
-      else setPendingProduct({ product, effects, received })
+      if (effects.length === 0 && received.length === 0) {
+        // The button goes with the takers (the item becomes a product): the focus goes to Sources…, or to the list's first line.
+        refocus.current = afterProductFocus
+        addProduct(product)
+      } else setPendingProduct({ product, effects, received })
     },
   }
   const takersNote = takers.length > 0 && (
@@ -166,13 +171,17 @@ export function ComesFrom({ itemId, areaId, listInPopover = false, actions = [],
   const productDialog = pendingProduct && (
     <ProductChangeDialog
       change="add"
-      itemId={itemId}
-      itemName={name}
+      itemId={pendingProduct.product.itemId}
+      itemName={gameData.items[pendingProduct.product.itemId]?.name ?? pendingProduct.product.itemId}
       blockName={block.name}
       effects={pendingProduct.effects}
       received={pendingProduct.received}
       rateUnit={unit}
-      onCancel={() => setPendingProduct(null)}
+      onCancel={() => {
+        // The button is still there (the item is not a product): the focus goes back to it.
+        refocus.current = MAKE_PRODUCT_BUTTON
+        setPendingProduct(null)
+      }}
       onConfirm={() => {
         // The store refuses a second product of the item, so a block that gained it meanwhile makes this a no-op.
         refocus.current = afterProductFocus

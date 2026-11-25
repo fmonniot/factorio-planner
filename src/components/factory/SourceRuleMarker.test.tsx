@@ -31,6 +31,11 @@ describe('SourceRuleMarker', () => {
     expect(marker.className + dot.className).not.toContain('amber')
   })
 
+  it('names the fallback rule before the reading when the label is empty', () => {
+    render(<SourceRuleMarker label="" reading="Made here" />)
+    expect(screen.getByTestId('source-rule-marker')).toHaveAttribute('aria-label', 'Has a source rule\nMade here')
+  })
+
   it('is an image, larger than the dot, with nothing to press', () => {
     render(<SourceRuleMarker label={NAME} />)
     const marker = screen.getByRole('img', { name: NAME })

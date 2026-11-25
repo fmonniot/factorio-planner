@@ -80,7 +80,7 @@ export function useBlockSourcesModel(block: Block | undefined, itemId: string, a
   const unsatisfied = (result?.unsatisfied ?? []).filter(u => u.itemId === itemId).reduce((t, u) => t + u.rate, 0)
   // Block scope: what areas with Import off leave missing of it, the way the Ingredients slot reads it (undefined: the block's rule decides).
   const areaMissing = useMemo(() => {
-    if (area !== undefined  || !rootPlan || !block || !result?.areaRoutes) return undefined
+    if (area !== undefined || !rootPlan || !block || !result?.areaRoutes) return undefined
     const missingOf = areaMissingOf(block.sourceRules, rootPlan, result.areaRoutes)
     let sum: number | undefined
     for (const u of result.unsatisfied.filter(u => u.itemId === itemId)) {
@@ -96,7 +96,7 @@ export function useBlockSourcesModel(block: Block | undefined, itemId: string, a
     () => sourcesLineOrder(makeHere, hasAreas, lastSide, suppliers.map(l => l.areaId)),
     [makeHere, hasAreas, lastSide, suppliers],
   )
-  if (!block || !gameData ) return undefined
+  if (!block || !gameData) return undefined
   const model = buildSourcesModel({ block, result, itemId, area, rule, makers, suppliers, supply, unsatisfied, areaMissing, rows, order })
   return {
     block, blocks, flows, gameData, itemId, name, unit, rate, solved: result !== undefined, area, rule, stored, makeHere, drawnSide, lastSide,

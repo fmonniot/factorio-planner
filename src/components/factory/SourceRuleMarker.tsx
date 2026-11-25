@@ -47,7 +47,7 @@ interface SourceRuleMarkerProps {
  * `absolute -top-1 -right-1`). It is not interactive: a click on it is a click on whatever it sits on.
  */
 export function SourceRuleMarker({ label, reading, itemId, onArm, children }: SourceRuleMarkerProps) {
-  const name = reading ? `${label}\n${reading}` : (label || FALLBACK_LABEL)
+  const name = reading ? `${label || FALLBACK_LABEL}\n${reading}` : (label || FALLBACK_LABEL)
   return (
     <span role="img" aria-label={name} data-tip="" data-testid="source-rule-marker" data-item-id={itemId} onPointerOver={onArm} className={BOX_CLASS}>
       <span className={DOT_CLASS} />

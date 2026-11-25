@@ -564,6 +564,34 @@ describe('ComesFrom, the Leftover switch', () => {
         expect(screen.getByTestId('sources-button')).toHaveFocus()
       })
 
+      it('does not move the focus when the dialog opens, in the strip or the popover view', () => {
+        const strip = render(<ComesFrom itemId="plate" listInPopover />)
+        fireEvent.click(makeProduct())
+        expect(screen.getByTestId('product-change-confirm')).toBeInTheDocument()
+        expect(screen.getByTestId('sources-button')).not.toHaveFocus()
+        strip.unmount()
+        render(<ComesFrom itemId="plate" />)
+        fireEvent.click(makeProduct())
+        expect(screen.getByTestId('product-change-confirm')).toBeInTheDocument()
+        screen.getAllByTestId('sources-line-toggle').forEach(l => expect(l).not.toHaveFocus())
+      })
+
+      it('returns the focus to Make it a product on Cancel', () => {
+        render(<ComesFrom itemId="plate" listInPopover />)
+        fireEvent.click(makeProduct())
+        fireEvent.click(within(screen.getByTestId('product-change-confirm')).getByRole('button', { name: 'Cancel' }))
+        expect(makeProduct()).toHaveFocus()
+      })
+
+      it('drops the question when the item changes, so a confirm cannot add another item', () => {
+        const view = render(<ComesFrom itemId="plate" listInPopover />)
+        fireEvent.click(makeProduct())
+        expect(screen.getByTestId('product-change-confirm')).toHaveTextContent('Plate')
+        view.rerender(<ComesFrom itemId="ore" listInPopover />)
+        expect(screen.queryByTestId('product-change-confirm')).not.toBeInTheDocument()
+        expect(mainBlock().products).toEqual([])
+      })
+
       it('puts the focus on the first line of the Sources list after a confirm in the popover view', () => {
         render(<ComesFrom itemId="plate" />)
         fireEvent.click(makeProduct())
