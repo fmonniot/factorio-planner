@@ -5,6 +5,7 @@ import { useBlockStore, makeEmptyBlock, makeEmptySubPlan, makeRecipeNode } from 
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
+import { tipOf } from '../../test/byTip'
 import type { Block, ConnectionFlow, ConnectionPart, GameData, Product, SolverResult } from '../../data/types'
 
 const mockGameData: GameData = {
@@ -248,7 +249,8 @@ describe('BlockGraph', () => {
     expect(goTo).toHaveAttribute('aria-label', 'Go to Miner')
     const summary = screen.getByTestId('graph-edge-summary')
     expect(summary.getAttribute('aria-label'), 'short accessible name').toMatch(/^\d+ items from Miner to Consumer$/)
-    expect(summary.getAttribute('data-tip'), 'long tooltip').toContain('click to pin it')
+    expect(summary.getAttribute('data-tip'), 'long tooltip').toMatch(/^\d+ items from Miner to Consumer; \d+ limited$/)
+    expect(tipOf(within(node('miner')).getByTestId('graph-node-select')), 'the node tip is its name').toBe('Miner')
     expect(document.querySelectorAll('[title]'), 'no native title in the graph').toHaveLength(0)
   })
 
@@ -355,6 +357,14 @@ describe('BlockGraph', () => {
     const startEdit = () => fireEvent.click(screen.getByTestId('graph-edge-limit'))
     const type = (value: string) => fireEvent.change(screen.getByRole('spinbutton', { name: 'Connection limit' }), { target: { value } })
     const enter = () => fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Connection limit' }), { key: 'Enter' })
+
+    it('words the limit button\'s tooltip as a name and one sentence, with no hint', () => {
+      setup({ connected: true })
+      render(<BlockGraphButton />)
+      open()
+      pinEdge()
+      expect(tipOf(screen.getByTestId('graph-edge-limit'))).toBe('Connection limit\nMost Consumer takes over this connection.')
+    })
 
     it('sets a limit from the edge label', () => {
       setup({ connected: true })
@@ -765,7 +775,7 @@ describe('BlockGraph', () => {
       expect(screen.queryByTestId('graph-edge-summary')).toBeNull()
       expect(screen.queryByTestId('graph-edge-label')).toBeNull()
       expect(screen.queryByTestId('graph-edge')).toBeNull()
-      expect(screen.getByTestId('graph-detail').textContent).toContain('Point at a block')
+      expect(screen.getByTestId('graph-detail')).toBeEmptyDOMElement()
     })
 
     it('saves a limit being typed when the pin is cleared by a click on the background', () => {
@@ -907,11 +917,11 @@ describe('BlockGraph', () => {
     const hit = (to: string) => document.querySelector(`[data-testid="graph-edge-hit"][data-to="${to}"]`) as HTMLElement
     const summaryTo = (to: string) => screen.getAllByTestId('graph-edge-summary').find(x => x.getAttribute('data-to') === to)!
 
-    it('says what to do while nothing is pointed at', () => {
+    it('leaves the strip empty while nothing is pointed at', () => {
       withOther()
       render(<BlockGraphButton />)
       open()
-      expect(screen.getByTestId('graph-detail').textContent).toContain('Point at a block or a connection')
+      expect(screen.getByTestId('graph-detail')).toBeEmptyDOMElement()
       expect(document.querySelectorAll('[data-lit], [data-dim]')).toHaveLength(0)
     })
 
@@ -932,7 +942,7 @@ describe('BlockGraph', () => {
       expect(screen.getByTestId('graph-detail').textContent).toContain('1 item')
       fireEvent.mouseLeave(node('consumer'))
       expect(document.querySelectorAll('[data-dim]')).toHaveLength(0)
-      expect(screen.getByTestId('graph-detail').textContent).toContain('Point at a block')
+      expect(screen.getByTestId('graph-detail')).toBeEmptyDOMElement()
 
       fireEvent.mouseEnter(node('miner'))
       expect(within(screen.getByTestId('graph-detail')).getAllByTestId('graph-detail-block')).toHaveLength(2)
@@ -962,7 +972,12 @@ describe('BlockGraph', () => {
       const detail = screen.getByTestId('graph-detail')
       expect(detail.textContent).toContain('Items on this edge')
       expect(detail.textContent).toContain('Miner → Consumer')
-      expect(detail.textContent).toContain('click the edge to pin it and edit')
+      expect(detail.textContent).not.toContain('click')
+      expect(within(detail).queryByTestId('graph-detail-pinned')).toBeNull()
+      fireEvent.mouseLeave(hit('consumer'))
+      pinEdge(screen.getAllByTestId('graph-edge-summary').findIndex(x => x.getAttribute('data-to') === 'consumer'))
+      expect(within(screen.getByTestId('graph-detail')).getByTestId('graph-detail-pinned')).toBeTruthy()
+      fireEvent.mouseEnter(hit('consumer'))
       const row = within(detail).getByTestId('graph-edge-label')
       expect(row.querySelector('picture'), 'the icon').not.toBeNull()
       expect(row.textContent).toContain('Iron Ore')

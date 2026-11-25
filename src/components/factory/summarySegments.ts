@@ -432,41 +432,41 @@ export function segmentLabel(
   }
 }
 
-export function segmentTitle(
+/**
+ * The second line of a segment's tooltip, for what the label does not say: why a source is limited, that it is requested or part
+ * of a loop, why an overlay has no amount. Undefined when the label is the whole tooltip.
+ */
+export function segmentDetail(
   e: Segment | Overlay,
   ctx: {
-    itemName: string
     blockName: string | undefined
     fmt: (perMin: number) => string
     unit: string
     /** items/min the source offered; limited sources only */
     available?: number
   },
-): string {
-  const { itemName, blockName, fmt, unit, available } = ctx
-  const note = 'loop' in e && e.loop ? ' — part of a loop' : ''
+): string | undefined {
+  const { blockName, fmt, unit, available } = ctx
+  const loop = 'loop' in e && e.loop ? 'Part of a loop' : undefined
   switch (e.kind) {
     case 'export':
-      return `Sends ${itemName} to ${blockName ?? GONE}${note} — click to open`
+      return loop
     case 'source': {
       const seg = e as Segment
-      const tail = `${note}${seg.requested ? ' — requested' : ''}`
       const cap = cappingLimit(seg.limited, seg.capped, seg.maxRate)
-      if (cap !== undefined) {
-        return `${cappedTitle(`${fmt(cap)}${unit}`)}${tail} — click to open, right-click to remove`
-      }
-      return seg.limited
-        ? `Limited: ${blockName ?? GONE} only offers ${fmt(available ?? 0)}${unit}${tail} — click to open, right-click to remove`
-        : `${itemName} from ${blockName ?? GONE}${tail} — click to open, right-click to remove`
+      const lead = cap !== undefined
+        ? cappedTitle(`${fmt(cap)}${unit}`)
+        : seg.limited ? `Limited: ${blockName ?? GONE} only offers ${fmt(available ?? 0)}${unit}` : undefined
+      return [lead, loop, seg.requested ? 'Requested' : undefined].filter(Boolean).join(' — ') || undefined
     }
     case 'unused':
-      return 'Not used: this block makes or needs none from outside — right-click to remove'
+      return 'Not used: this block makes or needs none from outside'
     case 'missing-source':
-      return `${itemName} — the source block was deleted; right-click to remove this connection`
+      return 'The source block was deleted'
     case 'self':
-      return `${itemName} — ignored because a block cannot supply itself — right-click to remove`
+      return 'Ignored because a block cannot supply itself'
     default:
-      return segmentLabel(e, blockName)
+      return undefined
   }
 }
 

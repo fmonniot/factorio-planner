@@ -114,7 +114,9 @@ test.describe('summary panes with many items', () => {
       await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'selected')
       const entries = detail(page, 'Products').locator('[data-testid="summary-segment"][data-kind="export"]')
       for (const entry of await entries.all()) {
-        await expect(entry.getByTestId('summary-segment-detail')).toHaveText(new RegExp(`^Sends ${itemName} to `))
+        // A plain export has no second line; the strip's header names the item.
+        await expect(entry.getByTestId('summary-segment-detail')).toHaveCount(0)
+        await expect(detail(page, 'Products').getByText(itemName).first()).toBeVisible()
         exportCount++
       }
     }
@@ -219,10 +221,10 @@ test.describe('summary panes with many items', () => {
         withConnection++
         const name = names.get(itemId)
         expect(name, `${itemId} is one of the Metals goals`).toBeDefined()
-        // Limited and unused connections name no item, so their title cannot be compared with the slot.
-        expect((await entry.getByTestId('summary-segment-detail').textContent())!).toMatch(
-          new RegExp(`^(${name!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} from Metals|Limited: |Not used: )`),
-        )
+        // A plain source has no second line; limited, unused and requested ones say so.
+        const detailLine = entry.getByTestId('summary-segment-detail')
+        if (await detailLine.count() === 0) expect(kind).toBe('source')
+        else expect((await detailLine.textContent())!).toMatch(/^(Limited: |Not used: |Requested)/)
       }
     }
     expect(withConnection).toBe(12)

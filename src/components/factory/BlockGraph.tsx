@@ -93,7 +93,7 @@ function BlockNode({
         aria-label={block.name}
         data-testid="graph-node-select"
         aria-pressed={pinned}
-        data-tip="Click to pin the highlight"
+        data-tip=""
         onClick={onSelect}
         className="w-full h-full flex items-center gap-2 pl-2 pr-8 text-left text-gray-100 rounded hover:bg-gray-700/60"
       >

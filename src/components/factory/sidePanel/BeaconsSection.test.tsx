@@ -416,6 +416,7 @@ describe('EffectsSection', () => {
     expect(screen.getByTestId('recipe-effects-note')).toHaveTextContent('productivity of the beacons')
     const ignored = document.querySelector<HTMLElement>('[role="cell"][data-ignored="true"]')!
     expect(ignored).toHaveAccessibleDescription(/does not apply to this row/)
+    expect(ignored).toHaveAccessibleDescription(/^Beacons\n\S+ does not apply to this row, because the recipe, machine or beacon does not allow it\.$/)
     expect(ignored).not.toHaveAttribute('title')
     expect(screen.getByTestId('effect-total-productivity')).toHaveTextContent('–')
   })

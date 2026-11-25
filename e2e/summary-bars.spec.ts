@@ -42,6 +42,8 @@ test.describe('summary strip and bars', () => {
 
     await slotById(page, 'Products', 'nullius-plastic').hover()
     await expect(strip).toHaveAttribute('data-state', 'preview')
+    await expect(strip.getByText('preview')).toHaveCount(0)
+    await expect(strip.getByTestId('strip-toolbar')).toHaveCount(0)
     expect((await strip.boundingBox())!.height).toBe(72)
 
     await selectProduct(page, 'nullius-plastic')
@@ -107,7 +109,7 @@ test.describe('summary strip and bars', () => {
     await expect(shown).toBeHidden()
   })
 
-  test('the tooltip opens from the keyboard too, and the second line says what a click does', async ({ page }) => {
+  test('the tooltip opens from the keyboard too', async ({ page }) => {
     await setup(page)
     await selectProduct(page, 'nullius-plastic')
     await page.mouse.move(5, 5)
@@ -116,7 +118,8 @@ test.describe('summary strip and bars', () => {
     await page.keyboard.press('Shift+Tab')
     await page.keyboard.press('Tab')
     await expect(tip(seg)).toBeVisible()
-    await expect(seg.getByTestId('summary-segment-detail')).toHaveText(/^Sends .+ to Sciences — click to open/)
+    await expect(seg.getByTestId('summary-segment-detail')).toHaveCount(0)
+    await expect(tip(seg)).toContainText('Sciences')
   })
 
   // 1 legInBar
@@ -172,7 +175,8 @@ test.describe('summary strip and bars', () => {
     expect(texts[0]).toMatch(/Sciences\s+176 · 12/)
     expect(texts[2]).toMatch(/Left\s+480 · 16/)
     // The key line is gone: nothing but the heading and the bar.
-    await expect(strip.getByText('click a segment to trace it')).toBeVisible()
+    await expect(strip.getByText(/click/)).toHaveCount(0)
+    await expect(strip.getByText('Overview')).toBeVisible()
   })
 
   test('hovering an overview segment shows its tooltip; clicking traces it and dims the slots without that key', async ({ page }) => {
@@ -186,15 +190,31 @@ test.describe('summary strip and bars', () => {
 
     await sciences.click()
     await expect(sciences).toHaveAttribute('aria-pressed', 'true')
-    await expect(detail(page, 'Products').getByText('click again to clear')).toBeVisible()
+    const chip = detail(page, 'Products').getByTestId('summary-trace-chip')
+    await expect(chip).toBeVisible()
+    await expect(chip).toContainText('Sciences')
     const slots = pane(page, 'Products').getByTestId('summary-slot')
     await expect(slots.filter({ has: page.locator('[data-traced="out"]') })).toHaveCount(0)
     await expect(pane(page, 'Products').locator('[data-testid="summary-slot"][data-traced="in"]')).toHaveCount(12)
     await expect(pane(page, 'Products').locator('[data-testid="summary-slot"][data-traced="out"]')).toHaveCount(4)
     expect(await pane(page, 'Products').locator('[data-traced="out"]').first().evaluate(e => +getComputedStyle(e).opacity)).toBeLessThan(1)
 
+    await chip.getByTestId('summary-trace-clear').click()
+    await expect(pane(page, 'Products').locator('[data-traced]')).toHaveCount(0)
+    await expect(chip).toHaveCount(0)
+    await expect(sciences).toBeFocused()
+
+    await sciences.click()
+    await expect(chip).toBeVisible()
     await sciences.click()
     await expect(pane(page, 'Products').locator('[data-traced]')).toHaveCount(0)
+    await expect(chip).toHaveCount(0)
+
+    await sciences.click()
+    await chip.getByTestId('summary-trace-clear').focus()
+    await page.keyboard.press('Enter')
+    await expect(pane(page, 'Products').locator('[data-traced]')).toHaveCount(0)
+    await expect(chip).toHaveCount(0)
   })
 
   test('a thin overview segment keeps its colour, name and tooltip', async ({ page }) => {
@@ -263,7 +283,6 @@ test.describe('on a touch screen', () => {
     await seg.tap()
     await expect(tip(seg)).toBeVisible()
     await expect(tip(seg)).toContainText('Sciences')
-    await expect(seg.getByTestId('summary-segment-detail')).toBeVisible()
     await expect(openBlock(page, 'Sciences')).toHaveCount(0)
     // The tooltip is inside the pane and fully opaque.
     const [box, region] = [(await tip(seg).boundingBox())!, (await pane(page, 'Products').boundingBox())!]

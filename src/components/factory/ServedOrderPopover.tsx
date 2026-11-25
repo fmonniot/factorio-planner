@@ -18,12 +18,11 @@ import { describedTip } from '../tipProps'
 
 /** The drag type of a line. */
 const DRAG_TYPE = 'application/x-served-line'
-const NOT_CREDITED_HINT =
-  'The planner reached this block before the list could reserve a share for it, so it is served from what the others leave over, not by its rank.'
+export const NOT_CREDITED_HINT = 'No credit\nIt is served from what the others leave over, not by its rank.'
 
 /** The title of the `list order` badge. */
 export const LIST_ORDER_HINT =
-  "The planner could not learn every member's need before sharing, so this group is served one line after the other, in list order, not by its percentages."
+  'List order\nThis group is served one line after the other, not by its percentages.'
 const INVALID_SHARE = 'Share must be above 0 and below 100.'
 const plural = (n: number) => (n === 1 ? '' : 's')
 

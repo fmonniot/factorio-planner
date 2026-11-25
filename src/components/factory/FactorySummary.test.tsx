@@ -84,7 +84,7 @@ const segments = (paneName: string, kind?: string) =>
 // A segment's tooltip is in the DOM (CSS shows it on hover or focus): its first line reads name, amount, note.
 const keyEntries = segments
 const entryText = (el: HTMLElement) => el.querySelector('[data-testid="summary-segment-tip"]')!.textContent
-/** The tooltip's second line: what a click does, why a source is limited. */
+/** The tooltip's second line: why a source is limited, that it is requested or in a loop. */
 const entryDetail = (el: HTMLElement) => el.querySelector('[data-testid="summary-segment-detail"]')?.textContent ?? ''
 const overviewRow = (paneName: string, key: string) =>
   within(strip(paneName)).getAllByTestId('summary-overview-segment').find(r => r.dataset.key === key)!
@@ -322,9 +322,13 @@ describe('FactorySummary — detail strip states', () => {
     render(<FactorySummary />)
     fireEvent.mouseEnter(slot('Products', 'Iron Plate'))
     expect(strip('Products')).toHaveAttribute('data-state', 'preview')
-    expect(strip('Products').textContent).toContain('preview')
+    expect(within(strip('Products')).queryByText('preview')).toBeNull()
+    expect(within(strip('Products')).queryByTestId('strip-toolbar')).toBeNull()
+    expect(within(strip('Products')).queryByRole('button', { name: 'Back to overview' })).toBeNull()
     fireEvent.mouseLeave(slot('Products', 'Iron Plate'))
     expect(strip('Products')).toHaveAttribute('data-state', 'overview')
+    select('Products', 'Iron Plate')
+    expect(within(strip('Products')).getByRole('button', { name: 'Back to overview' })).toBeInTheDocument()
   })
 
   it('previews another slot while one is selected, then returns to the selection', () => {
@@ -335,6 +339,9 @@ describe('FactorySummary — detail strip states', () => {
     fireEvent.mouseEnter(slot('Products', 'Iron Ore'))
     expect(strip('Products')).toHaveAttribute('data-state', 'preview')
     expect(strip('Products').textContent).toContain('Iron Ore')
+    expect(within(strip('Products')).queryByText('preview')).toBeNull()
+    expect(within(strip('Products')).queryByTestId('strip-toolbar')).toBeNull()
+    expect(within(strip('Products')).queryByRole('button', { name: 'Back to overview' })).toBeNull()
     fireEvent.mouseLeave(slot('Products', 'Iron Ore'))
     expect(strip('Products')).toHaveAttribute('data-state', 'selected')
   })
@@ -945,7 +952,7 @@ describe('FactorySummary — connections', () => {
       select('Ingredients', 'Iron Ore')
       const [entry] = keyEntries('Ingredients', 'source')
       expect(entryText(entry)).toContain('↻')
-      expect(entryDetail(entry)).toMatch(/part of a loop/)
+      expect(entryDetail(entry)).toMatch(/^Part of a loop/)
     })
 
     it('right-clicking a source segment offers "Remove connection"', () => {
@@ -1063,6 +1070,7 @@ describe('FactorySummary — connections', () => {
         blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, inputConnections: [] } : b)),
       })))
       expect(slot('Ingredients', 'Iron Ore')).not.toHaveAttribute('data-traced')
+      expect(within(strip('Ingredients')).queryByTestId('summary-trace-chip')).toBeNull()
     })
 
     it('the strip "Receive from…" action opens the same menu', () => {
@@ -1116,8 +1124,7 @@ describe('FactorySummary — connections', () => {
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       const item = screen.getByRole('menuitem', { name: /Miner/ })
       expect(item.getAttribute('data-closes-loop')).toBe('true')
-      expect(tipOf(item)).toMatch(/Closes a loop/)
-      expect(item).toHaveAccessibleDescription(/Closes a loop/)
+      expectTip(item, 'Closes a loop with Miner')
       expect(item).not.toHaveAttribute('title')
     })
 
@@ -1416,7 +1423,7 @@ describe('FactorySummary — connections', () => {
       select('Products', 'Iron Plate')
       const exports = segments('Products', 'export')
       expect(exports).toHaveLength(1)
-      expect(entryDetail(exports[0])).toMatch(/^Sends Iron Plate to Consumer/)
+      expect(entryDetail(exports[0])).toBe('')
       expect(entryText(keyEntries('Products', 'export')[0])).toContain('20.0')
       fireEvent.click(exports[0])
       expect(useBlockStore.getState().activeBlockId).toBe('consumer')
@@ -1473,13 +1480,25 @@ describe('FactorySummary — connections', () => {
       expect(overviewRow('Products', 'to:consumer')).toHaveAttribute('aria-pressed', 'true')
       expect(slot('Products', 'Iron Plate')).toHaveAttribute('data-traced', 'in')
       expect(slot('Products', 'Iron Ore')).toHaveAttribute('data-traced', 'out')
+      const chip = within(strip('Products')).getByTestId('summary-trace-chip')
+      expect(within(chip).getByTestId('summary-trace-name')).toHaveTextContent('→ Consumer')
+      expect(within(chip).getByTestId('summary-trace-swatch').style.background).toBe(
+        within(overviewRow('Products', 'to:consumer')).getByTestId('summary-segment-fill').style.background,
+      )
 
+      fireEvent.click(within(chip).getByTestId('summary-trace-clear'))
+      expect(slot('Products', 'Iron Ore')).not.toHaveAttribute('data-traced')
+      expect(within(strip('Products')).queryByTestId('summary-trace-chip')).toBeNull()
+
+      fireEvent.click(overviewRow('Products', 'to:consumer'))
+      expect(slot('Products', 'Iron Plate')).toHaveAttribute('data-traced', 'in')
       fireEvent.click(overviewRow('Products', 'to:consumer'))
       expect(slot('Products', 'Iron Plate')).not.toHaveAttribute('data-traced')
 
       fireEvent.click(overviewRow('Products', 'to:consumer'))
       fireEvent.keyDown(overviewRow('Products', 'to:consumer'), { key: 'Escape' })
       expect(slot('Products', 'Iron Ore')).not.toHaveAttribute('data-traced')
+      expect(within(strip('Products')).queryByTestId('summary-trace-chip')).toBeNull()
     })
   })
 })
@@ -1564,7 +1583,7 @@ describe('FactorySummary — requests', () => {
     setupRequest({ activeId: 'consumer', itemId: 'iron-ore', flows: [requestFlow({ itemId: 'iron-ore' })], result: empty() })
     render(<FactorySummary />)
     select('Ingredients', 'Iron Ore')
-    expect(entryDetail(segments('Ingredients', 'source')[0])).toMatch(/— requested/)
+    expect(entryDetail(segments('Ingredients', 'source')[0])).toBe('Requested')
   })
 
   it('offers Limit rate… and Remove connection in the connection chip menu', () => {
@@ -1628,7 +1647,7 @@ describe('FactorySummary — requests', () => {
       expect(requests.map(i => i.textContent)).toEqual(['Miner', 'Loop ↻'])
       expect(requests[0]).toBeEnabled()
       expect(requests[1]).toBeEnabled()
-      expectTip(requests[1], 'Closes a loop: Loop already receives from this block, directly or through other blocks')
+      expectTip(requests[1], 'Closes a loop with Loop')
       const takes = screen.getAllByRole('menuitem').filter(i => i.dataset.kind === 'take')
       expect(takes).toHaveLength(1)
       expect(takes[0].textContent).toContain('Smelter')
@@ -1760,7 +1779,7 @@ describe('FactorySummary — products pane', () => {
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
     const extra = within(strip('Products')).getByRole('button', { name: /^extra 60\.0$/ })
-    expect(extra).toHaveAttribute('data-tip', 'Extra output: 60.0/m — click to edit')
+    expect(extra).toHaveAttribute('data-tip', 'Extra output: 60.0/m')
     expect(stripText()).toContain('+ requested 30.0')
     expect(stripText()).not.toContain('makes')
     expect(keyTexts()).toEqual(['Consumer requests 30.0', 'Extra: 60.0 of 60.0'])
@@ -2314,9 +2333,29 @@ describe('FactorySummary — bars', () => {
     expect(overviewRow('Products', 'kept')).toHaveAttribute('aria-pressed', 'false')
     expect(within(overviewRow('Products', 'kept')).getByTestId('summary-segment-fill').style.opacity).toBe('0.5')
     expect(overviewRow('Products', 'kept').style.opacity).toBe('')
-    expect(within(strip('Products')).getByText('click again to clear')).toBeInTheDocument()
+    const chip = within(strip('Products')).getByTestId('summary-trace-chip')
+    expect(chip).toHaveAttribute('data-key', 'short')
+    expect(within(chip).getByTestId('summary-trace-name')).toHaveTextContent('Short')
+    expect(strip('Products').textContent).not.toMatch(/click/i)
+    fireEvent.click(within(chip).getByTestId('summary-trace-clear'))
+    expect(overviewRow('Products', 'short')).toHaveAttribute('aria-pressed', 'false')
+    expect(within(strip('Products')).queryByTestId('summary-trace-chip')).toBeNull()
+    expect(document.activeElement).toBe(overviewRow('Products', 'short'))
+    expect(strip('Products').textContent).not.toMatch(/click/i)
     fireEvent.click(overviewRow('Products', 'short'))
-    expect(within(strip('Products')).getByText('click a segment to trace it')).toBeInTheDocument()
+    expect(within(strip('Products')).getByTestId('summary-trace-chip')).toBeInTheDocument()
+    fireEvent.click(overviewRow('Products', 'short'))
+    expect(within(strip('Products')).queryByTestId('summary-trace-chip')).toBeNull()
+  })
+
+  it('returns focus to the segment when Escape clears a trace from the chip', async () => {
+    render(<FactorySummary />)
+    fireEvent.click(overviewRow('Products', 'short'))
+    const clear = within(within(strip('Products')).getByTestId('summary-trace-chip')).getByTestId('summary-trace-clear')
+    clear.focus()
+    fireEvent.keyDown(clear, { key: 'Escape' })
+    await waitFor(() => expect(document.activeElement).toBe(overviewRow('Products', 'short')))
+    expect(within(strip('Products')).queryByTestId('summary-trace-chip')).toBeNull()
   })
 
   it('gives a selected item a 16 px bar, no key line, and an accessible name on every segment', () => {

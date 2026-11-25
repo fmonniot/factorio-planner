@@ -194,6 +194,8 @@ describe('the Make more here places', () => {
     expect(after()).toHaveAttribute('aria-pressed', 'false')
     expect(before()).toHaveTextContent('Before other blocks')
     expect(after()).toHaveTextContent('After other blocks')
+    expect(tipOf(before())).toBe('Make it here\nMade here; connections and imports cover what is missing.')
+    expect(tipOf(after())).toBe("Receive it first\nTaken from this block's connections first; made here for the rest.")
     fireEvent.click(before())
     expect(ruleOf()).toBeUndefined()
     fireEvent.click(after())

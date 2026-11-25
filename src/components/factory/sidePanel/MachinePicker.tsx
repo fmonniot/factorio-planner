@@ -79,7 +79,7 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
       {availableMachines.map(m => {
         // Defaults are per primary category, so a machine that only crafts an additional category is a per-row choice.
         const rowOnlyTip = m.craftingCategories.includes(recipeCategory) ? undefined
-          : `Defaults are per primary category (${categoryLabel(recipeCategory, gameData)}). This machine only crafts an additional category of the recipe, so it can only be chosen for this row.`
+          : `It only crafts an additional category of the recipe, not its primary category (${categoryLabel(recipeCategory, gameData)}).`
         const row = (
           <PickerRow
             name={m.name}

@@ -107,8 +107,8 @@ test.describe('Byproduct consumer mode', () => {
     const ammonia = rowOf('Ammonia')
     const badge = ammonia.getByRole('img', { name: 'Feeds an absorbing row' })
     await expect(badge).toBeVisible()
-    await expect(badge).toHaveAttribute('data-tip', /runs only to supply/)
-    await expect(badge).toHaveAccessibleDescription(/runs only to supply/)
+    await expect(badge).toHaveAttribute('data-tip', /Runs only to supply/)
+    await expect(badge).toHaveAccessibleDescription(/Runs only to supply/)
     await expect(page.getByRole('img', { name: 'Absorbs byproduct' })).toHaveCount(1)
     await expect(page.getByRole('img', { name: 'Feeds an absorbing row' })).toHaveCount(1)
     await expect(rowOf('Steam electrolysis').getByRole('img', { name: /absorb/i })).toHaveCount(0)
@@ -127,8 +127,8 @@ test.describe('Byproduct consumer mode', () => {
 
     await clickRowAction(page, ammonia, 'Feed absorbing rows')
     await expect(badge).toBeVisible()
-    await expect(badge).toHaveAttribute('data-tip', /besides what other rows use/)
-    await expect(badge).toHaveAccessibleDescription(/besides what other rows use/)
+    await expect(badge).toHaveAttribute('data-tip', /Besides what other rows use/)
+    await expect(badge).toHaveAccessibleDescription(/Besides what other rows use/)
     await expect(page.getByRole('button', { name: /warning/ })).not.toBeVisible({ timeout: 5000 })
 
     await clickRowAction(page, ammonia, 'Stop feeding absorbing rows')

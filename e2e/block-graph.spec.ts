@@ -222,7 +222,7 @@ test.describe('block graph', () => {
     await expect(page.locator('[data-pinned="true"]')).toHaveCount(0)
     await expect(page.locator('[data-lit="true"]')).toHaveCount(0)
     await expect(page.locator('[data-dim="true"]')).toHaveCount(0)
-    await expect(page.getByTestId('graph-detail')).toContainText('Point at a block')
+    await expect(page.getByTestId('graph-detail')).toBeEmpty()
   })
 
   test('Escape on a pinned chip unpins it and leaves nothing lit', async ({ page }) => {
@@ -236,7 +236,7 @@ test.describe('block graph', () => {
     await page.keyboard.press('Escape')
     await expect(summary).not.toHaveAttribute('data-pinned', 'true')
     await expect(page.locator('[data-lit="true"]')).toHaveCount(0)
-    await expect(page.getByTestId('graph-detail')).toContainText('Point at a block')
+    await expect(page.getByTestId('graph-detail')).toBeEmpty()
   })
 
   test('Enter on a chip moves the focus into the strip, where a limit survives the pointer crossing the graph', async ({ page }) => {

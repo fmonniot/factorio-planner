@@ -1,7 +1,7 @@
 import { Profiler } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, createEvent, within } from '@testing-library/react'
-import { LIST_ORDER_HINT, ServedOrderPopover } from './ServedOrderPopover'
+import { LIST_ORDER_HINT, NOT_CREDITED_HINT, ServedOrderPopover } from './ServedOrderPopover'
 import { makeEmptyBlock, makeEmptySubPlan } from '../../store/blockStore'
 import type { GameData, ServedEntry, ServedList } from '../../data/types'
 import { expectTip } from '../../test/byTip'
@@ -132,6 +132,8 @@ describe('ServedOrderPopover', () => {
     expect(line.textContent).toContain('got 0.0')
     expect(within(line).queryByTestId('served-short')).toBeNull()
     expect(within(line).getByTestId('served-not-credited').textContent).toBe('no credit')
+    expectTip(within(line).getByTestId('served-not-credited'), NOT_CREDITED_HINT)
+    expect(NOT_CREDITED_HINT).toMatch(/^No credit\n/)
     unmount()
     render(
       <ServedOrderPopover itemId="plate" list={takes(undefined)} items={items} blocks={blocks} rateUnit="min" stored={undefined} onMove={vi.fn()} onReset={vi.fn()} onPlace={vi.fn()} onTie={vi.fn()} onShare={vi.fn()} x={0} y={0} onClose={vi.fn()} />,
@@ -660,6 +662,7 @@ describe('ServedOrderPopover groups, shares and drops', () => {
       expect(badges).toHaveLength(2)
       expect(badges[0].textContent).toBe('list order')
       expectTip(badges[0], LIST_ORDER_HINT)
+      expect(LIST_ORDER_HINT).toMatch(/^List order\n/)
       expect(screen.getAllByRole('img', { name: 'list order' })).toHaveLength(2)
       expect(field('Belts').disabled).toBe(false)
     })

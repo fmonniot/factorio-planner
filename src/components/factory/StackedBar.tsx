@@ -27,7 +27,7 @@ export interface BarSegment {
   tipName: string
   tipAmount?: string
   note?: string
-  /** A second, muted line of the tooltip: what a click or a right-click does, why a source is limited. */
+  /** A second, muted line of the tooltip: why a source is limited, that it is requested or part of a loop. Never what a click does. */
   detail?: string
   /** Overview segments are toggles; true while this one is the trace. */
   pressed?: boolean
