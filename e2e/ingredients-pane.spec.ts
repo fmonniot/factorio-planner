@@ -116,8 +116,10 @@ test.describe('Ingredients pane', () => {
     await page.keyboard.press('Enter')
     const control = comesFromPopover(page).getByTestId('comes-from')
     await expect(control.getByTestId('sources-list')).toBeVisible()
-    await control.locator('[data-line="import"]').getByTestId('sources-line-toggle').click()
-    await expect(control.locator('[data-line="import"]').getByTestId('sources-detail')).toContainText('Bring it in from outside the plan')
+    // Import opens nothing while nothing is missing: its help is the tooltip of its name.
+    const importLine = control.locator('[data-line="import"]')
+    await expect(importLine.getByTestId('sources-line-toggle')).toHaveCount(0)
+    await expect(importLine.getByTestId('sources-line-name')).toHaveAttribute('data-tip', /Bring it in from outside the plan/)
   })
 })
 

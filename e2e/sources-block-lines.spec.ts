@@ -157,8 +157,11 @@ test.describe('the block lines of the Sources list', () => {
     const list = await openList(page)
     const cheap = lineOf(list, 'Cheap')
     await expect(cheap.getByTestId('sources-detail')).toHaveCount(0)
+    // The line's help is its name's tooltip, not part of its detail.
+    await expect(cheap.getByTestId('sources-line-toggle')).toHaveAttribute('data-tip', /Receive it from a connected block/)
     await openLine(cheap)
     await expect(cheap.getByTestId('sources-detail')).toBeVisible()
+    await expect(cheap.getByTestId('sources-detail')).not.toContainText('Receive it from a connected block')
     await expect(cheap.getByTestId('sources-line-toggle')).toHaveAttribute('aria-expanded', 'true')
     // One line is open at a time.
     await openLine(lineOf(list, 'Dear'))

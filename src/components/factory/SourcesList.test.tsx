@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { cleanup, render, screen, fireEvent, createEvent, within, act } from '@testing-library/react'
 import { ComesFrom } from './ComesFrom'
 import { ComesFromPopover } from './ComesFromPopover'
-import { sourcesLineOrder } from './itemSourcing'
+import { AREA_LINE_HELP, SOURCES_LINES, sourcesLineOrder } from './itemSourcing'
+import { expectTip, tipOf } from '../../test/byTip'
 import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
@@ -48,6 +49,8 @@ const chipText = () => screen.getByTestId('sources-rule-chip').textContent
 const toggleLine = (li: HTMLElement) => { fireEvent.click(within(li).getByTestId('sources-line-toggle')); return li }
 const openLine = (name: string) => toggleLine(line(name))
 const rateOf = (li: HTMLElement) => (within(li).queryByTestId('sources-rate') ?? within(li).getByTestId('sources-block-rate')).textContent
+/** A line's name: the button of a line that opens, the span of a flat one. */
+const nameOf = (li: HTMLElement) => within(li).queryByTestId('sources-line-toggle') ?? within(li).getByTestId('sources-line-name')
 const detailOf = (li: HTMLElement) => within(li).getByTestId('sources-detail')
 
 function setup(over: Partial<Block> = {}) {
@@ -255,30 +258,59 @@ describe('dragging Make more here', () => {
 })
 
 describe('the detail of a line', () => {
-  it('opens under the line from its name button, one at a time, and closes with a second press', () => {
+  it('opens only for lines with controls or a status', () => {
     openList()
     expect(screen.queryByTestId('sources-detail')).toBeNull()
+    for (const name of ['made-here', 'import']) {
+      const li = line(name)
+      const flat = within(li).getByTestId('sources-line-name')
+      expect(flat.tagName).toBe('SPAN')
+      expect(flat).toHaveAttribute('tabindex', '0')
+      expect(flat).toHaveAttribute('data-line-name')
+      expect(within(li).queryByTestId('sources-line-toggle')).toBeNull()
+      expect(flat).not.toHaveAttribute('aria-expanded')
+      expect(flat).not.toHaveAttribute('aria-controls')
+      expect(within(li).queryByTestId('sources-chevron')).toBeNull()
+      fireEvent.click(flat)
+      fireEvent.keyDown(flat, { key: 'Enter' })
+      expect(screen.queryByTestId('sources-detail')).toBeNull()
+    }
     const make = line('make-here')
     const toggle = within(make).getByTestId('sources-line-toggle')
+    expect(toggle.tagName).toBe('BUTTON')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(toggle).not.toHaveAttribute('aria-controls')
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(toggle).toHaveAttribute('aria-controls', detailOf(make).id)
-    expect(detailOf(make)).toHaveTextContent("Run this block's rows, or more of them, for this item. Adds machines.")
-    openLine('import')
-    expect(screen.getAllByTestId('sources-detail')).toHaveLength(1)
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(detailOf(line('import'))).toHaveTextContent('Bring it in from outside the plan. Off: what the other sources leave is shown as missing.')
-    openLine('import')
+    expect(within(detailOf(make)).getByTestId('sources-make-before')).toBeInTheDocument()
+    expect(within(detailOf(make)).getByTestId('sources-make-after')).toBeInTheDocument()
+    expect(detailOf(make).querySelector('p')).toBeNull()
+    fireEvent.click(toggle)
     expect(screen.queryByTestId('sources-detail')).toBeNull()
   })
 
-  it('states each line\'s help in its detail, and has none on the Receive from… line', () => {
+  it('carries each line\'s help as its name\'s tooltip and description, and has no name on the Receive from… line', () => {
     openList()
-    expect(detailOf(openLine('made-here'))).toHaveTextContent("What this block's rows already make while running for something else")
+    expectTip(nameOf(line('made-here')), SOURCES_LINES['made-here'].title)
+    expectTip(nameOf(line('import')), SOURCES_LINES.import.title)
+    expectTip(nameOf(line('make-here')), SOURCES_LINES['make-here'].title)
     expect(within(line('add-block')).queryByTestId('sources-line-toggle')).toBeNull()
+    expect(within(line('add-block')).queryByTestId('sources-line-name')).toBeNull()
     expect(within(line('add-block')).getByTestId('sources-receive-from')).toBeInTheDocument()
+  })
+
+  it('tells an idle Make more here in its tooltip, and still opens it', () => {
+    const main = mainBlock()
+    useBlockStore.setState({ blocks: [{ ...main, rootPlan: { ...main.rootPlan, nodes: main.rootPlan.nodes.filter(n => n.kind === 'game-recipe' && n.recipeId === 'smelt') } }] })
+    openList()
+    const tip = tipOf(nameOf(line('make-here')))
+    expect(tip.startsWith('No row here makes Ore\n')).toBe(true)
+    expect(tip.endsWith(SOURCES_LINES['make-here'].title)).toBe(true)
+    expect(within(line('make-here')).getByTestId('sources-status-mark')).toHaveAttribute('data-status', 'idle')
+    expect(tipOf(nameOf(line('made-here')))).toBe(SOURCES_LINES['made-here'].title)
+    openLine('make-here')
+    expect(within(detailOf(line('make-here'))).getByTestId('sources-make-before')).toBeInTheDocument()
   })
 
   it('stays open while its line moves', () => {
@@ -289,13 +321,19 @@ describe('the detail of a line', () => {
     expect(within(line('make-here')).getByTestId('sources-line-toggle')).toHaveAttribute('aria-expanded', 'true')
   })
 
-  it('has a 26px row with a marker, the name, the rate and a chevron, and the line is not a tab stop', () => {
+  it('has a 26px row with a marker, the name and the rate, and the line is not a tab stop', () => {
     openList()
     const li = line('made-here')
     expect(li).not.toHaveAttribute('tabindex')
-    expect(within(li).getByTestId('sources-line-toggle').tagName).toBe('BUTTON')
+    expect(within(li).getByTestId('sources-line-name').tagName).toBe('SPAN')
     expect(within(li).getByTestId('sources-rate')).toBeInTheDocument()
     expect(within(li).getByTestId('sources-marker')).toBeInTheDocument()
+    expect(within(li).queryByTestId('sources-chevron')).toBeNull()
+    const make = line('make-here')
+    expect(make).not.toHaveAttribute('tabindex')
+    expect(within(make).getByTestId('sources-line-toggle').tagName).toBe('BUTTON')
+    expect(within(make).getByTestId('sources-make-here-switch')).toBeInTheDocument()
+    expect(within(make).queryByTestId('sources-chevron')).toBeNull()
   })
 })
 
@@ -305,53 +343,51 @@ describe('what the lines read', () => {
     solvedNodes((nodes ?? []) as object[], rest)
   }
 
-  it('reads nothing yet, no row here makes it, and the connection count', () => {
+  it('reads nothing yet, and the connection count', () => {
     const main = mainBlock()
     useBlockStore.setState({ blocks: [{ ...main, rootPlan: { ...main.rootPlan, nodes: main.rootPlan.nodes.filter(n => n.kind === 'game-recipe' && n.recipeId === 'smelt') } }] })
     openList()
-    expect(detailOf(openLine('made-here'))).toHaveTextContent('nothing yet')
-    expect(within(detailOf(line('made-here'))).getByTestId('sources-detail-reading')).toHaveTextContent('nothing yet')
-    expect(within(detailOf(openLine('make-here'))).getByTestId('sources-detail-reading')).toHaveTextContent('no row here makes it')
     expect(line('add-block')).toHaveTextContent('No connection for Ore.')
     // Neither makes anything: both lines are marked idle.
     expect(within(line('made-here')).getByTestId('sources-status-mark')).toHaveAttribute('data-status', 'idle')
     expect(within(line('make-here')).getByTestId('sources-status-mark')).toHaveAttribute('data-status', 'idle')
   })
 
-  it('lists the dedicated rows under Make more here', () => {
-    openList()
-    openLine('make-here')
-    expect(detailOf(line('make-here'))).toHaveTextContent('Ore Synth')
-    expect(detailOf(line('make-here'))).not.toHaveTextContent('×')
-  })
-
-  it('lists the rows making it at a rate above 0 under Don\'t make more here, the byproduct ones otherwise', () => {
-    const nodes = mainBlock().rootPlan.nodes
-    const synth = nodes.find(n => n.kind === 'game-recipe' && n.recipeId === 'ore-synth')!.id
-    solved({ nodes: [{ recipeNodeId: synth, machineCountCeil: 2, outputRates: { ore: 30 } } as never] })
+  it('reads the rate of the rows that make it under Don\'t make more here', () => {
+    const synth = mainBlock().rootPlan.nodes.find(n => n.kind === 'game-recipe' && n.recipeId === 'ore-synth')!.id
+    // The rate column reads what the rows consume, so something consumes it (the smelt row, from the rows' own output).
+    solved({ nodes: [{ recipeNodeId: synth, machineCountCeil: 2, inputRates: { ore: 30 }, outputRates: { ore: 30 } } as never] })
     openList()
     // The row is dedicated to Ore: not "already made" under Make it here.
-    expect(detailOf(openLine('made-here'))).toHaveTextContent('nothing yet')
+    expect(rateOf(line('made-here'))).toBe('—')
     fireEvent.click(screen.getByTestId('sources-make-here-switch'))
-    expect(detailOf(line('made-here'))).toHaveTextContent('Ore Synth')
-    expect(detailOf(line('made-here'))).toHaveTextContent('30')
+    expect(rateOf(line('made-here'))).toBe('30.0/m')
   })
 
   it('reads the imported rate, and Missing with Import off', () => {
     solved({ unsatisfied: [{ itemId: 'ore', rate: 12 } as never] })
     openList()
     expect(rateOf(line('import'))).toBe('12.0/m')
-    openLine('import')
-    expect(detailOf(line('import'))).toHaveTextContent('12')
-    expect(detailOf(line('import'))).not.toHaveTextContent('Missing')
     expect(within(line('import')).queryByTestId('sources-status-mark')).toBeNull()
+    expect(within(line('import')).getByTestId('sources-line-name').tagName).toBe('SPAN')
     fireEvent.click(screen.getByTestId('sources-import-switch'))
-    expect(detailOf(line('import'))).toHaveTextContent('Missing 12.0/m')
-    expect(detailOf(line('import'))).toHaveTextContent('Missing: Import is off and nothing else supplies it.')
     expect(rateOf(line('import'))).toBe('12.0/m')
     expect(within(line('import')).getByTestId('sources-status-mark')).toHaveAttribute('data-status', 'missing')
+    expect(screen.getByTestId('sources-foot-missing')).toBeVisible()
     // What is missing is not dimmed, as an off line with nothing missing is.
     expect(line('import')).toHaveAttribute('data-off', 'true')
+    expect(within(line('import')).getByTestId('sources-line-toggle').tagName).toBe('BUTTON')
+    openLine('import')
+    expect(within(detailOf(line('import'))).getByTestId('sources-detail-status')).toHaveTextContent('Missing: Import is off and nothing else supplies it.')
+    expect(detailOf(line('import')).querySelector('p:not([data-testid="sources-detail-status"])')).toBeNull()
+    // Switching Import back on closes the detail: the line has nothing left to say.
+    fireEvent.click(screen.getByTestId('sources-import-switch'))
+    expect(screen.queryByTestId('sources-detail')).toBeNull()
+    expect(within(line('import')).getByTestId('sources-line-name').tagName).toBe('SPAN')
+    // It does not remember it was open: Import off again shows the line closed.
+    fireEvent.click(screen.getByTestId('sources-import-switch'))
+    expect(screen.queryByTestId('sources-detail')).toBeNull()
+    expect(within(line('import')).getByTestId('sources-line-toggle')).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('lists an item imported over several ranges once, with the sum', () => {
@@ -359,18 +395,6 @@ describe('what the lines read', () => {
     openList()
     expect(screen.getAllByTestId('sources-line').filter(l => l.getAttribute('data-line') === 'import')).toHaveLength(1)
     expect(rateOf(line('import'))).toBe('17.0/m')
-  })
-})
-
-describe('a solved dedicated row', () => {
-  it('reads its machine count, and the recipe alone while it is idle', () => {
-    const synth = mainBlock().rootPlan.nodes.find(n => n.kind === 'game-recipe' && n.recipeId === 'ore-synth')!.id
-    solvedNodes([{ recipeNodeId: synth, machineCountCeil: 2, outputRates: { ore: 30 } }])
-    openList()
-    openLine('make-here')
-    expect(detailOf(line('make-here'))).toHaveTextContent('Ore Synth (2 × machine)')
-    solvedNodes([{ recipeNodeId: synth, machineCountCeil: 0, outputRates: {} }])
-    expect(detailOf(line('make-here'))).not.toHaveTextContent('×')
   })
 })
 
@@ -448,6 +472,7 @@ describe('focus', () => {
       expect(el.getAttribute('tabindex')).toBeNull()
     }
     for (const l of screen.getAllByTestId('sources-line')) expect(l).not.toHaveAttribute('tabindex')
+    for (const n of screen.getAllByTestId('sources-line-name')) expect(n).toHaveAttribute('tabindex', '0')
   })
 })
 
@@ -481,8 +506,8 @@ describe('Alt+Arrow', () => {
 
   it('does nothing on the other lines', () => {
     openList()
-    alt(toggleOf(line('import')), 'ArrowUp')
-    alt(toggleOf(line('made-here')), 'ArrowDown')
+    alt(nameOf(line('import')), 'ArrowUp')
+    alt(nameOf(line('made-here')), 'ArrowDown')
     expect(ruleOf()).toBeUndefined()
     expect(useBlockStore.getState().history.main?.undoStack.length ?? 0).toBe(0)
   })
@@ -548,8 +573,15 @@ describe('the block lines', () => {
     expect(within(row('c1')).getByTestId('sources-block-name')).toHaveTextContent('Alpha')
     expect(within(row('c2')).getByTestId('sources-block-name')).toHaveTextContent('Beta')
     expect(within(row('c1')).getByTestId('sources-block-color')).toHaveStyle({ background: '#112233' })
+    const c2 = within(row('c2')).getByTestId('sources-line-toggle')
+    expect(tipOf(c2)).toBe(SOURCES_LINES['other-blocks'].title)
+    expect(c2).not.toHaveAttribute('title')
+    expect(tipOf(within(row('c2')).getByTestId('sources-block-tag'))).toBe('Beta only gives what it has left over.')
+    expect(c2).toHaveAccessibleDescription(/Receive it from a connected block.*only gives what it has left over/)
     toggleLine(row('c2'))
-    expect(detailOf(row('c2'))).toHaveTextContent("Receive it from a connected block, up to the connection's limit.")
+    expect(detailOf(row('c2'))).not.toHaveTextContent(SOURCES_LINES['other-blocks'].title)
+    expect(screen.getAllByTestId('sources-detail')).toHaveLength(1)
+    expect(detailOf(row('c2')).querySelector('p:not([data-testid="sources-block-status"])')).toBeNull()
     expect(within(line('add-block')).getByTestId('sources-receive-from')).toHaveAccessibleName('Receive from…')
     expect(within(line('add-block')).getByTestId('sources-receive-from')).toHaveAttribute('aria-haspopup', 'menu')
     expect(line('add-block')).not.toHaveTextContent('No connection')
@@ -901,6 +933,7 @@ describe('at area scope', () => {
     expect(lines()).toEqual(['made-here', 'make-here', 'other-areas', 'add-block', 'import'])
     expect(screen.queryByTestId('sources-area-switch')).not.toBeInTheDocument()
     expect(reading(line('other-areas'))).toBe('—')
+    expect(tipOf(nameOf(line('other-areas')))).toBe(SOURCES_LINES['other-areas'].title)
   })
 
   it('reads the rate routed from each area, nothing when it sends none', () => {
@@ -910,7 +943,12 @@ describe('at area scope', () => {
     expect(reading(areaLine('M1'))).toBe('12.0/m')
     expect(reading(areaLine('M2'))).toBe('—')
     expect(within(areaLine('M2')).getByTestId('sources-status-mark')).toHaveAttribute('data-status', 'idle')
-    expect(detailOf(toggleLine(areaLine('M2')))).toHaveTextContent('sends nothing now')
+    // A line that sends nothing has no controls: it is flat, and says so in the tooltip of its name.
+    expect(within(areaLine('M2')).queryByTestId('sources-line-toggle')).toBeNull()
+    const idleTip = tipOf(nameOf(areaLine('M2')))
+    expect(idleTip.startsWith('Line M2 sends nothing now\n')).toBe(true)
+    expect(idleTip.endsWith(AREA_LINE_HELP)).toBe(true)
+    expect(tipOf(nameOf(areaLine('M1')))).toBe(AREA_LINE_HELP)
     for (const sw of screen.getAllByTestId('sources-area-switch')) expect(sw).toHaveAttribute('aria-checked', 'true')
   })
 
@@ -971,7 +1009,7 @@ describe('at area scope', () => {
     expect(reading(line('import'))).toBe('5.00/m')
     fireEvent.click(screen.getByTestId('sources-import-switch'))
     expect(reading(line('import'))).toBe('5.00/m')
-    expect(detailOf(openLine('import'))).toHaveTextContent('Missing 5.00/m')
+    expect(within(line('import')).getByTestId('sources-status-mark')).toHaveAttribute('data-status', 'missing')
     expect(screen.getByTestId('sources-foot')).toHaveAttribute('data-missing', '5')
     expect(screen.getByTestId('sources-foot-missing')).toHaveTextContent('5.00/m missing')
   })
@@ -981,7 +1019,6 @@ describe('at area scope', () => {
     openAreaList()
     solve([into('M1', 12)])
     expect(reading(line('import'))).toBe('—')
-    expect(detailOf(openLine('import'))).toHaveTextContent('none')
   })
 
   it('reads the connection flow on its line and what reaches the area under the block lines', () => {
@@ -992,10 +1029,10 @@ describe('at area scope', () => {
     }))
     solve([into(undefined, 12, 9)])
     const blockLine = screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-line') === 'block')!
-    // The line reads its share of what reaches the area; the connection's whole rate is in the detail.
-    expect(within(blockLine).getByTestId('sources-block-rate')).toHaveTextContent('9.00/m')
-    toggleLine(blockLine)
-    expect(within(blockLine).getByTestId('sources-detail-reading')).toHaveTextContent('12.0/m over this connection; 9.00/m of it reaches this area.')
+    // The line reads its share of what reaches the area; the connection's whole rate is the tooltip of the rate.
+    const rateEl = within(blockLine).getByTestId('sources-block-rate')
+    expect(rateEl).toHaveTextContent('9.00/m')
+    expect(tipOf(rateEl)).toBe('12.0/m over this connection; 9.00/m of it reaches this area.')
     expect(reading(line('import'))).toBe('3.00/m')
     expect(screen.getByTestId('sources-foot')).toHaveTextContent('Reaches Line L')
   })
@@ -1009,10 +1046,10 @@ describe('at area scope', () => {
     }))
     solve([into(undefined, 12)])
     const blockLine = screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-line') === 'block')!
-    toggleLine(blockLine)
-    expect(within(blockLine).getByTestId('sources-detail-reading')).toHaveTextContent('12.0/m of it reaches this area')
+    const rateEl = within(blockLine).getByTestId('sources-block-rate')
+    expect(tipOf(rateEl)).toBe('12.0/m over this connection; 12.0/m of it reaches this area.')
     solve([into(undefined, 12)], [{ itemId: 'ore', rate: 12 }])
-    expect(within(blockLine).getByTestId('sources-detail-reading')).toHaveTextContent('none of it reaches this area')
+    expect(tipOf(rateEl)).toBe('12.0/m over this connection; none of it reaches this area.')
     expect(reading(line('import'))).toBe('12.0/m')
   })
 
@@ -1021,7 +1058,9 @@ describe('at area scope', () => {
     openAreaList()
     const blockLine = screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-line') === 'block')!
     toggleLine(blockLine)
-    expect(detailOf(blockLine)).toHaveTextContent("Order, limit and Remove are the block's.")
+    const whole = within(blockLine).getByTestId('sources-whole-block')
+    expectTip(whole, "Order, limit and Remove are the block's.")
+    expect(detailOf(blockLine).querySelector('p')).toBeNull()
     for (const id of ['sources-limit', 'sources-block-move-up', 'sources-block-move-down', 'sources-block-remove', 'sources-make-product']) {
       expect(within(blockLine).queryByTestId(id)).not.toBeInTheDocument()
     }
@@ -1047,7 +1086,7 @@ describe('at area scope', () => {
     expect(document.getElementById(sw.getAttribute('aria-describedby')!)).toHaveTextContent(/block/i)
     fireEvent.click(screen.getByTestId('use-block-rule'))
     expect(screen.queryByTestId('use-block-rule')).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(screen.getAllByTestId('sources-line-toggle')[0])
+    expect(document.activeElement).toBe(document.querySelector('[data-line-name]'))
     fireEvent.click(screen.getByTestId('leftover-whole-block'))
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Whole block' }))
   })
@@ -1081,7 +1120,8 @@ describe('at area scope', () => {
     useBlockStore.setState({ blocks: [main], activeBlockId: 'main', history: {} })
     openAreaList()
     expect(lines()).toEqual(['made-here', 'make-here', 'other-areas', 'add-block', 'import'])
-    expect(detailOf(openLine('other-areas'))).toHaveTextContent('No other area makes Ore.')
+    expect(within(line('other-areas')).queryByTestId('sources-line-toggle')).toBeNull()
+    expect(tipOf(nameOf(line('other-areas')))).toBe(`No other area makes Ore\n${SOURCES_LINES['other-areas'].title}`)
   })
 
   it('remembers the side of Make more here per scope', () => {

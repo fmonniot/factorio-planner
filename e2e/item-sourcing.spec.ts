@@ -68,7 +68,7 @@ test.describe('item sourcing', () => {
     await page.getByRole('menuitem', { name: 'Comes from…' }).click()
     await expect(comesFromPopover(page)).toBeVisible()
     await expect(comesFromPopover(page)).toContainText('Every row of this block')
-    await expect(comesFromPopover(page).getByTestId('sources-line-toggle').first()).toBeFocused()
+    await expect(comesFromPopover(page).locator('[data-line-name]').first()).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(comesFromPopover(page)).toHaveCount(0)
 

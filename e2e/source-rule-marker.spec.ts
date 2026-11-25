@@ -165,7 +165,7 @@ test('the marker only shows the rule: a click on it opens nothing, and a right-c
   // The chip keeps its click (the producer picker) and has a right-click: its Comes from popover, with the rule set.
   await chip.click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Comes from…' }).click()
-  await expect(comesFromPopover(page).getByTestId('sources-line-toggle').first()).toBeFocused()
+  await expect(comesFromPopover(page).locator('[data-line-name]').first()).toBeFocused()
   await expect(comesFromPopover(page).getByTestId('sources-rule-chip')).toHaveAttribute('data-preset', 'byproducts-first')
   await page.keyboard.press('Escape')
   await expect(comesFromPopover(page)).toHaveCount(0)

@@ -17,6 +17,7 @@ import { ComesFromHeader } from './ComesFromHeader'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { SourcesBar } from './SourcesBar'
 import { SourcesList } from './SourcesList'
+import { LINE_NAME_SELECTOR } from './SourcesLine'
 import { useSourcesModel } from './useSourcesModel'
 import { RuleIcons } from './RuleIcons'
 import { StripIcon } from './StripIcon'
@@ -40,7 +41,7 @@ import type { ProductChangeEffect } from '../../store/connections'
 // ---------------------------------------------------------------------------
 
 /** The name of the first line of the Sources list: where the focus goes when what had it is gone. */
-const FIRST_LINE = '[data-testid="sources-line-toggle"]'
+const FIRST_LINE = LINE_NAME_SELECTOR
 /** Make it a product, in the takers note: where the focus returns on Cancel. */
 const MAKE_PRODUCT_BUTTON = '[data-testid="leftover-make-product"]'
 

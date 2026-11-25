@@ -7,6 +7,7 @@ import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
 import { keepTabInside } from './keepTabInside'
 import { liveAnchor } from './popoverAnchor'
+import { LINE_NAME_SELECTOR } from './SourcesLine'
 
 // ---------------------------------------------------------------------------
 // ComesFromPopover — the Comes from control of any item of the active block, in a popover opened where the player
@@ -98,7 +99,7 @@ export function ComesFromPopover({ hasSlot }: {
   useLayoutEffect(() => {
     if (!shown) return
     origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    ref.current?.querySelector<HTMLElement>('[data-testid="sources-line-toggle"]')?.focus()
+    ref.current?.querySelector<HTMLElement>(LINE_NAME_SELECTOR)?.focus()
   }, [shown, itemId])
 
   if (!popover || !gameData) return null

@@ -156,8 +156,7 @@ test.describe('choosing the supplying area (case 21 B)', () => {
     await expectRows(page, { m1: 0, m2: 0 })
     const blockLine = popover(page).locator('[data-line="block"]')
     await expect(blockLine.getByTestId('sources-block-rate')).toHaveText(/^12(\.0+)?\/m$/)
-    await openLine(blockLine)
-    await expect(blockLine.getByTestId('sources-detail-reading')).toHaveText(/of it reaches this area\.$/)
+    await expect(blockLine.getByTestId('sources-block-rate')).toHaveAttribute('data-tip', /of it reaches this area\.$/)
     await expect(popover(page).getByTestId('sources-foot')).toContainText('Reaches Line L')
     await expect(reading(page, popover(page).locator('[data-line="import"]'))).toHaveText('—')
     // The block lines are read-only here (no limit, no Remove); Receive from… stays, as it only adds a connection.

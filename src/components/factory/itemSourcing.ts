@@ -99,7 +99,7 @@ export function ruleNamesLabel(parts: readonly SourceRulePart[], rootPlan: SubPl
 export const SOURCES_BUTTON_LABEL = 'Sources…'
 
 /**
- * The fixed lines of the Sources list: the name shown, and the help text shown as a tooltip and under the focused line.
+ * The fixed lines of the Sources list: the name shown, and the help text, the tooltip of the line's name.
  * `other-blocks` has no line of its own: each connection is a line named after its source, and carries this help text.
  * The Import line holds the same switch as the Comes from control, so it carries that switch's name and help text.
  */
@@ -166,9 +166,6 @@ export function ruleChipOf(
 /** The help strings of the detail of a line of the Sources list. */
 export const SOURCES_DETAIL = {
   blockAtArea: "Order, limit and Remove are the block's.",
-  noMaker: 'no row here makes it',
-  nothingYet: 'nothing yet',
-  sendsNothing: 'sends nothing now',
   importMissing: 'Missing: Import is off and nothing else supplies it.',
 } as const
 
