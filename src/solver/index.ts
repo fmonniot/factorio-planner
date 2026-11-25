@@ -2551,9 +2551,8 @@ function solvePass(
   return { solve: { results, flows, errors, loops, requestLoops: requestPlan.loops, served }, probes: requestPlan.probes }
 }
 
-/** The items a block has *Receive it first* on: in its block rules, or in the rules of an area (the item counts when some area's effective rule is first). */
-function firstRuleItems(block: Block): string[] {
-  const plan = flattenBlock(block)
+/** The items a flattened block has *Receive it first* on: in its block rules, or in the rules of an area (the item counts when some area's effective rule is first). */
+function firstRuleItems(plan: ReturnType<typeof flattenBlock>): string[] {
   const ids = new Set([...Object.keys(plan.sourceRules ?? {}), ...(plan.areas ?? []).flatMap(a => Object.keys(a.rules ?? {}))])
   return [...ids].filter(id => (plan.areas
     ? plan.areas.some(a => areaRuleOf(a, plan.sourceRules, id).makeHere === 'after-blocks')
@@ -2570,13 +2569,13 @@ function offEverywhere(plan: ReturnType<typeof flattenBlock>, itemId: string): b
 /**
  * The items of a block a first pass may have left short: its *Receive it first* items, and, when the block connects another item,
  * every other connected item that is not *Don't make more here* everywhere. With a single connected item the capped probe differs
- * from the unlimited one only in that item, whose need `withShortNeeds` takes from the unlimited probe, so a second pass would change nothing.
+ * from the unlimited one only in that item, whose need `withShortNeeds` takes from the unlimited probe, so a second pass would change
+ * the requests, credits and served needs by nothing (only the probe's solved nodes, which a take source's leftover estimate reads, stay the unlimited probe's).
  */
-function shortCandidates(block: Block, connected: ReadonlySet<string>): string[] {
-  const first = new Set(firstRuleItems(block))
+function shortCandidates(plan: ReturnType<typeof flattenBlock>, connected: ReadonlySet<string>): string[] {
+  const first = new Set(firstRuleItems(plan))
   const out = new Set(first)
   if (connected.size > 1) {
-    const plan = flattenBlock(block)
     for (const id of connected) if (!first.has(id) && !offEverywhere(plan, id)) out.add(id)
   }
   return [...out]
@@ -2609,7 +2608,8 @@ export function shortFirstSupply(
   for (const block of blocks) {
     const probe = probes.get(block.id)
     if (!probe) continue
-    for (const itemId of shortCandidates(block, connected.get(block.id) ?? new Set())) {
+    const plan = flattenBlock(block)
+    for (const itemId of shortCandidates(plan, connected.get(block.id) ?? new Set())) {
       if (split.has(itemId)) continue
       const cap = offered.get(`${block.id}\0${itemId}`)
       if (cap === undefined) continue

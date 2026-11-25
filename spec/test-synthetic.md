@@ -1170,8 +1170,9 @@ Block H: product 25 gears, rows gear, P (`ratio`) and S pinned at 10 ingots, as 
 ```
 a (P 1 makes 2, c-I maxRate 5, plate unlimited): the probe has both items unlimited: ingot i = x - 10, plate u = 50 - 2x, and the connection order takes the fewest units, 40 - x down to x = 25, so it takes ingot 15 and plate 0. The ingot offer is 5, 15 - 5 = 10 is short. The second pass probes with ingot capped at 5: x <= 15, plate u = 50 - 2x is least at x = 15, so 20. c-P requests 20 and is served 20 (kind request, status ok); c-I requests 5, is served 5 and is capped. P 15, H's S 10, SP mines 20, SI mines 5, G 25, no plate or ingot imported. Before the second pass: c-P requested 0.
 b (P 2 make 1, c-P maxRate 12, ingot unlimited): the probe takes plate 45 (x = 5, ingot i = 2x - 10 = 0). The plate offer is 12, 45 - 12 = 33 is short. The second pass probes with plate capped at 12: x = 38, ingot i = 76 - 10 = 66. c-I requests 66 and is served 66; c-P requests 12, is served 12 and is capped. P 38, SI mines 66, SP mines 12, no plate or ingot imported: 12 + 38 = 50 plates make 25 gears. Before the second pass: c-I requested 0, P 5, plate imported 33.
-c (as b, c-P maxRate 100): the offer covers the need of 45, so no pair is short (`shortFirstSupply` is empty), one pass runs: plate 45, P 5, c-I requested 0 and unused.
+c (as b, c-P maxRate 100): the offer covers the need of 45, so no pair is short (`shortFirstSupply` is empty), one pass runs: plate 45, P 5, c-I requested 0 and unused. The unit test `c2` checks the empty `shortFirstSupply` on its own.
 d (as b, no c-I): the block connects one item only, so the trigger does not fire: P 5, plate imported 33, as before.
+f (as d, plus a connection `c-Q` of an item H uses nowhere, coin from a block Q): the block connects two items, so the second pass runs, and changes nothing: P 5, plate imported 33, c-P, H's nodes and SP's served list equal row d's, c-Q requested 0.
 e (warm): b solved, then c-P maxRate 20 through one `SolveCache`: x = 30, ingot 50; equals a cold solve.
 ```
 

@@ -2811,9 +2811,23 @@ describe('solver synthetic cases', () => {
           expect(unsat(all.results.H, PLATE), 'plate imported').toBeCloseTo(33, 6)
         })
       }
-      it('c: shortFirstSupply has no entry for an offer that covers the need', () => {
+      it('c2: shortFirstSupply has no entry for an offer that covers the need', () => {
         const first = solveAll([SP(), SI(), H('2-1', { plate: 100 })], makeGameData())
         expect(shortFirstSupply([H('2-1', { plate: 100 })], makeGameData(), new Map([['H', new Map([[PLATE, 45], [INGOT, 0]])]]), first.flows).size).toBe(0)
+      })
+      it('f: plate capped at 12 and an unrelated connection: the second pass changes no request', () => {
+        // Q's coin feeds nothing in H, so H's requests, credits and served needs are those of row d (no second connection).
+        const Q = (): Block => mk('Q', [['case22-coin', 0]], [planNode('case22-press')])
+        const h: Block = H('2-1', { plate: 12 }, false)
+        h.inputConnections.push({ id: 'c-Q', itemId: 'case22-coin', fromBlockId: 'Q' })
+        const all = solveAll([SP(), Q(), h], makeGameData())
+        const d = solveAll([SP(), H('2-1', { plate: 12 }, false)], makeGameData())
+        expect(nodeOf(all.results.H, 'P').throughput, 'P runs').toBeCloseTo(5, 6)
+        expect(unsat(all.results.H, PLATE), 'plate imported').toBeCloseTo(33, 6)
+        expect(flowIn(all, 'c-P'), 'c-P').toEqual(flowIn(d, 'c-P'))
+        expect(flowIn(all, 'c-Q').requested, 'c-Q requested').toBeCloseTo(0, 6)
+        expect(all.results.H.nodes, "H's nodes").toEqual(d.results.H.nodes)
+        expect(all.served.SP, 'served SP').toEqual(d.served.SP)
       })
       it('e: a warm solve equals a cold one', () => {
         const cache = createSolveCache()
