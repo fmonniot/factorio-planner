@@ -1374,7 +1374,7 @@ Two observations, not derived: a pair item (case b with a second `cool-b` in an 
 
 ## Case 29 — A take credited after its consumer
 
-**Exercises:** a listed take whose consumer requests nothing of the item, reached by the request pass before its source (it waits and is credited once its source and the takes above it are), with the source in a cycle of requests, with a consumer shown as areas, and a take of a member source inside a cycle (the member's leftover estimate, of the same round or the previous one).
+**Exercises:** a listed take whose consumer requests nothing of the item, reached by the request pass before its source (it waits and is credited once its source and the takes above it are), with the source in a cycle of requests, with a consumer shown as areas, and a take of a member source inside a cycle (the member's leftover estimate, of the same round or the previous one), and a takes-first take reached before its source or a take above it (it waits with its consumer's requests of the item; the residual where it cannot).
 
 **Recipes:** cases 11's (X = `case11-x`), 13's (plate = `case13-plate`, with `case13-use-plate` making a gear) and 17's (q = `case17-q`, r = `case17-r`), time 1, category smelting.
 
@@ -1421,6 +1421,27 @@ Blocks as in 29a, plus: **W** (goal 10, row make-goal, so 10 X left over, no lis
 - **What a parked slice needs of W stays set aside.** As above with Qb, processed after C and before T: while C's slice waits, W's 10 are held for `c-CW` (C needs 25 and `c-CT` cannot be known yet), so Qb's `c-QW` is credited nothing; when the slice resumes, `c-CW` is credited 5 (the other 5 of W's X stay uncredited).
 - **A tied group below a parked take.** List H, then C and H2 tied, on T: the pass reaches the group before T, so it cannot be shared by need and is credited and granted in list order: H 10, C 20, H2 0 (H2 imports its 5).
 - **Takes that wait on each other.** S1 lists B then A, S2 lists A then B; the request order is S1, S2, B, A (the edges of the second list would close a cycle with the first). B's S2 take waits for A's, A's S1 take waits for B's. Nothing else will credit them, so they are credited in the order they were parked: B's S2 take is flagged `notCredited` (A's take above it is not credited) and B's S1 take is credited 10 (B's share of S1 is first); A's S1 take then reads that credit and gets 10 of the 20 left. Each of A and B is credited 10 in all and imports 0.
+
+### 29e — a takes-first take that waits
+
+Blocks (X = `case11-x`, plate = `case13-plate`):
+
+- **T**: goal 30, plate 0; rows make-goal and make-plate. It leaves 30 X. Its list is on X (none in e1).
+- **B**: other 40, gear 5; rows use-x and use-plate. Connections, in this order: `c-BT` takes X from T, `c-BV` requests X from V, `c-BP` requests plate from T.
+- **V**: X 0; row make-x (1 feed makes 2 X).
+- **H2**: other 10; row use-x; `c-H2T` takes X from T.
+
+B requests plate from T, so B comes before T and the edge T to B (the take) is refused: B's take of X waits for T together with `c-BV`. `c-BP` (5 plate) is shared out at once; T's goals are then 30 goal and 5 plate, and it leaves 30 X. A wait edge puts V after T (without it the tabs V, B, T would probe V before B's request of X exists).
+
+- **e1, no list.** Tabs T,B,V / B,V,T / V,B,T. When the slice resumes `c-BT` covers min(30, 40) = 30 and B asks V for the other 10. Expect `c-BT` 30 `ok`; `c-BV` requested 10, rate 10 `ok`; `c-BP` 5; B imports 0 X; T runs make-goal 30 and make-plate 5; V runs make-x 5. Line B: share 30, got 30, need 40, no `notCredited`.
+- **e2, lists on X.** Tabs T,B,V,H2 / B,V,T,H2 / V,H2,B,T.
+  - e2a, `[B]`: as e1; line B 30, need 40, no flag.
+  - e2b, `[B, H2]`: B 30 (`c-BV` requested 10); `c-H2T` rate 0 `limited` (H2 imports 10, T has nothing left). Lines B 30 (need 40) and H2 0 (need 10).
+  - e2c, `[H2, B]`: the order is B, T, H2, V (the rank edge H2 to B is refused: B reaches H2 through T; the wait edges T to V and H2 to V are added). B's slice is still blocked after T and resumes once H2 is credited min(30, 10) = 10; B gets 30 - 10 = 20. Expect `c-H2T` 10 `ok`; `c-BT` 20 `ok`; `c-BV` requested 20, rate 20; V runs make-x 10. Lines H2 10 (need 10) and B 20 (need 40).
+  - e2d, `[H2, B]` with B tied to H2: the group is served in list order (T comes after B), so B waits for H2 as in e2c, and the wait edges put V after both T and H2. Tabs V,B,T,H2 / B,V,T,H2 / T,B,V,H2 give e2c's numbers: H2 10, `c-BT` 20, `c-BV` requested 20.
+- **e3, an unnamed takes-first consumer.** **G** (q 0; row make-q; `c-GT` takes X from T), **U** (r 10, other 25; rows use-q and use-x; `c-UG` requests q from G, `c-UT` takes X from T, `c-UV` requests X from V). T's list is `[G]`. Tabs T,G,U,V / V,U,G,T / U,V,T,G. The order is T, U, G, V: the take edge T to U stands, the rank edge G to U is refused (U reaches G), and a wait edge G to V is added. U's slice waits for G's credit min(30, 10) = 10 and resumes with 30 - 10 = 20: `c-UT` min(20, 25) = 20, so `c-UV` is 5. Expect `c-GT` 10 `ok`; `c-UT` 20 `ok`; `c-UV` requested 5, rate 5; V runs make-x 2.5; U imports 0. Lines G 10 (need 10) and U 20 (need 25), no flags.
+- **e4, the residual.** **A** (X 0, gear 5; rows make-x and use-plate; `c-AP` requests plate from T) and **B4** (other 40, row use-x; `c-BT` takes X from T, `c-BA` requests X from A). Tabs T,B,A / A,B,T / B,A,T. The order is B4, A, T: the wait edge T to A would close a loop (A requests plate from T), so it is left out and B4's slice is flushed before A with no credit. Expect `c-BT` 0 `unused`; `c-BA` requested 40, rate 40; A runs make-x 20; `c-AP` 5; T runs make-plate 5; B4 imports 0 X. With no list the line B4 has share 0, need 40 and no flag; with the list `[B4]` it also has `notCredited: true`.
+- **e5, a warm solve.** e2c solved twice through one `SolveCache`: the second solve stores nothing, and its flows and served lists equal a cold solve's.
 
 ## Case 30 — Receive it first with a short supply
 

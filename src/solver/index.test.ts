@@ -1909,7 +1909,10 @@ describe('solveAll — requests', () => {
       expect(throughput(all, 'A')).toBeCloseTo(50, 4)
     })
 
-    it('gives no credit when the take source depends on the consumer own requests', () => {
+    // B takes plate from T and requests it from A, and also takes slag from T (a polish row), so the request pass reaches B before T. B's
+    // take waits for T together with its request of plate from A: T's goals are slag 20 + 10 = 30, so the twin runs 30 times and leaves 30
+    // plate, the take is credited min(30, 50) = 30 and B asks A for the other 20.
+    const dependsOnConsumer = () => {
       const data = requestGameData()
       data.recipes.polish = recipe('polish', 1, [{ itemId: 'slag', type: 'item', amount: 1 }], [product('polish', 1)])
       const b = block(
@@ -1918,12 +1921,31 @@ describe('solveAll — requests', () => {
         [planNode('g', 'gear'), planNode('s', 'polish')],
         [take(), request(), link('cs', 'T', 'slag')],
       )
-      const all = solveAll([twinSource(), smelter(), b], data)
+      return { data, byId: { T: twinSource(), A: smelter(), B: b } as Record<string, Block> }
+    }
+    it.each([['T', 'A', 'B'], ['A', 'T', 'B'], ['B', 'A', 'T']])("credits a takes-first take whose source depends on the consumer's own requests, once the source is processed (tabs %s, %s, %s)", (...tabs) => {
+      const { data, byId } = dependsOnConsumer()
+      const all = solveAll(tabs.map(t => byId[t]), data)
+      expect(flowOf(all, 'cs').requested).toBeCloseTo(10, 4)
+      expect(flowOf(all, 'cr').requested).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'cr').rate).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'ct').rate).toBeCloseTo(30, 4)
+      expect(throughput(all, 'A')).toBeCloseTo(20, 4)
+      expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
+    })
+
+    // The same, with A turning slag from T into the plate it makes: A is reached before T through its request of slag, so the request of
+    // plate cannot wait behind T's credit. The take gets nothing and the request takes it all.
+    it('limitation: no credit when a block the consumer requests the item from depends on the take source', () => {
+      const { data, byId } = dependsOnConsumer()
+      data.recipes.slagPlate = recipe('slagPlate', 1, [{ itemId: 'slag', type: 'item', amount: 1 }], [product('plate', 1)])
+      byId.A = block('A', [prod('plate')], [planNode('p', 'slagPlate')], [link('ca', 'T', 'slag')])
+      const all = solveAll([byId.T, byId.A, byId.B], data)
       expect(flowOf(all, 'cr').requested).toBeCloseTo(50, 4)
-      // The take got no credit, so it does not draw ahead of the request: what A made for B is used.
-      expect(flowOf(all, 'cr').rate).toBeCloseTo(50, 4)
       expect(flowOf(all, 'ct').rate).toBeCloseTo(0, 4)
-      expect(throughput(all, 'A')).toBeCloseTo(50, 4)
+      expect(flowOf(all, 'ca').requested).toBeCloseTo(50, 4)
+      // T's slag goals: 20 of its own + 10 for cs + 50 for ca, one slag per twin run.
+      expect(throughput(all, 'T')).toBeCloseTo(80, 4)
     })
 
     it('reserves a credited take against a take consumer solved before it', () => {
@@ -3224,23 +3246,23 @@ describe('solveAll — served lists', () => {
       expect(plate.consumers[1].notCredited).toBeUndefined()
     })
 
-    // Same limitation, seen from a takes-first consumer the list does not name. T leaves 25 plate (twin 25). H takes
+    // Seen from a takes-first consumer the list does not name. T leaves 25 plate (twin 25). H takes
     // plate (listed) and makes the gear U requests: 10 gear need 20 plate. U makes 10 widgets (10 gear + 10 plate),
-    // takes plate from T and requests plate from V. U requests from H, so U is processed before H, and H (listed)
-    // has no credit yet: U is credited 0 and asks V for all 10 plate, although 25 - 20 = 5 of T's would do.
-    it('limitation: an unlisted takes-first consumer reached before a listed take is credited nothing', () => {
+    // takes plate from T and requests plate from V. U requests from H, so U is reached before H, and H (listed)
+    // has no credit yet: U's take waits with its request of plate from V. H is credited 20 of T's 25, U gets the other 5 and asks V for 5.
+    it('an unlisted takes-first consumer reached before a listed take waits for it', () => {
       const t = withList(block('T', [prod('slag', 25)], [planNode('t', 'twin')]), 'plate', listOf('H'))
       const h = block('H', [prod('gear')], [planNode('g', 'gear')], [link('ch', 'T')])
       const u = block('U', [prod('widget', 10)], [planNode('w', 'gp')], [link('cg', 'H', 'gear'), link('cut', 'T'), link('cv', 'V')])
       const v = block('V', [prod('plate')], [planNode('v', 'plate')])
       const all = solveAll([t, h, u, v], dataWith())
       expect(flowOf(all, 'ch').rate).toBeCloseTo(20, 4)
-      expect(flowOf(all, 'cv').requested).toBeCloseTo(10, 4)
-      expect(flowOf(all, 'cut').rate).toBeCloseTo(0, 4)
-      expect(all.served.T.plate.consumers.find(c => c.blockId === 'U')?.share).toBeCloseTo(0, 4)
+      expect(flowOf(all, 'cv').requested).toBeCloseTo(5, 4)
+      expect(flowOf(all, 'cut').rate).toBeCloseTo(5, 4)
       const uLine = all.served.T.plate.consumers.find(c => c.blockId === 'U')
-      expect(uLine?.notCredited).toBe(true)
+      expect(uLine?.share).toBeCloseTo(5, 4)
       expect(uLine?.need).toBeCloseTo(10, 4)
+      expect(uLine?.notCredited).toBeUndefined()
       expect(all.served.T.plate.consumers.find(c => c.blockId === 'H')?.notCredited).toBeUndefined()
     })
 
