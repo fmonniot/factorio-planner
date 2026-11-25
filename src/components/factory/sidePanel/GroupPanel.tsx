@@ -60,8 +60,8 @@ export function FlowList({ lines, items, empty, testId }: {
 }
 
 /**
- * The panel of a sub-factory or a separate area (read only): what is inside it, with a button per row or group below it
- * that selects it. A separate area also lists what it receives and sends.
+ * The panel of a sub-factory or a separate area: what is inside it, with a button per row or group below it that selects
+ * it. A separate area also lists what it receives and sends; a plain sub-factory offers one action, Make it a separate area.
  */
 export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes, gameData, onSelect, onClose }: {
   node: SubPlanNode

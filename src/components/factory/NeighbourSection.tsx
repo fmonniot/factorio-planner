@@ -182,7 +182,7 @@ export function NeighbourSection({ nodeId, neighbourCount, neighbourBonus }: Nei
             <button
               type="button"
               onClick={() => applyDrawing(cols, rows)}
-              className="ml-1.5 text-orange-400 hover:text-orange-300 underline"
+              className="text-orange-400 hover:text-orange-300 underline"
             >
               Use the drawing
             </button>

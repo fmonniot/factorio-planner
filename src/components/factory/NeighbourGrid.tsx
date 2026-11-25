@@ -34,6 +34,7 @@ export function NeighbourGrid({ cols, rows, average, dimmed }: NeighbourGridProp
         data-testid="neighbour-grid"
         role="img"
         {...describedTip(NEIGHBOUR_GRID_TIP)}
+        tabIndex={0}
         aria-label={`${cols} by ${rows} cluster, ${formatAverage(average)} neighbours on average`}
         className={`grid gap-1 ${dimmed ? 'opacity-30' : ''}`}
         style={{
