@@ -63,9 +63,10 @@ export function RailList({ arrow, label, testId, className = '', children }: {
   children: ReactNode
 }) {
   const head = arrow === 'head'
-  // A chevron pointing down; its vertex (y 4.25 of 6) joins the rail.
+  // A chevron pointing down; its vertex (y 4.25 of 6) joins the rail. It is drawn above the rail (as in the Sources list), so
+  // the rail's end tucks under the vertex instead of painting its darker grey over the chevron's tip.
   const arrowRow = (
-    <li aria-hidden="true" className="flex h-1.5 w-3.5 justify-center text-gray-500">
+    <li aria-hidden="true" className="relative z-[2] flex h-1.5 w-3.5 justify-center text-gray-500">
       <svg width="10" height="5" viewBox="0 0 10 5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M1.5 .75L5 4.25 8.5 .75" />
       </svg>
@@ -117,12 +118,15 @@ export function RailLine({ target, label, tag, detail, rate, tip, tone, testId =
       <span aria-hidden="true" data-icon={target.kind} className={`relative z-10 flex h-3.5 w-3.5 shrink-0 items-center justify-center bg-gray-900 group-hover:bg-[#1a2333] ${TONES[target.kind]}`}>
         <TargetIcon target={target} />
       </span>
-      <span className="flex min-w-0 flex-1 items-center">
-        <span data-testid={labelTestId} className="truncate">{label}</span>
-        {tag}
-        {detail !== undefined && <span className="ml-1.5 truncate text-gray-400">{detail}</span>}
+      {/* The label and the rate share a baseline: centred, the mono rate would sit a pixel above the sans label. */}
+      <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+        <span className="flex min-w-0 flex-1 items-center">
+          <span data-testid={labelTestId} className="truncate">{label}</span>
+          {tag}
+          {detail !== undefined && <span className="ml-1.5 truncate text-gray-400">{detail}</span>}
+        </span>
+        <span data-testid={rateTestId} className={`min-w-11 shrink-0 text-right font-mono tabular-nums ${warn ? 'text-amber-300' : 'text-gray-200'}`}>{rate}</span>
       </span>
-      <span data-testid={rateTestId} className={`min-w-11 shrink-0 text-right font-mono tabular-nums ${warn ? 'text-amber-300' : 'text-gray-200'}`}>{rate}</span>
     </li>
   )
 }
