@@ -107,6 +107,7 @@ try {
     if (candidates.length === 0) fail('Every block has areas already; nothing to split')
     const block = candidates.reduce((a, b) => (gameNodes(b.rootPlan).length > gameNodes(a.rootPlan).length ? b : a))
     const nodes = gameNodes(block.rootPlan)
+    if (nodes.length < syntheticAreas) fail(`The largest block with no area has ${nodes.length} rows, fewer than --synthetic-areas ${syntheticAreas}: some areas would be empty`)
     const now = new Date().toISOString()
     const chunks = Array.from({ length: syntheticAreas }, (_, i) => ({
       id: `syn-${i}`, name: `Area ${i}`, nodes: nodes.filter((_, k) => k % syntheticAreas === i), subPlans: [], area: true, createdAt: now, updatedAt: now,

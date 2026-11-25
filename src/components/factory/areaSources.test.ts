@@ -77,15 +77,15 @@ describe('supplierLines', () => {
 describe('areaLPItemsOf', () => {
   const data = {} as unknown as GameData
   // No area: the solver answers an empty set at once, a fresh one per call, which tells a kept answer from a new one.
-  const withAreas = () => makeEmptyBlock('B')
+  const noAreas = () => makeEmptyBlock('B')
 
   it('keeps the answer for the same block and game data', () => {
-    const b = withAreas()
+    const b = noAreas()
     expect(areaLPItemsOf(b, data)).toBe(areaLPItemsOf(b, data))
   })
 
   it('works it out again for a new block object or new game data', () => {
-    const b = withAreas()
+    const b = noAreas()
     const first = areaLPItemsOf(b, data)
     expect(areaLPItemsOf({ ...b }, data)).not.toBe(first)
     expect(areaLPItemsOf(b, {} as unknown as GameData)).not.toBe(first)
