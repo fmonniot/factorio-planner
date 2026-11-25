@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { makeEmptyBlock, makeEmptySubPlan, makeRecipeNode } from '../../store/blockStore'
 import type { Block, ConnectionFlow, SolvedNode, SolverResult } from '../../data/types'
-import { altMoveTarget, buildSourcesModel, consumedOf } from './sourcesModel'
+import { altMoveTarget, buildSourcesModel, consumedOf, sourcesReading } from './sourcesModel'
 import type { SourcesModelInput } from './sourcesModel'
 import type { BlockRow } from './sourcesRows'
 import type { ItemMaker } from './sourcingText'
 import { sourcesLineOrder } from './itemSourcing'
 
+const makeEmptyArea = (id: string) => ({ ...makeEmptySubPlan(id), id, area: true })
 const node = (id: string, ore: number): SolvedNode => ({ recipeNodeId: id, inputRates: { ore }, outputRates: {} } as unknown as SolvedNode)
 const solve = (nodes: SolvedNode[]): SolverResult => ({ nodes, unsatisfied: [] } as unknown as SolverResult)
 
@@ -246,5 +247,46 @@ describe('altMoveTarget', () => {
     expect(altMoveTarget('make-here', 1, { ...ctx, makeHere: 'off' })).toBeNull()
     expect(altMoveTarget('import', 1, ctx)).toBeNull()
     expect(altMoveTarget('made-here', -1, ctx)).toBeNull()
+  })
+})
+
+describe('sourcesReading', () => {
+  const fmt = (p: number) => `${p}/m`
+  const read = (over: Partial<SourcesModelInput> = {}) => sourcesReading(buildSourcesModel(input(over)), fmt)
+
+  it('gives one line per supplying source, in list order', () => {
+    expect(read({ makers: [maker(30, true), maker(100, false)], rows: [row('c1', 'Cheap', 20)] }))
+      .toBe('Already made here: 30/m\nMade by more rows here: 50/m\nFrom Cheap: 20/m')
+  })
+
+  it('splits Import and Missing', () => {
+    expect(read({ unsatisfied: 20, areaMissing: 5, rule: { importOff: true } }))
+      .toBe('Made by more rows here: 80/m\nImported: 15/m\nMissing: 5/m')
+  })
+
+  it('reads a missing-only bar entry as Missing, not Imported', () => {
+    expect(read({ rule: { importOff: true }, unsatisfied: 20 })).toBe('Made by more rows here: 80/m\nMissing: 20/m')
+  })
+
+  it('marks a limited block line', () => {
+    expect(read({ result: solve([node('n', 10)]), rows: [row('c1', 'Slow', 10, { flow: flow('c1', 10, 'limited') })] })).toBe('From Slow: 10/m (limited)')
+  })
+
+  it('reads another area as a source', () => {
+    const block = makeEmptyBlock('B')
+    block.rootPlan = { ...block.rootPlan, subPlans: [makeEmptyArea('a1'), makeEmptyArea('a2')] }
+    expect(read({
+      block, area: 'a1', supply: { imported: 0, missing: 0, reaches: 12 } as unknown as SourcesModelInput['supply'],
+      suppliers: [{ areaId: 'a2', name: 'Casting', routed: 12, off: false }], order: sourcesLineOrder(undefined, true, 'above', ['a2']),
+    })).toBe('From Casting: 12/m')
+  })
+
+  it('leaves a greyed row out', () => {
+    expect(read({ result: solve([node('n', 10)]), rows: [row('c1', 'Off', 10, { greyed: true })] })).toBe('Made by more rows here: 10/m')
+  })
+
+  it('says so before a solve and when nothing supplies the item', () => {
+    expect(sourcesReading(buildSourcesModel(input({ result: undefined })), fmt)).toBe('Not solved yet.')
+    expect(read({ result: solve([node('n', 0)]) })).toBe('Nothing supplies it.')
   })
 })

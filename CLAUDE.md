@@ -37,6 +37,8 @@ npm run test:e2e:dev # Playwright against the dev server, no build
 
 To see what the solver does with an exported plan (rows, left-over items, imports, the imports its connections replaced, warnings, connection flows, served lists) without writing a throwaway script, run `node scripts/inspect-plan.mjs <plan.json> --block <name>`; `--pin`, `--drop`, `--sourcing`, `--leftover-off`, `--area-sourcing`, `--area-import-off`, `--area-off` and `--no-area` ask what-if questions, `--list` names the blocks and `--help` has the rest. It reads the data set from the plan's stamp.
 
+`node scripts/time-sources-model.mjs <plan.json>` times the Sources model's inputs on a plan at block and at area scope (counts and milliseconds only; `--synthetic-areas N` splits a block that has no areas).
+
 The in-game viewer's bridge is a separate Rust workspace in `bridge/` (CI: `.github/workflows/bridge.yml`):
 
 ```sh

@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from 'react'
+import type { Block } from '../../data/types'
 import { areaIdsOf, effectiveAreaRule, storedAreaRule } from '../../data/subPlanTree'
-import { areaLPItems, blockAreas } from '../../solver/areas'
-import { flattenBlock } from '../../solver/index'
+import { blockAreas } from '../../solver/areas'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { areaSupply, supplierLines } from './areaSources'
+import { areaLPItemsOf, areaSupply, supplierLines } from './areaSources'
 import { areaMissingOf } from './summaryRows'
 import { fmtItemRateText } from './ItemTile'
 import { sourcesLineOrder } from './itemSourcing'
@@ -15,13 +15,19 @@ import { buildSourcesModel } from './sourcesModel'
 import { buildBlockRows } from './sourcesRows'
 import { itemMakers } from './sourcingText'
 
+export interface SourcesModelOptions {
+  /** false: do none of the work and return undefined (the strip's control draws neither list nor bar). Removed once every caller lays the model out. */
+  enabled?: boolean
+  /** true: remember where "Make more here" is drawn (the setSourcesSide effect). Only the active block's hook does. Default false. */
+  rememberSide?: boolean
+}
+
 /**
- * Everything the Sources list and the header's bar read for one item: the store reads, the rule of the scope, the lines' model.
- * `enabled` is false for the control that draws neither (the strip's), which then does none of the work.
+ * Everything the Sources list and the header's bar read for one item of any block: the store reads, the rule of the scope, the lines' model.
  * Undefined without a block or game data.
  */
-export function useSourcesModel(itemId: string, areaId: string | undefined, enabled = true) {
-  const block = useBlockStore(selectActiveBlock)
+export function useBlockSourcesModel(block: Block | undefined, itemId: string, areaId: string | undefined, options: SourcesModelOptions = {}) {
+  const { enabled = true, rememberSide = false } = options
   const blocks = useBlockStore(s => s.blocks)
   const gameData = useGameDataStore(selectGameData)
   const result = useSolverStore(selectBlockResult(block?.id))
@@ -42,11 +48,12 @@ export function useSourcesModel(itemId: string, areaId: string | undefined, enab
   const drawnSide: Side | undefined = makeHere === 'after-blocks' ? 'below' : makeHere === undefined ? 'above' : undefined
   const lastSide: Side = drawnSide ?? storedSide ?? 'above'
 
-  // Remember where *Make more here* is drawn, whoever wrote the rule: the list, or the Source rules list's Remove.
+  // Remember where *Make more here* is drawn, whoever wrote the rule: the list, or the Source rules list's Remove. Only for the active block, and
+  // whatever `enabled` is.
   const setSourcesSide = useUiStore(s => s.setSourcesSide)
   useEffect(() => {
-    if (sideKey && drawnSide) setSourcesSide(sideKey, itemId, drawnSide)
-  }, [sideKey, itemId, drawnSide, setSourcesSide])
+    if (rememberSide && sideKey && drawnSide) setSourcesSide(sideKey, itemId, drawnSide)
+  }, [rememberSide, sideKey, itemId, drawnSide, setSourcesSide])
 
   const hasAreas = useMemo(() => rootPlan !== undefined && blockAreas(rootPlan) !== undefined, [rootPlan])
   const makers = useMemo(
@@ -62,7 +69,7 @@ export function useSourcesModel(itemId: string, areaId: string | undefined, enab
   )
   // Whether the area LP splits the item's outside legs between the areas (two areas or more touch it); not told by the routes, which omit a part at zero.
   const split = useMemo(
-    () => (enabled && block && gameData && area !== undefined ? areaLPItems(flattenBlock(block), gameData).has(itemId) : false),
+    () => (enabled && block && gameData && area !== undefined ? areaLPItemsOf(block, gameData).has(itemId) : false),
     [enabled, block, gameData, itemId, area],
   )
 
@@ -100,5 +107,14 @@ export function useSourcesModel(itemId: string, areaId: string | undefined, enab
   }
 }
 
+/**
+ * The model for the active block: `useBlockSourcesModel` plus remembering the side.
+ * `enabled` is false for the control that draws neither (the strip's), which then does none of the work.
+ */
+export function useSourcesModel(itemId: string, areaId: string | undefined, enabled = true) {
+  const block = useBlockStore(selectActiveBlock)
+  return useBlockSourcesModel(block, itemId, areaId, { enabled, rememberSide: true })
+}
+
 /** What the Sources list and the header's bar read, once the hook has it. */
-export type SourcesView = NonNullable<ReturnType<typeof useSourcesModel>>
+export type SourcesView = NonNullable<ReturnType<typeof useBlockSourcesModel>>

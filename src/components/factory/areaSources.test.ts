@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { areaSupply, routedFrom, supplierLines } from './areaSources'
+import { areaLPItemsOf, areaSupply, routedFrom, supplierLines } from './areaSources'
 import { makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import type { AreaRoute, Block, GameData, SolverResult } from '../../data/types'
 
@@ -71,5 +71,23 @@ describe('supplierLines', () => {
   it('keeps an area switched off in the list, and one that only relays', () => {
     const lines = supplierLines(block(), gameData, solved([between('M2', 'L', 6), between('M1', 'L', 4)]), 'ore', 'L', { areasOff: ['M3'] })
     expect(lines.map(l => [l.areaId, l.routed, l.off])).toEqual([['M1', 4, false], ['M2', 6, false], ['M3', 0, true], ['M4', 0, false]])
+  })
+})
+
+describe('areaLPItemsOf', () => {
+  const data = {} as unknown as GameData
+  // No area: the solver answers an empty set at once, a fresh one per call, which tells a kept answer from a new one.
+  const noAreas = () => makeEmptyBlock('B')
+
+  it('keeps the answer for the same block and game data', () => {
+    const b = noAreas()
+    expect(areaLPItemsOf(b, data)).toBe(areaLPItemsOf(b, data))
+  })
+
+  it('works it out again for a new block object or new game data', () => {
+    const b = noAreas()
+    const first = areaLPItemsOf(b, data)
+    expect(areaLPItemsOf({ ...b }, data)).not.toBe(first)
+    expect(areaLPItemsOf(b, {} as unknown as GameData)).not.toBe(first)
   })
 })
