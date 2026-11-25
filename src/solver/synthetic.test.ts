@@ -4032,6 +4032,17 @@ describe('solver synthetic cases', () => {
           expectLine(all, 'B', 20, 40)
         })
       }
+      // e2d: the same list with H2 and B tied. B's group is served in list order (T comes after B), so B waits for H2 as in e2c, and V comes after H2.
+      for (const tabs of [['V', 'B', 'T', 'H2'], ['B', 'V', 'T', 'H2'], ['T', 'B', 'V', 'H2']]) {
+        it(`e2d: list H2, B tied, tabs ${tabs.join(',')}`, () => {
+          const all = solveE(tabs, [{ kind: 'block', blockId: 'H2' }, { kind: 'block', blockId: 'B', tied: true }])
+          expectFlow(all, 'c-H2T', 10, 'ok', 0, 'H2')
+          expectFlow(all, 'c-BT', 20, 'ok', 0, 'B')
+          expect(flowIn(all, 'c-BV').requested, 'c-BV requested').toBeCloseTo(20, 6)
+          expectLine(all, 'H2', 10, 10)
+          expectLine(all, 'B', 20, 40)
+        })
+      }
       it('e2a: B is not flagged, whatever the list', () => {
         expect(notCredited(solveE(['T', 'B', 'V', 'H2'], listOf('B')), 'B')).toBeUndefined()
       })

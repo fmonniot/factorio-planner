@@ -1388,8 +1388,7 @@ function computeRequests(
     for (const [itemId, takes] of takeOf.get(dep.id) ?? []) {
       for (const t of takes) {
         if (reaches(depConsumers, dep.id, t.fromBlockId)) { // the edge would close a loop
-          waitTakes.add(t.id)
-          takeSources.add(t.fromBlockId)
+          waitTakes.add(t.id) // its source becomes a take source only if a slice of it really parks (`deferFor`)
           continue
         }
         dep.inputConnections.push({ id: `take\0${t.id}`, itemId, fromBlockId: t.fromBlockId })
@@ -1513,8 +1512,11 @@ function computeRequests(
     const end = at.position < 0 ? pair.listed.length : at.position
     for (let i = 0; i < end; i++) {
       const g = sharedAt.get(pair)?.get(i)
-      if (g && g.status === 'pending') {
-        if (g !== groupOfTake.get(t.id) && g.members.every(m => after(consumerId, m.blockId))) for (const m of g.members) add(m.blockId)
+      // The take's own group is credited together only when its source is processed by the time the first member is reached. When the
+      // source comes after the consumer the group is served in list order, so the members listed above the take are blockers like plain entries.
+      const own = g !== undefined && g === groupOfTake.get(t.id)
+      if (g && g.status === 'pending' && !(own && out.includes(t.fromBlockId))) {
+        if (!own && g.members.every(m => after(consumerId, m.blockId))) for (const m of g.members) add(m.blockId)
         i = g.end - 1
         continue
       }
@@ -1524,7 +1526,10 @@ function computeRequests(
     }
     return out
   }
+  // A block in a cycle of requests is credited by the demand rounds, which cannot wait: no wait edge for it.
+  const inCycle = (id: string): boolean => (depConsumers.get(id) ?? []).some(c => c !== id && reaches(depConsumers, c, id))
   for (const b of blocks) {
+    if (takeOf.has(b.id) && inCycle(b.id)) continue
     for (const [itemId, takes] of takeOf.get(b.id) ?? []) {
       const requestSources = (requestsOf.get(b.id) ?? []).filter(c => c.itemId === itemId).map(c => c.fromBlockId)
       for (const t of takes) {
@@ -1678,7 +1683,10 @@ function computeRequests(
       }
     }
     deferred.push({ blockId, itemId, takes, needed: new Map(needed), held, ...(requests ? { requests } : {}) })
-    for (const t of takes) deferredTakes.add(t.id)
+    for (const t of takes) {
+      deferredTakes.add(t.id)
+      if (waitTakes.has(t.id)) takeSources.add(t.fromBlockId) // its leftover is what the parked take will be credited from
+    }
     return true
   }
   const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) && !deferredTakes.has(id) ? (credits.get(id) ?? 0) : undefined)
@@ -1804,7 +1812,8 @@ function computeRequests(
     items: split, ranges, creditParts,
     rankedCredit: (t, itemId, needed) => {
       const r = splitCreditOf(t, itemId, needed, estimates, outerCreditPartsOf, uncredited)
-      return r === undefined && waitsForSource(t) ? null : r
+      // `undefined` for a ranked take too (an unlisted consumer of a pair whose list names no take): it is credited alone, so it waits like an unranked one.
+      return r === undefined && waitTakes.has(t.id) && !processed.has(t.fromBlockId) ? null : r
     },
   }
   // Credit the parked takes that can be now, in the order they were parked, until a full pass changes nothing: a take is credited
