@@ -75,14 +75,10 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
             <RailLine
               key={l.key}
               icon={<LineIcon line={l} />}
-              label={
-                <>
-                  {l.label}
-                  {l.absorber && (
-                    <span data-testid="output-absorber-tag" className="ml-1.5 shrink-0 rounded border border-gray-600 px-1 text-[9px] text-gray-400">absorber</span>
-                  )}
-                </>
-              }
+              label={l.label}
+              tag={l.absorber && (
+                <span data-testid="output-absorber-tag" className="ml-1.5 shrink-0 rounded border border-gray-600 px-1 text-[9px] text-gray-400">absorber</span>
+              )}
               detail={l.areaName}
               rate={lineRate(l.rate)}
               tip={outputLineTip(l, fmt)}

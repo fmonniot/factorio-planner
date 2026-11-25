@@ -64,6 +64,12 @@ describe('buildOutputModel', () => {
     expect(m.lines[1]).toMatchObject({ kind: 'left', label: 'Left over', rate: 20, look: { kind: 'left' } })
   })
 
+  it('drops solver noise as a leftover', () => {
+    const m = buildOutputModel(base({ leftover: 1e-9 }))
+    expect(m.lines).toEqual([])
+    expect(outputEmptyState(m)).toBe('unused')
+  })
+
   it('has only the leftover when nothing takes the item', () => {
     expect(buildOutputModel(base({ leftover: 20 })).lines).toHaveLength(1)
     expect(buildOutputModel(base({ leftover: 20 })).lines[0]).toMatchObject({ kind: 'left', rate: 20 })

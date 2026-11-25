@@ -46,10 +46,12 @@ test('a byproduct is a line for the row that absorbs it', async ({ page }) => {
 
   await selectRow(page, row(page, NITRIC))
   // The absorber's own acid is made for nothing here: the block has 12.5/min of it left over.
-  const panel2 = sidePanel(page)
-  await expect(panel2.getByTestId('output-line')).toHaveCount(1)
-  await expect(panel2.getByTestId('output-line')).toHaveAttribute('data-kind', 'left')
-  await expect(panel2.getByTestId('output-line-rate')).toHaveText('12.5')
+  const entry = sidePanel(page).getByTestId('output-entry')
+  await expect(entry).toHaveCount(1)
+  const lines = entry.getByTestId('output-line')
+  await expect(lines).toHaveCount(1)
+  await expect(lines).toHaveAttribute('data-kind', 'left')
+  await expect(lines.getByTestId('output-line-rate')).toHaveText('12.5')
 })
 
 test('an output is read as sent to the block that takes it', async ({ page }) => {

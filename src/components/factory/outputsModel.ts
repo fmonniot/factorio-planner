@@ -116,7 +116,7 @@ export function buildOutputModel(input: OutputModelInput): OutputModel {
     const rest = Math.max(0, rate + input.othersRate - taken)
     if (counts(rest)) lines.push({ key: 'product', kind: 'product', label: 'Block product', rate: rest, look: { kind: 'product' }, absorber: false, requested: false })
   }
-  if (leftover > 0) lines.push({ key: 'left', kind: 'left', label: 'Left over', rate: leftover, look: { kind: 'left' }, absorber: false, requested: false })
+  if (counts(leftover)) lines.push({ key: 'left', kind: 'left', label: 'Left over', rate: leftover, look: { kind: 'left' }, absorber: false, requested: false })
   return { ...model, lines }
 }
 
