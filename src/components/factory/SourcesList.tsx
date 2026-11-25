@@ -8,10 +8,12 @@ import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { useUiStore } from '../../store/uiStore'
 import { fmtRate, inputRateUnit } from './ItemTile'
+import { describedTip } from '../tipProps'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { RateInput } from './RateInput'
 import { AREA_LINE_HELP, MAKE_MORE_PLACE_HELP, MAKE_MORE_PLACES, SOURCES_DETAIL, SOURCES_LINES } from './itemSourcing'
 import type { Side } from './itemSourcing'
+import { lineOpens, lineTip, reachReading } from './sourcesLineText'
 import { altMoveTarget } from './sourcesModel'
 import type { SourceLine } from './sourcesModel'
 import { DashedSquareIcon, DetailStatus, SourcesLine } from './SourcesLine'
@@ -20,12 +22,12 @@ import { StripIcon } from './StripIcon'
 import { MINI_BUTTON_CLASS, Switch } from './Switch'
 import { Cluster } from './StripToolbar'
 import type { StripAction } from './StripToolbar'
-import type { ItemMaker } from './sourcesMakers'
 
 // ---------------------------------------------------------------------------
 // SourcesList — the Sources list of one item of the active block (phase 2 of sourcing priority): every place the item may
 // come from, top to bottom in the order it is tried, as rows on a rail. Each row reads what the block consumes from it (its share
-// of the item's need) and opens a detail with its help and its controls. It is a second view of the item's stored rule, beside the
+// of the item's need); its name's tooltip is its help, and the lines that have controls or a status (Make more here, the block
+// lines, Import while something is missing) open a detail with them. It is a second view of the item's stored rule, beside the
 // three presets: moving *Make more here* below the block lines is Receive it first, switching it off is Don't make more here, and
 // the Import line holds the same switch as the Comes from control. Between *Make more here* and the end of the block lines it draws
 // one line per connection of the item, in connection order, then the Receive from… line (`add-block`). A foot under the lines
@@ -49,9 +51,6 @@ type Frame = (React.HTMLAttributes<HTMLLIElement> & { draggable?: boolean }) | u
 
 const DRAG_BLOCK = 'application/x-sources-block-line'
 
-/** "{recipe} ({n} × {machine})", as the sentences name a row; the recipe alone without a solve or while the row is idle. */
-const makerLabel = (m: ItemMaker, solved: boolean) => solved && m.machineCount > 0 ? `${m.recipeName} (${m.machineCount} × ${m.machineName})` : m.recipeName
-
 /** The data-line value of a model line. */
 const dataLineOf = (l: SourceLine) => l.kind
 
@@ -73,7 +72,7 @@ export function SourcesList({ view, id, onScope }: {
   /** Switches the control's scope (an area's block lines point to the whole block). */
   onScope: (area: string | undefined) => void
 }) {
-  const { block, blocks, flows, itemId, name, unit, rate, solved, area, makeHere, drawnSide, makers, rows, model } = view
+  const { block, blocks, flows, itemId, name, unit, rate, area, makeHere, drawnSide, rows, model } = view
   const setMakeHere = useBlockStore(s => s.setMakeHere)
   const toggleImportOff = useBlockStore(s => s.toggleImportOff)
   const setAreaMakeHere = useBlockStore(s => s.setAreaMakeHere)
@@ -97,7 +96,7 @@ export function SourcesList({ view, id, onScope }: {
 
   // The line whose detail is open (one at a time), by its stable key: it stays open while the line moves.
   const [openLineKey, setOpenLine] = useState<string | null>(null)
-  const openKey = model.lines.some(l => l.key === openLineKey) ? openLineKey : null
+  const openKey = model.lines.some(l => l.key === openLineKey && lineOpens(l)) ? openLineKey : null
   // What is being dragged ('make-here' or 'block:<connection id>'), as state for the faded look and as a ref for the handlers
   // that run before a render.
   const [dragging, setDragging] = useState<string | null>(null)
@@ -113,14 +112,6 @@ export function SourcesList({ view, id, onScope }: {
   const blockById = new Map(blocks.map(b => [b.id, b]))
   const connections = block.inputConnections.filter(c => c.itemId === itemId)
   const off = makeHere === 'off'
-
-  // Already made here: under Don't make more here every row that makes the item, otherwise the rows not dedicated to it.
-  const made = solved
-    ? makers.filter(m => (off || m.byproduct) && m.rate > EPS).map(m => `${m.recipeName} ${rate(m.rate)}`)
-    : makers.filter(m => m.byproduct).map(m => m.recipeName)
-  const madeText = made.length > 0 ? made.join(', ') : SOURCES_DETAIL.nothingYet
-  const dedicated = makers.filter(m => !m.byproduct)
-  const makeText = dedicated.length > 0 ? dedicated.map(m => makerLabel(m, solved)).join(', ') : SOURCES_DETAIL.noMaker
 
   /** Make more here goes above (Make it here) or below (Receive it first) the block lines. */
   const writeMakeHere = (value: 'after-blocks' | 'off' | undefined) => area !== undefined ? setAreaMakeHere(area, itemId, value) : setMakeHere(itemId, value)
@@ -328,8 +319,12 @@ export function SourcesList({ view, id, onScope }: {
         line={line}
         dataLine="block"
         open={openKey === line.key}
+        openable
         onToggle={() => setOpenLine(k => (k === line.key ? null : line.key))}
         detailId={detailId}
+        nameTip={lineTip(line, { itemName: name, atArea: area !== undefined, greyed: row.greyed })}
+        nameDescription={[lineTip(line, { itemName: name, atArea: area !== undefined, greyed: row.greyed }), row.tagTitle, area !== undefined && !row.greyed ? reachReading(row.flow, line.rate, rate) : undefined].filter(Boolean).join(' ') || undefined}
+        rateTip={area !== undefined && !row.greyed ? reachReading(row.flow, line.rate, rate) : undefined}
         icon={<span aria-hidden="true" data-testid="sources-block-color" className="inline-block size-2.5 shrink-0 rounded-sm" style={{ background: row.source?.color ?? MISSING_BLOCK_COLOR }} />}
         tag={row.tag && (
           <span data-testid="sources-block-tag" data-tag={row.tag} data-tip={row.tagTitle} className={`shrink-0 rounded border px-1 text-[10px] font-normal leading-4 ${row.tag === 'requested' ? 'border-teal-700 text-teal-300' : 'border-gray-600 text-gray-300'}`}>
@@ -347,19 +342,12 @@ export function SourcesList({ view, id, onScope }: {
             {row.status && <DetailStatus tone={limited ? 'amber' : 'grey'} testId="sources-block-status" status={row.flow?.status}>{row.status}</DetailStatus>}
             {area !== undefined ? (
               <>
-                <p>{SOURCES_DETAIL.blockAtArea}</p>
-                {!row.greyed && (
-                  <p data-testid="sources-detail-reading">
-                    {row.flow ? `${rate(row.flow.rate)} over this connection` : 'No flow yet'}{line.rate !== undefined && `; ${line.rate > EPS ? rate(line.rate) : 'none'} of it reaches this area`}.
-                  </p>
-                )}
                 <div className="flex">
-                  <button type="button" data-testid="sources-whole-block" onClick={() => onScope(undefined)} className={MINI_BUTTON_CLASS}>Whole block</button>
+                  <button type="button" data-testid="sources-whole-block" {...describedTip(SOURCES_DETAIL.blockAtArea)} onClick={() => onScope(undefined)} className={MINI_BUTTON_CLASS}>Whole block</button>
                 </div>
               </>
             ) : (
               <>
-                {!row.greyed && <p>{row.tagTitle} {SOURCES_LINES['other-blocks'].title}</p>}
                 <div className="flex flex-wrap items-center gap-1">
                   {!row.greyed && editingLimit !== c.id && (
                     <button
@@ -422,11 +410,13 @@ export function SourcesList({ view, id, onScope }: {
       line,
       dataLine: dataLineOf(line),
       open: openKey === line.key,
+      openable: lineOpens(line),
       onToggle: () => setOpenLine(k => (k === line.key ? null : line.key)),
       detailId,
+      nameTip: lineTip(line, { itemName: name, atArea: area !== undefined }),
       rateText: rateText(line),
       rateTestId: 'sources-rate' as const,
-      onNameKeyDown: nameKeyDown(line),
+      onNameKeyDown: lineOpens(line) ? nameKeyDown(line) : undefined,
       draggable: false,
     }
     switch (line.kind) {
@@ -436,12 +426,6 @@ export function SourcesList({ view, id, onScope }: {
             key={line.key}
             {...common}
             icon={<StripIcon name="make" />}
-            detail={
-              <>
-                <p>{SOURCES_LINES['made-here'].title}</p>
-                <p data-testid="sources-detail-reading">{madeText}</p>
-              </>
-            }
           />
         )
       case 'make-here':
@@ -455,8 +439,6 @@ export function SourcesList({ view, id, onScope }: {
             switchNode={<LineSwitch testId="sources-make-here-switch" on={!off} label={SOURCES_LINES['make-here'].label} helpId={helpId} help={SOURCES_LINES['make-here'].title} onToggle={toggleMakeMore} />}
             detail={
               <>
-                <p>{SOURCES_LINES['make-here'].title}</p>
-                <p data-testid="sources-detail-reading">{makeText}</p>
                 {/* Moving is across the whole group of block lines; a line switched off has no place to move to. */}
                 <div role="group" aria-label="Where Make more here is tried" className="flex flex-wrap items-center gap-1">
                   {(['above', 'below'] as const).map(side => (
@@ -484,17 +466,9 @@ export function SourcesList({ view, id, onScope }: {
             key={line.key}
             {...common}
             icon={<DashedSquareIcon />}
-            detail={
-              <>
-                <p>{SOURCES_LINES['other-areas'].title}</p>
-                {area !== undefined && <p data-testid="sources-detail-reading">No other area makes {name}.</p>}
-              </>
-            }
           />
         )
       case 'other-area': {
-        const supplier = view.suppliers.find(l => l.areaId === line.areaId)
-        const idle = line.mark === 'idle'
         return (
           <SourcesLine
             key={line.key}
@@ -507,36 +481,18 @@ export function SourcesList({ view, id, onScope }: {
                   if (area !== undefined) toggleAreaSupplier(area, itemId, line.areaId!)
                 }}
               />}
-            detail={
-              <>
-                {idle && <DetailStatus tone="grey">{SOURCES_DETAIL.sendsNothing}</DetailStatus>}
-                <p>{AREA_LINE_HELP}</p>
-                <p data-testid="sources-detail-reading">
-                  {line.off ? `Off: nothing of it comes from ${line.label}.` : solved && supplier && supplier.routed > EPS ? `${rate(supplier.routed)} routed from ${line.label}` : `Nothing routed from ${line.label} now`}
-                </p>
-              </>
-            }
           />
         )
       }
       case 'import': {
         const importOn = view.importOn
-        const missingAmount = model.missing
         return (
           <SourcesLine
             key={line.key}
             {...common}
             icon={<StripIcon name="import" />}
             switchNode={<LineSwitch testId="sources-import-switch" on={importOn} label={SOURCES_LINES.import.label} helpId={helpId} help={SOURCES_LINES.import.title} onToggle={() => area !== undefined ? toggleAreaImportOff(area, itemId) : toggleImportOff(itemId)} />}
-            detail={
-              <>
-                {line.mark === 'missing' && <DetailStatus tone="amber">{SOURCES_DETAIL.importMissing}</DetailStatus>}
-                <p>{SOURCES_LINES.import.title}</p>
-                <p data-testid="sources-detail-reading">
-                  {!solved ? '' : importOn ? (line.rate !== undefined && line.rate > EPS ? rate(line.rate) : 'none') : (missingAmount > EPS ? `Missing ${rate(missingAmount)}` : '')}
-                </p>
-              </>
-            }
+            detail={<DetailStatus tone="amber">{SOURCES_DETAIL.importMissing}</DetailStatus>}
           />
         )
       }

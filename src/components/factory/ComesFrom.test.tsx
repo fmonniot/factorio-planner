@@ -573,7 +573,7 @@ describe('ComesFrom, the Leftover switch', () => {
         render(<ComesFrom itemId="plate" />)
         fireEvent.click(makeProduct())
         expect(screen.getByTestId('product-change-confirm')).toBeInTheDocument()
-        screen.getAllByTestId('sources-line-toggle').forEach(l => expect(l).not.toHaveFocus())
+        document.querySelectorAll('[data-line-name]').forEach(l => expect(l).not.toHaveFocus())
       })
 
       it('returns the focus to Make it a product on Cancel', () => {
@@ -596,7 +596,7 @@ describe('ComesFrom, the Leftover switch', () => {
         render(<ComesFrom itemId="plate" />)
         fireEvent.click(makeProduct())
         fireEvent.click(within(screen.getByTestId('product-change-confirm')).getByRole('button', { name: 'Make it a product' }))
-        expect(screen.getAllByTestId('sources-line-toggle')[0]).toHaveFocus()
+        expect(document.querySelector('[data-line-name]')).toHaveFocus()
       })
     })
   })

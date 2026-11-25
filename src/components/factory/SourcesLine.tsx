@@ -2,9 +2,14 @@ import { lookOfLine } from './segmentLooks'
 import type { LineMark, SourceLine } from './sourcesModel'
 
 // ---------------------------------------------------------------------------
-// SourcesLine — the presentation of one line of the Sources list: a 26px row (marker on the rail, icon, name and status mark,
-// consumed rate, then a chevron or the line's switch), and the detail that opens under it. The list owns the state and the handlers.
+// SourcesLine — the presentation of one line of the Sources list: a 26px row (marker on the rail, icon, name, status mark,
+// consumed rate, then a chevron on block lines or the line's switch), and the detail that opens under it. Only a line with controls
+// or a status opens: its name is a button. The other lines' names are plain focusable spans; the tooltip of every name is the line's
+// help. The list owns the state and the handlers.
 // ---------------------------------------------------------------------------
+
+/** Every line's name, button or span: the first line's name is where the focus goes when the control opens. */
+export const LINE_NAME_SELECTOR = '[data-line-name]'
 
 const AMBER_TEXT = 'text-amber-300'
 
@@ -45,14 +50,19 @@ const GRIP = (
   </svg>
 )
 
+const NAME_CLASS = 'ml-1.5 flex h-full min-w-0 flex-1 items-center gap-1.5 rounded text-left text-[11px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-teal-400'
+
 export function SourcesLine({
   line, dataLine, open, onToggle, detailId, icon, tag, rateText, rateTestId, frame, dropSide, draggable, switchNode, detail, onNameKeyDown,
+  openable, nameTip, nameDescription, rateTip,
 }: {
   line: SourceLine
   /** The `data-line` value: 'block', 'make-here', 'other-area', … */
   dataLine: string
   open: boolean
-  onToggle: () => void
+  /** Whether the line opens a detail (its name is a button) or is flat (its name is a focusable span). */
+  openable: boolean
+  onToggle?: () => void
   detailId: string
   /** The 14px icon of the line. */
   icon: React.ReactNode
@@ -68,11 +78,33 @@ export function SourcesLine({
   draggable: boolean
   /** The line's switch, in the 30px column at the end (the other lines have a chevron there). */
   switchNode?: React.ReactNode
-  /** The content of the detail, drawn while the line is open. */
-  detail: React.ReactNode
-  onNameKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => void
+  /** The content of the detail, drawn while an openable line is open. */
+  detail?: React.ReactNode
+  /** The tooltip of the name: the line's help. */
+  nameTip?: string
+  /** What describes the name to assistive technology; the tooltip when absent. */
+  nameDescription?: string
+  /** The tooltip of the rate. */
+  rateTip?: string
+  onNameKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void
 }) {
   const look = lookOfLine(line.look)
+  const inner = (
+    <>
+      {line.kind === 'block'
+        ? <span data-testid="sources-block-name" className="min-w-0 truncate">{line.label}</span>
+        : <span className="min-w-0 truncate">{line.label}</span>}
+      {tag}
+      {line.mark && <StatusMark mark={line.mark} />}
+      <span
+        data-testid={rateTestId}
+        data-tip={rateTip}
+        className="ml-auto w-11 shrink-0 text-right font-mono text-[11px] tabular-nums text-gray-300"
+      >
+        {rateText}
+      </span>
+    </>
+  )
   return (
     <li
       data-testid="sources-line"
@@ -103,37 +135,44 @@ export function SourcesLine({
           {draggable && <span className="hidden text-gray-500 group-hover:block">{GRIP}</span>}
         </span>
         <span aria-hidden="true" className="flex w-3.5 shrink-0 items-center justify-center text-gray-300">{icon}</span>
-        <button
-          type="button"
-          data-testid="sources-line-toggle"
-          aria-expanded={open}
-          aria-controls={open ? detailId : undefined}
-          onClick={onToggle}
-          onKeyDown={onNameKeyDown}
-          className="ml-1.5 flex h-full min-w-0 flex-1 items-center gap-1.5 rounded text-left text-[11px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
-        >
-          {line.kind === 'block'
-            ? <span data-testid="sources-block-name" className="min-w-0 truncate">{line.label}</span>
-            : <span className="min-w-0 truncate">{line.label}</span>}
-          {tag}
-          {line.mark && <StatusMark mark={line.mark} />}
-          <span
-            data-testid={rateTestId}
-            className="ml-auto w-11 shrink-0 text-right font-mono text-[11px] tabular-nums text-gray-300"
+        {openable ? (
+          <button
+            type="button"
+            data-testid="sources-line-toggle"
+            data-line-name=""
+            aria-expanded={open}
+            aria-controls={open ? detailId : undefined}
+            data-tip={nameTip}
+            aria-description={nameDescription ?? nameTip}
+            onClick={onToggle}
+            onKeyDown={onNameKeyDown}
+            className={NAME_CLASS}
           >
-            {rateText}
+            {inner}
+            {!switchNode && (
+              <span aria-hidden="true" data-testid="sources-chevron" className="flex w-[30px] shrink-0 justify-center text-gray-500">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={open ? 'M2 6.5L5 3.5l3 3' : 'M2 3.5L5 6.5l3-3'} />
+                </svg>
+              </span>
+            )}
+          </button>
+        ) : (
+          <span
+            data-testid="sources-line-name"
+            data-line-name=""
+            tabIndex={0}
+            data-tip={nameTip}
+            aria-description={nameDescription ?? nameTip}
+            className={`${NAME_CLASS} cursor-default`}
+          >
+            {inner}
+            {!switchNode && <span aria-hidden="true" className="w-[30px] shrink-0" />}
           </span>
-          {!switchNode && (
-            <span aria-hidden="true" className="flex w-[30px] shrink-0 justify-center text-gray-500">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                <path d={open ? 'M2 6.5L5 3.5l3 3' : 'M2 3.5L5 6.5l3-3'} />
-              </svg>
-            </span>
-          )}
-        </button>
+        )}
         {switchNode && <span className="flex w-[30px] shrink-0 items-center justify-center">{switchNode}</span>}
       </div>
-      {open && (
+      {openable && open && (
         <div
           id={detailId}
           data-testid="sources-detail"

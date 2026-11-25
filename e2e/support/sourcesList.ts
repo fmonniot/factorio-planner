@@ -1,8 +1,9 @@
 import { expect, type Locator } from '@playwright/test'
 
 /**
- * Opens the detail of a line of the Sources list (its name button), unless it is open already, and returns the line. The
- * controls of a block line (limit, Make it a product, move, Remove) and the text of every line are in its detail.
+ * Opens the detail of a line of the Sources list (its name button), unless it is open already, and returns the line. Only a
+ * line with controls or a status opens (Make more here, the block lines, Import while something is missing); the controls of a
+ * block line (limit, Make it a product, move, Remove) are in its detail, and every other line's help is its name's tooltip.
  */
 export async function openLine(line: Locator): Promise<Locator> {
   const toggle = line.getByTestId('sources-line-toggle')

@@ -71,7 +71,7 @@ describe('ComesFromPopover', () => {
     expect(popover()).toHaveAttribute('data-item-id', 'ore')
     expect(popover()).toHaveTextContent('Every row of this block')
     const control = within(popover()).getByTestId('comes-from')
-    expect(document.activeElement).toBe(within(control).getAllByTestId('sources-line-toggle')[0])
+    expect(document.activeElement).toBe(control.querySelector('[data-line-name]'))
     // No slot, so nothing to link to.
     expect(within(popover()).queryByTestId('comes-from-show-slot')).not.toBeInTheDocument()
   })
@@ -128,7 +128,7 @@ describe('ComesFromPopover', () => {
     open('ore')
     expect(within(popover()).getByTestId('sources-list')).toBeInTheDocument()
     expect(within(popover()).queryByRole('radiogroup')).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(within(popover()).getAllByTestId('sources-line-toggle')[0])
+    expect(document.activeElement).toBe(popover().querySelector('[data-line-name]'))
     act(() => useUiStore.getState().openComesFrom('plate', anchor))
     expect(within(popover()).getByTestId('sources-list')).toBeInTheDocument()
     expect(popover()).toHaveAttribute('data-item-id', 'plate')

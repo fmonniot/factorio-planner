@@ -83,19 +83,30 @@ test.describe('the Sources list', () => {
     await expect(popover.getByTestId('sources-rule-chip')).toHaveText('Receive it first')
   })
 
-  test('a line opens its detail with its help, from the keyboard too', async ({ page }) => {
+  test('only lines with controls open; the others show their help as a tooltip', async ({ page }) => {
     const control = await openList(page)
     const madeHere = control.locator('[data-line="made-here"]')
     await expect(control.getByTestId('sources-detail')).toHaveCount(0)
-    await madeHere.getByTestId('sources-line-toggle').focus()
+    await expect(madeHere.getByTestId('sources-line-toggle')).toHaveCount(0)
+    // From the keyboard: Tab onto the flat name shows its help, and Enter opens nothing.
+    await control.getByRole('button', { name: 'Close' }).focus()
+    await page.keyboard.press('Tab')
+    await expect(madeHere.getByTestId('sources-line-name')).toBeFocused()
+    await expect(page.getByTestId('tooltip')).toContainText("What this block's rows already make")
     await page.keyboard.press('Enter')
-    await expect(madeHere.getByTestId('sources-detail')).toContainText("What this block's rows already make")
-    await expect(madeHere.getByTestId('sources-line-toggle')).toHaveAttribute('aria-expanded', 'true')
-    await control.locator('[data-line="make-here"]').getByTestId('sources-line-toggle').click()
-    await expect(control.getByTestId('sources-detail')).toHaveCount(1)
-    await expect(control.locator('[data-line="make-here"]').getByTestId('sources-detail')).toContainText("Run this block's rows")
-    await control.locator('[data-line="make-here"]').getByTestId('sources-line-toggle').click()
     await expect(control.getByTestId('sources-detail')).toHaveCount(0)
+    // Make more here has controls: its name opens a detail with the place buttons only.
+    const makeHere = control.locator('[data-line="make-here"]')
+    await makeHere.getByTestId('sources-line-toggle').click()
+    await expect(control.getByTestId('sources-detail')).toHaveCount(1)
+    await expect(makeHere.getByTestId('sources-detail').getByTestId('sources-make-before')).toBeVisible()
+    await expect(makeHere.getByTestId('sources-detail')).not.toContainText("Run this block's rows")
+    await makeHere.getByTestId('sources-line-toggle').click()
+    await expect(control.getByTestId('sources-detail')).toHaveCount(0)
+    // Pointing at its name shows its help.
+    await page.mouse.move(0, 0)
+    await makeHere.getByTestId('sources-line-toggle').hover()
+    await expect(page.getByTestId('tooltip')).toContainText("Run this block's rows")
   })
 
   test("the strip's Sources… opens the Comes from popover with the list open", async ({ page }) => {
@@ -131,8 +142,8 @@ test.describe('the Sources list', () => {
       }))
     }
     expect(order).toEqual([
-      'made-here:sources-line-toggle', 'make-here:sources-line-toggle', 'make-here:sources-make-here-switch',
-      'add-block:sources-receive-from', 'import:sources-line-toggle', 'import:sources-import-switch',
+      'made-here:sources-line-name', 'make-here:sources-line-toggle', 'make-here:sources-make-here-switch',
+      'add-block:sources-receive-from', 'import:sources-line-name', 'import:sources-import-switch',
     ])
 
     // After other blocks with the keyboard: the focus stays in the Make more here line, on the button of its new side.
