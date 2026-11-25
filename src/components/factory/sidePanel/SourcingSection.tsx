@@ -44,6 +44,8 @@ function SourcingEntry({ itemId, ratePerMin, gameData, areaId }: { itemId: strin
   const fmt = (perMin: number) => fmtItemRateText(itemId, perMin / 60, unit)
   // The lines' rates carry no unit (the item's total does), except power, whose unit is part of the figure.
   const lineRate = isEnergyItem(itemId) ? fmt : (perMin: number) => fmtItemRate(itemId, perMin / 60, unit).value
+  // The unit the header's rate ends with, drawn invisibly after each line's rate so the digits line up (none for power).
+  const lineUnit = isEnergyItem(itemId) ? undefined : fmtItemRate(itemId, 0, unit).unit
   const lines = view ? buildInputLines(view.model, view.rows) : []
   const empty = inputEmptyState(view?.model)
 
@@ -88,6 +90,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData, areaId }: { itemId: strin
               )}
               tone={l.kind === 'missing' ? 'warn' : undefined}
               rate={lineRate(l.rate)}
+              unit={lineUnit}
               tip={inputLineTip(l, fmt)}
               testId="input-line"
               labelTestId="input-line-label"

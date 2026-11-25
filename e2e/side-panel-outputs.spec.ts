@@ -63,7 +63,10 @@ test('an output is read as sent to the block that takes it', async ({ page }) =>
   await expect(blocks.getByTestId('output-line-label')).toHaveText('Valves')
 })
 
-/** The rail, the icon column, the rates and the labels line up with the entry's header, for outputs and inputs alike. */
+/**
+ * The rail and the icon column are centred under the header's item icon, and the lines' rates end where the header's rate does,
+ * their digits where the header's digits do (the header's unit is drawn invisibly after them), for outputs and inputs alike.
+ */
 test('a rail list lines up with its header', async ({ page }) => {
   await load(page, SURPLUS)
   await selectRow(page, row(page, ELECTROLYSIS))
@@ -74,9 +77,21 @@ test('a rail list lines up with its header', async ({ page }) => {
     const lineRate = (await entry.getByTestId(rateTestId).first().boundingBox())!
     const header = (await entry.locator(headerRate).first().boundingBox())!
     expect(Math.abs(lineRate.x + lineRate.width - (header.x + header.width))).toBeLessThanOrEqual(1)
-    const label = (await entry.locator('[data-testid$="-line-label"]').first().boundingBox())!
-    const name = (await entry.locator('span.truncate').first().boundingBox())!
-    expect(Math.abs(label.x - name.x)).toBeLessThanOrEqual(1)
+    // The header's 28px item icon: its image, or the two-letter placeholder of an item without one.
+    const icon = (await entry.locator(':scope > div').first().locator('img, span.w-7').first().boundingBox())!
+    expect(icon.width).toBe(28)
+    expect(Math.abs(stem.x + stem.width / 2 - (icon.x + icon.width / 2))).toBeLessThanOrEqual(0.5)
+    // The right edge of the digits: the whole text of a line's rate, the header's rate without its unit.
+    const digitsEnd = (el: Element, unitLength: number) => {
+      const text = el.firstChild as Text
+      const range = document.createRange()
+      range.setStart(text, 0)
+      range.setEnd(text, text.length - unitLength)
+      return range.getBoundingClientRect().right
+    }
+    const lineDigits = await entry.getByTestId(rateTestId).first().evaluate(digitsEnd, 0)
+    const headerDigits = await entry.locator(headerRate).first().evaluate(digitsEnd, 2)
+    expect(Math.abs(lineDigits - headerDigits)).toBeLessThanOrEqual(0.5)
   }
   await check(outputEntry(page, 'nullius-oxygen'), 'output-line-rate', '[data-testid="output-rate"]')
   // In a drawer at its narrowest the header does not wrap, so the lines' inset still matches its trailing slot.

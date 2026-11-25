@@ -18,12 +18,24 @@ describe('RailList', () => {
     expect(screen.getByTestId('rail-stem').className).toContain('bottom-0.5')
   })
 
-  it('opens the list with a chevron at the head', () => {
+  it('opens the list with a dot at the head, where the rail starts', () => {
     render(<RailList arrow="head" label="L" testId="list">{lineOf({ kind: 'row' })}</RailList>)
     const list = screen.getByTestId('list')
-    expect(list.children[1].querySelector('svg')).not.toBeNull()
-    expect(screen.getByTestId('rail-stem').className).toContain('top-1 ')
+    expect(list.children[1]).toBe(screen.getByTestId('rail-dot'))
+    expect(screen.queryByTestId('rail-arrow')).toBeNull()
+    expect(screen.getByTestId('rail-stem').className).toContain('top-[3px]')
     expect(screen.getByTestId('rail-stem').className).toContain('bottom-2.5')
+  })
+
+  it('draws the rail, the dot and the chevron in one grey, the dot and the chevron above the rail', () => {
+    const { unmount } = render(<RailList arrow="head" label="L">{lineOf({ kind: 'row' })}</RailList>)
+    expect(screen.getByTestId('rail-stem').className).toContain('bg-gray-500')
+    expect(screen.getByTestId('rail-dot').className).toContain('z-[2]')
+    expect(screen.getByTestId('rail-dot').firstElementChild!.className).toContain('bg-gray-500')
+    unmount()
+    render(<RailList arrow="foot" label="L">{lineOf({ kind: 'row' })}</RailList>)
+    expect(screen.getByTestId('rail-arrow').className).toContain('text-gray-500')
+    expect(screen.getByTestId('rail-arrow').className).toContain('z-[2]')
   })
 
   it('shares one 14px column between the rail and the icon cells', () => {
@@ -32,7 +44,30 @@ describe('RailList', () => {
     const cell = document.querySelector('[data-icon]')!
     expect(cell.className).toContain('w-3.5')
     expect(cell.className).toContain('h-3.5')
-    expect(cell.className).toContain('group-hover:bg-[#1a2333]')
+    // The mask keeps the same 1px gap to the rail around every icon, a 10px swatch or a 12px icon.
+    const mask = cell.querySelector('[data-testid="rail-icon-mask"]')!
+    expect(mask.className).toContain('p-px')
+    expect(mask.className).toContain('group-hover:bg-[#1a2333]')
+  })
+
+  it('centres the rail column under the header\'s 28px icon', () => {
+    render(<RailList arrow="foot" label="L" testId="list">{lineOf({ kind: 'row' })}</RailList>)
+    expect(screen.getByTestId('list').className).toContain('ml-[7px]')
+  })
+
+  it('draws the unit invisibly after the rate, outside its text, so the digits end where the header\'s do', () => {
+    render(<RailList arrow="foot" label="L">{lineOf({ kind: 'row' }, { unit: '/m' })}</RailList>)
+    const rate = screen.getByTestId('rail-line-rate')
+    expect(rate.textContent).toBe('10')
+    expect(rate.getAttribute('data-unit')).toBe('/m')
+    expect(rate.className).toContain('after:content-[attr(data-unit)]')
+    expect(rate.className).toContain('after:invisible')
+  })
+
+  it('draws no unit when the rate carries its own', () => {
+    render(<RailList arrow="foot" label="L">{lineOf({ kind: 'row' })}</RailList>)
+    expect(screen.getByTestId('rail-line-rate').hasAttribute('data-unit')).toBe(false)
+    expect(screen.getByTestId('rail-line-rate').className).not.toContain('after:')
   })
 
   it('passes className to the list', () => {

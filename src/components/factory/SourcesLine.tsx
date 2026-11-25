@@ -52,6 +52,12 @@ const GRIP = (
 
 const NAME_CLASS = 'ml-1.5 flex h-full min-w-0 flex-1 items-center gap-1.5 rounded text-left text-[11px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-teal-400'
 
+/**
+ * The 30px column after the rate when it sits inside the name (a chevron, or an empty slot): it cancels the name's gap, so the
+ * rate ends 30px from the line's end like the rate of a line whose switch sits outside the name, and like the foot's.
+ */
+const TRAILING_SLOT_CLASS = '-ml-1.5 w-[30px] shrink-0'
+
 export function SourcesLine({
   line, dataLine, open, onToggle, detailId, icon, tag, rateText, rateTestId, frame, dropSide, draggable, switchNode, detail, onNameKeyDown,
   openable, nameTip, nameDescription, rateTip,
@@ -150,7 +156,7 @@ export function SourcesLine({
           >
             {inner}
             {!switchNode && (
-              <span aria-hidden="true" data-testid="sources-chevron" className="flex w-[30px] shrink-0 justify-center text-gray-500">
+              <span aria-hidden="true" data-testid="sources-chevron" className={`flex ${TRAILING_SLOT_CLASS} justify-center text-gray-500`}>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                   <path d={open ? 'M2 6.5L5 3.5l3 3' : 'M2 3.5L5 6.5l3-3'} />
                 </svg>
@@ -167,7 +173,7 @@ export function SourcesLine({
             className={`${NAME_CLASS} cursor-default`}
           >
             {inner}
-            {!switchNode && <span aria-hidden="true" className="w-[30px] shrink-0" />}
+            {!switchNode && <span aria-hidden="true" className={TRAILING_SLOT_CLASS} />}
           </span>
         )}
         {switchNode && <span className="flex w-[30px] shrink-0 items-center justify-center">{switchNode}</span>}
