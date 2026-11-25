@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { parseAppState } from '../data/loader'
-import { solve, productGoals, solveBlock, solveAll, markUnboundedSources, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance, trimConsumedSurplus, withShortNeeds } from './index'
+import { solve, productGoals, solveBlock, solveAll, creditsSettled, nextCreditSeeds, markUnboundedSources, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance, trimConsumedSurplus, withShortNeeds } from './index'
 import { coproductDrivenWarning, itemGrossFlow, pass2Plan } from './blockResult'
 import type { LoopShape } from './blockGraph'
 import type { FlowKeys } from './build'
@@ -1935,17 +1935,46 @@ describe('solveAll — requests', () => {
     })
 
     // The same, with A turning slag from T into the plate it makes: A is reached before T through its request of slag, so the request of
-    // plate cannot wait behind T's credit. The take gets nothing and the request takes it all.
-    it('limitation: no credit when a block the consumer requests the item from depends on the take source', () => {
+    // plate cannot wait behind T's credit: the take is flushed with no credit. Its credit x drives A's slag request and so T's plate: the
+    // credit passes settle it at x = min(50, 80 - x) = 40 (a secant step; plain iteration swings between 50 and 30 forever).
+    const slagTwin = () => {
       const { data, byId } = dependsOnConsumer()
       data.recipes.slagPlate = recipe('slagPlate', 1, [{ itemId: 'slag', type: 'item', amount: 1 }], [product('plate', 1)])
       byId.A = block('A', [prod('plate')], [planNode('p', 'slagPlate')], [link('ca', 'T', 'slag')])
+      return { data, byId }
+    }
+    it('credits the take once the credit passes settle', () => {
+      const { data, byId } = slagTwin()
       const all = solveAll([byId.T, byId.A, byId.B], data)
+      expect(flowOf(all, 'cr').requested).toBeCloseTo(10, 4)
+      expect(flowOf(all, 'ct').rate).toBeCloseTo(40, 4)
+      expect(flowOf(all, 'ca').requested).toBeCloseTo(10, 4)
+      expect(throughput(all, 'T')).toBeCloseTo(40, 4)
+      expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
+    })
+    it('keeps the first pass when the credit passes are cut short', () => {
+      const { data, byId } = slagTwin()
+      const all = solveAll([byId.T, byId.A, byId.B], data, undefined, { creditPassLimit: 3 })
       expect(flowOf(all, 'cr').requested).toBeCloseTo(50, 4)
       expect(flowOf(all, 'ct').rate).toBeCloseTo(0, 4)
       expect(flowOf(all, 'ca').requested).toBeCloseTo(50, 4)
       // T's slag goals: 20 of its own + 10 for cs + 50 for ca, one slag per twin run.
       expect(throughput(all, 'T')).toBeCloseTo(80, 4)
+    })
+
+    it('seeds the next credit pass: the settled credit first, then a secant step', () => {
+      const seeds = (...h: Array<[number, number]>) => nextCreditSeeds(new Map([['t', h.map(([credit, settled]) => ({ credit, settled }))]]), ['t']).get('t')
+      expect(seeds([0, 30])).toBe(30)
+      expect(seeds([0, 50], [50, 30])).toBeCloseTo(250 / 7, 10)
+      expect(seeds([0, 50], [50, 30], [250 / 7, 310 / 7])).toBeCloseTo(40, 10)
+      expect(seeds([0, 10], [10, 20])).toBe(20) // equal residuals: the plain step
+      expect(seeds([10, 0], [20, 1])).toBe(0) // clamped at 0
+    })
+
+    it('tells whether every flushed take got what it would have had', () => {
+      expect(creditsSettled(new Map())).toBe(true)
+      expect(creditsSettled(new Map([['a', { credit: 5, settled: 5 }], ['b', { credit: 0, settled: 0 }]]))).toBe(true)
+      expect(creditsSettled(new Map([['a', { credit: 5, settled: 5 }], ['b', { credit: 0, settled: 30 }]]))).toBe(false)
     })
 
     it('reserves a credited take against a take consumer solved before it', () => {

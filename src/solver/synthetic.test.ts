@@ -138,6 +138,9 @@ function recipes(): GameRecipe[] {
     recipe('case17-use-q', 'smelting', 1, [item('case17-q', 1)], [item('case17-r', 1)]),
     recipe('case17-make-q', 'smelting', 1, [item('case11-x', 1)], [item('case17-q', 1)]),
     recipe('case17-use-p', 'smelting', 1, [item('case17-p', 1)], [item('case17-s', 1)]),
+    // Case 29 (a take credited after its consumer): a second byproduct, and what uses it.
+    recipe('case29-make-y', 'smelting', 1, [item('case29-ore', 1)], [item('case29-main', 1), item('case29-y', 1)]),
+    recipe('case29-use-y', 'smelting', 1, [item('case29-y', 1)], [item('case29-out', 1)]),
     recipe('case13-make-plate', 'smelting', 1, [item('case13-ore', 1)], [item('case13-plate', 1)]),
     recipe('case13-use-plate', 'smelting', 1, [item('case13-plate', 1)], [item('case13-gear', 1)]),
     // Case 21 (area rules): a second and a third item the areas trade, with no rule on them.
@@ -1918,17 +1921,20 @@ describe('solver synthetic cases', () => {
         it(`c1b: the same fixture, list {H2, H1}, tabs ${tabs.join(' ')}`, () => {
           const all = solveAll(tabsOf(tabs, { T: T([ent('H2'), tied('H1')]), H1: H1R(), R: R(), H2: H2() }), makeGameData())
           expectFlow(all, 'H2', [25, 'ok', 0])
-          expect(flowIn(all, 'c-H1')).toMatchObject({ rate: 0, status: 'unused' })
+          expect(flowIn(all, 'c-H1')).toMatchObject({ rate: 5, status: 'ok' })
           expect(flowIn(all, 'c-H1R')).toMatchObject({ status: 'ok' })
-          expect(flowIn(all, 'c-H1R').requested, 'c-H1R requested').toBeCloseTo(20, 6)
-          expect(flowIn(all, 'c-H1R').rate).toBeCloseTo(20, 6)
-          expect(nodeOf(all.results.R, 'case11-make-x').throughput, 'make-x').toBeCloseTo(10, 6)
+          expect(flowIn(all, 'c-H1R').requested, 'c-H1R requested').toBeCloseTo(15, 6)
+          expect(flowIn(all, 'c-H1R').rate).toBeCloseTo(15, 6)
+          expect(nodeOf(all.results.R, 'case11-make-x').throughput, 'make-x').toBeCloseTo(7.5, 6)
           expect(unsatisfiedRate(all.results.H1, X) ?? 0, 'H1 imports').toBeCloseTo(0, 6)
+          expect(unsatisfiedRate(all.results.H2, X) ?? 0, 'H2 imports').toBeCloseTo(0, 6)
+          expect(flowIn(all, 'c-RH2').rate, 'plate').toBeCloseTo(5, 6)
           expectLine(all, 'H2', 25, 25)
-          expectLine(all, 'H1', 0, 20)
-          expect(flagged(all, 'H2').groupInListOrder).toBe(true)
-          expect(flagged(all, 'H2')).not.toHaveProperty('notCredited')
-          expect(flagged(all, 'H1')).toMatchObject({ groupInListOrder: true, notCredited: true })
+          expectLine(all, 'H1', 5, 20)
+          for (const id of ['H1', 'H2']) {
+            expect(flagged(all, id).groupInListOrder, `${id} flag`).toBe(true)
+            expect(flagged(all, id)).not.toHaveProperty('notCredited')
+          }
         })
       }
 
@@ -4084,18 +4090,143 @@ describe('solver synthetic cases', () => {
         for (const tabs of [['T', 'B', 'A'], ['A', 'B', 'T'], ['B', 'A', 'T']]) {
           it(`tabs ${tabs.join(',')}`, () => {
             const all = solveAll(tabsOf(tabs, { T: T(), A: A(), B: B4() }), makeGameData())
-            expectFlow(all, 'c-BT', 0, 'unused', 0, 'B')
-            expect(flowIn(all, 'c-BA').requested, 'c-BA requested').toBeCloseTo(40, 6)
-            expectFlow(all, 'c-BA', 40, 'ok')
-            expect(nodeOf(all.results.A, 'case11-make-x').throughput, 'A make-x').toBeCloseTo(20, 6)
+            expectFlow(all, 'c-BT', 30, 'ok', 0, 'B')
+            expect(flowIn(all, 'c-BA').requested, 'c-BA requested').toBeCloseTo(10, 6)
+            expectFlow(all, 'c-BA', 10, 'ok')
+            expect(nodeOf(all.results.A, 'case11-make-x').throughput, 'A make-x').toBeCloseTo(5, 6)
             expectFlow(all, 'c-AP', 5, 'ok')
             expect(nodeOf(all.results.T, 'case13-make-plate').throughput, 'make-plate').toBeCloseTo(5, 6)
-            const line = lines(all).find(l => l.blockId === 'B')!
-            expect(line.share, 'share').toBeCloseTo(0, 6)
-            expect(line.need, 'need').toBeCloseTo(40, 6)
-            expect(line).not.toHaveProperty('notCredited')
+            expectLine(all, 'B', 30, 40)
             const listed = solveAll(tabsOf(tabs, { T: T(listOf('B')), A: A(), B: B4() }), makeGameData())
-            expect(lines(listed).find(l => l.blockId === 'B')?.notCredited).toBe(true)
+            expectLine(listed, 'B', 30, 40)
+            // One credit pass: the take keeps the credit 0 it gets while blocked, and the list flags it.
+            const one = solveAll(tabsOf(tabs, { T: T(), A: A(), B: B4() }), makeGameData(), undefined, { creditPassLimit: 1 })
+            expectFlow(one, 'c-BT', 0, 'unused', 0, 'B')
+            expect(flowIn(one, 'c-BA').requested, 'c-BA requested').toBeCloseTo(40, 6)
+            expect(nodeOf(one.results.A, 'case11-make-x').throughput, 'A make-x').toBeCloseTo(20, 6)
+            expect(lines(one).find(l => l.blockId === 'B')!.share, 'share').toBeCloseTo(0, 6)
+            expect(lines(one).find(l => l.blockId === 'B')).not.toHaveProperty('notCredited')
+            const oneListed = solveAll(tabsOf(tabs, { T: T(listOf('B')), A: A(), B: B4() }), makeGameData(), undefined, { creditPassLimit: 1 })
+            expect(lines(oneListed).find(l => l.blockId === 'B')?.notCredited).toBe(true)
+          })
+        }
+        it('e4: a flushed take whose settled credit is 0 is not flagged', () => {
+          const dry = mk('T', [['case11-goal', 0], [P, 0]], [planNode('case11-make-goal'), planNode('case13-make-plate')], [], listOf('B'), X)
+          const all = solveAll(tabsOf(['B', 'A', 'T'], { T: dry, A: A(), B: B4() }), makeGameData())
+          const line = lines(all).find(l => l.blockId === 'B')!
+          expect(line.share, 'share').toBeCloseTo(0, 6)
+          expect(line).not.toHaveProperty('notCredited')
+          expect(flowIn(all, 'c-BA').requested, 'c-BA requested').toBeCloseTo(40, 6)
+        })
+        it('e4: a warm solve with credit passes stores nothing and equals a cold one', () => {
+          const gd = makeGameData()
+          const solve = (cache?: ReturnType<typeof createSolveCache>) => solveAll(tabsOf(['B', 'A', 'T'], { T: T(listOf('B')), A: A(), B: B4() }), gd, cache)
+          const cache = createSolveCache()
+          solve(cache)
+          const set = vi.spyOn(cache, 'set')
+          const warm = solve(cache)
+          expect(set).not.toHaveBeenCalled()
+          const cold = solve()
+          expect(warm.flows).toEqual(cold.flows)
+          expect(warm.served).toEqual(cold.served)
+        })
+      })
+
+      // e6: the take above is parked behind its consumer. T's list is C, B. C (other 20, gear 5) takes X from W (list C) and from T and requests
+      // plate from W. B takes X from T and requests X from V; V requests plate from W. Order B, T, C, V, W: C's slice [c-CW, c-CT] parks behind W,
+      // and V flushes B's slice while c-CT is parked.
+      describe('e6: the take above is parked behind its consumer', () => {
+        const W = (): Block => mk('W', [['case11-goal', 10], [P, 0]], [planNode('case11-make-goal'), planNode('case13-make-plate')], [], listOf('C'), X)
+        const C6 = (): Block =>
+          mk('C', [['case11-other', 20], ['case13-gear', 5]], [planNode('case11-use-x'), planNode('case13-use-plate')], [
+            { id: 'c-CW', itemId: X, fromBlockId: 'W' },
+            { id: 'c-CT', itemId: X, fromBlockId: 'T' },
+            { id: 'c-CQ', itemId: P, fromBlockId: 'W' },
+          ])
+        const V6 = (): Block =>
+          mk('V', [[X, 0], ['case13-gear', 5]], [planNode('case11-make-x'), planNode('case13-use-plate')], [{ id: 'c-VW', itemId: P, fromBlockId: 'W' }])
+        const solve6 = (tabs: string[], options?: { creditPassLimit?: number }) =>
+          solveAll(tabsOf(tabs, { T: T(listOf('C', 'B')), W: W(), B: B(), C: C6(), V: V6() }), makeGameData(), undefined, options)
+        for (const tabs of [['T', 'W', 'B', 'C', 'V'], ['V', 'C', 'B', 'W', 'T'], ['B', 'V', 'W', 'T', 'C']]) {
+          it(`tabs ${tabs.join(',')}`, () => {
+            const all = solve6(tabs)
+            expectFlow(all, 'c-CW', 10, 'ok')
+            expectFlow(all, 'c-CT', 10, 'ok', 0, 'C')
+            expect(flowIn(all, 'c-CQ').requested, 'c-CQ').toBeCloseTo(5, 6)
+            expectFlow(all, 'c-BT', 20, 'ok', 0, 'B')
+            expect(flowIn(all, 'c-BV').requested, 'c-BV requested').toBeCloseTo(20, 6)
+            expectFlow(all, 'c-BV', 20, 'ok')
+            expect(nodeOf(all.results.V, 'case11-make-x').throughput, 'V make-x').toBeCloseTo(10, 6)
+            expect(flowIn(all, 'c-VW').rate, 'c-VW').toBeCloseTo(5, 6)
+            expect(flowIn(all, 'c-BP').rate, 'c-BP').toBeCloseTo(5, 6)
+            expect(nodeOf(all.results.W, 'case13-make-plate').throughput, 'W make-plate').toBeCloseTo(10, 6)
+            expect(nodeOf(all.results.T, 'case13-make-plate').throughput, 'T make-plate').toBeCloseTo(5, 6)
+            expectLine(all, 'C', 10, 10)
+            expectLine(all, 'B', 20, 40)
+            const w = all.served.W[X].consumers.find(l => l.blockId === 'C')!
+            expect(w.share, 'W share').toBeCloseTo(10, 6)
+            expect(w.got, 'W got').toBeCloseTo(10, 6)
+            expect(w.need, 'W need').toBeCloseTo(20, 6)
+            expect(w).not.toHaveProperty('notCredited')
+            const one = solve6(tabs, { creditPassLimit: 1 })
+            expectFlow(one, 'c-BT', 0, 'unused')
+            expect(flowIn(one, 'c-BV').requested, 'c-BV requested').toBeCloseTo(40, 6)
+            expect(nodeOf(one.results.V, 'case11-make-x').throughput, 'V make-x').toBeCloseTo(20, 6)
+            expect(lines(one).find(l => l.blockId === 'B')?.notCredited).toBe(true)
+          })
+        }
+      })
+
+      // e7: a group probes a block ahead and flushes a slice. W leaves 10 Y for G and A (tied); G requests plate from T, A makes X for B.
+      // Order W/B, G, T, A: the readiness edge B -> G and the wait edge T -> A.
+      describe('e7: a group probes ahead and flushes a slice', () => {
+        const Y = 'case29-y'
+        const W7 = (): Block => mk('W', [['case29-main', 10]], [planNode('case29-make-y')], [], [{ kind: 'block', blockId: 'G' }, { kind: 'block', blockId: 'A', tied: true }], Y)
+        const G7 = (): Block =>
+          mk('G', [['case29-out', 4], ['case13-gear', 2]], [planNode('case29-use-y'), planNode('case13-use-plate')], [
+            { id: 'c-GW', itemId: Y, fromBlockId: 'W' },
+            { id: 'c-GP', itemId: P, fromBlockId: 'T' },
+          ])
+        const A7 = (): Block =>
+          mk('A', [[X, 0], ['case29-out', 4]], [planNode('case11-make-x'), planNode('case29-use-y')], [{ id: 'c-AW', itemId: Y, fromBlockId: 'W' }])
+        const B7 = (): Block =>
+          mk('B', [['case11-other', 40], ['case13-gear', 5]], [planNode('case11-use-x'), planNode('case13-use-plate')], [
+            { id: 'c-BT', itemId: X, fromBlockId: 'T' },
+            { id: 'c-BA', itemId: X, fromBlockId: 'A' },
+            { id: 'c-BP', itemId: P, fromBlockId: 'T' },
+          ])
+        const solve7 = (tabs: string[], list?: ServedEntry[], options?: { creditPassLimit?: number }) =>
+          solveAll(tabsOf(tabs, { T: T(list), W: W7(), B: B7(), G: G7(), A: A7() }), makeGameData(), undefined, options)
+        const yLine = (all: ReturnType<typeof solveAll>, id: string) => all.served.W[Y].consumers.find(l => l.blockId === id)!
+        for (const tabs of [['W', 'B', 'G', 'T', 'A'], ['A', 'T', 'G', 'B', 'W'], ['T', 'A', 'W', 'G', 'B']]) {
+          it(`tabs ${tabs.join(',')}`, () => {
+            for (const list of [undefined, listOf('B')]) {
+              const all = solve7(tabs, list)
+              expectFlow(all, 'c-BT', 30, 'ok', 0, 'B')
+              expect(flowIn(all, 'c-BA').requested, 'c-BA requested').toBeCloseTo(10, 6)
+              expectFlow(all, 'c-BA', 10, 'ok')
+              expect(nodeOf(all.results.A, 'case11-make-x').throughput, 'A make-x').toBeCloseTo(5, 6)
+              expect(flowIn(all, 'c-GW').rate, 'c-GW').toBeCloseTo(4, 6)
+              expect(flowIn(all, 'c-GW').status).toBe('ok')
+              expect(flowIn(all, 'c-AW').rate, 'c-AW').toBeCloseTo(4, 6)
+              expect(flowIn(all, 'c-AW').status).toBe('ok')
+              for (const id of ['G', 'A']) {
+                const l = yLine(all, id)
+                expect(l.share, `${id} share`).toBeCloseTo(4, 6)
+                expect(l.need, `${id} need`).toBeCloseTo(4, 6)
+                expect(l.groupInListOrder, `${id} groupInListOrder`).toBeFalsy()
+              }
+              expect(flowIn(all, 'c-GP').rate, 'c-GP').toBeCloseTo(2, 6)
+              expect(nodeOf(all.results.T, 'case13-make-plate').throughput, 'T make-plate').toBeCloseTo(7, 6)
+              expect(nodeOf(all.results.T, 'case11-make-goal').throughput, 'T make-goal').toBeCloseTo(30, 6)
+              expectLine(all, 'B', 30, 40)
+            }
+            const one = solve7(tabs, listOf('B'), { creditPassLimit: 1 })
+            expectFlow(one, 'c-BT', 0, 'unused')
+            expect(flowIn(one, 'c-BA').requested, 'c-BA requested').toBeCloseTo(40, 6)
+            expect(nodeOf(one.results.A, 'case11-make-x').throughput, 'A make-x').toBeCloseTo(20, 6)
+            expect(lines(one).find(l => l.blockId === 'B')?.notCredited).toBe(true)
+            expect(lines(solve7(tabs, undefined, { creditPassLimit: 1 })).find(l => l.blockId === 'B')?.notCredited).toBeUndefined()
           })
         }
       })

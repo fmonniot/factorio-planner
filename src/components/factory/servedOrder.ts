@@ -22,7 +22,7 @@ export interface ServedLine {
   short?: number
   /** items/min a take's consumer needs of the item from outside (see `ServedConsumer.need`) */
   need?: number
-  /** the take got no credit because the request pass reached it before its source or a take above it was credited and it could not wait (see `ServedConsumer.notCredited`) */
+  /** the take got no credit because the request pass flushed it while its source or a take above it was not credited yet, and the credit passes did not settle it (see `ServedConsumer.notCredited`) */
   notCredited?: true
   /** a take whose group the solver served in list order, not by its weights (copied from the consumer) */
   groupInListOrder?: true
