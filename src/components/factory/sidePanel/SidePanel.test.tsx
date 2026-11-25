@@ -426,24 +426,33 @@ describe('SidePanel — where outputs go', () => {
   }
   const entries = () => screen.getAllByTestId('output-entry')
   const entry = (itemId: string) => entries().find(e => e.getAttribute('data-item-id') === itemId)!
-  const sentence = (itemId: string) => within(entry(itemId)).getByTestId('output-sentence').textContent
+  const lines = (itemId: string) => within(entry(itemId)).queryAllByTestId('output-line')
+  const lineOf = (itemId: string, kind: string) => lines(itemId).find(l => l.getAttribute('data-kind') === kind)!
+  const kindsOf = (itemId: string) => lines(itemId).map(l => l.getAttribute('data-kind'))
 
-  it('lists an entry per output with the rate and a sentence built from the solve, and no control', () => {
+  it('lists an entry per output with a line per consumer, and no sentence or control', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n1')
     renderWithSolve()
     const e = entry('plate')
     expect(e).toHaveTextContent('Iron Plate')
-    expect(e).toHaveTextContent('120/m')
-    expect(sentence('plate')).toBe('Used here by Gear (takes 120/m).')
+    expect(within(e).getByTestId('output-rate')).toHaveTextContent('120/m')
+    expect(lines('plate')).toHaveLength(1)
+    const line = lineOf('plate', 'row')
+    expect(within(line).getByTestId('output-line-label')).toHaveTextContent('Gear')
+    expect(within(line).getByTestId('output-line-rate')).toHaveTextContent(/^120$/)
+    expect(line).toHaveAttribute('data-tip', 'Gear takes 120/m')
+    expect(within(e).queryByTestId('output-sentence')).not.toBeInTheDocument()
+    expect(within(e).getByTestId('output-lines')).toHaveAttribute('data-arrow', 'head')
     expect(within(screen.getByTestId('panel-outputs')).queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('says what is left over when no row or block uses the output', () => {
+  it('has a left over line when no row or block uses the output', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n2')
     renderWithSolve()
-    expect(sentence('gear')).toMatch(/^Left over: no row or block uses it \(120\/m\)\./)
+    expect(kindsOf('gear')).toEqual(['left'])
+    expect(lineOf('gear', 'left')).toHaveAttribute('data-tip', '120/m left over in this block')
   })
 
   it('lists the item the row is built for first and tags the byproduct', () => {
@@ -459,41 +468,52 @@ describe('SidePanel — where outputs go', () => {
     expect(entry('gear')).toHaveTextContent('Product')
   })
 
-  it('says a discarded output is not counted', () => {
+  it('says a discarded output is not counted and lists no line', () => {
     setPlan([{ ...row('n1', 'r-plate'), byproductPolicy: { plate: 'discard' } }, row('n2', 'r-gear')])
     select('n1')
     renderWithSolve()
-    expect(sentence('plate')).toMatch(/^Discarded: this row's Iron Plate is not counted/)
-    expect(within(screen.getByTestId('panel-outputs')).getByTestId('output-not-counted')).toHaveTextContent('not counted')
+    const notCounted = within(screen.getByTestId('panel-outputs')).getByTestId('output-not-counted')
+    expect(notCounted).toHaveTextContent('not counted')
+    expect(notCounted.getAttribute('data-tip')).toMatch(/^Discarded:/)
+    expect(lines('plate')).toHaveLength(0)
+    expect(within(entry('plate')).queryByTestId('output-empty')).not.toBeInTheDocument()
   })
 
   it('says an output the row does not make at the moment is not produced', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n1')
     renderWithSolve({ nodes: [{ ...solvedRow('n1', 0, 0, {}), outputRates: { plate: 0 } }], unsatisfied: [], warnings: [] })
-    expect(sentence('plate')).toMatch(/^Not produced/)
+    const empty = within(entry('plate')).getByTestId('output-empty')
+    expect(empty).toHaveAttribute('data-state', 'notProduced')
+    expect(empty).toHaveTextContent('Not produced')
   })
 
-  it('names the blocks that receive the output', () => {
+  it('lists a block line for each block that receives the output, in the block colour', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
-    const other = makeEmptyBlock('Gears')
+    const other = { ...makeEmptyBlock('Gears'), color: '#112233' }
     useBlockStore.setState(s => ({ blocks: [...s.blocks, other] }))
     useSolverStore.setState({
       flows: [{ connectionId: 'c1', fromBlockId: block.id, toBlockId: other.id, itemId: 'gear', available: 30, capped: false, rate: 30, status: 'ok', kind: 'take' }],
     })
     select('n2')
     renderWithSolve()
-    expect(sentence('gear')).toContain('Sent to Gears (30.0/m)')
+    const line = lineOf('gear', 'block')
+    expect(within(line).getByTestId('output-line-label')).toHaveTextContent('Gears')
+    expect(within(line).getByTestId('output-line-rate')).toHaveTextContent(/^30\.0$/)
+    expect(line).toHaveAttribute('data-tip', 'Sent to Gears: 30.0/m')
+    expect(within(line).getByTestId('output-block-color')).toHaveStyle({ background: '#112233' })
   })
 
   it('marks a row that absorbs the byproduct', () => {
     setPlan([row('n1', 'r-plate'), { ...row('n2', 'r-gear'), byproductConsumer: true }])
     select('n1')
     renderWithSolve()
-    expect(sentence('plate')).toContain('Gear (absorber, takes 120/m)')
+    const line = lineOf('plate', 'row')
+    expect(line).toHaveAttribute('data-absorber', 'true')
+    expect(within(line).getByTestId('output-absorber-tag')).toBeInTheDocument()
   })
 
-  it('names the area of a row that sits in another area only', () => {
+  it('shows the area of a row that sits in another area only', () => {
     setPlan([], [
       sub('sp-a', 'Line', [row('n1', 'r-plate'), row('n2', 'r-gear')], { area: true }),
       sub('sp-b', 'Other', [row('n3', 'r-gear')], { area: true }),
@@ -508,16 +528,73 @@ describe('SidePanel — where outputs go', () => {
       unsatisfied: [], warnings: [],
     }
     renderWithSolve(r)
-    expect(sentence('plate')).toBe('Used here by Gear (takes 60.0/m) and Gear in Other (takes 60.0/m).')
+    const [same, other] = lines('plate')
+    expect(same).not.toHaveTextContent('Other')
+    expect(other).toHaveTextContent('Other')
+    expect(other).toHaveAttribute('data-tip', 'Gear in Other takes 60.0/m')
   })
 
-  it('lists the outputs without a rate before there is a solve', () => {
+  it('has no line, no rate and the unsolved state before there is a solve', () => {
     setPlan([row('n1', 'r-plate')])
     select('n1')
     renderPanel(undefined)
     expect(entry('plate')).toHaveTextContent('Iron Plate')
     expect(entry('plate')).not.toHaveTextContent('/m')
-    expect(sentence('plate')).toBe('Not solved yet.')
+    const empty = within(entry('plate')).getByTestId('output-empty')
+    expect(empty).toHaveAttribute('data-state', 'unsolved')
+    expect(empty).toHaveTextContent('Not solved yet.')
+  })
+
+  it('has a block product line for what a product keeps for its goal', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    block = { ...block, products: [{ id: 'p1', itemId: 'plate', extraRate: 10 }] } as Block
+    useBlockStore.setState({ blocks: [block], activeBlockId: block.id })
+    select('n1')
+    renderWithSolve({
+      nodes: [{ ...solvedRow('n1', 2, 180, { ore: 120 }), outputRates: { plate: 120 } }, { ...solvedRow('n2', 1, 90, { plate: 60 }), outputRates: { gear: 60 } }],
+      unsatisfied: [], warnings: [],
+    })
+    expect(kindsOf('plate')).toEqual(['row', 'product'])
+    const line = lineOf('plate', 'product')
+    expect(within(line).getByTestId('output-line-label')).toHaveTextContent('Block product')
+    expect(within(line).getByTestId('output-line-rate')).toHaveTextContent(/^60\.0$/)
+    expect(line).toHaveAttribute('data-tip', 'A product of this block: 60.0/m left for its goal')
+  })
+
+  it('tags an output other rows also make, with its tooltip', () => {
+    setPlan([row('n1', 'r-plate'), row('n3', 'r-plate'), row('n2', 'r-gear')])
+    select('n1')
+    renderWithSolve({
+      nodes: [
+        { ...solvedRow('n1', 1, 90, { ore: 60 }), outputRates: { plate: 60 } },
+        { ...solvedRow('n3', 1, 90, { ore: 60 }), outputRates: { plate: 60 } },
+        { ...solvedRow('n2', 1, 90, { plate: 120 }), outputRates: { gear: 120 } },
+      ],
+      unsatisfied: [], warnings: [],
+    })
+    const tag = within(entry('plate')).getByTestId('output-shared-tag')
+    expect(tag).toHaveTextContent('block ×2')
+    expect(tag).toHaveAttribute('data-count', '2')
+    expect(tag.getAttribute('data-tip')).toMatch(/^These are the block's rates:/)
+    expect(within(entry('plate')).queryByTestId('output-shared-tag')).toBeInTheDocument()
+  })
+
+  it('has no shared tag for an output only this row makes', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n1')
+    renderWithSolve()
+    expect(within(entry('plate')).queryByTestId('output-shared-tag')).not.toBeInTheDocument()
+  })
+
+  it('describes the lines in a hidden reading the entry points to', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n1')
+    renderWithSolve()
+    const id = entry('plate').getAttribute('aria-describedby')!
+    const reading = document.getElementById(id)!
+    expect(reading).toHaveAttribute('data-testid', 'output-reading')
+    expect(reading).toHaveClass('sr-only')
+    expect(reading).toHaveTextContent('Gear 120/m.')
   })
 })
 

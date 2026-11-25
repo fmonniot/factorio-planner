@@ -1,6 +1,7 @@
 import { MISSING_BLOCK_COLOR, withAlpha } from '../../data/blockColors'
 import type { OverlayKind, SegmentKind } from './summarySegments'
 import type { LineLook } from './sourcesModel'
+import type { OutputLook } from './outputsModel'
 
 export const AMBER = '#fbbf24'
 
@@ -90,5 +91,29 @@ export function lookOfLine(look: LineLook): SegmentLook {
     case 'made': return madeLook()
     case 'import': return segmentLook('import', undefined)
     case 'missing': return segmentLook('short', undefined)
+  }
+}
+
+const PRODUCT_GREEN = '#86efac'
+
+/** The look of the block product line of a row's outputs: what the row makes for the block's goal, light green. */
+export function productLook(): SegmentLook {
+  return {
+    bg: withAlpha(PRODUCT_GREEN, 0.4),
+    border: withAlpha(PRODUCT_GREEN, 0.75),
+    borderStyle: 'solid',
+    text: '#f3f4f6',
+    legend: PRODUCT_GREEN,
+    mini: PRODUCT_GREEN,
+  }
+}
+
+/** The segment look of a line of a row's outputs. */
+export function lookOfOutput(look: OutputLook): SegmentLook {
+  switch (look.kind) {
+    case 'block': return segmentLook('source', look.color)
+    case 'made': return madeLook()
+    case 'left': return segmentLook('left', undefined)
+    case 'product': return productLook()
   }
 }

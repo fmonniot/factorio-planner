@@ -2,14 +2,13 @@ import { useMemo } from 'react'
 import type { GameData, GameRecipeNode, SolvedNode } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
-import { useUiStore } from '../../store/uiStore'
 import { dedicatedProduct } from '../../solver/areas'
 import { indexRecipeAreas } from './recipeAreas'
 import { exportedByKey, leftoverByKey } from './summaryRows'
 import { netBalance, grossFlow } from '../../solver/index'
-import { countOtherMakers, itemConsumers, itemLeftover, itemReceivers, outputText } from './outputsText'
+import { buildOutputModel, itemConsumers, itemLeftover, itemReceivers, otherMakers, type OutputModel } from './outputsModel'
 
-/** One product or byproduct of a row, with the sentence about where it goes. */
+/** One product or byproduct of a row, with the lines that say where it goes. */
 export interface RowOutput {
   itemId: string
   /** items/min the row makes (gross); undefined without a solve. */
@@ -18,7 +17,7 @@ export interface RowOutput {
   byproduct: boolean
   /** The row's policy for the item is Discard: the rate is not counted. */
   discarded: boolean
-  text: string
+  model: OutputModel
 }
 
 /**
@@ -30,7 +29,6 @@ export function useRowOutputs(node: GameRecipeNode, solved: SolvedNode | undefin
   const blocks = useBlockStore(s => s.blocks)
   const result = useSolverStore(selectBlockResult(block?.id))
   const flows = useSolverStore(selectFlows)
-  const unit = useUiStore(s => s.rateUnit)
 
   return useMemo(() => {
     if (!block || !gameData) return []
@@ -54,15 +52,15 @@ export function useRowOutputs(node: GameRecipeNode, solved: SolvedNode | undefin
       const product = productIds.has(itemId)
       const tag = solved?.outputTags?.[itemId]
       const discarded = node.byproductPolicy[itemId] === 'discard'
+      const others = otherMakers(result, index, itemId, node.id)
       return {
         itemId,
         rate,
         discarded,
         byproduct: primary !== undefined && itemId !== primary,
-        text: outputText({
+        model: buildOutputModel({
           itemId,
           itemName: gameData.items[itemId]?.name ?? itemId,
-          unit,
           solved: solved !== undefined,
           rate: rate ?? 0,
           discarded,
@@ -70,9 +68,10 @@ export function useRowOutputs(node: GameRecipeNode, solved: SolvedNode | undefin
           consumers: itemConsumers(block, gameData, result, itemId, tag, node.id, index, rowAreaId),
           receivers: itemReceivers(block.id, blocks, flows, itemId, tag),
           leftover: product ? 0 : itemLeftover(leftovers, itemId, tag),
-          otherMakers: countOtherMakers(result, index, itemId, node.id),
+          otherMakers: others.count,
+          othersRate: others.rate,
         }),
       }
     })
-  }, [block, blocks, result, flows, unit, node, solved, gameData])
+  }, [block, blocks, result, flows, node, solved, gameData])
 }
