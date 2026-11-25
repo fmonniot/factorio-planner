@@ -3,6 +3,7 @@ import type { RateUnit } from '../../store/uiStore'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Icon } from '../Icon'
 import { fmtFluidTag } from '../../data/flowKey'
+import { TraceChip } from './TraceChip'
 import { StackedBar } from './StackedBar'
 import { StripToolbar } from './StripToolbar'
 import type { StripAction } from './StripToolbar'
@@ -10,7 +11,7 @@ import type { BarSegment } from './StackedBar'
 import { segmentLook } from './segmentLooks'
 import { fmtRate, fmtItemRateText, fmtEnergyText } from './ItemTile'
 import { isEnergyItem } from '../../data/electricity'
-import { barName, keyEntryText, segmentLabel, segmentTitle } from './summarySegments'
+import { barName, keyEntryText, segmentDetail, segmentLabel } from './summarySegments'
 import type { Overlay, OverviewRow, Segment, SegmentKind, OverlayKind, SlotModel } from './summarySegments'
 
 export type { StripAction }
@@ -45,8 +46,6 @@ interface SummaryDetailStripProps {
 
 /** Width of the mark an overlay leaves on a bar that has real segments too. */
 const OVERLAY_MARK_PX = 10
-/** Entries whose tooltip has a second line: what a click does, why a source is limited. */
-const EXPLAINED_KINDS: ReadonlySet<string> = new Set(['export', 'source', 'unused', 'missing-source', 'self'])
 
 export function SummaryDetailStrip({
   state,
@@ -77,6 +76,7 @@ export function SummaryDetailStrip({
   // upward over the slots, so the strip does not clip. A pane that has controls for its selected slot sizes the strip to them,
   // and holds that height (measured while selected) in the preview of another slot.
   const rootRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
   const [selectedHeight, setSelectedHeight] = useState<number>()
   const measured = tall && state === 'selected'
   useLayoutEffect(() => {
@@ -92,6 +92,7 @@ export function SummaryDetailStrip({
   const root = `${tall ? '' : 'h-[72px]'} shrink-0 border-t border-gray-700 bg-gray-800 rounded-b-md px-2.5 flex flex-col text-[11px]`
 
   if (state === 'overview' || !slot) {
+    const traceRow = traceKey !== null ? rows.find(r => r.key === traceKey) : undefined
     const maxTotal = Math.max(...rows.map(r => r.total), 0)
     const maxPower = Math.max(...rows.map(r => r.power), 0)
     const segments: BarSegment[] = rows.map(row => {
@@ -127,11 +128,22 @@ export function SummaryDetailStrip({
       }
     })
     return (
-      <div data-testid="summary-detail" data-state="overview" data-tall={tall ? 'true' : undefined} className={`${root} ${rows.length > 0 ? 'pt-[5px] pb-[3px] gap-[3px]' : 'pt-1.5 pb-1 gap-[5px]'}`}>
+      <div ref={barRef} data-testid="summary-detail" data-state="overview" data-tall={tall ? 'true' : undefined} className={`${root} ${rows.length > 0 ? 'pt-[5px] pb-[3px] gap-[3px]' : 'pt-1.5 pb-1 gap-[5px]'}`}>
         <div className="flex items-center justify-between h-5 shrink-0">
           <span className="text-xs font-semibold text-gray-100">Overview</span>
-          {rows.length > 0 && (
-            <span className="text-[10px] text-gray-400">{traceKey ? 'click again to clear' : 'click a segment to trace it'}</span>
+          {traceRow && (
+            <TraceChip
+              rowKey={traceRow.key}
+              kind={traceRow.kind}
+              name={segmentLabel(traceRow, traceRow.blockId !== undefined ? blockNameOf(traceRow.blockId) : undefined)}
+              look={lookOf(traceRow.kind, traceRow.blockId, traceRow.limited)}
+              onClear={() => {
+                const key = traceRow.key
+                const seg = [...(barRef.current?.querySelectorAll<HTMLElement>('[data-testid="summary-overview-segment"]') ?? [])].find(el => el.dataset.key === key)
+                onToggleTrace(key)
+                seg?.focus()
+              }}
+            />
           )}
         </div>
         {rows.length === 0 ? <div className="text-gray-500">Nothing here yet</div> : <StackedBar segments={segments} label="Overview" />}
@@ -165,9 +177,7 @@ export function SummaryDetailStrip({
       tipName: text.label,
       tipAmount: text.amount,
       note: text.note,
-      detail: EXPLAINED_KINDS.has(entry.kind)
-        ? segmentTitle(entry, { itemName, blockName, fmt, unit, available })
-        : undefined,
+      detail: segmentDetail(entry, { blockName, fmt, unit, available }),
       dataKind: entry.kind,
       limited,
       testId: 'summary-segment',
@@ -194,9 +204,6 @@ export function SummaryDetailStrip({
       <div className="flex items-center gap-2 h-5 shrink-0 min-w-0">
         {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />}
         <span className="text-xs font-semibold text-gray-100 truncate">{shownName}</span>
-        {!editable && (
-          <span className="shrink-0 text-[10px] text-gray-400 border border-gray-700 rounded-[3px] px-1">preview</span>
-        )}
         <span className="flex items-center justify-end gap-1 min-w-0 flex-1">{rates}</span>
         {editable && (
           <button

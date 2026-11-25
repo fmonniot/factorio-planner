@@ -90,7 +90,7 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
         <button
           type="button"
           onClick={onStart}
-          data-tip={`Extra output: ${extraDisplay}${unitLabel} — click to edit`}
+          data-tip={`Extra output: ${extraDisplay}${unitLabel}`}
           className="text-gray-300 hover:text-yellow-300 tabular-nums font-mono text-[11px] leading-none"
         >
           extra {extraDisplay}

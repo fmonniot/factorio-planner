@@ -41,7 +41,7 @@ describe('MachinePicker with an additional-category fallback', () => {
     render(<MachinePicker nodeId="n1" recipeId="circuit" recipeCategory="crafting" machineId={undefined} gameData={gameData} onDone={() => {}} />)
     const label = screen.getByTestId('row-only-label')
     expect(label).not.toHaveAttribute('title')
-    expect(label.getAttribute('data-tip')).toMatch(/^Defaults are per primary category/)
+    expect(label.getAttribute('data-tip')).toBe('It only crafts an additional category of the recipe, not its primary category (Crafting).')
     expect(screen.getByTestId('machine-option')).toHaveAccessibleDescription(label.getAttribute('data-tip')!)
   })
 })

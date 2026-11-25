@@ -93,7 +93,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
         const tip = blocker
           ? requestBlockerTitle(blocker, block.name, itemName)
           : closesLoop
-            ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
+            ? `Closes a loop with ${block.name}`
             : `${block.name} makes what this block needs`
         return (
           <TipWrap key={block.id} tip={tip} when={!!blocker} className="flex flex-col">
@@ -136,7 +136,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
           data-kind="take"
           data-closes-loop={closesLoop ? 'true' : undefined}
           {...describedTip(closesLoop
-            ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
+            ? `Closes a loop with ${block.name}`
             : undefined)}
           className="w-full flex items-center justify-between gap-3 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
           onClick={() => {

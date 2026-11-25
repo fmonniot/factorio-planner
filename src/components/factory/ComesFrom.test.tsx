@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { ComesFrom } from './ComesFrom'
 import { ComesFromPopover } from './ComesFromPopover'
+import { LEFTOVER_SWITCH } from './itemSourcing'
+import { expectTip, tipOf } from '../../test/byTip'
 import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
@@ -322,7 +324,13 @@ describe('ComesFrom, the rule chip and the Leftover row of the list view', () =>
     expect(chip).toHaveTextContent('Receive it first · Import off')
     expect(chip).toHaveAttribute('data-preset', 'connections-first')
     expect(chip).toHaveAttribute('data-owner', 'block')
-    expect(chip).toHaveAttribute('data-tip', expect.stringContaining('Move Make more here'))
+    expect(tipOf(chip)).toBe("Receive it first\nTaken from this block's connections first; made here for the rest.")
+  })
+
+  it('tips the default preset with its name and sentence', () => {
+    setup({ areas: false })
+    render(<ComesFrom itemId="plate" />)
+    expect(tipOf(screen.getByTestId('sources-rule-chip'))).toBe('Make it here\nMade here; connections and imports cover what is missing.')
   })
 
   it('prefixes the chip at area scope, and Use the block\'s clears the area rule', () => {
@@ -431,13 +439,13 @@ describe('ComesFrom, the Leftover switch', () => {
     expect(mainBlock().sourceRules).toEqual({})
   })
 
-  it('has a help text as its description, with the two limits', () => {
+  it('describes the switch with one sentence', () => {
     setup({ areas: false })
     render(<ComesFrom itemId="plate" />)
     const help = document.getElementById(leftover().getAttribute('aria-describedby')!)!
-    expect(help).toHaveTextContent('Off: the rows of this block use all of it they can. What they cannot use is still left over, and the warning names it.')
-    expect(help).toHaveTextContent('every item of a chain')
-    expect(help).toHaveTextContent('Receive it first')
+    expect(help).toHaveTextContent(LEFTOVER_SWITCH.help)
+    expect(help).not.toHaveTextContent('every item of a chain')
+    expectTip(leftover(), 'Leftover\nWhen it is off, the rows of this block use all of it they can.', { describe: false })
   })
 
   it('leaves the item\'s other settings alone', () => {

@@ -49,13 +49,13 @@ import { ingredientTemperatureLabels, productTemperatureLabels } from './tempera
 // ---------------------------------------------------------------------------
 
 const BYPRODUCT_CONSUMER_HINT =
-  'Absorbs byproduct: runs only to consume surplus from other recipes and never imports what it absorbs. Rows that only feed it run along with it. Right-click the row to stop absorbing.'
+  'Absorbs byproduct\nRuns only to consume surplus from other recipes and never imports what it absorbs.'
 
 const FEEDER_HINT =
-  'Feeds an absorbing row: runs only to supply a row that absorbs a byproduct, or a row marked to feed one, and runs only as much as that row does. Stop absorbing on that row to make this one an ordinary row.'
+  'Feeds an absorbing row\nRuns only to supply a row that absorbs a byproduct, or a row marked to feed one, and only as much as that row does.'
 
 const MARKED_FEEDER_HINT =
-  'Feeds absorbing rows: besides what other rows use, it runs for the rows that absorb a byproduct, as much as they need. Right-click the row to stop feeding them.'
+  'Feeds absorbing rows\nBesides what other rows use, it runs for the rows that absorb a byproduct, as much as they need.'
 
 const PRIMARY_AREA_HINT = '; the primary product decides what this row builds for its area'
 
@@ -503,7 +503,7 @@ export function RecipeRow({
                 {
                   label: 'Separate area',
                   checked: childPlan?.area === true,
-                  title: 'Solve this subfactory as its own area: its rows serve it first, and the summary lists what it receives and sends',
+                  title: 'Its rows serve it first, and the summary lists what it receives and sends.',
                   onSelect: () => setSubPlanArea(subPlanId, !(childPlan?.area === true)),
                 },
                 ...(dupOptions.length > 0
@@ -869,7 +869,6 @@ export function RecipeRow({
             const byproductTemp = productTemperatures[itemId]
             const itemName = byproductTemp ? `${baseName} (${byproductTemp})` : baseName
             const openItemMenu = (e: React.MouseEvent) => openByproductMenu(e, itemId)
-            const hint = onAddConsumer ? '; right-click to add a consumer recipe' : ''
 
             if (isMultiOutput) {
               // In multi-output recipes, clicking a byproduct chip makes it primary.
@@ -882,7 +881,7 @@ export function RecipeRow({
                   temperature={byproductTemp}
                   onClick={() => updateNodePrimaryProduct(planNode.id, itemId)}
                   onContextMenu={openItemMenu}
-                  label={`${itemName} — Set as primary${hasAreas ? PRIMARY_AREA_HINT : ''}${hint}`}
+                  label={`${itemName} — Set as primary${hasAreas ? PRIMARY_AREA_HINT : ''}`}
                 />
               )
             }
@@ -903,7 +902,7 @@ export function RecipeRow({
                   })
                 }
                 onContextMenu={openItemMenu}
-                label={`${itemName} — ${policy} (click to toggle)${hint}`}
+                label={`${itemName} — ${policy}`}
               />
             )
           }}

@@ -39,9 +39,6 @@ export interface BlockAreaMatrixProps {
   areaRuleMarker?: (areaId: string) => ReactNode
 }
 
-/** Appended to the counterpart tooltips: how the solver pairs senders and receivers. */
-const RULE = 'Areas higher in the table supply first; an area with its own row for the item is served before the others.'
-
 const SEND = 'bg-sky-400/15 text-sky-300'
 const RECEIVE = 'bg-orange-400/15 text-orange-300'
 const OUTSIDE_COL = 'border-x border-dashed border-gray-600'
@@ -135,8 +132,8 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
         kind: sends ? 'send' : 'receive',
         counterpart: true,
         tip: sends
-          ? `${area} sends ${per} of ${item} to ${focusedArea!.name}. ${RULE}`
-          : `${focusedArea!.name} sends ${per} of ${item} to ${area}. ${RULE}`,
+          ? `${area} sends ${per} of ${item} to ${focusedArea!.name}.`
+          : `${focusedArea!.name} sends ${per} of ${item} to ${area}.`,
       }
     }
     if (v === 0) return null

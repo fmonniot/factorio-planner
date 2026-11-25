@@ -225,7 +225,8 @@ describe('PlanAreasModal', () => {
     const tip = counterpart.getAttribute('data-tip') ?? ''
     expect(counterpart).toHaveAccessibleDescription(tip)
     expect(counterpart).not.toHaveAttribute('title')
-    expect(tip).toContain('Areas higher in the table supply first; an area with its own row for the item is served before the others.')
+    expect(tip).toMatch(/^.+ sends .+ of .+ to .+\.$/)
+    expect(tip).not.toContain('Areas higher')
     expect(tip).not.toContain('allocated')
     fireEvent.click(within(panel).getByRole('button', { name: 'Stop focusing Plastics' }))
     expect(screen.queryByRole('complementary')).toBeNull()

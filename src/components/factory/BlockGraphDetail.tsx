@@ -108,7 +108,7 @@ function EdgeItems({ edge, blocks, flowsById, items, gameData, pinned, onRemove,
     <div>
       <div className={HEAD}>
         Items on this edge · {source?.name ?? edge.from} → {target?.name ?? edge.to} · {n} {n === 1 ? 'connection' : 'connections'}
-        {!pinned && <span className="normal-case"> · click the edge to pin it and edit</span>}
+        {pinned && <span data-testid="graph-detail-pinned" className="normal-case text-[10px] text-blue-300"> · pinned</span>}
       </div>
       <EdgeChips edge={edge} blocks={blocks} flowsById={flowsById} items={items} gameData={gameData} arrange="grid" onRemove={onRemove} onSetLimit={onSetLimit} />
     </div>
@@ -177,7 +177,7 @@ export function BlockGraphDetail({ lit, edges, blocks, flowsById, items, gameDat
 
   return (
     <div data-testid="graph-detail" className="p-3">
-      {body ?? <div className="text-xs text-gray-400">Point at a block or a connection to see what it carries.</div>}
+      {body}
     </div>
   )
 }

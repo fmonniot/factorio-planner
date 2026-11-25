@@ -52,7 +52,7 @@ test.describe('block connections', () => {
     await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
     const exportSegment = detail(page, 'Products').locator('[data-testid="summary-segment"][data-kind="export"]')
-    await expect(exportSegment.getByTestId('summary-segment-detail')).toHaveText(/^Sends Iron plate to Gears/)
+    await expect(exportSegment.getByTestId('summary-segment-detail')).toHaveCount(0)
     await expect(exportSegment.getByTestId('summary-segment-tip')).toContainText('30.0')
 
     // Back on Gears, the request is served in full.

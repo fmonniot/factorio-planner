@@ -6,7 +6,7 @@ import {
   overviewRows,
   slotHasKey,
   segmentLabel,
-  segmentTitle,
+  segmentDetail,
   keyEntryText,
   isShortfall,
   differsFromTarget,
@@ -398,10 +398,10 @@ describe('slotHasKey', () => {
   })
 })
 
-describe('segmentLabel / segmentTitle', () => {
+describe('segmentLabel / segmentDetail', () => {
   const seg = (kind: Segment['kind'], extra: Partial<Segment> = {}): Segment => ({ key: kind, kind, amount: 1, ...extra })
   const ov = (kind: Overlay['kind']): Overlay => ({ key: kind, kind })
-  const ctx = { itemName: 'Iron Plate', blockName: 'Miner', fmt: (n: number) => n.toFixed(1), unit: '/m', available: 12 }
+  const ctx = { blockName: 'Miner', fmt: (n: number) => n.toFixed(1), unit: '/m', available: 12 }
 
   it('labels every kind', () => {
     expect(segmentLabel(seg('export'), 'Miner')).toBe('→ Miner')
@@ -417,43 +417,41 @@ describe('segmentLabel / segmentTitle', () => {
     expect(segmentLabel(ov('locked'), undefined)).toBe('Import off')
   })
 
-  it('marks loop segments in labels and titles', () => {
+  it('marks loop segments in labels and says so in the detail', () => {
     expect(segmentLabel(seg('source', { loop: true }), 'Ores')).toBe('← Ores ↻')
     expect(segmentLabel(seg('export', { loop: true }), 'Ores')).toBe('→ Ores ↻')
-    expect(segmentTitle(seg('export', { loop: true }), ctx)).toMatch(/— part of a loop — click to open/)
-    expect(segmentTitle(seg('source', { loop: true }), ctx)).toMatch(/— part of a loop — click to open/)
-    expect(segmentTitle(seg('source', { loop: true, limited: true }), ctx)).toMatch(/— part of a loop — click to open/)
-    expect(segmentTitle(seg('source', { loop: true, limited: true, capped: true, maxRate: 8 }), ctx))
-      .toMatch(/— part of a loop — click to open/)
+    expect(segmentDetail(seg('export', { loop: true }), ctx)).toBe('Part of a loop')
+    expect(segmentDetail(seg('source', { loop: true }), ctx)).toBe('Part of a loop')
+    expect(segmentDetail(seg('source', { loop: true, limited: true }), ctx)).toBe('Limited: Miner only offers 12.0/m — Part of a loop')
+    expect(segmentDetail(seg('source', { loop: true, limited: true, capped: true, maxRate: 8 }), ctx))
+      .toBe("Limited by this connection's limit of 8.0/m — Part of a loop")
   })
 
-  it('titles every kind', () => {
-    expect(segmentTitle(seg('export'), ctx)).toBe('Sends Iron Plate to Miner — click to open')
-    expect(segmentTitle(seg('source'), ctx)).toBe('Iron Plate from Miner — click to open, right-click to remove')
-    expect(segmentTitle(seg('source', { limited: true }), ctx)).toBe(
-      'Limited: Miner only offers 12.0/m — click to open, right-click to remove',
+  it('has a detail only where the label does not say it all', () => {
+    expect(segmentDetail(seg('export'), ctx)).toBeUndefined()
+    expect(segmentDetail(seg('source'), ctx)).toBeUndefined()
+    expect(segmentDetail(seg('source', { limited: true }), ctx)).toBe('Limited: Miner only offers 12.0/m')
+    expect(segmentDetail(seg('source', { limited: true, capped: true, maxRate: 8 }), ctx)).toBe(
+      "Limited by this connection's limit of 8.0/m",
     )
-    expect(segmentTitle(seg('source', { limited: true, capped: true, maxRate: 8 }), ctx)).toBe(
-      "Limited by this connection's limit of 8.0/m — click to open, right-click to remove",
-    )
-    expect(segmentTitle(ov('unused'), ctx)).toMatch(/^Not used: /)
-    expect(segmentTitle(ov('missing-source'), ctx)).toMatch(/source block was deleted/)
-    expect(segmentTitle(ov('self'), ctx)).toMatch(/cannot supply itself/)
-    expect(segmentTitle(seg('kept'), ctx)).toBe('Left')
-    expect(segmentTitle(ov('locked'), ctx)).toBe('Import off')
+    expect(segmentDetail(ov('unused'), ctx)).toBe('Not used: this block makes or needs none from outside')
+    expect(segmentDetail(ov('missing-source'), ctx)).toBe('The source block was deleted')
+    expect(segmentDetail(ov('self'), ctx)).toBe('Ignored because a block cannot supply itself')
+    expect(segmentDetail(seg('kept'), ctx)).toBeUndefined()
+    expect(segmentDetail(ov('locked'), ctx)).toBeUndefined()
   })
 })
 
 describe('requested flows', () => {
-  it('marks the source segment of a request and words its title', () => {
+  it('marks the source segment of a request and words its detail', () => {
     const row = ingredientRow({ connections: [conn('c1', 'A')] })
     const requested = ingredientSlot(row, new Map([['c1', flow({ kind: 'request', requested: 30 })]]), new Set(['A']))
     expect(requested.segments[0].requested).toBe(true)
     const take = ingredientSlot(row, new Map([['c1', flow()]]), new Set(['A']))
     expect('requested' in take.segments[0]).toBe(false)
-    const ctx = { itemName: 'Iron Plate', blockName: 'Miner', fmt: (n: number) => String(n), unit: '/m' }
-    expect(segmentTitle(requested.segments[0], ctx)).toBe('Iron Plate from Miner — requested — click to open, right-click to remove')
-    expect(segmentTitle(take.segments[0], ctx)).toBe('Iron Plate from Miner — click to open, right-click to remove')
+    const ctx = { blockName: 'Miner', fmt: (n: number) => String(n), unit: '/m' }
+    expect(segmentDetail(requested.segments[0], ctx)).toBe('Requested')
+    expect(segmentDetail(take.segments[0], ctx)).toBeUndefined()
   })
 })
 

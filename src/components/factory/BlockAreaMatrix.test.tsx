@@ -96,6 +96,13 @@ describe('BlockAreaMatrix power units', () => {
     expect(within(panel).getAllByText(/5\.0MW out/).length).toBeGreaterThan(0)
   })
 
+  it('words a counterpart cell as who sends what to whom, with no rule appended', () => {
+    renderMatrix({ focusedAreaId: 'A' })
+    const tip = document.querySelector<HTMLElement>('td[data-counterpart="true"]')!.getAttribute('data-tip')!
+    expect(tip).toMatch(/^.+ sends .+ of .+ to .+\.$/)
+    expect(tip).not.toContain('Areas higher')
+  })
+
   it('words the header note of an energy-only trade by its direction', () => {
     renderMatrix({ matrix: { ...matrix, rows: [elecRow] }, focusedAreaId: 'B' })
     const head = document.querySelector('thead button[data-tip="Focus A"]')!.closest('th')!

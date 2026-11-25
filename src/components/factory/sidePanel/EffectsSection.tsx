@@ -19,7 +19,7 @@ function Cell({ source, effect, column }: { source: EffectSource; effect: Effect
         role="cell"
         className={`text-right tabular-nums ${ignored ? 'text-amber-400 line-through' : 'text-gray-400'}`}
         data-ignored={ignored ? 'true' : undefined}
-        {...describedTip(ignored ? `${column}: ${fmtEffect(raw)} does not apply to this row (the recipe, machine or beacon does not allow it)` : undefined)}
+        {...describedTip(ignored ? `${column}\n${fmtEffect(raw)} does not apply to this row, because the recipe, machine or beacon does not allow it.` : undefined)}
       >
         {ignored ? fmtEffect(raw) : '–'}
       </div>

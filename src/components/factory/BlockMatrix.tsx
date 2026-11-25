@@ -128,7 +128,7 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
     const statuses = c.connectionIds.map(id => connectionStatus(flowsById.get(id)))
     return [c.key, {
       label: `${plural(c.count, 'item', 'items')} from ${from} to ${to}${c.loop ? ', loop' : ''}${c.limited > 0 ? `, ${c.limited} limited` : ''}${c.unused > 0 ? `, ${c.unused} not used` : ''}${c.back ? ', runs against the order' : ''}`,
-      tip: edgeSummaryTitle(c.count, from, to, statuses, c.loop, 0, 'click to list them'),
+      tip: edgeSummaryTitle(c.count, from, to, statuses, c.loop),
     }]
   })), [model, byId, flowsById])
 
@@ -342,7 +342,6 @@ function Legend() {
       <div className={row}><span className={`${swatch} border border-gray-500`} style={{ backgroundImage: HATCH_BACK }} />Runs against this order (below the diagonal)</div>
       <div className={row}><span className={swatch} style={{ backgroundImage: HATCH_DIAGONAL }} />The diagonal: a block with itself</div>
       <div className={row}><span className={`${swatch} w-auto px-1 text-gray-400`}>Name · 3</span>Blocks supplied (rows) or received from (columns)</div>
-      <div className="text-xs text-gray-500 pt-1">Click a cell to list its items and edit them.</div>
     </div>
   )
 }

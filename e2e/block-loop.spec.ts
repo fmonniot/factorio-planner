@@ -43,7 +43,7 @@ test.describe('block loops', () => {
     await expect(sourceEntry(page)).toContainText('Gears')
     await expect(sourceEntry(page)).toContainText('↻')
     await expect(sourceEntry(page)).toContainText('120')
-    await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/part of a loop/)
+    await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/^Part of a loop/)
     await expect(importEntry(page)).toHaveCount(0)
 
     // Gears still gets its plates from Plates, also marked as part of the loop.

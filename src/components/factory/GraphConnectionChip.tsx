@@ -94,7 +94,7 @@ export function ConnectionChip({
           type="button"
           data-testid="graph-edge-limit"
           aria-label={`${connection.maxRate !== undefined ? 'Change limit of' : 'Limit'} ${itemName} from ${sourceName} to ${targetName}`}
-          data-tip={`Most ${targetName} takes over this connection; click to edit, clear to remove`}
+          data-tip={`Connection limit\nMost ${targetName} takes over this connection.`}
           onClick={e => {
             e.stopPropagation()
             onEdit()

@@ -179,7 +179,7 @@ test.describe('block graph matrix, 15 blocks', () => {
     await setup(page, out(testInfo))
     await setView(page, 'Matrix')
     await page.getByTestId('matrix-cell').first().hover()
-    await expect(page.getByTestId('tooltip')).toContainText(/\d+ items? from .+ to .+ — click to list them/)
+    await expect(page.getByTestId('tooltip')).toHaveText(/^\d+ items? from .+ to .+$/)
     await expect(page.locator('[data-testid="matrix-cell"][title]')).toHaveCount(0)
   })
 })

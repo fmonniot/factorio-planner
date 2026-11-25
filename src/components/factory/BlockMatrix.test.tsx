@@ -5,6 +5,7 @@ import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
+import { tipOf } from '../../test/byTip'
 import type { Block, ConnectionFlow, GameData } from '../../data/types'
 
 const items = {
@@ -102,7 +103,7 @@ describe('BlockMatrix', () => {
     const c = cell('miner', 'consumer')
     expect(c.getAttribute('data-count')).toBe('2')
     expect(c.getAttribute('aria-label')).toBe('2 items from Miner to Consumer')
-    expect(c.getAttribute('data-tip')).toContain('click to list them')
+    expect(tipOf(c)).toBe('2 items from Miner to Consumer')
     expect(document.querySelectorAll('[title]')).toHaveLength(0)
     expect(screen.getByTestId('matrix-summary').textContent).toBe('2 × 2 blocks, 1 filled, 0 below the diagonal, in dependency order')
     expect(document.querySelectorAll('tbody td')).toHaveLength(4)
@@ -113,6 +114,7 @@ describe('BlockMatrix', () => {
     render(<BlockGraphButton />)
     openMatrix()
     expect(screen.getByTestId('matrix-legend')).toBeTruthy()
+    expect(screen.queryByText(/Click a cell/)).toBeNull()
     fireEvent.click(cell('miner', 'consumer'))
     expect(screen.queryByTestId('matrix-legend')).toBeNull()
     const panel = screen.getByTestId('matrix-panel')

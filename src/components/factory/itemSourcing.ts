@@ -39,15 +39,15 @@ export const IMPORT_SWITCH = {
 
 /**
  * The Leftover switch (on unless the item's block rule has `leftoverOff`): its name and fixed help text. Off is the surplus rule
- * of the solver (`LEFTOVER_COST`): the rows use the item up where they can. The text carries the two limits of the rule.
+ * of the solver (`LEFTOVER_COST`): the rows use the item up where they can.
  */
-const LEFTOVER_HELP = 'Off: the rows of this block use all of it they can. What they cannot use is still left over, and the warning names it.'
+const LEFTOVER_HELP = 'When it is off, the rows of this block use all of it they can.'
 export const LEFTOVER_SWITCH = {
   label: 'Leftover',
   /** The rule's own line in the Source rules list. */
   help: LEFTOVER_HELP,
-  /** The tooltip: the line and the two limits. */
-  title: `${LEFTOVER_HELP} Turn it off on every item of a chain, or the leftover moves to the next item. An input the loop needs from a connection: set it to Receive it first.`,
+  /** The tooltip: the name, then the line. */
+  title: `Leftover\n${LEFTOVER_HELP}`,
 }
 
 /** The note under the Leftover switch at area scope: the rule is the block's, so the control only shows it. */
@@ -126,8 +126,11 @@ export const SOURCES_LINES = {
 /** The heading of the Sources list: the lines are tried top to bottom. */
 export const LIST_ORDER_LABEL = 'Used in this order'
 
-/** The tooltip of the rule chip of the list: it reads the rule, the list writes it. */
-export const RULE_CHIP_HELP = 'The rule this order makes. Move Make more here above or below the other blocks, or switch it off, to change it.'
+/** The tooltip of a preset: its name, then the author's one sentence. The rule chip of the list and the Make more here places show it. */
+export const presetTip = (preset: SourcingPreset | undefined): string => {
+  const choice = ITEM_SOURCING_CHOICES.find(c => c.mode === preset) ?? ITEM_SOURCING_CHOICES[0]
+  return `${choice.label}\n${choice.title}`
+}
 
 /** The two places of *Make more here* against the block lines, as its detail names them. */
 export const MAKE_MORE_PLACES = {
@@ -137,8 +140,8 @@ export const MAKE_MORE_PLACES = {
 
 /** What each place does, as the preset names it. */
 export const MAKE_MORE_PLACE_HELP: Record<Side, string> = {
-  above: `${ITEM_SOURCING_CHOICES[0].label}: ${ITEM_SOURCING_CHOICES[0].title}`,
-  below: `${ITEM_SOURCING_CHOICES[1].label}: ${ITEM_SOURCING_CHOICES[1].title}`,
+  above: presetTip(undefined),
+  below: presetTip('connections-first'),
 }
 
 /** The Leftover row at the foot of the Sources list: the block's rule, read beside its switch. */

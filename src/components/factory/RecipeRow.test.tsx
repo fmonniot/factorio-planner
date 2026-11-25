@@ -602,8 +602,8 @@ describe('RecipeRow context menu', () => {
     const bc: RecipeNode = { ...ironPlateRecipeNode, byproductConsumer: true }
     renderRow({ planNode: bc })
     const badge = screen.getByRole('img', { name: 'Absorbs byproduct' })
-    expect(tipOf(badge)).toContain('Absorbs byproduct')
-    expectTip(badge, tipOf(badge))
+    expectTip(badge, 'Absorbs byproduct\nRuns only to consume surplus from other recipes and never imports what it absorbs.')
+    expect(tipOf(badge)).not.toContain('Right-click')
   })
 
   it('a default row has no absorbs-byproduct badge', () => {
@@ -614,8 +614,8 @@ describe('RecipeRow context menu', () => {
   it('a row that feeds an absorber shows the feeder badge with an explanatory title and no absorbs-byproduct badge', () => {
     renderRow({ solvedNode: { ...solvedNode, feedsAbsorber: true } })
     const badge = screen.getByRole('img', { name: 'Feeds an absorbing row' })
-    expect(tipOf(badge), 'tooltip').toContain('runs only to supply')
-    expectTip(badge, tipOf(badge))
+    expectTip(badge, 'Feeds an absorbing row\nRuns only to supply a row that absorbs a byproduct, or a row marked to feed one, and only as much as that row does.')
+    expect(tipOf(badge)).not.toContain('Right-click')
     expect(screen.queryByRole('img', { name: 'Absorbs byproduct' }), 'no absorber badge').toBeNull()
   })
 
@@ -681,10 +681,14 @@ describe('RecipeRow context menu', () => {
   it('a marked row that feeds an absorber has its own badge title; an unmarked feeder keeps the usual one', () => {
     const marked: RecipeNode = { ...ironPlateRecipeNode, absorberFeeder: true }
     const { unmount } = renderRow({ planNode: marked, solvedNode: { ...solvedNode, feedsAbsorber: true } })
-    expect(tipOf(screen.getByRole('img', { name: 'Feeds an absorbing row' }))).toMatch(/besides what other rows use/)
+    expectTip(
+      screen.getByRole('img', { name: 'Feeds an absorbing row' }),
+      'Feeds absorbing rows\nBesides what other rows use, it runs for the rows that absorb a byproduct, as much as they need.',
+    )
+    expect(tipOf(screen.getByRole('img', { name: 'Feeds an absorbing row' }))).not.toContain('Right-click')
     unmount()
     renderRow({ solvedNode: { ...solvedNode, feedsAbsorber: true } })
-    expect(tipOf(screen.getByRole('img', { name: 'Feeds an absorbing row' }))).toMatch(/runs only to supply/)
+    expect(tipOf(screen.getByRole('img', { name: 'Feeds an absorbing row' }))).toMatch(/Runs only to supply/)
     expectTip(screen.getByRole('img', { name: 'Feeds an absorbing row' }), tipOf(screen.getByRole('img', { name: 'Feeds an absorbing row' })))
   })
 
@@ -914,13 +918,13 @@ describe('RecipeRow byproduct context menu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('chip titles never end in a separator or whitespace, with or without onAddConsumer', () => {
+  it('chip titles never end in a separator or whitespace and never hint a click, with or without onAddConsumer', () => {
     for (const onAddConsumer of [undefined, vi.fn()]) {
       const { unmount } = renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer })
       const title = oxygenTile().getAttribute('aria-label')!
       expect(title).toBe(title.trim())
       expect(title).not.toMatch(/[;—,]$/)
-      expect(title.includes('right-click')).toBe(onAddConsumer !== undefined)
+      expect(title.toLowerCase(), 'no hint, with or without the menu').not.toMatch(/click/)
       unmount()
     }
   })
@@ -1236,6 +1240,14 @@ describe('RecipeRow sub-factory actions', () => {
     fireEvent.click(item)
     expect(rootPlan().subPlans[0].area).toBe(true)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('describes "Separate area" with one sentence', () => {
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    openMenu()
+    expect(tipOf(screen.getByRole('menuitemcheckbox', { name: 'Separate area' }))).toBe(
+      'Its rows serve it first, and the summary lists what it receives and sends.',
+    )
   })
 
   it('checks "Separate area" and shows the marker only when the flag is on', () => {
@@ -1715,11 +1727,12 @@ describe('RecipeRow in a block with areas', () => {
     expect(labels()).toEqual(['Absorb byproduct', 'Feed absorbing rows', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
   })
 
-  it('explains in a block with areas what the primary product decides', () => {
+  it('explains in a block with areas what the primary product decides, with no right-click hint', () => {
     renderAreaRow('e-root', { onAddConsumer: vi.fn() })
     expect(screen.getByLabelText(/^Oxygen — Set as primary/).getAttribute('aria-label')).toBe(
-      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe — 30.0/m',
+      'Oxygen — Set as primary; the primary product decides what this row builds for its area — 30.0/m',
     )
+    expect(queryByTip(/click/i)).toBeNull()
   })
 
   it('keeps the plain primary-product tooltip without areas', () => {
@@ -2272,7 +2285,7 @@ describe('RecipeRow on a narrow screen', () => {
 
     it('toggles the policy of a hidden byproduct (a single-output recipe) and closes the list', () => {
       const { list } = open('More byproducts')
-      fireEvent.click(within(list).getByLabelText(/^b4 — feed-back \(click to toggle\)/))
+      fireEvent.click(within(list).getByLabelText(/^b4 — feed-back/))
       expect(useBlockStore.getState().blocks[0].rootPlan.nodes[0]).toMatchObject({ byproductPolicy: { b4: 'discard' } })
       expect(dialog('More byproducts')).toBeNull()
     })

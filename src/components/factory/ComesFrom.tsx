@@ -9,7 +9,7 @@ import { productChangeEffects, receivedFromSources } from '../../store/connectio
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { COMES_FROM_LABEL, LEFTOVER_BLOCK_BUTTON, LEFTOVER_BLOCK_NOTE, LEFTOVER_ROW, LEFTOVER_SWITCH, LIST_ORDER_LABEL, RULE_CHIP_HELP, ruleChipOf, ruleLabel, SOURCES_BUTTON_LABEL } from './itemSourcing'
+import { COMES_FROM_LABEL, LEFTOVER_BLOCK_BUTTON, LEFTOVER_BLOCK_NOTE, LEFTOVER_ROW, LEFTOVER_SWITCH, LIST_ORDER_LABEL, presetTip, ruleChipOf, ruleLabel, SOURCES_BUTTON_LABEL } from './itemSourcing'
 import { noEffectLabel, ruleId, scopeAreasOf, sourceRules } from './sourceRules'
 import type { SourceRulePart } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
@@ -318,7 +318,7 @@ export function ComesFrom({ itemId, areaId, listInPopover = false, actions = [],
               data-testid="sources-rule-chip"
               data-preset={chip.preset ?? 'own'}
               data-owner={chip.owner}
-              data-tip={RULE_CHIP_HELP}
+              data-tip={presetTip(chip.preset)}
               className={`rounded border px-1.5 text-[11px] leading-4 ${chip.owner === 'own' ? 'border-teal-700 text-teal-300' : 'border-gray-700 text-gray-300'}`}
             >
               {chip.text}
@@ -366,7 +366,7 @@ export function ComesFrom({ itemId, areaId, listInPopover = false, actions = [],
           tip={LEFTOVER_SWITCH.title}
           onToggle={() => toggleLeftoverOff(itemId)}
         />
-        <span id={`${baseId}-leftover-reason`} className="sr-only">{area !== undefined ? LEFTOVER_BLOCK_NOTE : LEFTOVER_SWITCH.title}</span>
+        <span id={`${baseId}-leftover-reason`} className="sr-only">{area !== undefined ? LEFTOVER_BLOCK_NOTE : LEFTOVER_SWITCH.help}</span>
       </div>
       {productDialog}
     </div>

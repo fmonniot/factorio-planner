@@ -82,7 +82,7 @@ test.describe('requests between blocks', () => {
     if ((await plateSlot(page).getAttribute('aria-pressed')) !== 'true') await plateSlot(page).click()
 
     await expect(sourceSegment(page)).toContainText('Plates')
-    await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/— requested/)
+    await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/^Requested/)
     await expect(sourceEntry(page)).toContainText('30.0')
     await expect(importEntry(page)).toHaveCount(0)
 
@@ -156,7 +156,7 @@ test.describe('requests between blocks', () => {
     await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await expect(sourceEntry(page)).toContainText('30.0')
-    await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/— requested/)
+    await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/^Requested/)
   })
 
   test('adding a product the block already receives warns first', async ({ page }) => {
