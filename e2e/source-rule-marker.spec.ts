@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, pane, slot } from './support/summary'
-import { changeSourcing, comesFromPopover, sidePanel } from './support/sidePanel'
+import { inputLines, openSources, comesFromPopover } from './support/sidePanel'
 import { importSwitch, setPreset } from './support/sourcesList'
 import { pinEdge } from './support/blockGraph'
 
@@ -88,7 +88,7 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   await expect(markers(page)).toHaveCount(0)
 
   // Receive it first with no connection: a rule with no effect, so no marker.
-  const control = await changeSourcing(page, acidRow(page), OXYGEN)
+  const control = await openSources(page, acidRow(page), OXYGEN)
   await setPreset(control, 'connections-first')
   await expect(control.getByTestId('no-effect')).toContainText('No connection for Oxygen.')
   await expect(markers(table(page))).toHaveCount(0)
@@ -108,15 +108,15 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
 
   // A grey dot with the item's sentence as its name and tooltip: no letter, none of the old badge.
   const marker = markers(acidRow(page))
-  // Wait for the solve this rule triggers (the solver is debounced): until it lands, the sentence is the new rule read
-  // against the previous solve, which still has the oxygen decompression running. Reading it earlier compares a
-  // sentence that is about to change with the marker's, and fails when the solve lands in between.
-  const sentenceEl = sidePanel(page).locator(`[data-testid="sourcing-entry"][data-item-id="${OXYGEN}"]`).getByTestId('sourcing-sentence')
-  await expect(sentenceEl).toHaveText(/^Uses what this block already makes \(Steam electrolysis [^,)]+\)\./)
-  const sentence = (await sentenceEl.textContent())!
-  expect(sentence).toContain('Uses what this block already makes (')
-  await expect(marker).toHaveAccessibleName(sentence)
-  await expect(marker).toHaveAttribute('aria-label', sentence)
+  // Wait for the solve this rule triggers (the solver is debounced): until it lands, the marker's name is the new rule read
+  // against the previous solve, which still has the oxygen decompression running. The panel's made-here line, which names the
+  // electrolysis, is the sign that the solve landed.
+  await expect(inputLines(page, OXYGEN, 'made-here')).toHaveCount(1)
+  await expect(inputLines(page, OXYGEN, 'made-here').getByTestId('input-line-label')).toHaveText(/^Steam electrolysis/)
+  await expect(marker).toHaveAccessibleName(/^Uses what this block already makes \(Steam electrolysis [^,)]+\)\./)
+  const label = (await marker.getAttribute('aria-label'))!
+  expect(label).toContain('Uses what this block already makes (')
+  await expect(marker).toHaveAccessibleName(label)
   await expect(marker).toHaveText('')
   await expect(page.getByTestId('item-tile-sourcing')).toHaveCount(0)
   await expect(page.locator('[data-sourcing]')).toHaveCount(0)

@@ -223,6 +223,47 @@ describe('buildSourcesModel', () => {
   })
 })
 
+describe('buildSourcesModel makers', () => {
+  const named = (recipeName: string, machineName: string, machineCount: number, rate: number, byproduct: boolean): ItemMaker => ({ recipeName, machineName, machineCount, rate, byproduct })
+  const line = (m: ReturnType<typeof buildSourcesModel>, key: string) => m.lines.find(l => l.key === key)!
+
+  it('carries the rows that make a line: byproduct makers on Already made here, dedicated ones on Make more here', () => {
+    const m = buildSourcesModel(input({ makers: [named('Split', 'Splitter', 1, 30, true), named('Smelt', 'Furnace', 2, 100, false)], rows: [row('c1', 'Cheap', 20)] }))
+    expect(line(m, 'made-here').makers).toEqual([{ recipeName: 'Split', machineName: 'Splitter', machineCount: 1, rate: 30 }])
+    expect(line(m, 'make-here').makers).toEqual([{ recipeName: 'Smelt', machineName: 'Furnace', machineCount: 2, rate: 50 }])
+  })
+
+  it('splits the line rate between its makers by their own output, the shares summing to the line', () => {
+    const m = buildSourcesModel(input({ makers: [named('A', 'M', 1, 10, false), named('B', 'M', 1, 30, false)], result: solve([node('n', 40)]) }))
+    const shares = line(m, 'make-here').makers!.map(x => x.rate)
+    expect(shares).toEqual([10, 30])
+    expect(shares.reduce((a, b) => a + b, 0)).toBeCloseTo(line(m, 'make-here').rate!)
+  })
+
+  it('holds every maker on Already made here under Make more here off, and none on Make more here', () => {
+    const m = buildSourcesModel(input({ rule: { makeHere: 'off' }, makers: [named('A', 'M', 1, 10, false), named('B', 'M', 1, 10, true)] }))
+    expect(line(m, 'made-here').makers).toHaveLength(2)
+    expect(line(m, 'make-here').makers).toBeUndefined()
+  })
+
+  it('has no makers before a solve or on an idle line', () => {
+    const unsolved = buildSourcesModel(input({ result: undefined, makers: [named('A', 'M', 1, 10, false)] }))
+    expect(line(unsolved, 'make-here').makers).toBeUndefined()
+    const idle = buildSourcesModel(input({ result: solve([node('n', 20)]), makers: [named('A', 'M', 1, 10, true)], rows: [row('c1', 'Cheap', 20)] }))
+    expect(line(idle, 'made-here').makers).toBeUndefined()
+  })
+
+  it('leaves out a maker that makes none of the item at the moment', () => {
+    const m = buildSourcesModel(input({ makers: [named('A', 'M', 1, 100, false), named('Idle', 'M', 0, 0, false)] }))
+    expect(line(m, 'make-here').makers!.map(x => x.recipeName)).toEqual(['A'])
+  })
+
+  it('splits equally when the makers make nothing of their own', () => {
+    const m = buildSourcesModel(input({ makers: [named('A', 'M', 1, 0, false), named('B', 'M', 1, 0, false)] }))
+    expect(line(m, 'make-here').makers!.map(x => x.rate)).toEqual([50, 50])
+  })
+})
+
 describe('altMoveTarget', () => {
   const ctx = { connectionIds: ['a', 'b', 'c'], makeHere: undefined } as const
   it('moves a block line within its group', () => {

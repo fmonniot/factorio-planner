@@ -5,7 +5,7 @@ import { useBlockSourcingSentence, useSourcingSentence } from './useSourcingSent
 // ---------------------------------------------------------------------------
 // The source rule marker: the small grey dot that says "this item has a source rule with an effect". It only shows the rule:
 // it is an image with the item's sentence as its tooltip and accessible name, and a click on it does nothing. The rule is
-// set in the Comes from control, reached from a right-click on an ingredient chip or from the side panel's Change….
+// set in the Comes from control, reached from a right-click on an ingredient chip or from the side panel's Sources….
 // One component for every surface. `SourceRuleMarker` draws it and knows nothing of where it sits or of the stores;
 // `ItemSourceRuleMarker` is the same marker for an item of the active block, `BlockSourceRuleMarker` for an item of any
 // block. Which items of a block get one is `useSourceRuleItems` (`useSourceRuleItems.ts`).

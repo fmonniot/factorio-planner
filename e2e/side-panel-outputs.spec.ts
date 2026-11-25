@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { sidePanel, selectRow, outputEntry, outputLines } from './support/sidePanel'
@@ -61,4 +61,26 @@ test('an output is read as sent to the block that takes it', async ({ page }) =>
   const blocks = outputLines(page, 'pipe', 'block')
   await expect(blocks).toHaveCount(1)
   await expect(blocks.getByTestId('output-line-label')).toHaveText('Valves')
+})
+
+/** The rail, the icon column, the rates and the labels line up with the entry's header, for outputs and inputs alike. */
+test('a rail list lines up with its header', async ({ page }) => {
+  await load(page, SURPLUS)
+  await selectRow(page, row(page, ELECTROLYSIS))
+  const check = async (entry: Locator, rateTestId: string, headerRate: string) => {
+    const stem = (await entry.getByTestId('rail-stem').boundingBox())!
+    const cell = (await entry.locator('span[data-icon]').first().boundingBox())!
+    expect(Math.abs(stem.x + stem.width / 2 - (cell.x + cell.width / 2))).toBeLessThanOrEqual(0.5)
+    const lineRate = (await entry.getByTestId(rateTestId).first().boundingBox())!
+    const header = (await entry.locator(headerRate).first().boundingBox())!
+    expect(Math.abs(lineRate.x + lineRate.width - (header.x + header.width))).toBeLessThanOrEqual(1)
+    const label = (await entry.locator('[data-testid$="-line-label"]').first().boundingBox())!
+    const name = (await entry.locator('span.truncate').first().boundingBox())!
+    expect(Math.abs(label.x - name.x)).toBeLessThanOrEqual(1)
+  }
+  await check(outputEntry(page, 'nullius-oxygen'), 'output-line-rate', '[data-testid="output-rate"]')
+  // The inputs' header rate is the span before the Sources… button.
+  const input = sidePanel(page).getByTestId('sourcing-entry').filter({ has: page.getByTestId('input-line') }).first()
+  await expect(input).toBeVisible()
+  await check(input, 'input-line-rate', 'span.tabular-nums.text-green-300')
 })

@@ -10,7 +10,7 @@ import { liveAnchor } from './popoverAnchor'
 
 // ---------------------------------------------------------------------------
 // ComesFromPopover — the Comes from control of any item of the active block, in a popover opened where the player
-// already is: the side panel's Change…, or the right-click menu of an ingredient chip. An item that has an Ingredients slot
+// already is: the side panel's Sources…, or the right-click menu of an ingredient chip. An item that has an Ingredients slot
 // has the same control in the slot's strip; one that is only an intermediate of the block has no slot, and this is where
 // its rule is set. The popover says whose rule it is (the block's, for every row; in a block with areas, the block's or one area's) and, when the item has a slot, links to it.
 // ---------------------------------------------------------------------------

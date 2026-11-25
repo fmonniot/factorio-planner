@@ -24,6 +24,15 @@ export type LineLook =
 /** The mark after a line's name: amber ! (limited), amber ▼ (missing), dashed circle (idle). */
 export type LineMark = 'limited' | 'missing' | 'idle' | undefined
 
+/** A row that makes some of a line's share: the recipe and its machines (the row's own count), and the part of the line's rate it covers. */
+export interface LineMaker {
+  recipeName: string
+  machineName: string
+  machineCount: number
+  /** items/min of the line's rate this row covers. */
+  rate: number
+}
+
 export interface SourceLine {
   /** 'made-here' | 'make-here' | 'other-areas' | `area:${id}` | `block:${connectionId}` | 'import' */
   key: string
@@ -41,6 +50,8 @@ export interface SourceLine {
   dim: boolean
   mark: LineMark
   look: LineLook
+  /** The rows that make the line, on a supplying Already made here or Make more here line only. */
+  makers?: LineMaker[]
 }
 
 export interface SourcesModel {
@@ -95,6 +106,20 @@ export function consumedOf(result: SolverResult | undefined, itemId: string, nod
 
 const MADE: LineLook = { kind: 'made' }
 
+/** The rows of a group that make a line of `total` items/min, each with its part of it: split by what each makes, equally if none makes any. Omitted when the line supplies nothing. */
+function lineMakers(group: ItemMaker[], total: number | undefined): { makers: LineMaker[] } | undefined {
+  if (total === undefined || !(total > EPS) || group.length === 0) return undefined
+  const gross = group.reduce((t, m) => t + m.rate, 0)
+  // A row that makes none of the item at the moment (idle) covers no part of the line and has no line of its own.
+  const makers = group
+    .map(m => ({
+      recipeName: m.recipeName, machineName: m.machineName, machineCount: m.machineCount,
+      rate: gross > EPS ? (total * m.rate) / gross : total / group.length,
+    }))
+    .filter(m => m.rate > EPS)
+  return makers.length > 0 ? { makers } : undefined
+}
+
 export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
   const { block, result, itemId, area, rule, makers, suppliers, supply, unsatisfied, areaMissing, rows, order } = input
   const solved = result !== undefined
@@ -130,7 +155,9 @@ export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
   const madeHereShare = makeOff ? inside : Math.min(inside, byproductRate)
   const makeHereShare = makeOff ? 0 : inside - madeHereShare
 
-  const hasMadeMaker = (makeOff ? makers : makers.filter(m => m.byproduct)).length > 0
+  const madeGroup = makeOff ? makers : makers.filter(m => m.byproduct)
+  const makeGroup = makeOff ? [] : makers.filter(m => !m.byproduct)
+  const hasMadeMaker = madeGroup.length > 0
   const hasDedicated = makers.some(m => !m.byproduct)
 
   const lines: SourceLine[] = []
@@ -145,12 +172,12 @@ export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
       const rate = solved ? madeHereShare : undefined
       lines.push(line({
         key, kind: 'made-here', label: SOURCES_LINES['made-here'].label, rate, off: false,
-        mark: !hasMadeMaker && !(rate !== undefined && rate > EPS) ? 'idle' : undefined, look: MADE,
+        mark: !hasMadeMaker && !(rate !== undefined && rate > EPS) ? 'idle' : undefined, look: MADE, ...lineMakers(madeGroup, rate),
       }))
     } else if (key === 'make-here') {
       lines.push(line({
         key, kind: 'make-here', label: SOURCES_LINES['make-here'].label, rate: solved && !makeOff ? makeHereShare : undefined, off: makeOff,
-        mark: !makeOff && !hasDedicated ? 'idle' : undefined, look: MADE,
+        mark: !makeOff && !hasDedicated ? 'idle' : undefined, look: MADE, ...lineMakers(makeGroup, solved && !makeOff ? makeHereShare : undefined),
       }))
     } else if (key === 'other-areas') {
       lines.push(line({ key, kind: 'other-areas', label: SOURCES_LINES['other-areas'].label, rate: undefined, off: false, mark: undefined, look: MADE }))

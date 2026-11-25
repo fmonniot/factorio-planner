@@ -5,6 +5,7 @@ import { loadPlanFixture } from './support/loadPlan'
 import { exportPlan } from './support/appMenu'
 import { pane, selectSlot, slot } from './support/summary'
 import { openLine, setPreset } from './support/sourcesList'
+import { inputLines, selectRow } from './support/sidePanel'
 
 /**
  * Case 21 B of spec/test-synthetic.md on real Nullius recipes: plate is the Stone box (20 stone for 4 boxes), gear the Gravel
@@ -168,6 +169,33 @@ test.describe('choosing the supplying area (case 21 B)', () => {
     await expect(stone(page)).toHaveCount(0)
     await expectTrades(page, { m1: 0, m2: 0, outside: 12 })
   })
+})
+
+test("the row's panel reads the area's own rule", async ({ page }) => {
+  await load(page)
+  // Line L takes nothing from M1: the area has a rule of its own, so the panel lists the area's supply.
+  await openList(page)
+  await areaLine(page, M1).getByTestId('sources-area-switch').click()
+  await expectRows(page, { m1: 0, m2: 12 })
+  await page.keyboard.press('Escape')
+  await expect(popover(page)).toHaveCount(0)
+  await selectRow(page, using(page))
+  await expect(inputLines(page, BOX, 'other-area')).toHaveCount(1)
+  await expect(inputLines(page, BOX, 'other-area')).toHaveAttribute('data-key', `area:${M2}`)
+  await expect(inputLines(page, BOX, 'other-area').getByTestId('input-line-rate')).toHaveText(/^12(\.0+)?$/)
+  await expect(inputLines(page, BOX, 'other-area')).toHaveAttribute('data-target', 'area')
+
+  // And nothing from M2: no area supplies them, the connection to Boxer does (row d).
+  await page.keyboard.press('Escape')
+  await openList(page)
+  await areaLine(page, M2).getByTestId('sources-area-switch').click()
+  await expectRows(page, { m1: 0, m2: 0 })
+  await page.keyboard.press('Escape')
+  await selectRow(page, using(page))
+  await expect(inputLines(page, BOX, 'block')).toHaveCount(1)
+  await expect(inputLines(page, BOX, 'block').getByTestId('input-line-label')).toHaveText('Boxer')
+  await expect(inputLines(page, BOX, 'block').getByTestId('input-line-rate')).toHaveText(/^12(\.0+)?$/)
+  await expect(inputLines(page, BOX, 'other-area')).toHaveCount(0)
 })
 
 /**
