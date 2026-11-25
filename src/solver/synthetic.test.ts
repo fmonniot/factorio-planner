@@ -2739,6 +2739,109 @@ describe('solver synthetic cases', () => {
         })
       }
     })
+
+    describe('E: a short offer with another connection', () => {
+      // H connects plate to SP and ingot to SI, no rule on either. One of the two offers is capped (`maxRate`), so the first pass
+      // leaves a default-rule item short and the second request pass asks the other source for what that costs.
+      const SP = (): Block => mk('SP', [[PLATE, 0]], [planNode('case22-mine-plate')])
+      const SI = (): Block => mk('SI', [[INGOT, 0]], [planNode('case22-ingot')])
+      const H = (ratio: Ratio, caps: { plate?: number; ingot?: number }, withIngot = true): Block => ({
+        id: 'H', name: 'H', color: '#60a5fa',
+        products: [{ id: 'p-H-0', itemId: 'case22-gear', extraRate: 25 }],
+        sourceRules: {},
+        inputConnections: [
+          { id: 'c-P', itemId: PLATE, fromBlockId: 'SP', ...(caps.plate !== undefined ? { maxRate: caps.plate } : {}) },
+          ...(withIngot ? [{ id: 'c-I', itemId: INGOT, fromBlockId: 'SI', ...(caps.ingot !== undefined ? { maxRate: caps.ingot } : {}) }] : []),
+        ],
+        rootPlan: subPlan('root-H', fixtureA(ratio).nodes),
+      })
+      const orders = [['SP', 'SI', 'H'], ['H', 'SP', 'SI'], ['SI', 'H', 'SP']]
+      const run = (h: Block, tabs: string[]) => {
+        const byId: Record<string, Block> = { SP: SP(), SI: SI(), H: h }
+        return solveAll(tabs.filter(t => h.inputConnections.length > 1 || t !== 'SI').map(t => byId[t]), makeGameData())
+      }
+      for (const tabs of orders) {
+        it(`a: 1 makes 2, ingot capped at 5: the plate source is asked for 20, tabs ${tabs.join(' ')}`, () => {
+          const all = run(H('1-2', { ingot: 5 }), tabs)
+          const p = flowIn(all, 'c-P')
+          expect(p.kind).toBe('request')
+          expect(p.requested, 'c-P requested').toBeCloseTo(20, 6)
+          expect(p.rate, 'c-P rate').toBeCloseTo(20, 6)
+          expect(p.status).toBe('ok')
+          const i = flowIn(all, 'c-I')
+          expect(i.requested, 'c-I requested').toBeCloseTo(5, 6)
+          expect(i.rate, 'c-I rate').toBeCloseTo(5, 6)
+          expect(i.capped, 'c-I capped').toBe(true)
+          expect(nodeOf(all.results.H, 'P').throughput, 'P runs').toBeCloseTo(15, 6)
+          expect(nodeOf(all.results.H, 'case22-ingot').throughput, "H's S").toBeCloseTo(10, 6)
+          expect(nodeOf(all.results.SP, 'case22-mine-plate').throughput, 'SP mines').toBeCloseTo(20, 6)
+          expect(nodeOf(all.results.SI, 'case22-ingot').throughput, 'SI mines').toBeCloseTo(5, 6)
+          expect(nodeOf(all.results.H, 'case22-gear').throughput, 'G').toBeCloseTo(25, 6)
+          expect(unsat(all.results.H, PLATE), 'plate imported').toBeCloseTo(0, 6)
+          expect(unsat(all.results.H, INGOT), 'ingot imported').toBeCloseTo(0, 6)
+        })
+        it(`b: 2 make 1, plate capped at 12: the ingot source is asked for 66, tabs ${tabs.join(' ')}`, () => {
+          const all = run(H('2-1', { plate: 12 }), tabs)
+          const i = flowIn(all, 'c-I')
+          expect(i.kind).toBe('request')
+          expect(i.requested, 'c-I requested').toBeCloseTo(66, 6)
+          expect(i.rate, 'c-I rate').toBeCloseTo(66, 6)
+          const p = flowIn(all, 'c-P')
+          expect(p.requested, 'c-P requested').toBeCloseTo(12, 6)
+          expect(p.rate, 'c-P rate').toBeCloseTo(12, 6)
+          expect(p.capped, 'c-P capped').toBe(true)
+          expect(nodeOf(all.results.H, 'P').throughput, 'P runs').toBeCloseTo(38, 6)
+          expect(nodeOf(all.results.SI, 'case22-ingot').throughput, 'SI mines').toBeCloseTo(66, 6)
+          expect(nodeOf(all.results.SP, 'case22-mine-plate').throughput, 'SP mines').toBeCloseTo(12, 6)
+          expect(unsat(all.results.H, PLATE), 'plate imported').toBeCloseTo(0, 6)
+          expect(unsat(all.results.H, INGOT), 'ingot imported').toBeCloseTo(0, 6)
+        })
+        it(`c: 2 make 1, plate offer 100: not short, the ingot connection stays unused, tabs ${tabs.join(' ')}`, () => {
+          const h = H('2-1', { plate: 100 })
+          const all = run(h, tabs)
+          const i = flowIn(all, 'c-I')
+          expect(i.requested, 'c-I requested').toBeCloseTo(0, 6)
+          expect(i.status).toBe('unused')
+          expect(nodeOf(all.results.H, 'P').throughput, 'P runs').toBeCloseTo(5, 6)
+          expect(nodeOf(all.results.SP, 'case22-mine-plate').throughput, 'SP mines').toBeCloseTo(45, 6)
+        })
+        it(`d: 2 make 1, plate capped at 12, no ingot connection: the plate stays short, tabs ${tabs.join(' ')}`, () => {
+          const all = run(H('2-1', { plate: 12 }, false), tabs)
+          expect(nodeOf(all.results.H, 'P').throughput, 'P runs').toBeCloseTo(5, 6)
+          expect(unsat(all.results.H, PLATE), 'plate imported').toBeCloseTo(33, 6)
+        })
+      }
+      it('c2: shortFirstSupply has no entry for an offer that covers the need', () => {
+        const first = solveAll([SP(), SI(), H('2-1', { plate: 100 })], makeGameData())
+        expect(shortFirstSupply([H('2-1', { plate: 100 })], makeGameData(), new Map([['H', new Map([[PLATE, 45], [INGOT, 0]])]]), first.flows).size).toBe(0)
+      })
+      it('f: plate capped at 12 and an unrelated connection: the second pass changes no request', () => {
+        // Q's coin feeds nothing in H, so H's requests, credits and served needs are those of row d (no second connection).
+        const Q = (): Block => mk('Q', [['case22-coin', 0]], [planNode('case22-press')])
+        const h: Block = H('2-1', { plate: 12 }, false)
+        h.inputConnections.push({ id: 'c-Q', itemId: 'case22-coin', fromBlockId: 'Q' })
+        const all = solveAll([SP(), Q(), h], makeGameData())
+        const d = solveAll([SP(), H('2-1', { plate: 12 }, false)], makeGameData())
+        expect(nodeOf(all.results.H, 'P').throughput, 'P runs').toBeCloseTo(5, 6)
+        expect(unsat(all.results.H, PLATE), 'plate imported').toBeCloseTo(33, 6)
+        expect(flowIn(all, 'c-P'), 'c-P').toEqual(flowIn(d, 'c-P'))
+        expect(flowIn(all, 'c-Q').requested, 'c-Q requested').toBeCloseTo(0, 6)
+        expect(all.results.H.nodes, "H's nodes").toEqual(d.results.H.nodes)
+        expect(all.served.SP, 'served SP').toEqual(d.served.SP)
+      })
+      it('e: a warm solve equals a cold one', () => {
+        const cache = createSolveCache()
+        const gd = makeGameData()
+        const blocks = (plate: number) => [SP(), SI(), H('2-1', { plate })]
+        solveAll(blocks(12), gd, cache)
+        const warm = solveAll(blocks(20), gd, cache)
+        const cold = solveAll(blocks(20), gd)
+        expect(flowIn(warm, 'c-I').requested, 'ingot requested').toBeCloseTo(50, 6)
+        expect(warm.flows).toEqual(cold.flows)
+        expect(warm.served).toEqual(cold.served)
+        for (const id of ['SP', 'SI', 'H']) expect(warm.results[id].nodes, id).toEqual(cold.results[id].nodes)
+      })
+    })
   })
 
   describe('case 23: an absorber chain', () => {
@@ -4011,6 +4114,41 @@ describe('solver synthetic cases', () => {
           expect(shortFirstSupply([Bb(linksT())], gd, new Map(), flowOfB(30)).size).toBe(0)
           const noMaker: Block = { ...Bb(linksT()), rootPlan: subPlan('root-B', [planNode('case11-use-x')]) }
           expect(shortFirstSupply([noMaker], gd, probes(50), flowOfB(30)).size).toBe(0)
+        })
+        describe('a default-rule item with another connection', () => {
+          const PLATE = 'case22-plate'
+          const INGOT = 'case22-ingot'
+          const fl = (id: string, itemId: string, available: number): ConnectionFlow =>
+            ({ connectionId: id, fromBlockId: 'S', toBlockId: 'H', itemId, available, capped: false, rate: available, status: 'ok', kind: 'request' })
+          const flows = [fl('c-P', PLATE, 12), fl('c-I', INGOT, 100)]
+          const pr = new Map([['H', new Map([[PLATE, 45], [INGOT, 0]])]])
+          const H = (sourceRules: Block['sourceRules'] = {}): Block => ({
+            ...mk('H', [['case22-gear', 25]], [planNode('case22-gear'), planNode('case22-plate-2-1'), planNode('case22-ingot')]), sourceRules,
+          })
+          const area = (id: string, rules?: Record<string, AreaSourceRule>): SubPlan =>
+            ({ ...subPlan(id, [planNode('case22-plate-2-1')], [], true), ...(rules ? { sourceRules: rules } : {}) })
+          const areaH = (rules: Record<string, AreaSourceRule> | undefined): Block => ({
+            // the root is an area too, so it carries the rule as well
+            ...H(), rootPlan: { ...subPlan('root-H', [], [area('L', rules), area('M', rules)]), ...(rules ? { sourceRules: rules } : {}) },
+          })
+          it('names the short item when the block connects another item', () => {
+            expect(shortFirstSupply([H()], gd, pr, flows)).toEqual(new Map([['H', new Map([[PLATE, 12]])]]))
+          })
+          it('has no entry when the item is the only one connected', () => {
+            expect(shortFirstSupply([H()], gd, pr, [flows[0]]).size).toBe(0)
+          })
+          it('has no entry when the item is Don\'t make more here', () => {
+            expect(shortFirstSupply([H({ [PLATE]: { makeHere: 'off' } })], gd, pr, flows).size).toBe(0)
+          })
+          it('still triggers for Receive it first with a single flow', () => {
+            expect(shortFirstSupply([H({ [PLATE]: { makeHere: 'after-blocks' } })], gd, pr, [flows[0]])).toEqual(new Map([['H', new Map([[PLATE, 12]])]]))
+          })
+          it('has no entry when every area is Don\'t make more here, and triggers with one default area', () => {
+            const off: AreaSourceRule = { makeHere: 'off' }
+            expect(shortFirstSupply([areaH({ [PLATE]: off })], gd, pr, flows).size).toBe(0)
+            const mixed: Block = { ...H(), rootPlan: { ...subPlan('root-H', [], [area('L', { [PLATE]: off }), area('M')]), sourceRules: { [PLATE]: off } } }
+            expect(shortFirstSupply([mixed], gd, pr, flows)).toEqual(new Map([['H', new Map([[PLATE, 12]])]]))
+          })
         })
         it('has no entry for a split fluid', () => {
           const base = gd.recipes['case11-use-x']

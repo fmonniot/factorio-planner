@@ -4,7 +4,7 @@
  * never stored. Up to `SLOTS_PER_BLOCK` entries are kept per block (most
  * recently used first), so the request probe, the first-round solve and the
  * settled solve of a block in a loop all survive, and so do the capped probe
- * and the second supply solve of a block with a short connections-first item.
+ * and the second supply solve of a block with a short item.
  *
  * It also memoises the outcome of a whole cycle of requests (`LOOP_SLOTS` entries per member list,
  * most recently used first: a second request pass may key the same cycle differently), so a

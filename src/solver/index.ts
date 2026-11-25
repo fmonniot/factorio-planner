@@ -909,7 +909,7 @@ interface RequestPlan {
 
 /**
  * Items the block connects to existing, non-self sources, each with unlimited supply (a request probe). `short` overrides
- * the cap of an item already in the map (the second request pass: a short connections-first item is probed at its first-pass offer).
+ * the cap of an item already in the map (the second request pass: a short item is probed at its first-pass offer).
  */
 function connectedCaps(block: Block, byId: Map<string, Block>, selfConnectionIds: Set<string>, short?: ReadonlyMap<string, number>): Map<string, number> {
   const caps = new Map<string, number>()
@@ -971,7 +971,7 @@ interface Probe {
 }
 
 /**
- * The probe of a block with a short connections-first item (second request pass): what the block needs of the other items
+ * The probe of a block with a short item (second request pass): what the block needs of the other items
  * and its solved nodes come from `capped` (the item at its first-pass offer), what it needs of the short `items` themselves
  * (their request, credit and served need) from `unlimited`, as in the first pass.
  */
@@ -1624,7 +1624,7 @@ function computeRequests(
   }
   const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) && !deferredTakes.has(id) ? (credits.get(id) ?? 0) : undefined)
   const rankedRest = (t: BlockConnection, itemId: string) => restOf(t, itemId, estimates, outerCreditOf, uncredited)
-  // A request probe: every connected item unlimited. A block with a short connections-first item (second pass) is probed twice and
+  // A request probe: every connected item unlimited. A block with a short item (second pass) is probed twice and
   // merged: the unlimited probe gives what it needs of that item, the capped one everything else (see `withShortNeeds`).
   const probeFor = (block: Block, goals: SolverGoal[], memo: SolveCache | Map<string, Probe> | undefined = cache): Probe => {
     const unlimited = probeBlock(block, goals, gameData, connectedCaps(block, byId, selfConnectionIds), memo)
@@ -2551,18 +2551,39 @@ function solvePass(
   return { solve: { results, flows, errors, loops, requestLoops: requestPlan.loops, served }, probes: requestPlan.probes }
 }
 
-/** The items a block has *Receive it first* on: in its block rules, or in the rules of an area (the item counts when some area's effective rule is first). */
-function firstRuleItems(block: Block): string[] {
-  const plan = flattenBlock(block)
+/** The items a flattened block has *Receive it first* on: in its block rules, or in the rules of an area (the item counts when some area's effective rule is first). */
+function firstRuleItems(plan: ReturnType<typeof flattenBlock>): string[] {
   const ids = new Set([...Object.keys(plan.sourceRules ?? {}), ...(plan.areas ?? []).flatMap(a => Object.keys(a.rules ?? {}))])
   return [...ids].filter(id => (plan.areas
     ? plan.areas.some(a => areaRuleOf(a, plan.sourceRules, id).makeHere === 'after-blocks')
     : plan.sourceRules?.[id]?.makeHere === 'after-blocks'))
 }
 
+/** Whether the item is *Don't make more here* in the whole block (every area, or the block's own rule without areas). */
+function offEverywhere(plan: ReturnType<typeof flattenBlock>, itemId: string): boolean {
+  return plan.areas
+    ? plan.areas.every(a => areaRuleOf(a, plan.sourceRules, itemId).makeHere === 'off')
+    : plan.sourceRules?.[itemId]?.makeHere === 'off'
+}
+
 /**
- * The (block, item) pairs a first pass left short: the block was probed, the item is a plain item (not a split fluid) it has
- * *Receive it first* on, it has connections that count for it, a row of it makes the item, and its connections offered less than the probe's need
+ * The items of a block a first pass may have left short: its *Receive it first* items, and, when the block connects another item,
+ * every other connected item that is not *Don't make more here* everywhere. With a single connected item the capped probe differs
+ * from the unlimited one only in that item, whose need `withShortNeeds` takes from the unlimited probe, so a second pass would change
+ * the requests, credits and served needs by nothing (only the probe's solved nodes, which a take source's leftover estimate reads, stay the unlimited probe's).
+ */
+function shortCandidates(plan: ReturnType<typeof flattenBlock>, connected: ReadonlySet<string>): string[] {
+  const first = new Set(firstRuleItems(plan))
+  const out = new Set(first)
+  if (connected.size > 1) {
+    for (const id of connected) if (!first.has(id) && !offEverywhere(plan, id)) out.add(id)
+  }
+  return [...out]
+}
+
+/**
+ * The (block, item) pairs a first pass left short: the block was probed, the item is a plain item (not a split fluid) that is a candidate
+ * (see `shortCandidates`), it has connections that count for it, a row of it makes the item, and its connections offered less than the probe's need
  * (the probe took everything from supply, so the rows that top the item up ran at 0 and what they need was never requested).
  * blockId → item → the cap the block's supply solve got (the sum of what its connections had available).
  */
@@ -2573,8 +2594,12 @@ export function shortFirstSupply(
   flows: ConnectionFlow[],
 ): Map<string, Map<string, number>> {
   const offered = new Map<string, number>() // `${block}\0${item}` → Σ available
+  const connected = new Map<string, Set<string>>() // block → the items it connects
   for (const f of flows) {
     if (f.status === 'missing-source' || f.status === 'self') continue
+    const items = connected.get(f.toBlockId) ?? new Set<string>()
+    items.add(f.itemId)
+    connected.set(f.toBlockId, items)
     const k = `${f.toBlockId}\0${f.itemId}`
     offered.set(k, (offered.get(k) ?? 0) + f.available)
   }
@@ -2583,7 +2608,8 @@ export function shortFirstSupply(
   for (const block of blocks) {
     const probe = probes.get(block.id)
     if (!probe) continue
-    for (const itemId of firstRuleItems(block)) {
+    const plan = flattenBlock(block)
+    for (const itemId of shortCandidates(plan, connected.get(block.id) ?? new Set())) {
       if (split.has(itemId)) continue
       const cap = offered.get(`${block.id}\0${itemId}`)
       if (cap === undefined) continue
@@ -2625,7 +2651,7 @@ export function solveAll(
   options: SolveAllOptions = {},
 ): MultiBlockSolve {
   const first = solvePass(blocks, gameData, cache, options, new Map())
-  // A connections-first item the first pass left short gets one corrective pass (see `shortFirstSupply`); never a third.
+  // An item the first pass left short gets one corrective pass (see `shortFirstSupply`); never a third.
   const short = shortFirstSupply(blocks, gameData, first.probes, first.solve.flows)
   const solve = short.size === 0 ? first.solve : solvePass(blocks, gameData, cache, options, short).solve
   cache?.retain(new Set(blocks.map(b => b.id)))
