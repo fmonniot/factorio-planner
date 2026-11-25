@@ -187,7 +187,6 @@ describe('ComesFrom, in the Comes from popover', () => {
     expect(root.children[1]).toBe(screen.getByTestId('comes-from-bar'))
     expect(within(root).getByTestId('sources-list')).toBeInTheDocument()
     expect(root.lastElementChild).toBe(screen.getByTestId('leftover-row'))
-    expect(screen.queryByTestId('sourcing-sentence')).not.toBeInTheDocument()
     expect(screen.queryByTestId('strip-toolbar')).not.toBeInTheDocument()
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
     expect(screen.queryByTestId('sources-button')).not.toBeInTheDocument()
@@ -214,11 +213,12 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     expect(screen.getByTestId('areas-have-rules')).toHaveTextContent('2 areas have their own rule')
   })
 
-  it('draws the sentence, then one toolbar: the given actions, then Sources…, with no rule group', () => {
+  it('draws one toolbar first: the given actions, then Sources…, with no sentence and no rule group', () => {
     setup()
     render(<ComesFrom itemId="plate" listInPopover actions={[{ label: 'Find recipe', icon: 'find', side: 'left', onSelect: () => {} }]} />)
     const root = screen.getByTestId('comes-from')
-    expect(root.firstElementChild).toBe(screen.getByTestId('sourcing-sentence'))
+    expect(root.firstElementChild).toBe(screen.getByTestId('strip-toolbar'))
+    expect(screen.queryByTestId('strip-rule-icons')).not.toBeInTheDocument()
     const toolbar = within(root).getByTestId('strip-toolbar')
     expect([...toolbar.querySelectorAll('button')].map(b => b.getAttribute('aria-label')))
       .toEqual(['Find recipe', 'Sources…'])
@@ -226,6 +226,23 @@ describe('ComesFrom, the strip of an Ingredients slot', () => {
     expect(within(root).queryByRole('switch')).not.toBeInTheDocument()
     expect(within(toolbar).getByTestId('sources-button')).toHaveAttribute('aria-haspopup', 'dialog')
     expect(screen.queryByText('Comes from', { selector: 'span' })).not.toBeInTheDocument()
+  })
+
+  it('draws the icons of a rule that is not the default at the end of the toolbar, named by the rule', () => {
+    setup({ block: { plate: { makeHere: 'after-blocks', importOff: true } } })
+    render(<ComesFrom itemId="plate" listInPopover />)
+    const toolbar = screen.getByTestId('strip-toolbar')
+    const icons = within(toolbar).getAllByTestId('strip-rule-icon')
+    expect(icons.map(i => i.getAttribute('data-rule'))).toEqual(['connections-first', 'import-off'])
+    expect(icons.map(i => i.getAttribute('aria-label'))).toEqual(['Receive it first', 'Import off'])
+    expect(icons.map(i => i.getAttribute('data-tip'))).toEqual(['Receive it first', 'Import off'])
+    expect(toolbar.lastElementChild).toBe(screen.getByTestId('strip-rule-icons'))
+  })
+
+  it('draws no icon for a rule that is only Leftover off', () => {
+    setup({ block: { plate: { leftoverOff: true } } })
+    render(<ComesFrom itemId="plate" listInPopover />)
+    expect(screen.queryByTestId('strip-rule-icon')).not.toBeInTheDocument()
   })
 
   it('opens the popover from Sources…, which has the list', () => {
@@ -269,7 +286,6 @@ describe('ComesFrom, the one view', () => {
     render(<ComesFrom itemId="plate" areaId="L" />)
     expect(screen.getByTestId('sources-list')).toBeInTheDocument()
     expect(screen.queryByTestId('sources-button')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('sourcing-sentence')).not.toBeInTheDocument()
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
     expect(screen.queryByTestId('strip-toolbar')).not.toBeInTheDocument()
     expect(screen.getByTestId('comes-from-bar')).toBeInTheDocument()
@@ -280,7 +296,7 @@ describe('ComesFrom, the one view', () => {
     const taker: Block = { ...makeEmptyBlock('Cooler'), id: 'cooler', inputConnections: [{ id: 'c1', itemId: 'plate', fromBlockId: 'main' }] }
     useBlockStore.setState(s => ({ blocks: [...s.blocks, taker] }))
     render(<ComesFrom itemId="plate" />)
-    expect(screen.getByTestId('leftover-take-note')).toBeInTheDocument()
+    expect(screen.getByTestId('leftover-takers')).toBeInTheDocument()
     expect(screen.getByTestId('sources-list')).toBeInTheDocument()
   })
 
@@ -474,35 +490,114 @@ describe('ComesFrom, the Leftover switch', () => {
     })
   })
 
-  describe('the take note', () => {
-    it('names each block that takes the item from this one, once Leftover is off', () => {
+  describe('the takers note', () => {
+    it('lists each block that takes the item from this one, once Leftover is off, with its colour', () => {
       setup({ areas: false, block: { plate: { leftoverOff: true } } })
       addTaker()
       addTaker('Second')
-      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => b.name === 'Second' ? { ...b, id: 'second' } : b) }))
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => b.name === 'Second' ? { ...b, id: 'second', color: '#123456' } : b.name === 'Cooler' ? { ...b, color: '#abcdef' } : b) }))
       render(<ComesFrom itemId="plate" />)
-      const notes = screen.getAllByTestId('leftover-take-note').map(n => n.textContent)
-      expect(notes).toEqual([
-        'Cooler takes Plate from this block. It gets only what the rows here cannot use; make Plate a product to send it more.',
-        'Second takes Plate from this block. It gets only what the rows here cannot use; make Plate a product to send it more.',
-      ])
+      const takers = screen.getAllByTestId('leftover-taker')
+      expect(takers.map(t => t.textContent)).toEqual(['Cooler', 'Second'])
+      expect(takers.map(t => t.getAttribute('data-block-id'))).toEqual(['cooler', 'second'])
+      expect(takers.map(t => within(t).getByTestId('leftover-taker-color').style.background)).toEqual(['#abcdef', '#123456'])
+      expect(screen.getByTestId('leftover-takers-title')).toHaveTextContent('Take what is left over')
+      expect(screen.getByTestId('leftover-takers-title')).toHaveAttribute('data-tip', 'These blocks get only what the rows here cannot use.')
     })
 
     it('is not shown while Leftover is on, for an item with no take, or for a product (a request)', () => {
       setup({ areas: false })
       addTaker()
       const { unmount } = render(<ComesFrom itemId="plate" />)
-      expect(screen.queryByTestId('leftover-take-note')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('leftover-takers')).not.toBeInTheDocument()
       unmount()
       setup({ areas: false, block: { plate: { leftoverOff: true } } })
-      render(<ComesFrom itemId="plate" />)
-      expect(screen.queryByTestId('leftover-take-note')).not.toBeInTheDocument()
-      unmount()
+      const second = render(<ComesFrom itemId="plate" />)
+      expect(screen.queryByTestId('leftover-takers')).not.toBeInTheDocument()
+      second.unmount()
       setup({ areas: false, block: { plate: { leftoverOff: true } } })
       addTaker()
       useBlockStore.setState(s => ({ blocks: s.blocks.map(b => b.id === 'main' ? { ...b, products: [{ id: 'p', itemId: 'plate' }] } : b) }))
       render(<ComesFrom itemId="plate" />)
-      expect(screen.queryByTestId('leftover-take-note')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('leftover-takers')).not.toBeInTheDocument()
+    })
+
+    describe('Make it a product', () => {
+      const makeProduct = () => screen.getByTestId('leftover-make-product')
+      beforeEach(() => {
+        setup({ areas: false, block: { plate: { leftoverOff: true } } })
+        addTaker()
+      })
+
+      it('is an icon button named and described for the takers', () => {
+        render(<ComesFrom itemId="plate" />)
+        expect(makeProduct()).toHaveAccessibleName('Make it a product')
+        expect(makeProduct()).toHaveAttribute('data-tip', 'Make it a product to send them more.')
+        expect(makeProduct()).toHaveAccessibleDescription('Take what is left over')
+      })
+
+      it('asks first, because the connections change meaning, and a confirm adds the product and ends the note', () => {
+        render(<ComesFrom itemId="plate" />)
+        fireEvent.click(makeProduct())
+        const dialog = screen.getByTestId('product-change-confirm')
+        expect(mainBlock().products).toEqual([])
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Make it a product' }))
+        expect(mainBlock().products.map(p => p.itemId)).toEqual(['plate'])
+        expect(screen.queryByTestId('product-change-confirm')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('leftover-takers')).not.toBeInTheDocument()
+      })
+
+      it('leaves the block untouched on Cancel', () => {
+        render(<ComesFrom itemId="plate" />)
+        fireEvent.click(makeProduct())
+        fireEvent.click(within(screen.getByTestId('product-change-confirm')).getByRole('button', { name: 'Cancel' }))
+        expect(mainBlock().products).toEqual([])
+        expect(screen.queryByTestId('product-change-confirm')).not.toBeInTheDocument()
+        expect(screen.getByTestId('leftover-takers')).toBeInTheDocument()
+      })
+
+      it('asks too in the strip, and the focus goes to Sources… once the product is made', () => {
+        render(<ComesFrom itemId="plate" listInPopover />)
+        fireEvent.click(makeProduct())
+        fireEvent.click(within(screen.getByTestId('product-change-confirm')).getByRole('button', { name: 'Make it a product' }))
+        expect(mainBlock().products.map(p => p.itemId)).toEqual(['plate'])
+        expect(screen.getByTestId('sources-button')).toHaveFocus()
+      })
+
+      it('does not move the focus when the dialog opens, in the strip or the popover view', () => {
+        const strip = render(<ComesFrom itemId="plate" listInPopover />)
+        fireEvent.click(makeProduct())
+        expect(screen.getByTestId('product-change-confirm')).toBeInTheDocument()
+        expect(screen.getByTestId('sources-button')).not.toHaveFocus()
+        strip.unmount()
+        render(<ComesFrom itemId="plate" />)
+        fireEvent.click(makeProduct())
+        expect(screen.getByTestId('product-change-confirm')).toBeInTheDocument()
+        screen.getAllByTestId('sources-line-toggle').forEach(l => expect(l).not.toHaveFocus())
+      })
+
+      it('returns the focus to Make it a product on Cancel', () => {
+        render(<ComesFrom itemId="plate" listInPopover />)
+        fireEvent.click(makeProduct())
+        fireEvent.click(within(screen.getByTestId('product-change-confirm')).getByRole('button', { name: 'Cancel' }))
+        expect(makeProduct()).toHaveFocus()
+      })
+
+      it('drops the question when the item changes, so a confirm cannot add another item', () => {
+        const view = render(<ComesFrom itemId="plate" listInPopover />)
+        fireEvent.click(makeProduct())
+        expect(screen.getByTestId('product-change-confirm')).toHaveTextContent('Plate')
+        view.rerender(<ComesFrom itemId="ore" listInPopover />)
+        expect(screen.queryByTestId('product-change-confirm')).not.toBeInTheDocument()
+        expect(mainBlock().products).toEqual([])
+      })
+
+      it('puts the focus on the first line of the Sources list after a confirm in the popover view', () => {
+        render(<ComesFrom itemId="plate" />)
+        fireEvent.click(makeProduct())
+        fireEvent.click(within(screen.getByTestId('product-change-confirm')).getByRole('button', { name: 'Make it a product' }))
+        expect(screen.getAllByTestId('sources-line-toggle')[0]).toHaveFocus()
+      })
     })
   })
 
@@ -512,7 +607,8 @@ describe('ComesFrom, the Leftover switch', () => {
     const line = screen.getByTestId('no-effect')
     expect(line).toHaveAttribute('data-rule', 'leftover-off')
     expect(line).toHaveAttribute('data-no-effect', 'not-made')
-    expect(line).toHaveTextContent('No row in this block makes Ore.')
+    expect(within(line).getByTestId('no-effect-rule')).toHaveTextContent('Leftover off')
+    expect(within(line).getByTestId('no-effect-reason')).toHaveTextContent('No row here makes it')
     fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
     expect(mainBlock().sourceRules).toEqual({})
     expect(screen.queryByTestId('no-effect')).not.toBeInTheDocument()
@@ -526,8 +622,28 @@ describe('ComesFrom, the Leftover switch', () => {
     fireEvent.click(scope('Line L'))
     const line = screen.getByTestId('no-effect')
     expect(line).toHaveAttribute('data-rule', 'leftover-off')
+    expect(within(line).getByTestId('no-effect-reason')).toHaveTextContent('No row here makes it')
     fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
     expect(mainBlock().sourceRules).toEqual({})
+  })
+
+  it('says No connection for Receive it first with no connection, and offers Receive from…', () => {
+    setup({ areas: false, block: { plate: { makeHere: 'after-blocks' } } })
+    render(<ComesFrom itemId="plate" />)
+    const line = screen.getByTestId('no-effect')
+    expect(line).toHaveAttribute('data-no-effect', 'no-connection')
+    expect(within(line).getByTestId('no-effect-rule')).toHaveTextContent('Receive it first')
+    expect(within(line).getByTestId('no-effect-reason')).toHaveTextContent('No connection')
+    expect(within(line).getByTestId('receive-from')).toBeInTheDocument()
+  })
+
+  it('says Always made here for a rule on a product, with the reason as the tip', () => {
+    setup({ areas: false, block: { plate: { makeHere: 'off' } } })
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, products: [{ id: 'p', itemId: 'plate' }] })) }))
+    render(<ComesFrom itemId="plate" />)
+    const reason = within(screen.getByTestId('no-effect')).getByTestId('no-effect-reason')
+    expect(reason).toHaveTextContent('Always made here')
+    expect(reason).toHaveAttribute('data-tip', 'It is a product of this block, so the block always makes it.')
   })
 
   it('shows no grey line for an item no row uses', () => {

@@ -1092,8 +1092,10 @@ describe('BlockGraph', () => {
       expect(markers()).toHaveLength(2)
       const marker = within(label('c1')).getByTestId('source-rule-marker')
       expect(marker).toHaveAttribute('data-item-id', 'iron-ore')
-      // The sentence of the item in the block that receives it.
-      expect(marker).toHaveAccessibleName(/^Made here by mine .* Import is off\.$/)
+      // The rule of the item in the block that receives it; the model's reading follows once the pointer is over it.
+      expect(marker).toHaveAccessibleName('Import off')
+      fireEvent.pointerOver(marker)
+      expect(marker.getAttribute('aria-label')).toMatch(/^Import off\n/)
       // The other connection into the same block carries another item.
       expect(within(label('x0')).queryByTestId('source-rule-marker')).toBeNull()
     })
@@ -1165,7 +1167,7 @@ describe('BlockGraph', () => {
       const marker = markers()[0]
       expect(marker.tagName).toBe('SPAN')
       expect(marker).toHaveAttribute('role', 'img')
-      expect(marker).toHaveAccessibleName(/Import is off\.$/)
+      expect(marker).toHaveAccessibleName('Import off')
       fireEvent.click(marker)
       expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
       expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()

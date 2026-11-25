@@ -20,7 +20,7 @@ import { StripIcon } from './StripIcon'
 import { MINI_BUTTON_CLASS, Switch } from './Switch'
 import { Cluster } from './StripToolbar'
 import type { StripAction } from './StripToolbar'
-import type { ItemMaker } from './sourcingText'
+import type { ItemMaker } from './sourcesMakers'
 
 // ---------------------------------------------------------------------------
 // SourcesList — the Sources list of one item of the active block (phase 2 of sourcing priority): every place the item may

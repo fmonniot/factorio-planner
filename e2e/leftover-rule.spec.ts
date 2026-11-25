@@ -79,7 +79,7 @@ test.describe('Leftover rule', () => {
     await pane(page, 'Ingredients').getByTestId('source-rules').click()
     const entry = page.locator(`[data-testid="source-rule"][data-item-id="${CHARCOAL}"][data-rule="leftover-off"]`)
     await expect(entry).toHaveAttribute('data-no-effect', 'not-made')
-    await expect(entry.getByTestId('source-rule-text')).toHaveText('No row in this block makes Charcoal.')
+    await expect(entry.getByTestId('source-rule-reason')).toHaveText('No row here makes it')
     await entry.getByTestId('source-rule-remove').click()
     await expect(pane(page, 'Ingredients').getByTestId('source-rules')).toHaveCount(0)
   })

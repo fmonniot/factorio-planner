@@ -103,7 +103,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
     const items = areaRuleItemsOfBlock.get(areaId)
     if (!items || items.size === 0) return null
     const names = [...items].map(id => gameData.items[id]?.name ?? id).join(', ')
-    return <SourceRuleMarker sentence={`Has its own source rule for ${names}`} />
+    return <SourceRuleMarker label={`Has its own source rule for ${names}`} />
   }
 
   const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'

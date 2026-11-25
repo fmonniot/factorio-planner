@@ -357,8 +357,8 @@ describe('PlanAreasModal — source rule marker', () => {
     expect(markers()).toHaveLength(1)
     const marker = within(within(row('Alpha', 'h2')).getByRole('rowheader')).getByTestId('source-rule-marker')
     expect(marker).toHaveAttribute('data-item-id', 'h2')
-    // The sentence of the item in that block.
-    expect(marker).toHaveAccessibleName(/^Made here by Hydrogen synthesis .* Import is off\.$/)
+    // The rule of the item in that block.
+    expect(marker).toHaveAccessibleName('Import off')
     expect(marker).not.toHaveAttribute('title')
     expect(marker).toHaveAttribute('data-tip', '')
     expect(within(row('Alpha', 'o2')).queryByTestId('source-rule-marker')).toBeNull()
@@ -413,7 +413,7 @@ describe('PlanAreasModal — source rule marker', () => {
     const marker = within(row('Charlie', 'h2')).getByTestId('source-rule-marker')
     expect(marker.tagName).toBe('SPAN')
     expect(marker).toHaveAttribute('role', 'img')
-    expect(marker).toHaveAccessibleName(/Import is off\.$/)
+    expect(marker).toHaveAccessibleName('Import off')
     fireEvent.click(marker)
     expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
     expect(onClose).not.toHaveBeenCalled()

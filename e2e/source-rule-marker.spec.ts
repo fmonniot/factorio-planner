@@ -90,7 +90,7 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   // Receive it first with no connection: a rule with no effect, so no marker.
   const control = await openSources(page, acidRow(page), OXYGEN)
   await setPreset(control, 'connections-first')
-  await expect(control.getByTestId('no-effect')).toContainText('No connection for Oxygen.')
+  await expect(control.getByTestId('no-effect').getByTestId('no-effect-reason')).toHaveText('No connection')
   await expect(markers(table(page))).toHaveCount(0)
 
   // Don't make more here has an effect: one marker per ingredient chip, the row in the sub-factory included.
@@ -106,24 +106,28 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   await expect(table(page).locator('[data-chip-frame]')).toHaveCount(2)
   await expect(table(page).locator('[data-variant="product"] [data-testid="source-rule-marker"], [data-variant="byproduct"] [data-testid="source-rule-marker"]')).toHaveCount(0)
 
-  // A grey dot with the item's sentence as its name and tooltip: no letter, none of the old badge.
+  // A grey dot named by the rule, with the model's reading once the pointer has been over it: no letter, none of the old badge.
   const marker = markers(acidRow(page))
   // Wait for the solve this rule triggers (the solver is debounced): until it lands, the marker's name is the new rule read
   // against the previous solve, which still has the oxygen decompression running. The panel's made-here line, which names the
   // electrolysis, is the sign that the solve landed.
   await expect(inputLines(page, OXYGEN, 'made-here')).toHaveCount(1)
   await expect(inputLines(page, OXYGEN, 'made-here').getByTestId('input-line-label')).toHaveText(/^Steam electrolysis/)
-  await expect(marker).toHaveAccessibleName(/^Uses what this block already makes \(Steam electrolysis [^,)]+\)\./)
-  const label = (await marker.getAttribute('aria-label'))!
-  expect(label).toContain('Uses what this block already makes (')
-  await expect(marker).toHaveAccessibleName(label)
+  await expect(marker).toHaveAttribute('aria-label', "Don't make more here")
+  // The popover covers the chip: close it, and the pointer reaches the marker. The model is read once the pointer is over it.
+  await page.keyboard.press('Escape')
+  await expect(comesFromPopover(page)).toHaveCount(0)
+  await marker.hover()
+  await expect(marker).toHaveAttribute('aria-label', /^Don't make more here\nAlready made here: /)
+  await expect(page.getByTestId('tooltip')).toContainText("Don't make more here")
+  await expect(page.getByTestId('tooltip')).toContainText('Already made here')
   await expect(marker).toHaveText('')
   await expect(page.getByTestId('item-tile-sourcing')).toHaveCount(0)
   await expect(page.locator('[data-sourcing]')).toHaveCount(0)
   await expect(table(page).locator('[aria-label*="first)"]')).toHaveCount(0)
 
   // Back to the default: no rule, no marker.
-  await setPreset(control, 'own')
+  await setPreset(await openSources(page, acidRow(page), OXYGEN), 'own')
   await expect(markers(page)).toHaveCount(0)
 })
 
@@ -204,17 +208,20 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
   await expect(markers(oxygenSlot(page))).toHaveCount(1)
   await expect(oxygenSlot(page)).toHaveAccessibleName(/^Oxygen, .*, has a source rule$/)
-  // The sentence every marker carries, once the solve with the rule has landed (O2 maker then offers what Acid asks for).
-  await expect(comesFrom(page).getByTestId('sourcing-sentence')).toHaveText(/^Taken from O2 maker first \((?!0\.00)\S+ offered\)\.$/)
-  const sentence = (await comesFrom(page).getByTestId('sourcing-sentence').textContent())!
+  // The strip says the rule with an icon named as the marker's first line.
+  await expect(comesFrom(page).locator('[data-testid="strip-rule-icon"][data-rule="connections-first"]')).toHaveAccessibleName('Receive it first')
+  const ruleName = 'Receive it first'
   // ...and when it is not. It is the only marker of the summary: no other slot, and none in Products or Byproducts.
   await closeRules(page)
   await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'false')
   const slotMarker = markers(oxygenSlot(page))
   await expect(slotMarker).toHaveCount(1)
   await expect(markers(summary)).toHaveCount(1)
-  // The slot's name says it, so the marker inside is not announced a second time; its tooltip is the sentence.
-  await expect(slotMarker).toHaveAttribute('aria-label', sentence)
+  // The slot's name says it, so the marker inside is not announced a second time; its tooltip is the rule's name, then (once the
+  // pointer is over it) what supplies the item, once the solve with the rule has landed (O2 maker then offers what Acid asks for).
+  await expect(slotMarker).toHaveAttribute('aria-label', 'Receive it first')
+  await slotMarker.hover()
+  await expect(slotMarker).toHaveAttribute('aria-label', /^Receive it first\n(.*\n)*From O2 maker: /)
   await expect(oxygenSlot(page).getByRole('img')).toHaveCount(0)
   // The 6px dot is inside the slot, in its top-right corner, and a click on it is a click on the slot.
   const slotBox = (await oxygenSlot(page).boundingBox())!
@@ -243,8 +250,8 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   // The areas matrix of the block: on the row header of oxygen, and of no other item.
   await openMatrix()
   await expect(markers(matrix)).toHaveCount(1)
-  await expect(markers(matrixHeader)).toHaveAccessibleName(sentence)
-  await expect(markers(matrixHeader)).toHaveAttribute('aria-label', sentence)
+  await expect(markers(matrixHeader)).toHaveAccessibleName(ruleName)
+  await expect(markers(matrixHeader)).toHaveAttribute('aria-label', ruleName)
   // Every block side by side has none: a rule belongs to one block.
   await page.getByRole('group', { name: 'Block' }).getByRole('button', { name: 'All blocks' }).click()
   await expect(markers(page.getByTestId('modal-panel'))).toHaveCount(0)
@@ -255,14 +262,14 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(matrix).toBeVisible()
   await close()
 
-  // The block graph: on the edge chip of the oxygen connection into Acid, with the same sentence.
+  // The block graph: on the edge chip of the oxygen connection into Acid, with the same rule name.
   // The summary chip of the edge shows the rule as a decorative dot; the chip of the connection, in the edge's list, the marker.
   await openGraph()
   await expect(markers(edgeSummary)).toHaveCount(1)
   await expect(markers(page.getByTestId('modal-panel'))).toHaveCount(1)
   await pinEdge(page, { to: 'Acid' })
   await expect(markers(page.getByTestId('modal-panel'))).toHaveCount(2)
-  await expect(markers(edgeChip)).toHaveAccessibleName(sentence)
+  await expect(markers(edgeChip)).toHaveAccessibleName(ruleName)
   const chipBox = (await edgeChip.boundingBox())!
   const chipDot = (await markers(edgeChip).locator('span').boundingBox())!
   expect(chipDot.y, 'inside the chip').toBeGreaterThanOrEqual(chipBox.y)
@@ -276,7 +283,7 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(markers(summary)).toHaveCount(0)
   await openGraph()
   await pinEdge(page, { to: 'Acid' })
-  await expect(markers(edgeChip)).toHaveAccessibleName(sentence)
+  await expect(markers(edgeChip)).toHaveAccessibleName(ruleName)
   await expect(markers(edgeChip)).toHaveRole('img')
   await page.getByTestId('graph-node').filter({ has: page.getByRole('button', { name: 'Acid', exact: true }) }).getByTestId('graph-node-open').click()
   await expect(oxygenSlot(page)).toBeVisible()
@@ -286,7 +293,7 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(lineChip).toBeVisible()
   await expect(markers(summary)).toHaveCount(1)
   const lineMarker = markers(ingredients)
-  await expect(lineMarker).toHaveAccessibleName(sentence)
+  await expect(lineMarker).toHaveAccessibleName(ruleName)
   const lineChipBox = (await lineChip.boundingBox())!
   const lineDot = (await lineMarker.locator('span').boundingBox())!
   expect(Math.abs(lineDot.x + lineDot.width - (lineChipBox.x + lineChipBox.width))).toBeLessThanOrEqual(1)

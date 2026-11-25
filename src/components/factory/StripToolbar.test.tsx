@@ -16,6 +16,16 @@ describe('StripToolbar', () => {
     expect(names).toEqual(['Find recipe', 'Remove product', 'Served order…'])
   })
 
+  it('draws what is trailing after the buttons, inside the toolbar, and nothing without it', () => {
+    const { unmount } = render(<StripToolbar actions={[action({ label: 'Find recipe', side: 'left' }), action({ label: 'Served order…', icon: 'served' })]} trailing={<i data-testid="trail" />} />)
+    const toolbar = screen.getByTestId('strip-toolbar')
+    expect(toolbar.lastElementChild).toBe(screen.getByTestId('trail'))
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: 'Served order…' }))
+    unmount()
+    render(<StripToolbar actions={[action({ label: 'Find recipe', side: 'left' })]} />)
+    expect(screen.queryByTestId('trail')).toBeNull()
+  })
+
   it('names a badged action with its count and shows the same text as tooltip', () => {
     render(<StripToolbar actions={[action({ label: 'Served order…', icon: 'served', badge: { count: 2, noun: 'not ranked' } })]} />)
     const button = screen.getByRole('button', { name: 'Served order… · 2 not ranked' })

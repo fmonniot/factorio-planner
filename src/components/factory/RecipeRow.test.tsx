@@ -9,6 +9,7 @@ import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { findSubPlan } from '../../data/subPlanTree'
 import { indexRecipeAreas } from './recipeAreas'
 import { useUiStore } from '../../store/uiStore'
+import { useGameDataStore } from '../../store/gameDataStore'
 import type { Block, GameData, SolvedNode, RecipeNode, GameRecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 import { expectTip, getAllByTip, queryByTip, tipOf } from '../../test/byTip'
 
@@ -1042,12 +1043,16 @@ describe('RecipeRow source rule marker', () => {
     expect(document.querySelector('[data-sourcing]')).toBeNull()
   })
 
-  it('names the marker with the sentence of the item, and leaves the chip title without a suffix', () => {
+  it('names the marker with the rule of the item, reads the model once hovered, and leaves the chip title without a suffix', () => {
     setBlock({ sourceRules: { oxygen: { makeHere: 'off' as const } } })
     renderCombustion()
-    // No solve in this test: the rows that make Oxygen as a byproduct are named without a rate.
-    const sentence = /^Uses what this block already makes \(Electrolysis\)\. The rest is imported\.$/
-    expect(screen.getByRole('img', { name: sentence })).toBe(markers()[0])
+    expect(screen.getByRole('img', { name: "Don't make more here" })).toBe(markers()[0])
+    // The reading comes from the Sources model, which reads the game data of the store.
+    const before = useGameDataStore.getState().status
+    useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
+    fireEvent.pointerOver(markers()[0])
+    expect(markers()[0].getAttribute('aria-label')).toMatch(/^Don't make more here\n./)
+    useGameDataStore.setState({ status: before })
     expect(markers()[0]).not.toHaveAttribute('title')
     expect(screen.getByLabelText(/^Oxygen/).getAttribute('aria-label')).toMatch(/^Oxygen — \S+$/)
     expect(document.querySelector('[aria-label*="first)"]')).toBeNull()
@@ -1106,7 +1111,7 @@ describe('RecipeRow source rule marker', () => {
       const root = setAreas()
       rowIn(combustionPlanNode, root)
       expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['oxygen'])
-      expect(markers()[0]).toHaveAccessibleName(/^Line L: Uses what this area already makes/)
+      expect(markers()[0]).toHaveAccessibleName("Line L: Don't make more here")
       cleanup()
       rowIn(combustionB, root)
       expect(markers()).toHaveLength(0)
@@ -1116,7 +1121,7 @@ describe('RecipeRow source rule marker', () => {
       const root = setAreas({ sourceRules: { oxygen: { makeHere: 'off' as const } } })
       rowIn(combustionB, root)
       expect(markers()).toHaveLength(1)
-      expect(markers()[0]).toHaveAccessibleName(/^Uses what this block already makes/)
+      expect(markers()[0]).toHaveAccessibleName("Don't make more here")
       cleanup()
       // L has a rule of its own for oxygen, which replaces the block's: still a marker, now L's.
       rowIn(combustionPlanNode, root)
@@ -1130,7 +1135,7 @@ describe('RecipeRow source rule marker', () => {
       }))
       rowIn(combustionPlanNode, useBlockStore.getState().blocks[0].rootPlan)
       expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['oxygen'])
-      expect(markers()[0]).toHaveAccessibleName(/^Line L: .*Takes nothing from Line B\./)
+      expect(markers()[0]).toHaveAccessibleName('Line L: takes nothing from Line B')
       cleanup()
       rowIn(combustionB, root)
       expect(markers()).toHaveLength(0)

@@ -4,7 +4,7 @@ import type { Block, ConnectionFlow, SolvedNode, SolverResult } from '../../data
 import { altMoveTarget, buildSourcesModel, consumedOf, sourcesReading } from './sourcesModel'
 import type { SourcesModelInput } from './sourcesModel'
 import type { BlockRow } from './sourcesRows'
-import type { ItemMaker } from './sourcingText'
+import type { ItemMaker } from './sourcesMakers'
 import { sourcesLineOrder } from './itemSourcing'
 
 const makeEmptyArea = (id: string) => ({ ...makeEmptySubPlan(id), id, area: true })

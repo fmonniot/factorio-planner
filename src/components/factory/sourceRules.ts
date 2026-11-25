@@ -124,6 +124,8 @@ interface RuleItems {
   rows: Map<string, ReadonlySet<string>>
   gameData: GameData
   blocks: readonly Block[]
+  /** The parts of the rules with an effect, block parts and area parts (`rulePartsOf`). */
+  parts: readonly SourceRulePart[]
   /** The items whose rule of the block has an effect. */
   items: ReadonlySet<string>
   /** The items whose Leftover off has an effect: block-only, so an area's own rule never replaces it. */
@@ -140,15 +142,17 @@ function ruleItemsOf(block: Block, gameData: GameData, blocks: readonly Block[])
   let items = NO_ITEMS
   let leftover = NO_ITEMS
   let areas = NO_AREA_ITEMS
+  let effective: readonly SourceRulePart[] = []
   if (hasAnyRule(block)) {
     const parts = sourceRules(block, gameData, new Set(blocks.map(b => b.id))).filter(r => r.noEffect === undefined)
+    effective = parts
     items = new Set(parts.filter(r => r.areaId === undefined).map(r => r.itemId))
     leftover = new Set(parts.filter(r => r.kind === 'leftover-off').map(r => r.itemId))
     const byArea = new Map<string, Set<string>>()
     for (const r of parts) if (r.areaId !== undefined) (byArea.get(r.areaId) ?? byArea.set(r.areaId, new Set()).get(r.areaId)!).add(r.itemId)
     areas = byArea
   }
-  const entry = { rows: new Map<string, ReadonlySet<string>>(), gameData, blocks, items, leftover, areas }
+  const entry = { rows: new Map<string, ReadonlySet<string>>(), gameData, blocks, parts: effective, items, leftover, areas }
   ruleItemsCache.set(block, entry)
   return entry
 }
@@ -192,6 +196,19 @@ export function rowRuleItems(block: Block, gameData: GameData, blocks: readonly 
 }
 
 /**
+ * The parts of the rule of `itemId` that have an effect, as the row of the area `areaId` (or the block, without one) follows them:
+ * mirrors `rowRuleItems`. When the area has its own rule for the item, its parts replace the block's, except the block's Leftover off,
+ * which stays; otherwise they are the block's. Empty when none has an effect.
+ */
+export function rulePartsOf(block: Block, gameData: GameData, blocks: readonly Block[], itemId: string, areaId?: string): SourceRulePart[] {
+  const parts = ruleItemsOf(block, gameData, blocks).parts.filter(p => p.itemId === itemId)
+  if (areaId !== undefined && storedAreaRule(block.rootPlan, areaId, itemId) !== undefined) {
+    return [...parts.filter(p => p.areaId === areaId), ...parts.filter(p => p.areaId === undefined && p.kind === 'leftover-off')]
+  }
+  return parts.filter(p => p.areaId === undefined)
+}
+
+/**
  * The areas the scope control of the Comes from control offers for an item: the one it was opened for (`areaId`), the one it
  * is on (`area`) and those with a rule of their own for the item, in table order. None: no scope control.
  */
@@ -199,11 +216,14 @@ export function scopeAreasOf(block: Block, itemId: string, areaId: string | unde
   return (blockAreas(block.rootPlan) ?? []).filter(a => a.id === areaId || a.id === area || storedAreaRule(block.rootPlan, a.id, itemId) !== undefined)
 }
 
-/** The text shown beside a rule that has no effect. */
-export function noEffectText(reason: NoEffectReason, itemName: string, inArea = false, otherAreaName?: string): string {
+/**
+ * The short reason shown beside a rule that has no effect, and its tooltip when the label alone says too little. The item's name is
+ * next to every use, so the labels omit it. `inArea`: the rule is an area's; `otherAreaName`: the area a switch is about.
+ */
+export function noEffectLabel(reason: NoEffectReason, opts: { inArea?: boolean; otherAreaName?: string } = {}): { label: string; tip?: string } {
   switch (reason) {
-    case 'product': return `${itemName} is a product of this block, so the block always makes it.`
-    case 'not-made': return otherAreaName !== undefined ? `No row in ${otherAreaName} makes ${itemName}.` : `No row in this ${inArea ? 'area' : 'block'} makes ${itemName}.`
-    case 'no-connection': return `No connection for ${itemName}.`
+    case 'product': return { label: 'Always made here', tip: 'It is a product of this block, so the block always makes it.' }
+    case 'not-made': return { label: opts.otherAreaName !== undefined ? `No row in ${opts.otherAreaName} makes it` : opts.inArea ? 'No row in this area makes it' : 'No row here makes it' }
+    case 'no-connection': return { label: 'No connection' }
   }
 }

@@ -78,18 +78,19 @@ test.describe('source rules', () => {
     await expect(popover(page).getByRole('listitem')).toHaveCount(3)
     await expect(rule(page, OXYGEN, 'connections-first').getByTestId('source-rule-item')).toBeFocused()
 
-    // A rule with an effect: its name and the item's sentence.
+    // A rule with an effect: its name, and no sentence.
     const received = rule(page, OXYGEN, 'connections-first')
     await expect(received).not.toHaveAttribute('data-no-effect')
     await expect(received.getByTestId('source-rule-name')).toHaveText('Receive it first')
-    await expect(received.getByTestId('source-rule-text')).toContainText('Taken from O2 maker first')
+    await expect(received.getByTestId('source-rule-text')).toHaveCount(0)
+    await expect(received.getByTestId('source-rule-reason')).toHaveCount(0)
     await expect(rule(page, OXYGEN, 'import-off').getByTestId('source-rule-name')).toHaveText('Import off')
 
-    // A rule with no effect: why, in place of the sentence.
+    // A rule with no effect: why, in a short label.
     const unused = rule(page, COMPRESSED, 'byproducts-first')
     await expect(unused).toHaveAttribute('data-no-effect', 'not-made')
     await expect(unused.getByTestId('source-rule-name')).toHaveText("Don't make more here")
-    await expect(unused.getByTestId('source-rule-text')).toHaveText('No row in this block makes Compressed oxygen.')
+    await expect(unused.getByTestId('source-rule-reason')).toHaveText('No row here makes it')
 
     // Tab reaches every control and stays in the popover.
     await page.keyboard.press('Tab')
@@ -135,7 +136,6 @@ test.describe('source rules', () => {
     await expect(off).not.toHaveAttribute('data-no-effect')
     await expect(dont.getByTestId('source-rule-name')).toHaveText("Don't make more here")
     await expect(off.getByTestId('source-rule-name')).toHaveText('Import off')
-    await expect(dont.getByTestId('source-rule-text')).toContainText('The rest is missing: Import is off.')
     // Oxygen is not imported: its slot is there for what is missing, and reads short.
     await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'short')
     await expect(oxygenSlot(page)).toHaveAccessibleName(/^Oxygen, 100 per minute, short, has a source rule$/)
@@ -152,7 +152,7 @@ test.describe('source rules', () => {
     await rulesButton(page).click()
     const only = rule(page, OXYGEN, 'connections-first')
     await expect(only).toHaveAttribute('data-no-effect', 'no-connection')
-    await expect(only.getByTestId('source-rule-text')).toHaveText('No connection for Oxygen.')
+    await expect(only.getByTestId('source-rule-reason')).toHaveText('No connection')
 
     // Its item shows its Comes from control in the row, with the way forward; no slot appears, in the pane or anywhere.
     await only.getByTestId('source-rule-item').click()

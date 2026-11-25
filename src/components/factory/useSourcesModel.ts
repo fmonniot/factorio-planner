@@ -13,11 +13,9 @@ import { sourcesLineOrder } from './itemSourcing'
 import type { Side } from './itemSourcing'
 import { buildSourcesModel } from './sourcesModel'
 import { buildBlockRows } from './sourcesRows'
-import { itemMakers } from './sourcingText'
+import { itemMakers } from './sourcesMakers'
 
 export interface SourcesModelOptions {
-  /** false: do none of the work and return undefined (the strip's control draws neither list nor bar). Removed once every caller lays the model out. */
-  enabled?: boolean
   /** true: remember where "Make more here" is drawn (the setSourcesSide effect). Only the active block's hook does. Default false. */
   rememberSide?: boolean
 }
@@ -27,7 +25,7 @@ export interface SourcesModelOptions {
  * Undefined without a block or game data.
  */
 export function useBlockSourcesModel(block: Block | undefined, itemId: string, areaId: string | undefined, options: SourcesModelOptions = {}) {
-  const { enabled = true, rememberSide = false } = options
+  const { rememberSide = false } = options
   const blocks = useBlockStore(s => s.blocks)
   const gameData = useGameDataStore(selectGameData)
   const result = useSolverStore(selectBlockResult(block?.id))
@@ -48,8 +46,7 @@ export function useBlockSourcesModel(block: Block | undefined, itemId: string, a
   const drawnSide: Side | undefined = makeHere === 'after-blocks' ? 'below' : makeHere === undefined ? 'above' : undefined
   const lastSide: Side = drawnSide ?? storedSide ?? 'above'
 
-  // Remember where *Make more here* is drawn, whoever wrote the rule: the list, or the Source rules list's Remove. Only for the active block, and
-  // whatever `enabled` is.
+  // Remember where *Make more here* is drawn, whoever wrote the rule: the list, or the Source rules list's Remove. Only for the active block.
   const setSourcesSide = useUiStore(s => s.setSourcesSide)
   useEffect(() => {
     if (rememberSide && sideKey && drawnSide) setSourcesSide(sideKey, itemId, drawnSide)
@@ -57,33 +54,33 @@ export function useBlockSourcesModel(block: Block | undefined, itemId: string, a
 
   const hasAreas = useMemo(() => rootPlan !== undefined && blockAreas(rootPlan) !== undefined, [rootPlan])
   const makers = useMemo(
-    () => (enabled && block && gameData ? itemMakers(block, gameData, result, itemId, area) : []),
-    [enabled, block, gameData, result, itemId, area],
+    () => (block && gameData ? itemMakers(block, gameData, result, itemId, area) : []),
+    [block, gameData, result, itemId, area],
   )
   // The other areas that supply this one (area scope only): walks the plan once per other area, so kept until the plan, the solve or the switches change.
   // (The switches are keyed by their ids: an area with no rule of its own gets a fresh empty rule on every render.)
   const offKey = (block && rootPlan && area !== undefined ? effectiveAreaRule(rootPlan, block.sourceRules, area, itemId).areasOff : undefined)?.join('\n') ?? ''
   const suppliers = useMemo(
-    () => (enabled && block && gameData && area !== undefined ? supplierLines(block, gameData, result, itemId, area, { areasOff: offKey === '' ? undefined : offKey.split('\n') }) : []),
-    [enabled, block, gameData, result, itemId, area, offKey],
+    () => (block && gameData && area !== undefined ? supplierLines(block, gameData, result, itemId, area, { areasOff: offKey === '' ? undefined : offKey.split('\n') }) : []),
+    [block, gameData, result, itemId, area, offKey],
   )
   // Whether the area LP splits the item's outside legs between the areas (two areas or more touch it); not told by the routes, which omit a part at zero.
   const split = useMemo(
-    () => (enabled && block && gameData && area !== undefined ? areaLPItemsOf(block, gameData).has(itemId) : false),
-    [enabled, block, gameData, itemId, area],
+    () => (block && gameData && area !== undefined ? areaLPItemsOf(block, gameData).has(itemId) : false),
+    [block, gameData, itemId, area],
   )
 
   const name = gameData?.items[itemId]?.name ?? itemId
   const rate = (perMin: number) => fmtItemRateText(itemId, perMin / 60, unit)
   const rows = useMemo(
-    () => (enabled && block ? buildBlockRows({ block, blocks, flows, itemId, itemName: name, rate: perMin => fmtItemRateText(itemId, perMin / 60, unit) }) : []),
-    [enabled, block, blocks, flows, itemId, name, unit],
+    () => (block ? buildBlockRows({ block, blocks, flows, itemId, itemName: name, rate: perMin => fmtItemRateText(itemId, perMin / 60, unit) }) : []),
+    [block, blocks, flows, itemId, name, unit],
   )
   // A split fluid can be imported over several ranges: all of them count.
   const unsatisfied = (result?.unsatisfied ?? []).filter(u => u.itemId === itemId).reduce((t, u) => t + u.rate, 0)
   // Block scope: what areas with Import off leave missing of it, the way the Ingredients slot reads it (undefined: the block's rule decides).
   const areaMissing = useMemo(() => {
-    if (area !== undefined || !enabled || !rootPlan || !block || !result?.areaRoutes) return undefined
+    if (area !== undefined || !rootPlan || !block || !result?.areaRoutes) return undefined
     const missingOf = areaMissingOf(block.sourceRules, rootPlan, result.areaRoutes)
     let sum: number | undefined
     for (const u of result.unsatisfied.filter(u => u.itemId === itemId)) {
@@ -91,7 +88,7 @@ export function useBlockSourcesModel(block: Block | undefined, itemId: string, a
       if (m !== undefined) sum = (sum ?? 0) + m
     }
     return sum
-  }, [area, enabled, rootPlan, block, result, itemId])
+  }, [area, rootPlan, block, result, itemId])
   // At area scope: the area's own figure (areaSupply), not the block's.
   const supply = area !== undefined ? areaSupply(result?.areaRoutes, itemId, area, rule ?? {}, unsatisfied, split) : undefined
 
@@ -99,7 +96,7 @@ export function useBlockSourcesModel(block: Block | undefined, itemId: string, a
     () => sourcesLineOrder(makeHere, hasAreas, lastSide, suppliers.map(l => l.areaId)),
     [makeHere, hasAreas, lastSide, suppliers],
   )
-  if (!block || !gameData || !enabled) return undefined
+  if (!block || !gameData) return undefined
   const model = buildSourcesModel({ block, result, itemId, area, rule, makers, suppliers, supply, unsatisfied, areaMissing, rows, order })
   return {
     block, blocks, flows, gameData, itemId, name, unit, rate, solved: result !== undefined, area, rule, stored, makeHere, drawnSide, lastSide,
@@ -107,13 +104,10 @@ export function useBlockSourcesModel(block: Block | undefined, itemId: string, a
   }
 }
 
-/**
- * The model for the active block: `useBlockSourcesModel` plus remembering the side.
- * `enabled` is false for the control that draws neither (the strip's), which then does none of the work.
- */
-export function useSourcesModel(itemId: string, areaId: string | undefined, enabled = true) {
+/** The model for the active block: `useBlockSourcesModel` plus remembering the side. */
+export function useSourcesModel(itemId: string, areaId: string | undefined) {
   const block = useBlockStore(selectActiveBlock)
-  return useBlockSourcesModel(block, itemId, areaId, { enabled, rememberSide: true })
+  return useBlockSourcesModel(block, itemId, areaId, { rememberSide: true })
 }
 
 /** What the Sources list and the header's bar read, once the hook has it. */

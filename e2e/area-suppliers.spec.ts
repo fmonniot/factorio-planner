@@ -80,7 +80,7 @@ const stone = (page: Page) => slot(page, 'Ingredients', 'Stone')
 const stoneBox = (page: Page) => slot(page, 'Ingredients', 'Stone box')
 
 test.describe('choosing the supplying area (case 21 B)', () => {
-  test('rows a to c: one switch per supplying area; the list, the rows, the pane, the sentence, the rule list and the matrix agree', async ({ page }, testInfo) => {
+  test('rows a to c: one switch per supplying area; the list, the rows, the pane, the rule list and the matrix agree', async ({ page }, testInfo) => {
     await load(page)
     // No offer: the block's connection goes, through the Sources list of the block.
     await using(page).getByLabel(/^Stone box/).click({ button: 'right' })

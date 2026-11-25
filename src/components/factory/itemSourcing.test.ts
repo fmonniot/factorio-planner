@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { makeEmptyBlock } from '../../store/blockStore'
-import { areaRuleLabel, ruleLabel, sourcesLineOrder, ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL, SOURCE_RULE_NAMES, SOURCES_BUTTON_LABEL, SOURCES_LINES, ruleChipOf } from './itemSourcing'
+import { areaRuleLabel, ruleLabel, ruleNamesLabel, sourcesLineOrder, ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL, SOURCE_RULE_NAMES, SOURCES_BUTTON_LABEL, SOURCES_LINES, ruleChipOf } from './itemSourcing'
 
 describe('the vocabulary', () => {
   it('names the three presets and gives each its help text', () => {
@@ -78,6 +78,16 @@ describe('ruleLabel', () => {
     expect(ruleLabel({ kind: 'leftover-off' }, plan)).toBe('Leftover off')
     expect(ruleLabel({ kind: 'connections-first', areaId: 'L' }, plan)).toBe('Line L: Receive it first')
     expect(ruleLabel({ kind: 'takes-nothing', areaId: 'L', otherAreaId: 'M1' }, plan)).toBe('Line L: takes nothing from Line M1')
+  })
+})
+
+describe('ruleNamesLabel', () => {
+  const root = makeEmptyBlock('B').rootPlan
+  const plan = { ...root, subPlans: [{ id: 'L', name: 'Line L', nodes: [], subPlans: [], area: true as const, createdAt: '', updatedAt: '' }] }
+  it('joins the names of the parts, and is empty without parts', () => {
+    expect(ruleNamesLabel([{ itemId: 'p', kind: 'connections-first' }, { itemId: 'p', kind: 'import-off' }], plan)).toBe('Receive it first, Import off')
+    expect(ruleNamesLabel([{ itemId: 'p', kind: 'connections-first', areaId: 'L' }], plan)).toBe('Line L: Receive it first')
+    expect(ruleNamesLabel([], plan)).toBe('')
   })
 })
 

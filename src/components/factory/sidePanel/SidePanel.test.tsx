@@ -352,7 +352,6 @@ describe('SidePanel — where inputs come from', () => {
     expect(line).toHaveAttribute('data-tip', 'Make more here: Iron Plate\n2 × Furnace, 120/m')
     expect(line).toHaveAttribute('data-target', 'row')
     const section = screen.getByTestId('panel-sourcing')
-    expect(within(section).queryByTestId('sourcing-sentence')).not.toBeInTheDocument()
     expect(within(section).queryByRole('radio')).not.toBeInTheDocument()
     expect(within(section).queryByRole('checkbox')).not.toBeInTheDocument()
     expect(within(section).queryByRole('switch')).not.toBeInTheDocument()

@@ -3,7 +3,7 @@ import { areaName } from '../../data/subPlanTree'
 import { areaLPItems, blockAreas } from '../../solver/areas'
 import { flattenBlock } from '../../solver/index'
 import { outsideLegParts } from '../../solver/areaRoutes'
-import { itemMakers } from './sourcingText'
+import { itemMakers } from './sourcesMakers'
 
 // ---------------------------------------------------------------------------
 // What the Sources list of an area reads (D6, D12 of phase 5): figures taken from the solver's `areaRoutes`, never worked

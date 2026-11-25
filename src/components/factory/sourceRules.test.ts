@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { areaRuleItems, itemsWithEffect, noEffectText, rowRuleItems, sourceRuleItems, sourceRules, type NoEffectReason, type SourceRuleKind } from './sourceRules'
+import { areaRuleItems, itemsWithEffect, noEffectLabel, rowRuleItems, rulePartsOf, sourceRuleItems, sourceRules, type SourceRuleKind } from './sourceRules'
 import { makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import type { AreaSourceRule, Block, GameData, SourceRule } from '../../data/types'
 import { sourceRulesOf } from '../../test/sourceRulesOf'
@@ -299,7 +299,7 @@ describe('rules of areas', () => {
     expect(rules(b)).toEqual([{ itemId: 'plate', kind: 'takes-nothing', areaId: 'L', otherAreaId: 'B', noEffect: 'not-made' }])
     const product = areaBlock({ L: { plate: { areasOff: ['B'] } }, product: 'plate' })
     expect(rules(product)).toEqual([{ itemId: 'plate', kind: 'takes-nothing', areaId: 'L', otherAreaId: 'B' }])
-    expect(noEffectText('not-made', 'Plate', false, 'Line B')).toBe('No row in Line B makes Plate.')
+    expect(noEffectLabel('not-made', { otherAreaName: 'Line B' }).label).toBe('No row in Line B makes it')
   })
 
   it('keeps a switch on an area that only uses the item (a relay): not-made needs no row making it and none using it', () => {
@@ -330,7 +330,7 @@ describe('rules of areas', () => {
     b.rootPlan.subPlans[0] = { ...b.rootPlan.subPlans[0], nodes: [] }
     expect(rules(b)).toEqual([{ itemId: 'plate', kind: 'connections-first', areaId: 'L', noEffect: 'not-made' }])
     expect(areaRuleItems(b, gameData, [b]).size).toBe(0)
-    expect(noEffectText('not-made', 'Plate', true)).toBe('No row in this area makes Plate.')
+    expect(noEffectLabel('not-made', { inArea: true }).label).toBe('No row in this area makes it')
   })
 
   it('judges an area part at block level: a product has no effect', () => {
@@ -377,13 +377,54 @@ describe('rules of areas', () => {
   })
 })
 
-describe('noEffectText', () => {
-  const reasons: [NoEffectReason, string][] = [
-    ['product', 'Plate is a product of this block, so the block always makes it.'],
-    ['not-made', 'No row in this block makes Plate.'],
-    ['no-connection', 'No connection for Plate.'],
-  ]
-  it.each(reasons)('words %s', (reason, text) => {
-    expect(noEffectText(reason, 'Plate')).toBe(text)
+describe('noEffectLabel', () => {
+  it('words a product, with a tip', () => {
+    expect(noEffectLabel('product')).toEqual({ label: 'Always made here', tip: 'It is a product of this block, so the block always makes it.' })
+  })
+  it('words not-made for the block, an area and another area', () => {
+    expect(noEffectLabel('not-made')).toEqual({ label: 'No row here makes it' })
+    expect(noEffectLabel('not-made', { inArea: true })).toEqual({ label: 'No row in this area makes it' })
+    expect(noEffectLabel('not-made', { otherAreaName: 'Line B' })).toEqual({ label: 'No row in Line B makes it' })
+  })
+  it('words no-connection, with no tip', () => {
+    expect(noEffectLabel('no-connection')).toEqual({ label: 'No connection' })
+  })
+})
+
+describe('rulePartsOf', () => {
+  function areaBlock(opts: { block?: Record<string, SourceRule>; L?: Record<string, AreaSourceRule> } = {}): Block {
+    const b = makeEmptyBlock('B')
+    b.id = 'self'
+    b.rootPlan.subPlans = [{
+      id: 'L', name: 'Line L', nodes: [makeRecipeNode('smelt')], subPlans: [], area: true as const, createdAt: '', updatedAt: '',
+      ...(opts.L ? { sourceRules: opts.L } : {}),
+    }]
+    b.sourceRules = opts.block ?? {}
+    return b
+  }
+  const kinds = (parts: { kind: string; areaId?: string }[]) => parts.map(p => `${p.areaId ?? ''}:${p.kind}`)
+
+  it('is the block parts of the item, in order, at block scope', () => {
+    const b = areaBlock({ block: { plate: { makeHere: 'off', importOff: true }, ore: { importOff: true } } })
+    expect(kinds(rulePartsOf(b, gameData, [b], 'plate'))).toEqual([':byproducts-first', ':import-off'])
+  })
+
+  it('is empty for an item with no rule that has an effect', () => {
+    const b = areaBlock({ block: { plate: { importOff: true } } })
+    expect(rulePartsOf(b, gameData, [b], 'ore')).toEqual([])
+    const none = areaBlock({ block: { gear: { importOff: true } } })
+    expect(rulePartsOf(none, gameData, [none], 'gear')).toEqual([])
+  })
+
+  it('is the area\'s own parts when the area has its own rule, and the block\'s otherwise', () => {
+    const b = areaBlock({ block: { plate: { makeHere: 'off' } }, L: { plate: { importOff: true } } })
+    expect(kinds(rulePartsOf(b, gameData, [b], 'plate', 'L')).sort()).toEqual(['L:import-off', 'L:make-here'].sort())
+    const plain = areaBlock({ block: { plate: { makeHere: 'off' } } })
+    expect(kinds(rulePartsOf(plain, gameData, [plain], 'plate', 'L'))).toEqual([':byproducts-first'])
+  })
+
+  it('keeps the block\'s Leftover off beside the area\'s own parts', () => {
+    const b = areaBlock({ block: { plate: { leftoverOff: true } }, L: { plate: { makeHere: 'off' } } })
+    expect(kinds(rulePartsOf(b, gameData, [b], 'plate', 'L'))).toEqual(['L:byproducts-first', ':leftover-off'])
   })
 })
