@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lookOfLine, madeLook, segmentLook } from './segmentLooks'
+import { lookOfLine, lookOfOutput, madeLook, productLook, segmentLook } from './segmentLooks'
 
 describe('segmentLook', () => {
   it('draws an import share with diagonal stripes in the detail bar and the micro-bar', () => {
@@ -29,5 +29,23 @@ describe('lookOfLine', () => {
     expect(lookOfLine({ kind: 'made' })).toEqual(madeLook())
     expect(lookOfLine({ kind: 'import' })).toEqual(segmentLook('import', undefined))
     expect(lookOfLine({ kind: 'missing' })).toEqual(segmentLook('short', undefined))
+  })
+})
+
+describe('productLook', () => {
+  it('is green: a translucent fill, a stronger border and a solid mini colour', () => {
+    const look = productLook()
+    expect(look.mini).toBe('#86efac')
+    expect(look.bg).toContain('134, 239, 172')
+    expect(look.borderStyle).toBe('solid')
+  })
+})
+
+describe('lookOfOutput', () => {
+  it('maps each output look to a segment look', () => {
+    expect(lookOfOutput({ kind: 'block', color: '#112233' })).toEqual(segmentLook('source', '#112233'))
+    expect(lookOfOutput({ kind: 'made' })).toEqual(madeLook())
+    expect(lookOfOutput({ kind: 'left' })).toEqual(segmentLook('left', undefined))
+    expect(lookOfOutput({ kind: 'product' })).toEqual(productLook())
   })
 })

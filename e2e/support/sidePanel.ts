@@ -37,3 +37,7 @@ export async function changeSourcing(page: Page, row: Locator, itemId: string): 
 /** One entry of the panel's "Where outputs go" section: a product or byproduct of the selected row. */
 export const outputEntry = (page: Page, itemId: string): Locator =>
   sidePanel(page).locator(`[data-testid="output-entry"][data-item-id="${itemId}"]`)
+
+/** The lines of one output entry's rail list, all or of one `data-kind` (`row`, `block`, `product`, `left`). */
+export const outputLines = (page: Page, itemId: string, kind?: string): Locator =>
+  outputEntry(page, itemId).locator(`[data-testid="output-line"]${kind ? `[data-kind="${kind}"]` : ''}`)

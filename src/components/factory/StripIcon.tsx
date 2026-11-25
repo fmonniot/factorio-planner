@@ -149,6 +149,13 @@ const ICONS = {
       {edgeDots([1.2, 8.6, 10.8])}
     </>
   ),
+  /** Block product, in a row's outputs: what the row makes for the block's own goal, a diamond in the assembler's square. */
+  'block-product': () => (
+    <>
+      <rect x="1.25" y="1.25" width="9.5" height="9.5" rx="1.6" />
+      <path fill="currentColor" d="M6 3.3l2.7 2.7L6 8.7 3.3 6z" />
+    </>
+  ),
   /** Leftover on: a chest, what nobody uses is kept. */
   leftover: () => CHEST,
   /** Leftover off: the chest, struck. */

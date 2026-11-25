@@ -31,4 +31,11 @@ describe('StripIcon', () => {
     expect(container.querySelector('g[mask] rect')).not.toBeNull()
     expect(container.querySelector('path[d="M9.3 7.4v3.8M7.4 9.3h3.8"]')).not.toBeNull()
   })
+
+  it('draws the block product icon as a plain square with a diamond', () => {
+    const { container } = render(<StripIcon name="block-product" />)
+    expect(container.querySelector('svg')).toHaveAttribute('data-icon', 'block-product')
+    expect(container.querySelector('mask')).toBeNull()
+    expect(container.querySelector('rect')).not.toBeNull()
+  })
 })

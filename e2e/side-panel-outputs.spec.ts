@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
-import { sidePanel, selectRow, outputEntry } from './support/sidePanel'
+import { sidePanel, selectRow, outputEntry, outputLines } from './support/sidePanel'
 
 /**
  * The side panel's "Where outputs go" section: for each product and byproduct of the selected row, which rows of the block
@@ -24,7 +24,7 @@ async function load(page: Page, fixture: string) {
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
 }
 
-test('a byproduct is read as used by the row that absorbs it', async ({ page }) => {
+test('a byproduct is a line for the row that absorbs it', async ({ page }) => {
   await load(page, SURPLUS)
   const panel = await selectRow(page, row(page, ELECTROLYSIS))
 
@@ -37,21 +37,28 @@ test('a byproduct is read as used by the row that absorbs it', async ({ page }) 
   }).toBe(1)
 
   await expect(outputEntry(page, 'nullius-oxygen')).toHaveAttribute('data-byproduct', 'true')
-  const oxygen = outputEntry(page, 'nullius-oxygen').getByTestId('output-sentence')
-  await expect(oxygen).toContainText('Used here by')
-  await expect(oxygen).toContainText('absorber')
+  const oxygen = outputLines(page, 'nullius-oxygen', 'row')
+  await expect(oxygen).toHaveCount(1)
+  await expect(oxygen).toHaveAttribute('data-absorber', 'true')
   const hydrogen = outputEntry(page, 'nullius-hydrogen')
   await expect(hydrogen).not.toHaveAttribute('data-byproduct', 'true')
-  await expect(hydrogen.getByTestId('output-sentence')).toContainText('A product of this block')
+  await expect(outputLines(page, 'nullius-hydrogen', 'product')).toHaveCount(1)
 
   await selectRow(page, row(page, NITRIC))
   // The absorber's own acid is made for nothing here: the block has 12.5/min of it left over.
-  await expect(sidePanel(page).getByTestId('output-sentence')).toHaveText('Left over: no row or block uses it (12.5/m).')
+  const entry = sidePanel(page).getByTestId('output-entry')
+  await expect(entry).toHaveCount(1)
+  const lines = entry.getByTestId('output-line')
+  await expect(lines).toHaveCount(1)
+  await expect(lines).toHaveAttribute('data-kind', 'left')
+  await expect(lines.getByTestId('output-line-rate')).toHaveText('12.5')
 })
 
 test('an output is read as sent to the block that takes it', async ({ page }) => {
   await load(page, CONNECTION)
   await page.locator('[data-testid="block-tab"] button[aria-label="Pipes"]').click()
   await selectRow(page, row(page, PIPE_ROW))
-  await expect(outputEntry(page, 'pipe').getByTestId('output-sentence')).toContainText('Sent to Valves')
+  const blocks = outputLines(page, 'pipe', 'block')
+  await expect(blocks).toHaveCount(1)
+  await expect(blocks.getByTestId('output-line-label')).toHaveText('Valves')
 })
