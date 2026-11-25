@@ -1944,7 +1944,8 @@ describe('solveAll — requests', () => {
       expect(flowOf(all, 'cr').requested).toBeCloseTo(50, 4)
       expect(flowOf(all, 'ct').rate).toBeCloseTo(0, 4)
       expect(flowOf(all, 'ca').requested).toBeCloseTo(50, 4)
-      expect(throughput(all, 'T')).toBeCloseTo(70, 4)
+      // T's slag goals: 20 of its own + 10 for cs + 50 for ca, one slag per twin run.
+      expect(throughput(all, 'T')).toBeCloseTo(80, 4)
     })
 
     it('reserves a credited take against a take consumer solved before it', () => {
