@@ -1076,7 +1076,7 @@ The second item Y (T makes it, C1 uses it) is the same pin as in A: the plate (X
 
 ## Case 22 — A connection replaces an import
 
-**Exercises:** the connection order ([A connection replaces an import](solver.md#connections-between-blocks)): a block that imports an intermediate while one of its connections has offer to spare takes from the connection instead, whichever item the connection is on and whatever the recipe ratio; own production first, the default-rule gate and the rules the steps keep; the same rule in a loop that loses, in areas, and in a loop of blocks and a served list. Rows marked *measured* do not depend on the order: they hold with or without it.
+**Exercises:** the connection order ([A connection replaces an import](solver.md#connections-between-blocks)): a block that imports an intermediate while one of its connections has offer to spare takes from the connection instead, whichever item the connection is on and whatever the recipe ratio; own production first, the default-rule gate and the rules the steps keep; the same rule in a loop that loses, in areas, in a loop of blocks and a served list, and a block whose offer of one connected item is short ([A short offer](solver.md#a-short-offer-the-second-request-pass)). Rows marked *measured* do not depend on the order: they hold with or without it.
 
 **Recipes:** `case22-gear` (2 plate makes 1 gear, G), `case22-plate-1-1`, `case22-plate-1-2`, `case22-plate-2-1` (P: 1 ingot makes 1 plate, 1 ingot makes 2 plates, 2 ingots make 1 plate), `case22-ingot` (S: 1 ore makes 1 ingot), `case22-mine-plate` (1 ore makes 1 plate, a source block's row), `case22-use-x` (U: 2 X make 1 goal and 100 W), `case22-recycle` (R: 100 W make 1 X), `case22-tool` (H: 2 plate make 1 tool and 2 z), `case22-press` (Q: 1 z and 1 ore make 1 coin and 1 plate). Values are derived by hand; no row is edited to match the solver.
 
@@ -1162,6 +1162,20 @@ List H, C: H gets 30 (P 10, no ingot or plate import); C gets 5 of the 10 it ask
 List C, H: C gets 10 and imports nothing. H gets 25: with 25 offered, 2x + u + s = 50, u <= 25, x <= 10 + i (i ingots imported), s plates imported; the least import is s + i, s = 5 - 2i, total 5 - i, so i = 2.5 and s = 0; then the least received is u = 50 - 2x with x = 12.5 and u = 25. P 12.5, ingot imported 2.5, plate imported 0.
 Both orders of tabs (S H C and C H S) give the same.
 ```
+
+### E — a short offer with another connection
+
+Block H: product 25 gears, rows gear, P (`ratio`) and S pinned at 10 ingots, as in fixture A; connections `c-P` (plate from SP, whose row `case22-mine-plate` makes plate) and `c-I` (ingot from SI, whose row `case22-ingot` makes ingot), neither with a rule. One of the two has a `maxRate`, so its first-pass offer is known. Each row runs in the tab orders SP SI H, H SP SI and SI H SP.
+
+```
+a (P 1 makes 2, c-I maxRate 5, plate unlimited): the probe has both items unlimited: ingot i = x - 10, plate u = 50 - 2x, and the connection order takes the fewest units, 40 - x down to x = 25, so it takes ingot 15 and plate 0. The ingot offer is 5, 15 - 5 = 10 is short. The second pass probes with ingot capped at 5: x <= 15, plate u = 50 - 2x is least at x = 15, so 20. c-P requests 20 and is served 20 (kind request, status ok); c-I requests 5, is served 5 and is capped. P 15, H's S 10, SP mines 20, SI mines 5, G 25, no plate or ingot imported. Before the second pass: c-P requested 0.
+b (P 2 make 1, c-P maxRate 12, ingot unlimited): the probe takes plate 45 (x = 5, ingot i = 2x - 10 = 0). The plate offer is 12, 45 - 12 = 33 is short. The second pass probes with plate capped at 12: x = 38, ingot i = 76 - 10 = 66. c-I requests 66 and is served 66; c-P requests 12, is served 12 and is capped. P 38, SI mines 66, SP mines 12, no plate or ingot imported: 12 + 38 = 50 plates make 25 gears. Before the second pass: c-I requested 0, P 5, plate imported 33.
+c (as b, c-P maxRate 100): the offer covers the need of 45, so no pair is short (`shortFirstSupply` is empty), one pass runs: plate 45, P 5, c-I requested 0 and unused.
+d (as b, no c-I): the block connects one item only, so the trigger does not fire: P 5, plate imported 33, as before.
+e (warm): b solved, then c-P maxRate 20 through one `SolveCache`: x = 30, ingot 50; equals a cold solve.
+```
+
+The 1-1 ratio is left out: with plate and ingot tied in pass 1 the optimum is not unique.
 
 ## Case 23 — An absorber chain
 
@@ -1437,4 +1451,4 @@ B uses 50 X. Supply costs 0 and a make-x run costs 1, so X comes from supply fir
 
 Row c: A runs make-goal min(50, 30) = 30 for the capped request. Row f: T offers 0, so the cap is 0, make-x runs 25 and feed is 25. Row h: B's goal is 50 + 5 = 55, X need 55, the top-up is 25 and make-x runs 12.5. Row i: T goal 40 offers 40, B needs 50, the top-up is 10, make-x runs 5, feed 5.
 
-Rows b and d are controls. In b no pair is short, so one pass runs. In d (measured) the item has no rule, so B makes X itself before taking from connections and the correction does not apply.
+Rows b and d are controls. In b no pair is short, so one pass runs. In d (measured) the item has no rule and B makes X itself before taking from connections, so X's need is 0 and no pair is short; the form with a default-rule item and a second connection is [case 22](#case-22--a-connection-replaces-an-import) E.
