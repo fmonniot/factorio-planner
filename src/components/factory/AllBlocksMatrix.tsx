@@ -8,7 +8,7 @@ import { fmtFluidTag } from '../../data/flowKey'
 import { primaryAreas, type PlanMatrixBlock, type PlanMatrixRow } from './planAreaMatrix'
 import { fmtAmount, fmtAmountUnit, fmtSigned, fmtSignedUnit } from './matrixFormat'
 import { isEnergyItem } from '../../data/electricity'
-import { describedTip } from '../tipProps'
+import { TIPPED_LABEL_CLASS, describedTip, tippedLabel } from '../tipProps'
 
 // ---------------------------------------------------------------------------
 // Every block as a column: what each block takes or leaves across its boundary, per item, next to
@@ -36,6 +36,12 @@ export interface AllBlocksMatrixProps {
 
 const SEND = 'bg-sky-400/15 text-sky-300'
 const RECEIVE = 'bg-orange-400/15 text-orange-300'
+/** The tooltip of each block's Net header. */
+export const NET_TIP = 'What the block takes or leaves across its boundary.'
+/** The tooltips of the Not taken and Not supplied headers (and of the labels of the same names in the Inspector). */
+export const NOT_TAKEN_TIP = 'Not taken by any block: extra output, byproduct or surplus.'
+export const NOT_SUPPLIED_TIP = 'Not supplied by any block: it is imported.'
+
 const BLOCK_EDGE = 'border-l border-gray-700'
 
 export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
@@ -256,11 +262,11 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
                 )
               })}
               <th scope="col" rowSpan={2} className={`${BLOCK_EDGE} w-24 px-1 py-2 border-b border-gray-700`}>
-                <span className="text-[11px] uppercase tracking-wide text-gray-400 font-normal">Not taken</span>
+                <span {...tippedLabel(NOT_TAKEN_TIP)} className={`text-[11px] uppercase tracking-wide text-gray-400 font-normal ${TIPPED_LABEL_CLASS}`}>Not taken</span>
               </th>
               {showNotSupplied && (
                 <th scope="col" rowSpan={2} className="w-24 px-1 py-2 border-b border-gray-700">
-                  <span className="text-[11px] uppercase tracking-wide text-gray-400 font-normal">Not supplied</span>
+                  <span {...tippedLabel(NOT_SUPPLIED_TIP)} className={`text-[11px] uppercase tracking-wide text-gray-400 font-normal ${TIPPED_LABEL_CLASS}`}>Not supplied</span>
                 </th>
               )}
             </tr>
@@ -280,7 +286,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
                   )
                 }
                 heads.push(
-                  <th key={`${b.blockId}:net`} scope="col" className={`${b.areas.length === 0 ? BLOCK_EDGE : ''} w-20 ${sub}`}>Net</th>,
+                  <th key={`${b.blockId}:net`} scope="col" {...describedTip(NET_TIP)} className={`${b.areas.length === 0 ? BLOCK_EDGE : ''} w-20 cursor-help ${sub}`}>Net</th>,
                 )
                 return heads
               })}
@@ -324,13 +330,15 @@ function Inspector({ row, blockName, blocks, rateUnit }: {
         </p>
       ))}
       {row.notTaken > FLOW_TOLERANCE && (
-        <p className="text-gray-400">
-          {fmtAmountUnit(row.notTaken, rateUnit, energy)} is not taken by any block (extra output, byproduct or surplus).
+        <p data-testid="inspector-not-taken" className="flex gap-2 text-gray-400">
+          <span {...tippedLabel(NOT_TAKEN_TIP)} className={TIPPED_LABEL_CLASS}>Not taken</span>
+          <span className="tabular-nums">{fmtAmountUnit(row.notTaken, rateUnit, energy)}</span>
         </p>
       )}
       {row.notSupplied > FLOW_TOLERANCE && (
-        <p className="text-gray-400">
-          {fmtAmountUnit(row.notSupplied, rateUnit, energy)} is not supplied by any block: it is imported.
+        <p data-testid="inspector-not-supplied" className="flex gap-2 text-gray-400">
+          <span {...tippedLabel(NOT_SUPPLIED_TIP)} className={TIPPED_LABEL_CLASS}>Not supplied</span>
+          <span className="tabular-nums">{fmtAmountUnit(row.notSupplied, rateUnit, energy)}</span>
         </p>
       )}
     </section>

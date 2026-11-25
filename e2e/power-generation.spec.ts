@@ -346,9 +346,14 @@ test.describe('Heat', () => {
     await selectRow(page, rows.first())
     const count = page.getByLabel('Neighbouring reactors')
     await expect(count).toHaveValue('0')
-    // The caption wraps inside the panel instead of running off its right edge.
-    const caption = page.getByTestId('neighbour-section').getByText(/^Each number is how many reactors/)
-    expect((await caption.boundingBox())!.height).toBeGreaterThan(20)
+    // The rules live in tooltips on the title and the drawing, not in paragraphs.
+    const section = page.getByTestId('neighbour-section')
+    await expect(section).not.toContainText('Each number is how many reactors')
+    await expect(section).not.toContainText('Draw one cluster')
+    await section.getByTestId('neighbour-grid').hover()
+    await expect(page.getByTestId('tooltip')).toHaveText('Each number counts the working reactors that share a side with that one; diagonals do not count.')
+    await section.getByTestId('neighbour-title').hover()
+    await expect(page.getByTestId('tooltip')).toHaveText('The planner uses the average number of neighbours per reactor.')
     await count.fill('3')
     await expect(page.getByTestId('neighbour-multiplier')).toHaveText('×4')
     await expect(sidePanel(page).getByTestId('machine-needed')).toHaveText('1 needed')

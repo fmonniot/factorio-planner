@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MachineSection } from './MachineSection'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
+import { expectTip } from '../../../test/byTip'
+import { NEIGHBOUR_GRID_TIP, NEIGHBOURS_TIP } from '../neighbourLayout'
 import { useGameDataStore } from '../../../store/gameDataStore'
 import { useUiStore } from '../../../store/uiStore'
 import type { GameData, GameRecipeNode, ModuleConfig } from '../../../data/types'
@@ -248,13 +250,12 @@ describe('MachineSection — productivity modules', () => {
     expect(slots[1].getAttribute('data-tip')).toContain('Prod cannot be used for')
     expect(slots[0]).not.toHaveAttribute('data-misfit')
     expect(slots[0]).not.toHaveClass('ring-amber-500')
-    expect(screen.getByTestId('machine-module-not-allowed')).toHaveTextContent(/^Ringed modules cannot be used for .+; pick other modules\.$/)
+    expect(screen.queryByText(/Ringed modules/), 'no note under the slots: the ring and the slot tooltip say it').toBeNull()
   })
 
   it('rings nothing when the recipe allows productivity', () => {
     renderModal(gameDataWithProdModule(true), { modules: [{ moduleId: 'prod', count: 1 }] })
     expect(screen.getAllByTestId('module-slot')[0]).not.toHaveAttribute('data-misfit')
-    expect(screen.queryByTestId('machine-module-not-allowed')).toBeNull()
   })
 
   it('puts the module name once in the tooltip and only the misfit text in the description', () => {
@@ -269,7 +270,6 @@ describe('MachineSection — productivity modules', () => {
     gd.machines['assembler-2'].moduleSlots = 0
     renderModal(gd, { modules: [{ moduleId: 'prod', count: 1 }] })
     expect(screen.getAllByTestId('module-slot')[0]).not.toHaveAttribute('data-misfit')
-    expect(screen.queryByTestId('machine-module-not-allowed')).toBeNull()
   })
 
   it('rings a module the recipe blacklists', () => {
@@ -293,15 +293,15 @@ describe('MachineSection — module categories', () => {
 
   it('names a stored module the machine does not accept by category, and leaves it out of the slot picker', () => {
     renderModal(gameDataWithAgriModule(true), { modules: [{ moduleId: 'agri', count: 1 }] })
-    expect(screen.getByTestId('machine-module-not-allowed')).toHaveTextContent('Ringed modules cannot be inserted in Assembler 2')
     expect(screen.getAllByTestId('module-slot')[0]).toHaveAttribute('data-misfit', 'category')
+    expect(screen.getAllByTestId('module-slot')[0].getAttribute('aria-description')).toBe('Agriculture module cannot be inserted in Assembler 2')
+    expect(screen.queryByText(/Ringed modules/)).toBeNull()
     openSlot(1)
     expect(moduleOptionIds()).toEqual(['speed'])
   })
 
   it('shows no message and offers the module when the machine lists no categories', () => {
     renderModal(gameDataWithAgriModule(false), { modules: [{ moduleId: 'agri', count: 1 }] })
-    expect(screen.queryByTestId('machine-module-not-allowed')).toBeNull()
     expect(screen.getAllByTestId('module-slot')[0]).not.toHaveAttribute('data-misfit')
     openSlot(1)
     expect(moduleOptionIds()).toEqual(['agri', 'speed'])
@@ -611,6 +611,17 @@ describe('MachineSection — neighbours', () => {
     expect(colsInput().value).toBe('2')
   })
 
+  it('explains itself in two tooltips, not in paragraphs', () => {
+    renderReactor()
+    expectTip(screen.getByTestId('neighbour-title'), NEIGHBOURS_TIP)
+    expectTip(grid(), NEIGHBOUR_GRID_TIP)
+    expect(NEIGHBOURS_TIP).toBe('The planner uses the average number of neighbours per reactor.')
+    expect(NEIGHBOUR_GRID_TIP).toBe('Each number counts the working reactors that share a side with that one; diagonals do not count.')
+    const section = screen.getByTestId('neighbour-section')
+    expect(section.textContent).not.toMatch(/Draw one cluster|Each number is how many|Change the size above|Type the average number/)
+    expect(within(section).getByText('Not a rectangle?').parentElement).toHaveTextContent('Not a rectangle? Your own average')
+  })
+
   it('numbers every tile with its neighbour count', () => {
     renderReactor()
     setSize('3', '3')
@@ -638,6 +649,7 @@ describe('MachineSection — neighbours', () => {
     expect(multiplier()).toBe('×4')
     expect(grid()).toHaveClass('opacity-30')
     expect(screen.getByText('Not used: you typed your own average below.')).toBeInTheDocument()
+    expect(screen.queryByText(/Change the size above/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Use the drawing' }))
     expect(stored()).toBe(2)
     expect(grid()).not.toHaveClass('opacity-30')

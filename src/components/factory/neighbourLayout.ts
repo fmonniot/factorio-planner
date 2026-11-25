@@ -48,3 +48,9 @@ function isBetter(a: { cols: number; rows: number }, b: { cols: number; rows: nu
 export function formatAverage(x: number): string {
   return String(Number(x.toFixed(2)))
 }
+
+/** The tooltip of the section's title: what the planner does with the drawing. */
+export const NEIGHBOURS_TIP = 'The planner uses the average number of neighbours per reactor.'
+
+/** The tooltip of the drawing: what each number counts. */
+export const NEIGHBOUR_GRID_TIP = 'Each number counts the working reactors that share a side with that one; diagonals do not count.'

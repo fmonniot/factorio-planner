@@ -8,7 +8,7 @@ import { MINI_BUTTON_CLASS } from './Switch'
 import { useDismiss, useEscapeLayer } from './sidePanel/useDismiss'
 import { blockAreas } from '../../solver/areas'
 import { dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, isTiedLine, lineKey, lineName, moveTarget, placement, servedLines, splitServed, underIn, type DropZone, type ServedLine } from './servedOrder'
-import { describedTip } from '../tipProps'
+import { TIPPED_LABEL_CLASS, describedTip, tippedLabel } from '../tipProps'
 
 // ---------------------------------------------------------------------------
 // ServedOrderPopover — the order the solver serves an item's consumers in, and where the source's own extra output
@@ -23,6 +23,8 @@ export const NOT_CREDITED_HINT = 'No credit\nIt is served from what the others l
 /** The title of the `list order` badge. */
 export const LIST_ORDER_HINT =
   'List order\nThis group is served one line after the other, not by its percentages.'
+/** The tooltip of the title: the one rule worth knowing before opening the list. */
+export const SERVED_ORDER_HELP = 'When the source is short, the lines at the bottom go without first.'
 const INVALID_SHARE = 'Share must be above 0 and below 100.'
 const plural = (n: number) => (n === 1 ? '' : 's')
 
@@ -128,7 +130,7 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
     const root = blocks.find(b => b.id === blockId)?.rootPlan
     return root !== undefined && (blockAreas(root)?.some(a => a.id === areaId) ?? false)
   }
-  const { hasList, ranked, unranked } = splitServed(lines, stored, hasArea)
+  const { ranked, unranked } = splitServed(lines, stored, hasArea)
   const nameOf = (line: ServedLine) => lineName(line, blocks.find(b => b.id === line.blockId))
 
   const shown = ranked.map(entryOf)
@@ -442,7 +444,9 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
       onContextMenu={e => e.preventDefault()}
     >
       <div className="flex items-center gap-2">
-        <div className="flex-1 text-xs font-semibold text-gray-100">Served in this order</div>
+        <div className="flex-1 text-xs font-semibold text-gray-100">
+          <span data-testid="served-order-title" {...tippedLabel(SERVED_ORDER_HELP)} className={TIPPED_LABEL_CLASS}>Served in this order</span>
+        </div>
         {stored !== undefined && (
           <button
             type="button"
@@ -454,11 +458,6 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
             className={MINI_BUTTON_CLASS}
           >Reset order</button>
         )}
-      </div>
-      <div className="text-[11px] text-gray-400">
-        {hasList
-          ? 'Ranked by you. When the source is short, the lines at the bottom go without first. Lines in a bracket share a place and split what is left by their percentages. Drop a line on the middle of another to share its place, between two lines for a place of its own.'
-          : "Today's order: the order the solver served them in. Move a line to rank it."}
       </div>
       {ranked.some(l => l.span) && (
         <div className="text-[11px] text-gray-400">

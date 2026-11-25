@@ -3,6 +3,9 @@ import { PanelSection } from './PanelParts'
 import { fmtEffect, rowEffects, type EffectKey, type EffectSource } from './effects'
 import { describedTip } from '../../tipProps'
 
+/** The title's tooltip: how a beacon's effect is counted. */
+export const EFFECTS_HELP = 'Beacon effect = for each module, its effect × efficiency × its count × beacons, added up. All sources add up.'
+
 const ROWS: { key: 'speed' | 'productivity' | 'consumption'; label: string }[] = [
   { key: 'speed', label: 'Speed' },
   { key: 'productivity', label: 'Productivity' },
@@ -30,7 +33,7 @@ function Cell({ source, effect, column }: { source: EffectSource; effect: Effect
 
 /**
  * Speed, productivity and energy of the row, per source: the machine's modules, each beacon configuration, and the total
- * the solver counts. The effects the recipe, machine or beacon do not allow are struck through and noted.
+ * the solver counts. The effects the recipe, machine or beacon do not allow are struck through.
  */
 export function EffectsSection({ node, beacons, gameData }: {
   node: GameRecipeNode
@@ -45,17 +48,8 @@ export function EffectsSection({ node, beacons, gameData }: {
   // A single "Beacons" column even when the row has none yet, so the table keeps its shape.
   if (effects.beacons.length === 0) columns.push({ name: 'Beacons', source: { raw: effects.machine.raw, applied: { speed: 0, productivity: 0, consumption: 0, pollution: 0, quality: 0 } } })
 
-  const ignored: string[] = []
-  const check = (name: string, source: EffectSource) => {
-    for (const { key, label } of ROWS) {
-      if (source.raw[key] !== 0 && source.applied[key] === 0) ignored.push(`${label.toLowerCase()} of the ${name}`)
-    }
-  }
-  check('machine modules', effects.machine)
-  effects.beacons.forEach((s, i) => check(effects.beacons.length > 1 ? `beacons ${i + 1}` : 'beacons', s))
-
   return (
-    <PanelSection title="Effects on this row" testId="panel-effects">
+    <PanelSection title="Effects on this row" titleTip={EFFECTS_HELP} testId="panel-effects">
       {/* A grid, not a <table>: the production table is the only table of the page body. */}
       {/* In a narrow drawer the grid is wider than the panel: it scrolls inside its own box, the panel does not. */}
       <div className="overflow-x-auto">
@@ -88,14 +82,6 @@ export function EffectsSection({ node, beacons, gameData }: {
           })}
         </div>
       </div>
-      {ignored.length > 0 && (
-        <p data-testid="recipe-effects-note" className="mt-2 text-[11px] text-amber-400">
-          Recipe effects: the {ignored.join(' and the ')} do not count here (the recipe, machine or beacon does not allow them).
-        </p>
-      )}
-      <p className="mt-2 text-[10px] text-gray-400">
-        Beacon effect = for each module, its effect × efficiency × its count × beacons, added up. All sources add up.
-      </p>
     </PanelSection>
   )
 }

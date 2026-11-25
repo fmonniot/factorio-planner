@@ -1,7 +1,7 @@
 import { Profiler } from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, createEvent, within } from '@testing-library/react'
-import { LIST_ORDER_HINT, NOT_CREDITED_HINT, ServedOrderPopover } from './ServedOrderPopover'
+import { cleanup, render, screen, fireEvent, createEvent, within } from '@testing-library/react'
+import { LIST_ORDER_HINT, NOT_CREDITED_HINT, SERVED_ORDER_HELP, ServedOrderPopover } from './ServedOrderPopover'
 import { makeEmptyBlock, makeEmptySubPlan } from '../../store/blockStore'
 import type { GameData, ServedEntry, ServedList } from '../../data/types'
 import { expectTip } from '../../test/byTip'
@@ -56,6 +56,18 @@ describe('ServedOrderPopover', () => {
     expect(lines[2].textContent).toContain('Extra output')
     expect(within(lines[2]).getByTestId('served-short').textContent).toContain('short 6.0')
     expect(within(dialog).getAllByTestId('served-short')).toHaveLength(1)
+  })
+
+  it('explains the order in the title tooltip and prints no manual, ranked or not', () => {
+    renderWith()
+    expectTip(screen.getByTestId('served-order-title'), SERVED_ORDER_HELP)
+    expect(SERVED_ORDER_HELP).toBe('When the source is short, the lines at the bottom go without first.')
+    const manual = /Ranked by you|Today's order|bracket share/
+    expect(screen.queryByText(manual)).toBeNull()
+    cleanup()
+    renderWith({ stored: [blk('b'), blk('c')] })
+    expectTip(screen.getByTestId('served-order-title'), SERVED_ORDER_HELP)
+    expect(screen.queryByText(manual)).toBeNull()
   })
 
   it('without a stored list: the ends cannot move, and there is no divider or reset', () => {

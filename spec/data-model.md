@@ -178,8 +178,8 @@ the effective-amount formula.
 of the node's modules and beacon (speed and consumption are kept), so the solver never
 applies productivity to the recipe. A recipe missing from the game data is treated as
 disallowing it. The machine, module and beacon pickers do not offer a module with a
-positive productivity effect for such a recipe, and the modals zero productivity in their
-"Recipe effects" panel. A productivity module already configured (from before, or from
+positive productivity effect for such a recipe, and the side panel zeroes productivity in its
+Effects section. A productivity module already configured (from before, or from
 another recipe) stays removable and is ignored by the solver.
 
 ### Machine

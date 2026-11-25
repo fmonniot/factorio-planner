@@ -1,5 +1,10 @@
+import { useLayoutEffect, useRef } from 'react'
 import type { GameData, SolvedNode, SolvedArea, AreaRoute, SubPlan, SubPlanNode } from '../../../data/types'
 import { useUiStore } from '../../../store/uiStore'
+import { useBlockStore } from '../../../store/blockStore'
+import { TIPPED_LABEL_CLASS, describedTip, tippedLabel } from '../../tipProps'
+import { MINI_BUTTON_CLASS } from '../Switch'
+import { SEPARATE_AREA_ACTION_TIP, SEPARATE_AREA_NOTE } from '../areaHelp'
 import { MAX_NESTING_DEPTH, planDepth } from '../../../data/nesting'
 import { Icon } from '../../Icon'
 import { fmtItemRate, fmtPower } from '../ItemTile'
@@ -55,8 +60,8 @@ export function FlowList({ lines, items, empty, testId }: {
 }
 
 /**
- * The panel of a sub-factory or a separate area (read only): what is inside it, with a button per row or group below it
- * that selects it. A separate area also lists what it receives and sends.
+ * The panel of a sub-factory or a separate area: what is inside it, with a button per row or group below it that selects
+ * it. A separate area also lists what it receives and sends; a plain sub-factory offers one action, Make it a separate area.
  */
 export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes, gameData, onSelect, onClose }: {
   node: SubPlanNode
@@ -71,9 +76,19 @@ export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes,
   const find = (plan: SubPlan, id: string): SubPlan | undefined =>
     plan.id === id ? plan : plan.subPlans.reduce<SubPlan | undefined>((found, sp) => found ?? find(sp, id), undefined)
   const plan = find(rootPlan, node.subPlanId)
+  const isArea = plan?.area === true
+  const setSubPlanArea = useBlockStore(s => s.setSubPlanArea)
+  // The button unmounts once the plan is an area: focus goes to the label that appears, not to the body.
+  const labelRef = useRef<HTMLSpanElement>(null)
+  const refocus = useRef(false)
+  useLayoutEffect(() => {
+    if (refocus.current && isArea) {
+      refocus.current = false
+      labelRef.current?.focus()
+    }
+  }, [isArea])
   if (!plan) return null
 
-  const isArea = plan.area === true
   const level = planDepth(rootPlan, plan.id)
   const { recipes } = countSubPlanContents(plan)
   const totals = sumSubPlanSolved(plan, solvedMap)
@@ -89,9 +104,25 @@ export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes,
       <PanelHeader
         icon={<FolderIcon className="w-7 h-7 text-gray-400" />}
         title={plan.name}
-        subtitle={`${isArea ? 'Separate area' : 'Sub-factory'} · level ${level} of ${MAX_NESTING_DEPTH}`}
+        subtitle={isArea
+          ? <><span ref={labelRef} data-testid="separate-area-label" {...tippedLabel(SEPARATE_AREA_NOTE)} className={TIPPED_LABEL_CLASS}>Separate area</span> · level {level} of {MAX_NESTING_DEPTH}</>
+          : `Sub-factory · level ${level} of ${MAX_NESTING_DEPTH}`}
         onClose={onClose}
       />
+      {!isArea && (
+        <div className="px-4 py-2 border-b border-gray-800">
+          <button
+            type="button"
+            data-testid="group-make-area"
+            {...describedTip(SEPARATE_AREA_ACTION_TIP)}
+            onClick={() => {
+              refocus.current = true
+              setSubPlanArea(plan.id, true)
+            }}
+            className={MINI_BUTTON_CLASS}
+          >Make it a separate area</button>
+        </div>
+      )}
       <PanelSection title="Summary" testId="panel-group-summary">
         <div className="flex gap-3">
           <Stat label="Recipes" value={String(recipes)} testId="group-recipes" />
@@ -162,11 +193,6 @@ export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes,
             })}
           </ul>
         )}
-        <p className="mt-3 text-[11px] text-gray-400">
-          {isArea
-            ? 'This area is solved on its own: its rows serve it first, and what it sends and receives is listed above.'
-            : 'A sub-factory only organises rows. Choose Separate area from its right-click menu to track what it sends and receives.'}
-        </p>
       </PanelSection>
     </>
   )

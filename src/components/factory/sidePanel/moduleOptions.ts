@@ -38,20 +38,8 @@ export function beaconModuleOptions(
     .sort(byName)
 }
 
-/** The tooltip and note wording for a module that does not fit: the entity's rules or the recipe's. */
+/** The tooltip wording for a module that does not fit: the entity's rules or the recipe's. */
 export function describeMisfit(reason: ModuleMisfitReason, moduleName: string, entityName: string, recipeName: string): string {
   return reason === 'recipe' ? `${moduleName} cannot be used for ${recipeName}` : `${moduleName} cannot be inserted in ${entityName}`
 }
 
-/**
- * The note under a slot row when stored modules are ringed: one sentence per distinct kind of misfit (the entity's rules, the
- * recipe's), no module names. Undefined when nothing misfits.
- */
-export function misfitNote(reasons: Iterable<ModuleMisfitReason>, entityName: string, recipeName: string): string | undefined {
-  const kinds = new Set([...reasons].map(r => (r === 'recipe' ? 'recipe' : 'entity')))
-  const sentences = [
-    kinds.has('entity') && `Ringed modules cannot be inserted in ${entityName}; pick other modules.`,
-    kinds.has('recipe') && `Ringed modules cannot be used for ${recipeName}; pick other modules.`,
-  ].filter(Boolean)
-  return sentences.length > 0 ? sentences.join(' ') : undefined
-}

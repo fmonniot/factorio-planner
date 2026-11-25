@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { openRowMenu } from './support/rowMenu'
+import { sidePanel } from './support/sidePanel'
 
 /**
  * A sub-factory becomes a separate area from its right-click menu. The fixture builds steam
@@ -66,4 +67,32 @@ test('a sub-factory solved as a separate area gets its own row, and the toggle p
   await expect.poll(savedArea).toBeUndefined()
   await warnings.click()
   await expect(page.getByText('Duplicate recipe')).toBeVisible()
+})
+
+test('the group panel turns a plain sub-factory into a separate area with a button', async ({ page }) => {
+  await loadPlanFixture(page, FIXTURE)
+  const rows = page.locator('main table tbody tr')
+  await expect(rows.first()).toBeVisible({ timeout: 10000 })
+  const compression = rows.filter({ hasText: 'Compression' })
+  await compression.getByTestId('group-summary').click()
+
+  const panel = sidePanel(page)
+  await expect(panel.getByTestId('panel-title')).toHaveText('Compression')
+  await expect(panel.getByTestId('panel-subtitle')).toHaveText('Sub-factory · level 1 of 4')
+  await expect(panel).not.toContainText('only organises rows')
+  await expect(page.getByTestId('area-marker')).toHaveCount(0)
+  await panel.getByTestId('group-make-area').hover()
+  await expect(page.getByTestId('tooltip')).toHaveText('Its rows serve it first, and the summary lists what it receives and sends.')
+  await panel.getByRole('button', { name: 'Make it a separate area' }).click()
+
+  await expect(page.getByTestId('area-marker')).toBeVisible()
+  await expect(panel.getByTestId('panel-title')).toHaveText('Compression')
+  await expect(panel.getByTestId('panel-subtitle')).toHaveText('Separate area · level 1 of 4')
+  await expect(panel.getByRole('heading', { level: 3 })).toContainText(['Summary', 'Receives', 'Sends', 'Inside this group'])
+  await expect(panel.getByTestId('group-make-area')).toHaveCount(0)
+  await expect(panel).not.toContainText('solved on its own')
+  // Focus lands on the label that replaced the button (after a mouse click it shows no tip), and hovering it explains the area.
+  await expect(panel.getByTestId('separate-area-label')).toBeFocused()
+  await panel.getByTestId('separate-area-label').hover()
+  await expect(page.getByTestId('tooltip')).toHaveText('This area is solved on its own: its rows serve it first.')
 })

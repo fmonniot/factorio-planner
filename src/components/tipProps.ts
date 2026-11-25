@@ -14,3 +14,11 @@ export function tipProps(name: string, detail?: string) {
 export function describedTip(text?: string): { 'data-tip'?: string; 'aria-description'?: string } {
   return text ? { 'data-tip': text, 'aria-description': text } : {}
 }
+
+/** A visible label that carries a tooltip: the help cursor and a dotted underline. No outline on focus (subtitles truncate). */
+export const TIPPED_LABEL_CLASS = 'cursor-help border-b border-dotted border-gray-600 focus-visible:outline-none focus-visible:text-gray-100 focus-visible:border-gray-300'
+
+/** A label that keeps its text and explains it in a tooltip: described, and a tab stop so the keyboard shows the tip. */
+export function tippedLabel(text: string) {
+  return { ...describedTip(text), tabIndex: 0 as const }
+}

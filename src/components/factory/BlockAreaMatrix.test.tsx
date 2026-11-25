@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
-import { BlockAreaMatrix, type BlockAreaMatrixProps } from './BlockAreaMatrix'
+import { BlockAreaMatrix, TRADES_ORDER_TIP, type BlockAreaMatrixProps } from './BlockAreaMatrix'
+import { expectTip } from '../../test/byTip'
 import { OUTSIDE, type BlockMatrix, type MatrixRow } from './areaMatrix'
 import type { GameData } from '../../data/types'
 
@@ -101,6 +102,54 @@ describe('BlockAreaMatrix power units', () => {
     const tip = document.querySelector<HTMLElement>('td[data-counterpart="true"]')!.getAttribute('data-tip')!
     expect(tip).toMatch(/^.+ sends .+ of .+ to .+\.$/)
     expect(tip).not.toContain('Areas higher')
+  })
+
+  it('states the ordering rule once, as the tooltip of the Trades with heading, and prints no counterpart note', () => {
+    renderMatrix({ focusedAreaId: 'A' })
+    expectTip(screen.getByTestId('trades-with-label'), TRADES_ORDER_TIP)
+    expect(TRADES_ORDER_TIP).toBe('Areas higher in the table supply first; an area with its own row for the item is served before the others.')
+    expect(screen.queryByText(/Counterpart cells read/)).toBeNull()
+  })
+
+  describe('contents of the focused area', () => {
+    const withContents = (contents: Partial<(typeof matrix.areas)[number]['contents']>): BlockMatrix => ({
+      ...matrix,
+      areas: [{ ...area('A'), contents: { ...area('A').contents, ...contents } }, area('B')],
+    })
+    const contentsOf = () => screen.getByTestId('area-contents')
+
+    it('lists the sub-factories, areas inside and rows as labelled name lists', () => {
+      renderMatrix({
+        matrix: withContents({ rowCount: 3, subFactories: ['Compression'], nestedAreas: ['Cooling'], recipeNames: ['Steam electrolysis', 'Hydrogen', 'Oxygen'] }),
+        focusedAreaId: 'A',
+      })
+      const section = contentsOf()
+      expect(within(section).getByTestId('area-contents-subfactories')).toHaveTextContent('Sub-factoriesCompression')
+      expect(within(section).getByTestId('area-contents-areas')).toHaveTextContent('Areas insideCooling')
+      const rows = within(section).getByTestId('area-contents-rows')
+      expect(within(rows).getAllByRole('listitem').map(li => li.textContent)).toEqual(['Steam electrolysis', 'Hydrogen', 'Oxygen'])
+      expect(within(section).queryByTestId('area-contents-more')).toBeNull()
+    })
+
+    it('shows the first four rows and a "+N more" chip', () => {
+      renderMatrix({ matrix: withContents({ rowCount: 7, recipeNames: ['a', 'b', 'c', 'd', 'e', 'f', 'g'] }), focusedAreaId: 'A' })
+      const rows = within(contentsOf()).getByTestId('area-contents-rows')
+      expect(within(rows).getAllByRole('listitem').map(li => li.textContent)).toEqual(['a', 'b', 'c', 'd', '+3 more'])
+      expect(within(rows).getByTestId('area-contents-more')).toHaveTextContent('+3 more')
+    })
+
+    it('leaves out an empty list and says nothing for "none"', () => {
+      renderMatrix({ matrix: withContents({ recipeNames: ['a'] }), focusedAreaId: 'A' })
+      expect(within(contentsOf()).queryByTestId('area-contents-subfactories')).toBeNull()
+      expect(within(contentsOf()).queryByTestId('area-contents-areas')).toBeNull()
+      expect(screen.queryByText(/No sub-factories|No rows|Rows:|Rows include/)).toBeNull()
+    })
+
+    it('omits the section when nothing is inside', () => {
+      renderMatrix({ matrix: withContents({ rowCount: 0 }), focusedAreaId: 'A' })
+      expect(screen.queryByTestId('area-contents')).toBeNull()
+      expect(screen.queryByText('Contents')).toBeNull()
+    })
   })
 
   it('words the header note of an energy-only trade by its direction', () => {

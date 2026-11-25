@@ -205,12 +205,24 @@ describe('PlanAreasModal', () => {
     expect(table('Alpha').querySelector('tr[data-item-id="h2"]')).not.toBeNull()
   })
 
-  it('words the footer for the view', () => {
+  it('keeps only the swatches and the rate unit in the footer, in both views', () => {
     render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
-    expect(screen.getByText(/Each row balances/)).toBeInTheDocument()
+    const noProse = () => {
+      expect(screen.queryByText(/Each row balances/)).toBeNull()
+      expect(screen.queryByText(/Each block column/)).toBeNull()
+      expect(screen.queryByText(/Not taken and Not supplied/)).toBeNull()
+    }
+    expect(screen.getByText('Rates per minute.')).toBeInTheDocument()
+    noProse()
     fireEvent.click(group('All blocks'))
-    expect(screen.queryByText(/Each row balances/)).toBeNull()
-    expect(screen.getByText(/Not taken and Not supplied/)).toBeInTheDocument()
+    expect(screen.getByText('Rates per minute.')).toBeInTheDocument()
+    noProse()
+  })
+
+  it('reads the rate unit in the footer', () => {
+    useUiStore.setState({ rateUnit: 'sec' })
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    expect(screen.getByText('Rates per second.')).toBeInTheDocument()
   })
 
   it('focuses an area from its header and shows its panel', () => {

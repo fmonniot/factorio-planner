@@ -43,6 +43,12 @@ test('Served order lists who a source served, the extra last', async ({ page }) 
   await expect(lines.nth(1)).toContainText('got 60.0')
   await expect(popover.getByTestId('served-short')).toHaveCount(0)
 
+  // The title explains the order in a tooltip; the popover carries no manual.
+  await expect(popover).not.toContainText('Ranked by you')
+  await expect(popover).not.toContainText("Today's order")
+  await popover.getByTestId('served-order-title').hover()
+  await expect(page.getByTestId('tooltip')).toHaveText('When the source is short, the lines at the bottom go without first.')
+
   await page.keyboard.press('Escape')
   await expect(popover).toHaveCount(0)
   await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'selected')
