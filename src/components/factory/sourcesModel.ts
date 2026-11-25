@@ -195,6 +195,27 @@ export function buildSourcesModel(input: SourcesModelInput): SourcesModel {
 }
 
 /**
+ * One short line per supplying source with its rate, for tooltips and assistive technology (never shown on the page).
+ * `fmt` formats items/min. Read from the bar, so a greyed or off line, which has no rate, is not in it.
+ */
+export function sourcesReading(model: SourcesModel, fmt: (perMin: number) => string): string {
+  if (model.need === undefined) return 'Not solved yet.'
+  if (model.bar.length === 0) return 'Nothing supplies it.'
+  return model.bar
+    .map(p => {
+      const rate = fmt(p.rate)
+      // A bar entry that is only Missing reuses the key 'import': the look tells them apart, so it is read first.
+      if (p.look.kind === 'missing') return `Missing: ${rate}`
+      if (p.look.kind === 'import') return `Imported: ${rate}`
+      if (p.look.kind === 'block') return `From ${p.label}: ${rate}${p.look.limited ? ' (limited)' : ''}`
+      if (p.key === 'made-here') return `Already made here: ${rate}`
+      if (p.key === 'make-here') return `Made by more rows here: ${rate}`
+      return `From ${p.label}: ${rate}`
+    })
+    .join('\n')
+}
+
+/**
  * Where Alt+ArrowUp (-1) or Alt+ArrowDown (+1) on a line moves it: a block line by one place among the connections, *Make more
  * here* to the other side of the block lines. Null when there is nowhere to go, and for every other line.
  */

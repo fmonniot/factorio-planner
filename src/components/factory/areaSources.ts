@@ -1,6 +1,7 @@
 import type { AreaRoute, AreaSourceRule, Block, GameData, SolverResult } from '../../data/types'
 import { areaName } from '../../data/subPlanTree'
-import { blockAreas } from '../../solver/areas'
+import { areaLPItems, blockAreas } from '../../solver/areas'
+import { flattenBlock } from '../../solver/index'
 import { outsideLegParts } from '../../solver/areaRoutes'
 import { itemMakers } from './sourcingText'
 
@@ -10,6 +11,21 @@ import { itemMakers } from './sourcingText'
 // ---------------------------------------------------------------------------
 
 const EPS = 1e-6
+
+const lpItemsCache = new WeakMap<Block, { gameData: GameData; items: ReadonlySet<string> }>()
+
+/**
+ * `areaLPItems` of the block's flattened plan, the items two areas or more touch. It does not depend on the item asked about, so it is
+ * kept per block object: every marked row of the table reads it. Relies on the store replacing a block and the game data when they
+ * change, never mutating them.
+ */
+export function areaLPItemsOf(block: Block, gameData: GameData): ReadonlySet<string> {
+  const cached = lpItemsCache.get(block)
+  if (cached && cached.gameData === gameData) return cached.items
+  const items = areaLPItems(flattenBlock(block), gameData)
+  lpItemsCache.set(block, { gameData, items })
+  return items
+}
 
 export interface AreaSupply {
   /** items/min the area brings in from outside the plan. */
