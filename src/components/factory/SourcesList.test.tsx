@@ -384,6 +384,10 @@ describe('what the lines read', () => {
     fireEvent.click(screen.getByTestId('sources-import-switch'))
     expect(screen.queryByTestId('sources-detail')).toBeNull()
     expect(within(line('import')).getByTestId('sources-line-name').tagName).toBe('SPAN')
+    // It does not remember it was open: Import off again shows the line closed.
+    fireEvent.click(screen.getByTestId('sources-import-switch'))
+    expect(screen.queryByTestId('sources-detail')).toBeNull()
+    expect(within(line('import')).getByTestId('sources-line-toggle')).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('lists an item imported over several ranges once, with the sum', () => {

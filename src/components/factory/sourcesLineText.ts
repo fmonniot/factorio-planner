@@ -2,6 +2,9 @@ import type { ConnectionFlow } from '../../data/types'
 import { AREA_LINE_HELP, SOURCES_LINES } from './itemSourcing'
 import type { SourceLine } from './sourcesModel'
 
+/** Below this a rate counts as none: shared by the rate column and the readings so they cannot drift apart. */
+export const EPS = 1e-6
+
 // ---------------------------------------------------------------------------
 // The text of the Sources list's lines, apart from the drawing: which lines open a detail, the tooltip of a line's name, and the
 // reading of a connection at area scope.
@@ -34,5 +37,5 @@ export function lineTip(line: Pick<SourceLine, 'kind' | 'mark' | 'label'>, ctx: 
 
 /** What a connection gives and how much of it reaches the area, as the rate tooltip of a block line at area scope reads it. */
 export function reachReading(flow: ConnectionFlow | undefined, reaches: number | undefined, fmt: (perMin: number) => string): string {
-  return `${flow ? `${fmt(flow.rate)} over this connection` : 'No flow yet'}${reaches !== undefined ? `; ${reaches > 1e-6 ? fmt(reaches) : 'none'} of it reaches this area` : ''}.`
+  return `${flow ? `${fmt(flow.rate)} over this connection` : 'No flow yet'}${reaches !== undefined ? `; ${reaches > EPS ? fmt(reaches) : 'none'} of it reaches this area` : ''}.`
 }

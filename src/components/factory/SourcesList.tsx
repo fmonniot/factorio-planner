@@ -13,7 +13,7 @@ import { ProductChangeDialog } from './ProductChangeDialog'
 import { RateInput } from './RateInput'
 import { AREA_LINE_HELP, MAKE_MORE_PLACE_HELP, MAKE_MORE_PLACES, SOURCES_DETAIL, SOURCES_LINES } from './itemSourcing'
 import type { Side } from './itemSourcing'
-import { lineOpens, lineTip, reachReading } from './sourcesLineText'
+import { EPS, lineOpens, lineTip, reachReading } from './sourcesLineText'
 import { altMoveTarget } from './sourcesModel'
 import type { SourceLine } from './sourcesModel'
 import { DashedSquareIcon, DetailStatus, SourcesLine } from './SourcesLine'
@@ -39,7 +39,6 @@ import type { StripAction } from './StripToolbar'
 // offers it. At block scope *Other areas* stays one read-only line. The model of the lines (`sourcesModel.ts`) comes in `view`.
 // ---------------------------------------------------------------------------
 
-const EPS = 1e-6
 
 /** The drag type of the *Make more here* line. */
 const DRAG_TYPE = 'application/x-sources-line'
@@ -97,6 +96,8 @@ export function SourcesList({ view, id, onScope }: {
   // The line whose detail is open (one at a time), by its stable key: it stays open while the line moves.
   const [openLineKey, setOpenLine] = useState<string | null>(null)
   const openKey = model.lines.some(l => l.key === openLineKey && lineOpens(l)) ? openLineKey : null
+  // A line that stops being openable (Import with nothing missing) forgets it was open, so it does not reopen by itself later.
+  if (openLineKey !== null && openKey === null) setOpenLine(null)
   // What is being dragged ('make-here' or 'block:<connection id>'), as state for the faded look and as a ref for the handlers
   // that run before a render.
   const [dragging, setDragging] = useState<string | null>(null)
@@ -313,6 +314,8 @@ export function SourcesList({ view, id, onScope }: {
     const end = index === rows.length - 1
     const movable = area === undefined && !row.greyed && editingLimit !== c.id
     const limited = row.flow?.status === 'limited'
+    const help = lineTip(line, { itemName: name, atArea: area !== undefined, greyed: row.greyed })
+    const reach = area !== undefined && !row.greyed ? reachReading(row.flow, line.rate, rate) : undefined
     return (
       <SourcesLine
         key={line.key}
@@ -322,9 +325,9 @@ export function SourcesList({ view, id, onScope }: {
         openable
         onToggle={() => setOpenLine(k => (k === line.key ? null : line.key))}
         detailId={detailId}
-        nameTip={lineTip(line, { itemName: name, atArea: area !== undefined, greyed: row.greyed })}
-        nameDescription={[lineTip(line, { itemName: name, atArea: area !== undefined, greyed: row.greyed }), row.tagTitle, area !== undefined && !row.greyed ? reachReading(row.flow, line.rate, rate) : undefined].filter(Boolean).join(' ') || undefined}
-        rateTip={area !== undefined && !row.greyed ? reachReading(row.flow, line.rate, rate) : undefined}
+        nameTip={help}
+        nameDescription={[help, row.tagTitle, reach].filter(Boolean).join(' ') || undefined}
+        rateTip={reach}
         icon={<span aria-hidden="true" data-testid="sources-block-color" className="inline-block size-2.5 shrink-0 rounded-sm" style={{ background: row.source?.color ?? MISSING_BLOCK_COLOR }} />}
         tag={row.tag && (
           <span data-testid="sources-block-tag" data-tag={row.tag} data-tip={row.tagTitle} className={`shrink-0 rounded border px-1 text-[10px] font-normal leading-4 ${row.tag === 'requested' ? 'border-teal-700 text-teal-300' : 'border-gray-600 text-gray-300'}`}>
