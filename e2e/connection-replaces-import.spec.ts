@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, selectSlot, slot } from './support/summary'
-import { selectRow, sidePanel } from './support/sidePanel'
+import { inputLines, selectRow } from './support/sidePanel'
 
 /**
  * With the default rule a connection replaces an import: a block does not import an intermediate while one of its
@@ -32,11 +32,10 @@ async function setup(page: Page, fixture: string, firstSlot: string) {
   await expect(slot(page, 'Ingredients', firstSlot)).toBeVisible({ timeout: 10000 })
 }
 
-/** The sentence the selected row's panel gives for one ingredient. */
-async function sentence(page: Page, recipeTitle: string, itemId: string) {
+/** Select the row of a recipe, which opens its panel. */
+async function selectRecipe(page: Page, recipeTitle: string) {
   const row = page.locator('main table tbody tr').filter({ has: page.locator(`[data-testid="recipe-name"][data-tip="${recipeTitle}"]`) }).first()
   await selectRow(page, row)
-  return sidePanel(page).locator(`[data-testid="sourcing-entry"][data-item-id="${itemId}"]`).getByTestId('sourcing-sentence')
 }
 
 test.describe('a connection replaces an import', () => {
@@ -57,9 +56,15 @@ test.describe('a connection replaces an import', () => {
     // The sheet has no row in the block: it is a raw input, as before.
     await expect(slot(page, 'Ingredients', 'Iron sheet')).toBeVisible()
 
-    // The row panel's sentence names the row and the connection that deliver the pipes.
-    const text = await sentence(page, 'One-way valve 1', 'pipe')
-    await expect(text).toContainText('Made here by Pipe 1 (iron) (1 × Foundry 3), and taken from Pipes (15.0/m).')
+    // The row panel's lines name the row and the connection that deliver the pipes, and no import.
+    await selectRecipe(page, 'One-way valve 1')
+    await expect(inputLines(page, 'pipe', 'make-here')).toHaveCount(1)
+    await expect(inputLines(page, 'pipe', 'make-here').getByTestId('input-line-label')).toHaveText('Pipe 1 (iron)')
+    await expect(inputLines(page, 'pipe', 'make-here')).toContainText('1 × Foundry 3')
+    await expect(inputLines(page, 'pipe', 'block')).toHaveCount(1)
+    await expect(inputLines(page, 'pipe', 'block').getByTestId('input-line-label')).toHaveText('Pipes')
+    await expect(inputLines(page, 'pipe', 'block').getByTestId('input-line-rate')).toHaveText('15.0')
+    await expect(inputLines(page, 'pipe', 'import')).toHaveCount(0)
   })
 
   test('row g, the mirror: the connection on the ingot delivers and no plate is imported', async ({ page }) => {
@@ -71,7 +76,10 @@ test.describe('a connection replaces an import', () => {
     await expect(kindSegments(page, 'unused')).toHaveCount(0)
     await expect(slot(page, 'Ingredients', 'Iron plate')).toHaveCount(0)
 
-    const text = await sentence(page, 'Iron plate', 'nullius-iron-ingot')
-    await expect(text).toContainText('Made here by Iron ingot 1 (1 × Medium furnace 3), and taken from Ingots (30.0/m).')
+    await selectRecipe(page, 'Iron plate')
+    await expect(inputLines(page, 'nullius-iron-ingot', 'make-here').getByTestId('input-line-label')).toHaveText('Iron ingot 1')
+    await expect(inputLines(page, 'nullius-iron-ingot', 'make-here')).toContainText('1 × Medium furnace 3')
+    await expect(inputLines(page, 'nullius-iron-ingot', 'block').getByTestId('input-line-label')).toHaveText('Ingots')
+    await expect(inputLines(page, 'nullius-iron-ingot', 'block').getByTestId('input-line-rate')).toHaveText('30.0')
   })
 })

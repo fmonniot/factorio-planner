@@ -20,14 +20,14 @@ export async function openMachinePicker(page: Page): Promise<void> {
 export const comesFromPopover = (page: Page): Locator => page.getByTestId('comes-from-popover')
 
 /**
- * Select a row and press Change… on one ingredient of its "Where inputs come from" section. That opens the item's Comes
+ * Select a row and press Sources… on one ingredient of its "Where inputs come from" section. That opens the item's Comes
  * from popover, beside the panel; the returned locator is its Comes from control, which has the keyboard focus. The row
  * stays selected, and the popover open, until something closes them.
  */
-export async function changeSourcing(page: Page, row: Locator, itemId: string): Promise<Locator> {
+export async function openSources(page: Page, row: Locator, itemId: string): Promise<Locator> {
   const panel = sidePanel(page)
   if (!(await panel.isVisible())) await selectRow(page, row)
-  await panel.locator(`[data-testid="sourcing-entry"][data-item-id="${itemId}"]`).getByTestId('sourcing-change').click()
+  await panel.locator(`[data-testid="sourcing-entry"][data-item-id="${itemId}"]`).getByTestId('input-sources').click()
   const control = comesFromPopover(page).getByTestId('comes-from')
   await expect(control).toBeVisible()
   await expect(control.locator(':focus')).toHaveCount(1)
@@ -41,3 +41,11 @@ export const outputEntry = (page: Page, itemId: string): Locator =>
 /** The lines of one output entry's rail list, all or of one `data-kind` (`row`, `block`, `product`, `left`). */
 export const outputLines = (page: Page, itemId: string, kind?: string): Locator =>
   outputEntry(page, itemId).locator(`[data-testid="output-line"]${kind ? `[data-kind="${kind}"]` : ''}`)
+
+/** One entry of the panel's "Where inputs come from" section: an ingredient of the selected row. */
+export const inputEntry = (page: Page, itemId: string): Locator =>
+  sidePanel(page).locator(`[data-testid="sourcing-entry"][data-item-id="${itemId}"]`)
+
+/** The lines of one input entry's rail list, all or of one `data-kind` (`made-here`, `make-here`, `other-area`, `block`, `import`, `missing`). */
+export const inputLines = (page: Page, itemId: string, kind?: string): Locator =>
+  inputEntry(page, itemId).locator(`[data-testid="input-line"]${kind ? `[data-kind="${kind}"]` : ''}`)

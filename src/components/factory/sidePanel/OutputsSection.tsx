@@ -4,19 +4,18 @@ import { isEnergyItem } from '../../../data/electricity'
 import { useUiStore } from '../../../store/uiStore'
 import { Icon } from '../../Icon'
 import { fmtItemRate, fmtItemRateText } from '../ItemTile'
-import { RailLine, RailList } from '../RailList'
-import { StripIcon } from '../StripIcon'
+import { RailLine, RailList, type RailTarget } from '../RailList'
 import { lookOfOutput } from '../segmentLooks'
 import { OUTPUT_EMPTY_LABEL, outputEmptyState, outputLineTip, outputReading, sharedTagTip, type OutputLine } from '../outputsModel'
 import { useRowOutputs, type RowOutput } from '../useRowOutputs'
 import { PanelSection } from './PanelParts'
 
-function LineIcon({ line }: { line: OutputLine }) {
+function targetOf(line: OutputLine): RailTarget {
   switch (line.kind) {
-    case 'row': return <span className="text-teal-300"><StripIcon name="make" /></span>
-    case 'block': return <span data-testid="output-block-color" className="inline-block size-2.5 rounded-sm" style={{ background: lookOfOutput(line.look).mini }} />
-    case 'product': return <span className="text-green-300"><StripIcon name="block-product" /></span>
-    case 'left': return <span className="text-gray-400"><StripIcon name="leftover" /></span>
+    case 'row': return line.areaName !== undefined ? { kind: 'area' } : { kind: 'row' }
+    case 'block': return { kind: 'block', color: lookOfOutput(line.look).mini }
+    case 'product': return { kind: 'product' }
+    case 'left': return { kind: 'left' }
   }
 }
 
@@ -37,9 +36,9 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
       data-item-id={itemId}
       data-byproduct={byproduct ? 'true' : undefined}
       aria-describedby={readingId}
-      className="relative py-2 border-b border-gray-800 last:border-b-0"
+      className="@container relative py-2 border-b border-gray-800 last:border-b-0"
     >
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      <div className="flex items-center gap-2">
         <span className={`shrink-0 ${discarded ? 'opacity-50' : ''}`}>
           {item?.iconPath ? (
             <Icon iconPath={item.iconPath} alt="" className="w-7 h-7 object-contain" />
@@ -47,7 +46,7 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
             <span className="w-7 h-7 bg-gray-700 rounded text-[9px] text-gray-300 flex items-center justify-center">{name.substring(0, 2).toUpperCase()}</span>
           )}
         </span>
-        <span className={`flex-1 min-w-[5rem] text-xs truncate ${discarded ? 'text-gray-400' : 'text-gray-200'}`} data-tip={name}>{name}</span>
+        <span className={`flex-1 min-w-0 text-xs truncate ${discarded ? 'text-gray-400' : 'text-gray-200'}`} data-tip={name}>{name}</span>
         {model.otherMakers > 0 && !discarded && (
           <span
             data-testid="output-shared-tag"
@@ -55,26 +54,26 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
             data-tip={sharedTagTip(model)}
             className="shrink-0 rounded-[3px] border border-gray-600 px-1 text-[10px] text-gray-300"
           >
-            block ×{1 + model.otherMakers}
+            <span className="@max-[15rem]:hidden">block </span>×{1 + model.otherMakers}
           </span>
         )}
         {rate !== undefined && discarded && (
-          <span data-testid="output-not-counted" data-tip={`Discarded: this row's ${name} is not counted`} className="text-[11px] text-gray-400">not counted</span>
+          <span data-testid="output-not-counted" data-tip={`Discarded: this row's ${name} is not counted`} className="shrink-0 text-[11px] text-gray-400">not counted</span>
         )}
         {rate !== undefined && !discarded && (
-          <span data-testid="output-rate" className="text-[11px] text-green-300 tabular-nums">{fmt(rate)}</span>
+          <span data-testid="output-rate" className="shrink-0 text-[11px] text-green-300 tabular-nums">{fmt(rate)}</span>
         )}
-        <span className="text-[10px] text-gray-400">{byproduct ? 'Byproduct' : 'Product'}</span>
+        <span className="w-12 shrink-0 text-right text-[10px] text-gray-400">{byproduct ? 'Byproduct' : 'Product'}</span>
       </div>
       {(empty === 'unsolved' || empty === 'notProduced' || empty === 'unused') && (
-        <p data-testid="output-empty" data-state={empty} className="ml-[30px] mt-1 text-[11px] text-gray-500">{OUTPUT_EMPTY_LABEL[empty]}</p>
+        <p data-testid="output-empty" data-state={empty} className="ml-9 mt-1 text-[11px] text-gray-500">{OUTPUT_EMPTY_LABEL[empty]}</p>
       )}
       {empty === undefined && (
-        <RailList arrow="head" label={`Where ${name} goes`} testId="output-lines">
+        <RailList arrow="head" label={`Where ${name} goes`} testId="output-lines" className="mr-14">
           {model.lines.map(l => (
             <RailLine
               key={l.key}
-              icon={<LineIcon line={l} />}
+              target={targetOf(l)}
               label={l.label}
               tag={l.absorber && (
                 <span data-testid="output-absorber-tag" className="ml-1.5 shrink-0 rounded border border-gray-600 px-1 text-[9px] text-gray-400">absorber</span>

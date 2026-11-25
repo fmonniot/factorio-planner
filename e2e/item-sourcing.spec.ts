@@ -4,7 +4,7 @@ import fs from 'fs'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, pane, selectSlot, slot } from './support/summary'
 import { exportPlan } from './support/appMenu'
-import { changeSourcing, comesFromPopover, selectRow, sidePanel } from './support/sidePanel'
+import { inputLines, openSources, comesFromPopover, selectRow, sidePanel } from './support/sidePanel'
 import { expectPreset, importSwitch, setPreset, type Preset } from './support/sourcesList'
 
 /**
@@ -39,17 +39,13 @@ const comesFrom = (page: Page) => detail(page, 'Ingredients').getByTestId('comes
 const popoverControl = (page: Page) => comesFromPopover(page).getByTestId('comes-from')
 
 /**
- * Choose a preset for oxygen ('own' | 'byproducts-first' | 'connections-first'): Change… on the side panel's oxygen
+ * Choose a preset for oxygen ('own' | 'byproducts-first' | 'connections-first'): Sources… on the side panel's oxygen
  * entry opens the Comes from popover, which sets it. The popover stays open.
  */
 async function choose(page: Page, mode: Preset) {
-  const control = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+  const control = await openSources(page, acidRow(page), 'nullius-oxygen')
   await setPreset(control, mode)
 }
-
-/** The sentence of oxygen in the side panel, which reads the rule the popover sets. */
-const panelSentence = (page: Page) =>
-  sidePanel(page).locator('[data-testid="sourcing-entry"][data-item-id="nullius-oxygen"]').getByTestId('sourcing-sentence')
 
 async function exportedAcid(page: Page) {
   const download = await exportPlan(page)
@@ -62,7 +58,7 @@ test.describe('item sourcing', () => {
     await setup(page)
   })
 
-  test("Change… opens a popover for oxygen, where Don't make more here imports it instead of decompressing it", async ({ page }) => {
+  test("Sources… opens a popover for oxygen, where Don't make more here imports it instead of decompressing it", async ({ page }) => {
     await expect(compressedSlot(page)).toContainText('25.0')
     await expect(oxygenSlot(page)).toHaveCount(0)
 
@@ -78,7 +74,10 @@ test.describe('item sourcing', () => {
 
     // The side panel reads the rule and sets nothing.
     const entry = await oxygenEntry(page)
-    await expect(entry.getByTestId('sourcing-sentence')).toContainText('Made here by')
+    await expect(inputLines(page, 'nullius-oxygen', 'made-here')).toHaveCount(1)
+    await expect(inputLines(page, 'nullius-oxygen', 'make-here')).toHaveCount(1)
+    await expect(entry.getByTestId('input-rule-icons')).toHaveCount(0)
+    await expect(entry.getByTestId('input-sources')).toHaveAccessibleName(/^Sources of Oxygen$/)
     await expect(entry.getByRole('radio')).toHaveCount(0)
     await expect(entry.getByRole('checkbox')).toHaveCount(0)
     await expect(page.getByTestId('panel-sourcing')).not.toContainText(/forbid imports/i)
@@ -89,7 +88,10 @@ test.describe('item sourcing', () => {
     await expect(importSwitch(control)).not.toHaveAttribute('aria-disabled')
     await expect(importSwitch(control)).toBeChecked()
     // The panel behind it reads the rule (a press on the row would close the popover, so the entry is read where it is).
-    await expect(panelSentence(page)).toContainText('Uses what this block already makes (')
+    await expect(sidePanel(page).locator('[data-testid="input-rule-icon"][data-rule="byproducts-first"]')).toHaveAccessibleName("Don't make more here")
+    await expect(inputLines(page, 'nullius-oxygen', 'made-here')).toHaveCount(1)
+    await expect(inputLines(page, 'nullius-oxygen', 'make-here')).toHaveCount(0)
+    await expect(inputLines(page, 'nullius-oxygen', 'import')).toContainText('100')
 
     // Oxygen is imported now, so its slot is there in its own right, and the popover links to it.
     await expect(oxygenSlot(page)).toContainText('100')
@@ -105,8 +107,8 @@ test.describe('item sourcing', () => {
     expect(acid.noImportItems).toBeUndefined()
     expect(acid.connectionsFirstItems).toBeUndefined()
 
-    // The export menu closed the popover (a press outside it); Change… opens it again, with the rule.
-    const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+    // The export menu closed the popover (a press outside it); Sources… opens it again, with the rule.
+    const again = await openSources(page, acidRow(page), 'nullius-oxygen')
     await expectPreset(again, 'byproducts-first')
     await setPreset(again, 'own')
     await expect(compressedSlot(page)).toContainText('25.0')
@@ -125,7 +127,8 @@ test.describe('item sourcing', () => {
     await expectPreset(control, 'byproducts-first')
     await expect(importSwitch(control)).not.toBeChecked()
     await expect(control.getByTestId('sources-rule-chip')).toHaveText("Don't make more here · Import off")
-    await expect(panelSentence(page)).toContainText('The rest is missing: Import is off.')
+    await expect(sidePanel(page).locator('[data-testid="input-rule-icon"][data-rule="import-off"]')).toHaveAccessibleName('Import off')
+    await expect(inputLines(page, 'nullius-oxygen', 'missing')).toHaveCount(1)
     // Nothing is imported or made for it: the slot reads short, with the missing amount.
     await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'short')
     await expect(oxygenSlot(page)).toHaveAccessibleName(/^Oxygen, 100 per minute, short, has a source rule$/)
@@ -135,7 +138,7 @@ test.describe('item sourcing', () => {
     expect(acid.sourceRules).toEqual({ 'nullius-oxygen': { makeHere: 'off', importOff: true } })
 
     // Choosing the preset first, from the other side: Make it here keeps Import off, and the pair comes back by the preset.
-    const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+    const again = await openSources(page, acidRow(page), 'nullius-oxygen')
     await setPreset(again, 'own')
     await expect(importSwitch(again)).not.toBeChecked()
     await setPreset(again, 'byproducts-first')
@@ -150,9 +153,9 @@ test.describe('item sourcing', () => {
   })
 
   // Oxygen is made and used inside the block: it is not imported, connected or locked, so the pane has no slot for it, and
-  // Change… does not expand the summary or select anything: it opens the popover, whatever the summary and the panel are doing.
+  // Sources… does not expand the summary or select anything: it opens the popover, whatever the summary and the panel are doing.
   for (const [layout, width] of [['docked', 1280], ['drawer', 1000]] as const) {
-    test(`Change… opens the popover over a collapsed summary and the ${layout} panel; Show in Ingredients expands and selects the slot`, async ({ page }) => {
+    test(`Sources… opens the popover over a collapsed summary and the ${layout} panel; Show in Ingredients expands and selects the slot`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 })
       // Importing oxygen gives it a slot, which the popover can then link to.
       await choose(page, 'byproducts-first')
@@ -168,7 +171,7 @@ test.describe('item sourcing', () => {
       await expect(page.getByTestId('summary-line')).toBeVisible()
       await expect(page.getByTestId('summary-pane')).toHaveCount(0)
 
-      await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+      await openSources(page, acidRow(page), 'nullius-oxygen')
       // Nothing moved: the summary is still collapsed, and the side panel is where it was (a drawer stays under the popover).
       await expect(page.getByTestId('summary-line')).toBeVisible()
       await expect(sidePanel(page)).toHaveCount(1)
@@ -212,7 +215,7 @@ test.describe('item sourcing', () => {
     // Escape closes the popover; the rule is kept, and is there again when it opens. Removing it there leaves no slot either.
     await page.keyboard.press('Escape')
     await expect(comesFromPopover(page)).toHaveCount(0)
-    const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+    const again = await openSources(page, acidRow(page), 'nullius-oxygen')
     await expectPreset(again, 'connections-first')
     await again.getByTestId('no-effect').getByRole('button', { name: 'Remove' }).click()
     await expectPreset(again, 'own')

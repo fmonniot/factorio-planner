@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { RowActionsMenu } from '../RowActionsMenu'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, within, act } from '@testing-library/react'
+import { render, screen, fireEvent, within, act, cleanup } from '@testing-library/react'
 import { SidePanel } from './SidePanel'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
 import { useUiStore } from '../../../store/uiStore'
 import { useSolverStore } from '../../../store/solverStore'
+import { useGameDataStore } from '../../../store/gameDataStore'
 import { expectTip } from '../../../test/byTip'
 import type { Block, GameData, GameRecipeNode, SolverResult, SubPlan } from '../../../data/types'
 
@@ -318,50 +319,106 @@ describe('SidePanel — where inputs come from', () => {
     nodes: [{ ...solvedRow('n2', 1, 90, { plate: 120 }), outputRates: { gear: 120 } }, { ...solvedRow('n1', 2, 180, { ore: 120 }), outputRates: { plate: 120 } }],
     unsatisfied: [], warnings: [],
   })
-  /** The sentences read the block's latest solve from the solver store, as the app does. */
-  const renderWithSolve = () => {
-    useSolverStore.setState({ lastResults: { [block.id]: result() } })
-    renderPanel(result())
+  beforeEach(() => {
+    // The lines read the game data from the store, as the app does.
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: gd, sourceId: 'test' } })
+  })
+  /** The lines read the block's latest solve from the solver store, as the app does. */
+  const renderWithSolve = (r: SolverResult = result()) => {
+    useSolverStore.setState({ lastResults: { [block.id]: r } })
+    renderPanel(r)
   }
   const entry = (itemId: string) => screen.getAllByTestId('sourcing-entry').find(e => e.getAttribute('data-item-id') === itemId)!
+  const lines = (itemId: string) => within(entry(itemId)).queryAllByTestId('input-line')
+  const lineOf = (itemId: string, kind: string) => lines(itemId).find(l => l.getAttribute('data-kind') === kind)!
+  const kindsOf = (itemId: string) => lines(itemId).map(l => l.getAttribute('data-kind'))
+  const icons = (itemId: string) => within(entry(itemId)).queryAllByTestId('input-rule-icon')
+  const setRules = (sourceRules: Block['sourceRules']) => useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, sourceRules })) }))
+  const rateOf = (line: HTMLElement) => within(line).getByTestId('input-line-rate')
 
-  it('lists an entry per ingredient with the rate and a sentence built from the solve, and no control that sets a rule', () => {
+  it('lists an entry per ingredient with the rate and a line per source, and no sentence or control that sets a rule', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n2')
     renderWithSolve()
     const e = entry('plate')
     expect(e).toHaveTextContent('Iron Plate')
     expect(e).toHaveTextContent('120/m')
-    expect(within(e).getByTestId('sourcing-sentence')).toHaveTextContent('Made here by Iron Plate (2 × Furnace).')
+    expect(within(e).getByTestId('input-lines')).toHaveAttribute('data-arrow', 'foot')
+    expect(kindsOf('plate')).toEqual(['make-here'])
+    const line = lineOf('plate', 'make-here')
+    expect(within(line).getByTestId('input-line-label')).toHaveTextContent('Iron Plate')
+    expect(line).toHaveTextContent('2 × Furnace')
+    expect(rateOf(line)).toHaveTextContent(/^120$/)
+    expect(line).toHaveAttribute('data-tip', 'Make more here: Iron Plate\n2 × Furnace, 120/m')
+    expect(line).toHaveAttribute('data-target', 'row')
     const section = screen.getByTestId('panel-sourcing')
+    expect(within(section).queryByTestId('sourcing-sentence')).not.toBeInTheDocument()
     expect(within(section).queryByRole('radio')).not.toBeInTheDocument()
     expect(within(section).queryByRole('checkbox')).not.toBeInTheDocument()
     expect(within(section).queryByRole('switch')).not.toBeInTheDocument()
     expect(section).not.toHaveTextContent(/forbid imports|every row that uses the item/i)
   })
 
-  it('shows the sentence of the rule the block holds', () => {
+  it('shows a rule that is not the default as an icon, and the line it makes', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
-    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, sourceRules: { plate: { makeHere: 'off' as const } } })) }))
+    setRules({ plate: { makeHere: 'off' } })
     select('n2')
     renderWithSolve()
-    expect(within(entry('plate')).getByTestId('sourcing-sentence')).toHaveTextContent('Uses what this block already makes (Iron Plate 120/m). The rest is imported.')
+    const [icon] = icons('plate')
+    expect(icon).toHaveAttribute('data-rule', 'byproducts-first')
+    expect(icon).toHaveAccessibleName("Don't make more here")
+    expect(icon).toHaveAttribute('data-tip', "Don't make more here")
+    expect(kindsOf('plate')).toContain('made-here')
+    expect(kindsOf('plate')).not.toContain('make-here')
   })
 
-  it('Change… opens the Comes from popover of the item, anchored to the button, and changes nothing itself', () => {
+  it('shows no rule icon for the default rule, and none for Leftover off alone', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n2')
+    renderWithSolve()
+    expect(within(entry('plate')).queryByTestId('input-rule-icons')).not.toBeInTheDocument()
+    cleanup()
+    setRules({ plate: { leftoverOff: true } })
+    renderWithSolve()
+    expect(icons('plate')).toHaveLength(0)
+  })
+
+  it('shows Receive it first and Import off as two icons, in that order', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    setRules({ plate: { makeHere: 'after-blocks', importOff: true } })
+    select('n2')
+    renderWithSolve()
+    expect(icons('plate').map(i => i.getAttribute('data-rule'))).toEqual(['connections-first', 'import-off'])
+  })
+
+  it('Sources… opens the Comes from popover of the item, anchored to the button, and changes nothing itself', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n2')
     renderWithSolve()
     const before = useBlockStore.getState().blocks[0]
-    const button = within(entry('plate')).getByTestId('sourcing-change')
-    expect(button).toHaveTextContent('Change…')
-    expect(button).toHaveAccessibleName('Change where Iron Plate comes from')
+    const button = within(entry('plate')).getByTestId('input-sources')
+    expect(button).toHaveAccessibleName('Sources of Iron Plate')
+    // The button is described by the reading of the lines, not by its tip.
+    expectTip(button, 'Sources…', { describe: false })
+    expect(button).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(button.querySelector('svg')).not.toBeNull()
     fireEvent.click(button)
     expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'plate' })
     // The button sits in the panel, so the popover opens beside the panel.
     expect(useUiStore.getState().comesFromPopover?.anchor.avoid).not.toBeNull()
     expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
     expect(useBlockStore.getState().blocks[0]).toBe(before)
+  })
+
+  it('reads the lines for screen readers on the button, not on the entry too', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n2')
+    renderWithSolve()
+    const e = entry('plate')
+    const reading = within(e).getByTestId('input-reading')
+    expect(reading).toHaveTextContent('Made by more rows here: 120/m.')
+    expect(e).not.toHaveAttribute('aria-describedby')
+    expect(within(e).getByTestId('input-sources')).toHaveAttribute('aria-describedby', reading.id)
   })
 
   describe('in a block with areas', () => {
@@ -375,21 +432,24 @@ describe('SidePanel — where inputs come from', () => {
       renderWithSolve()
     }
 
-    it("reads the sentence of the row's area when the area has its own rule for the item", () => {
+    it("reads the area's own rule: its icons carry the area's name and the reading starts with it", () => {
       setAreas({ plate: { makeHere: 'off' } })
-      expect(within(entry('plate')).getByTestId('sourcing-sentence').textContent).toMatch(/^Line: Uses what this area already makes/)
+      const [icon] = icons('plate')
+      expect(icon).toHaveAccessibleName("Line: Don't make more here")
+      expect(icon).toHaveAttribute('data-tip', "Line: Don't make more here")
+      expect(within(entry('plate')).getByTestId('input-reading').textContent).toMatch(/^Line: /)
     })
 
-    it('keeps the sentence of the block when the area has no rule of its own for the item', () => {
+    it("keeps the block's lines and no icons when the area has no rule of its own for the item", () => {
       setAreas({ gear: {} })
-      expect(within(entry('plate')).getByTestId('sourcing-sentence').textContent).toMatch(/^Made here by Iron Plate/)
+      expect(icons('plate')).toHaveLength(0)
+      expect(kindsOf('plate')).toEqual(['make-here'])
+      expect(within(entry('plate')).getByTestId('input-reading').textContent).not.toMatch(/^Line: /)
     })
 
-    it("Change… opens the popover on the row's area", () => {
+    it("Sources… opens the popover on the row's area", () => {
       setAreas()
-      const button = within(entry('plate')).getByTestId('sourcing-change')
-      expectTip(button, "Choose where this item comes from, for the block or for this row's area")
-      fireEvent.click(button)
+      fireEvent.click(within(entry('plate')).getByTestId('input-sources'))
       expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'plate', areaId: 'sp-a' })
     })
 
@@ -397,21 +457,128 @@ describe('SidePanel — where inputs come from', () => {
       setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
       select('n2')
       renderWithSolve()
-      fireEvent.click(within(entry('plate')).getByTestId('sourcing-change'))
+      fireEvent.click(within(entry('plate')).getByTestId('input-sources'))
       expect(useUiStore.getState().comesFromPopover).not.toHaveProperty('areaId')
     })
   })
 
-  it('offers Change… for a product of the block and for an item no row makes', () => {
+  it('offers Sources… for a product of the block and for an item no row makes', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, products: [{ id: 'p1', itemId: 'plate', extraRate: 10 }] })) }))
     select('n2')
     const { unmount } = render(<SidePanel blockId={block.id} rootPlan={block.rootPlan} result={result()} gameData={gd} />)
-    expect(within(entry('plate')).getByTestId('sourcing-change')).toBeEnabled()
+    expect(within(entry('plate')).getByTestId('input-sources')).toBeEnabled()
     unmount()
     select('n1')
     renderWithSolve()
-    expect(within(entry('ore')).getByTestId('sourcing-change')).toBeEnabled()
+    expect(within(entry('ore')).getByTestId('input-sources')).toBeEnabled()
+  })
+
+  it('lists what is made here with a count, then what is made more', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear'), row('n3', 'r-split')])
+    select('n2')
+    renderWithSolve({
+      nodes: [
+        { ...solvedRow('n2', 1, 90, { plate: 120 }), outputRates: { gear: 120 } },
+        { ...solvedRow('n1', 2, 180, { ore: 120 }), outputRates: { plate: 120 } },
+        { ...solvedRow('n3', 1, 90, { ore: 50 }), outputRates: { gear: 50, plate: 50 } },
+      ],
+      unsatisfied: [], warnings: [],
+    })
+    expect(kindsOf('plate')).toEqual(['made-here', 'make-here'])
+    expect(within(lineOf('plate', 'made-here')).getByTestId('input-line-label')).toHaveTextContent('Splitter')
+    expect(rateOf(lineOf('plate', 'made-here'))).toHaveTextContent(/^50\.0$/)
+    expect(within(lineOf('plate', 'make-here')).getByTestId('input-line-label')).toHaveTextContent('Iron Plate')
+    expect(lineOf('plate', 'make-here')).toHaveTextContent('2 × Furnace')
+    expect(rateOf(lineOf('plate', 'make-here'))).toHaveTextContent(/^70\.0$/)
+    expect(lineOf('plate', 'make-here')).toHaveAttribute('data-target', 'row')
+  })
+
+  describe('with a source block', () => {
+    /** "Ores" (colour #112233) supplies the ore of the row n1 over a connection; the flow says how much and whether it is limited. */
+    function withOres(status: 'ok' | 'limited') {
+      setPlan([row('n1', 'r-plate')])
+      const ores: Block = { ...makeEmptyBlock('Ores'), id: 'ores', color: '#112233' }
+      useBlockStore.setState(s => ({
+        blocks: [{ ...s.blocks[0], inputConnections: [{ id: 'c1', fromBlockId: 'ores', itemId: 'ore' }] }, ores],
+      }))
+      useSolverStore.setState({
+        flows: [{ connectionId: 'c1', fromBlockId: 'ores', toBlockId: block.id, itemId: 'ore', available: status === 'limited' ? 100 : 200, capped: false, rate: 100, status, kind: 'take' }] as never,
+      })
+      select('n1')
+      renderWithSolve()
+    }
+
+    it('draws a block line with the block colour, its name and its rate', () => {
+      withOres('ok')
+      const line = lineOf('ore', 'block')
+      expect(within(line).getByTestId('input-line-label')).toHaveTextContent('Ores')
+      expect(within(line).getByTestId('rail-block-color')).toHaveStyle({ background: '#112233' })
+      expect(within(line).queryByTestId('input-limited')).not.toBeInTheDocument()
+      expect(line).toHaveAttribute('data-target', 'block')
+      expect(line.getAttribute('data-tip')).toMatch(/^Ores: 100\/m \((requested|existing)\)\n/)
+    })
+
+    it('marks a limited block line with a ! in the block colour, not amber', () => {
+      withOres('limited')
+      const line = lineOf('ore', 'block')
+      expect(line).toHaveAttribute('data-limited', 'true')
+      expect(within(line).getByTestId('input-limited')).toHaveAccessibleName('limited')
+      expect(within(line).getByTestId('rail-block-color')).toHaveStyle({ background: '#112233' })
+      expect(line.getAttribute('data-tip')!.split('\n')[0]).toContain(', limited')
+    })
+  })
+
+  it('draws what comes from outside the plan as an import line', () => {
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    renderWithSolve({ ...result(), unsatisfied: [{ itemId: 'ore', rate: 120 }] } as SolverResult)
+    expect(kindsOf('ore')).toEqual(['import'])
+    const line = lineOf('ore', 'import')
+    expect(within(line).getByTestId('input-line-label')).toHaveTextContent('Import')
+    expect(line).toHaveAttribute('data-target', 'import')
+    expect(rateOf(line)).toHaveTextContent(/^120$/)
+    expect(line).toHaveAttribute('data-tip', 'Import: 120/m from outside the plan')
+  })
+
+  it('draws what nothing supplies as a missing line when Import is off', () => {
+    setPlan([row('n1', 'r-plate')])
+    setRules({ ore: { importOff: true } })
+    select('n1')
+    renderWithSolve({ ...result(), unsatisfied: [{ itemId: 'ore', rate: 120 }] } as SolverResult)
+    expect(kindsOf('ore')).toEqual(['missing'])
+    const line = lineOf('ore', 'missing')
+    expect(within(line).getByTestId('input-line-label')).toHaveTextContent('Missing')
+    expect(line).toHaveAttribute('data-target', 'missing')
+    expect(line.className).toContain('text-amber-300')
+    expect(line).toHaveAttribute('data-tip', 'Missing 120/m\nImport is off and nothing else supplies it.')
+    expect(icons('ore').map(i => i.getAttribute('data-rule'))).toEqual(['import-off'])
+    expect(icons('ore')[0]).toHaveAccessibleName('Import off')
+  })
+
+  it('says nothing is needed, not that nothing supplies it, for an input rate of 0', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n2')
+    renderWithSolve({ nodes: [solvedRow('n2', 0, 0, { plate: 0 })], unsatisfied: [], warnings: [] })
+    const empty = within(entry('plate')).getByTestId('input-empty')
+    expect(empty).toHaveAttribute('data-state', 'idle')
+    expect(empty).toHaveTextContent('Nothing needed.')
+    expect(within(entry('plate')).getByTestId('input-reading')).toHaveTextContent('Nothing needed.')
+  })
+
+  it('says so before a solve, with the button and the icons still there', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    setRules({ plate: { makeHere: 'off' } })
+    select('n2')
+    renderPanel(undefined)
+    const e = entry('plate')
+    const empty = within(e).getByTestId('input-empty')
+    expect(empty).toHaveAttribute('data-state', 'unsolved')
+    expect(empty).toHaveTextContent('Not solved yet.')
+    expect(lines('plate')).toHaveLength(0)
+    expect(e).not.toHaveTextContent('/m')
+    expect(within(e).getByTestId('input-sources')).toBeEnabled()
+    expect(icons('plate')).toHaveLength(1)
   })
 })
 
@@ -442,6 +609,7 @@ describe('SidePanel — where outputs go', () => {
     expect(within(line).getByTestId('output-line-label')).toHaveTextContent('Gear')
     expect(within(line).getByTestId('output-line-rate')).toHaveTextContent(/^120$/)
     expect(line).toHaveAttribute('data-tip', 'Gear takes 120/m')
+    expect(line).toHaveAttribute('data-target', 'row')
     expect(within(e).queryByTestId('output-sentence')).not.toBeInTheDocument()
     expect(within(e).getByTestId('output-lines')).toHaveAttribute('data-arrow', 'head')
     expect(within(screen.getByTestId('panel-outputs')).queryByRole('button')).not.toBeInTheDocument()
@@ -501,7 +669,7 @@ describe('SidePanel — where outputs go', () => {
     expect(within(line).getByTestId('output-line-label')).toHaveTextContent('Gears')
     expect(within(line).getByTestId('output-line-rate')).toHaveTextContent(/^30\.0$/)
     expect(line).toHaveAttribute('data-tip', 'Sent to Gears: 30.0/m')
-    expect(within(line).getByTestId('output-block-color')).toHaveStyle({ background: '#112233' })
+    expect(within(line).getByTestId('rail-block-color')).toHaveStyle({ background: '#112233' })
   })
 
   it('marks a row that absorbs the byproduct', () => {
@@ -532,6 +700,8 @@ describe('SidePanel — where outputs go', () => {
     expect(same).not.toHaveTextContent('Other')
     expect(other).toHaveTextContent('Other')
     expect(other).toHaveAttribute('data-tip', 'Gear in Other takes 60.0/m')
+    expect(same).toHaveAttribute('data-target', 'row')
+    expect(other).toHaveAttribute('data-target', 'area')
   })
 
   it('has no line, no rate and the unsolved state before there is a solve', () => {

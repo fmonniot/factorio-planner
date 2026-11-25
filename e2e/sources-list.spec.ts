@@ -2,7 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, selectSlot, slot } from './support/summary'
-import { changeSourcing, comesFromPopover } from './support/sidePanel'
+import { openSources, comesFromPopover } from './support/sidePanel'
 import { openLine } from './support/sourcesList'
 
 /** Fixture of item-sourcing.spec.ts: the block "Acid" makes oxygen for nitric acid, which also has a compressed oxygen slot. */
@@ -19,7 +19,7 @@ async function setup(page: Page) {
 
 /** The Comes from control of oxygen in its popover: the Sources list is its one view. */
 async function openList(page: Page): Promise<Locator> {
-  const control = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+  const control = await openSources(page, acidRow(page), 'nullius-oxygen')
   await expect(control.getByTestId('sources-list')).toBeVisible()
   return control
 }
@@ -171,7 +171,7 @@ test.describe('the Sources list', () => {
     await control.getByTestId('sources-make-here-switch').click()
     await control.getByRole('button', { name: 'Close' }).click()
     await expect(comesFromPopover(page)).toHaveCount(0)
-    const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+    const again = await openSources(page, acidRow(page), 'nullius-oxygen')
     await expectState(again, 'byproducts-first', false, true, BELOW)
   })
 })
