@@ -59,7 +59,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData, areaId }: { itemId: strin
   }
 
   return (
-    <li data-testid="sourcing-entry" data-item-id={itemId} aria-describedby={readingId} className="py-2 border-b border-gray-800 last:border-b-0">
+    <li data-testid="sourcing-entry" data-item-id={itemId} className="py-2 border-b border-gray-800 last:border-b-0">
       <div className="flex items-center gap-2">
         {item?.iconPath ? (
           <Icon iconPath={item.iconPath} alt="" className="w-7 h-7 object-contain shrink-0" />

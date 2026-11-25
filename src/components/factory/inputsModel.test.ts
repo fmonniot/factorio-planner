@@ -88,10 +88,11 @@ describe('inputLineTip', () => {
 })
 
 describe('inputEmptyState', () => {
-  it('tells unsolved from nothing supplying it', () => {
+  it('tells unsolved from nothing needed from nothing supplying it', () => {
     expect(inputEmptyState(undefined)).toBeUndefined()
     expect(inputEmptyState(model([], { need: undefined }))).toBe('unsolved')
-    expect(inputEmptyState(model([], { need: 0 }))).toBe('none')
+    expect(inputEmptyState(model([], { need: 0 }))).toBe('idle')
+    expect(inputEmptyState(model([], { need: 12 }))).toBe('none')
     expect(inputEmptyState(model([importLine()]))).toBeUndefined()
   })
 })
@@ -106,7 +107,8 @@ describe('inputsReading', () => {
   })
   it('says so before a solve and when nothing supplies it', () => {
     expect(inputsReading(model([], { need: undefined }), fmt)).toBe('Not solved yet.')
-    expect(inputsReading(model([]), fmt)).toBe('Nothing supplies it.')
+    expect(inputsReading(model([], { need: 12 }), fmt)).toBe('Nothing supplies it.')
+    expect(inputsReading(model([], { need: 0 }), fmt)).toBe('Nothing needed.')
   })
 })
 

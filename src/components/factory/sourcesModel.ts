@@ -110,11 +110,13 @@ const MADE: LineLook = { kind: 'made' }
 function lineMakers(group: ItemMaker[], total: number | undefined): { makers: LineMaker[] } | undefined {
   if (total === undefined || !(total > EPS) || group.length === 0) return undefined
   const gross = group.reduce((t, m) => t + m.rate, 0)
+  // When none makes any yet, the line is split among the rows that run machines: one that runs none gets no share.
+  const running = group.filter(m => m.machineCount > 0).length
   // A row that makes none of the item at the moment (idle) covers no part of the line and has no line of its own.
   const makers = group
     .map(m => ({
       recipeName: m.recipeName, machineName: m.machineName, machineCount: m.machineCount,
-      rate: gross > EPS ? (total * m.rate) / gross : total / group.length,
+      rate: gross > EPS ? (total * m.rate) / gross : m.machineCount > 0 ? total / running : 0,
     }))
     .filter(m => m.rate > EPS)
   return makers.length > 0 ? { makers } : undefined

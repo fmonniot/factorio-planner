@@ -5,6 +5,8 @@ import { sourcesReading } from './sourcesModel'
 import type { BlockRow, Tag } from './sourcesRows'
 import type { StripIconName } from './StripIcon'
 
+const EPS = 1e-6
+
 // ---------------------------------------------------------------------------
 // The lines under each input of the side panel: where one ingredient comes from, read off the Sources model. A pure function of
 // plain data (like `outputsModel.ts`); the model carries no unit, the helpers take the rate formatter.
@@ -62,17 +64,17 @@ export function buildInputLines(model: SourcesModel, rows: BlockRow[]): InputLin
   return lines
 }
 
-export type InputEmptyState = 'unsolved' | 'none'
+export type InputEmptyState = 'unsolved' | 'idle' | 'none'
 
 /** Why a model has no lines, or undefined when it has some (or there is no model). */
 export function inputEmptyState(model: SourcesModel | undefined): InputEmptyState | undefined {
   if (!model) return undefined
   if (model.need === undefined) return 'unsolved'
-  if (model.bar.length === 0) return 'none'
+  if (model.bar.length === 0) return model.need > EPS ? 'none' : 'idle'
   return undefined
 }
 
-export const INPUT_EMPTY_LABEL = { unsolved: 'Not solved yet.', none: 'Nothing supplies it.' } as const
+export const INPUT_EMPTY_LABEL = { unsolved: 'Not solved yet.', idle: 'Nothing needed.', none: 'Nothing supplies it.' } as const
 
 /** The tooltip of a line: its name and figure, then at most one plain sentence. `fmt` writes items/min with their unit. */
 export function inputLineTip(line: InputLine, fmt: (perMin: number) => string): string {
@@ -93,7 +95,7 @@ export function inputLineTip(line: InputLine, fmt: (perMin: number) => string): 
 
 /** One sentence for screen readers (not shown): the model's reading on one line, area-qualified for an area's own rule. */
 export function inputsReading(model: SourcesModel, fmt: (perMin: number) => string, areaName?: string): string {
-  const text = sourcesReading(model, fmt).split('\n').join(', ')
+  const text = inputEmptyState(model) === 'idle' ? INPUT_EMPTY_LABEL.idle : sourcesReading(model, fmt).split('\n').join(', ')
   const sentence = text.endsWith('.') ? text : `${text}.`
   return areaName !== undefined ? `${areaName}: ${sentence}` : sentence
 }

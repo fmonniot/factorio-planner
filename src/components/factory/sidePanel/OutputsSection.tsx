@@ -36,9 +36,9 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
       data-item-id={itemId}
       data-byproduct={byproduct ? 'true' : undefined}
       aria-describedby={readingId}
-      className="relative py-2 border-b border-gray-800 last:border-b-0"
+      className="@container relative py-2 border-b border-gray-800 last:border-b-0"
     >
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      <div className="flex items-center gap-2">
         <span className={`shrink-0 ${discarded ? 'opacity-50' : ''}`}>
           {item?.iconPath ? (
             <Icon iconPath={item.iconPath} alt="" className="w-7 h-7 object-contain" />
@@ -46,7 +46,7 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
             <span className="w-7 h-7 bg-gray-700 rounded text-[9px] text-gray-300 flex items-center justify-center">{name.substring(0, 2).toUpperCase()}</span>
           )}
         </span>
-        <span className={`flex-1 min-w-[5rem] text-xs truncate ${discarded ? 'text-gray-400' : 'text-gray-200'}`} data-tip={name}>{name}</span>
+        <span className={`flex-1 min-w-0 text-xs truncate ${discarded ? 'text-gray-400' : 'text-gray-200'}`} data-tip={name}>{name}</span>
         {model.otherMakers > 0 && !discarded && (
           <span
             data-testid="output-shared-tag"
@@ -54,14 +54,14 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
             data-tip={sharedTagTip(model)}
             className="shrink-0 rounded-[3px] border border-gray-600 px-1 text-[10px] text-gray-300"
           >
-            block ×{1 + model.otherMakers}
+            <span className="@max-[15rem]:hidden">block </span>×{1 + model.otherMakers}
           </span>
         )}
         {rate !== undefined && discarded && (
-          <span data-testid="output-not-counted" data-tip={`Discarded: this row's ${name} is not counted`} className="text-[11px] text-gray-400">not counted</span>
+          <span data-testid="output-not-counted" data-tip={`Discarded: this row's ${name} is not counted`} className="shrink-0 text-[11px] text-gray-400">not counted</span>
         )}
         {rate !== undefined && !discarded && (
-          <span data-testid="output-rate" className="text-[11px] text-green-300 tabular-nums">{fmt(rate)}</span>
+          <span data-testid="output-rate" className="shrink-0 text-[11px] text-green-300 tabular-nums">{fmt(rate)}</span>
         )}
         <span className="w-12 shrink-0 text-right text-[10px] text-gray-400">{byproduct ? 'Byproduct' : 'Product'}</span>
       </div>

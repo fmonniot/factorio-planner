@@ -258,9 +258,11 @@ describe('buildSourcesModel makers', () => {
     expect(line(m, 'make-here').makers!.map(x => x.recipeName)).toEqual(['A'])
   })
 
-  it('splits equally when the makers make nothing of their own', () => {
-    const m = buildSourcesModel(input({ makers: [named('A', 'M', 1, 0, false), named('B', 'M', 1, 0, false)] }))
-    expect(line(m, 'make-here').makers!.map(x => x.rate)).toEqual([50, 50])
+  it('splits equally among the makers that run machines when they make nothing of their own', () => {
+    const m = buildSourcesModel(input({ makers: [named('A', 'M', 1, 0, false), named('Idle', 'M', 0, 0, false), named('B', 'M', 1, 0, false)] }))
+    const makers = line(m, 'make-here').makers!
+    expect(makers.map(x => x.recipeName)).toEqual(['A', 'B'])
+    expect(makers.map(x => x.rate)).toEqual([50, 50])
   })
 })
 

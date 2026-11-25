@@ -410,14 +410,14 @@ describe('SidePanel — where inputs come from', () => {
     expect(useBlockStore.getState().blocks[0]).toBe(before)
   })
 
-  it('reads the lines for screen readers on the entry and the button', () => {
+  it('reads the lines for screen readers on the button, not on the entry too', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n2')
     renderWithSolve()
     const e = entry('plate')
     const reading = within(e).getByTestId('input-reading')
     expect(reading).toHaveTextContent('Made by more rows here: 120/m.')
-    expect(e).toHaveAttribute('aria-describedby', reading.id)
+    expect(e).not.toHaveAttribute('aria-describedby')
     expect(within(e).getByTestId('input-sources')).toHaveAttribute('aria-describedby', reading.id)
   })
 
@@ -554,6 +554,16 @@ describe('SidePanel — where inputs come from', () => {
     expect(line).toHaveAttribute('data-tip', 'Missing 120/m\nImport is off and nothing else supplies it.')
     expect(icons('ore').map(i => i.getAttribute('data-rule'))).toEqual(['import-off'])
     expect(icons('ore')[0]).toHaveAccessibleName('Import off')
+  })
+
+  it('says nothing is needed, not that nothing supplies it, for an input rate of 0', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n2')
+    renderWithSolve({ nodes: [solvedRow('n2', 0, 0, { plate: 0 })], unsatisfied: [], warnings: [] })
+    const empty = within(entry('plate')).getByTestId('input-empty')
+    expect(empty).toHaveAttribute('data-state', 'idle')
+    expect(empty).toHaveTextContent('Nothing needed.')
+    expect(within(entry('plate')).getByTestId('input-reading')).toHaveTextContent('Nothing needed.')
   })
 
   it('says so before a solve, with the button and the icons still there', () => {

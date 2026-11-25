@@ -79,6 +79,9 @@ test('a rail list lines up with its header', async ({ page }) => {
     expect(Math.abs(label.x - name.x)).toBeLessThanOrEqual(1)
   }
   await check(outputEntry(page, 'nullius-oxygen'), 'output-line-rate', '[data-testid="output-rate"]')
+  // In a drawer at its narrowest the header does not wrap, so the lines' inset still matches its trailing slot.
+  await page.setViewportSize({ width: 340, height: 800 })
+  await check(outputEntry(page, 'nullius-oxygen'), 'output-line-rate', '[data-testid="output-rate"]')
   // The inputs' header rate is the span before the Sources… button.
   const input = sidePanel(page).getByTestId('sourcing-entry').filter({ has: page.getByTestId('input-line') }).first()
   await expect(input).toBeVisible()
