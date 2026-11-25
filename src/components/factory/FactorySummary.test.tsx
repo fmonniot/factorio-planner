@@ -2348,6 +2348,16 @@ describe('FactorySummary — bars', () => {
     expect(within(strip('Products')).queryByTestId('summary-trace-chip')).toBeNull()
   })
 
+  it('returns focus to the segment when Escape clears a trace from the chip', async () => {
+    render(<FactorySummary />)
+    fireEvent.click(overviewRow('Products', 'short'))
+    const clear = within(within(strip('Products')).getByTestId('summary-trace-chip')).getByTestId('summary-trace-clear')
+    clear.focus()
+    fireEvent.keyDown(clear, { key: 'Escape' })
+    await waitFor(() => expect(document.activeElement).toBe(overviewRow('Products', 'short')))
+    expect(within(strip('Products')).queryByTestId('summary-trace-chip')).toBeNull()
+  })
+
   it('gives a selected item a 16 px bar, no key line, and an accessible name on every segment', () => {
     withBarWidth(300)
     render(<FactorySummary />)

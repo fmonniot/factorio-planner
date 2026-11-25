@@ -366,7 +366,7 @@ export function ComesFrom({ itemId, areaId, listInPopover = false, actions = [],
           tip={LEFTOVER_SWITCH.title}
           onToggle={() => toggleLeftoverOff(itemId)}
         />
-        <span id={`${baseId}-leftover-reason`} className="sr-only">{area !== undefined ? LEFTOVER_BLOCK_NOTE : LEFTOVER_SWITCH.help}</span>
+        <span id={`${baseId}-leftover-reason`} className="sr-only">{area !== undefined ? LEFTOVER_BLOCK_NOTE : `Leftover: ${LEFTOVER_SWITCH.help.charAt(0).toLowerCase()}${LEFTOVER_SWITCH.help.slice(1)}`}</span>
       </div>
       {productDialog}
     </div>

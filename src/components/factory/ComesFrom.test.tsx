@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { ComesFrom } from './ComesFrom'
 import { ComesFromPopover } from './ComesFromPopover'
-import { LEFTOVER_SWITCH } from './itemSourcing'
 import { expectTip, tipOf } from '../../test/byTip'
 import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -443,7 +442,7 @@ describe('ComesFrom, the Leftover switch', () => {
     setup({ areas: false })
     render(<ComesFrom itemId="plate" />)
     const help = document.getElementById(leftover().getAttribute('aria-describedby')!)!
-    expect(help).toHaveTextContent(LEFTOVER_SWITCH.help)
+    expect(help).toHaveTextContent('Leftover: when it is off, the rows of this block use all of it they can.')
     expect(help).not.toHaveTextContent('every item of a chain')
     expectTip(leftover(), 'Leftover\nWhen it is off, the rows of this block use all of it they can.', { describe: false })
   })

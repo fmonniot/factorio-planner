@@ -160,7 +160,14 @@ export function SummaryPane({
         setSelectedId(null)
         setEditing(false)
       } else {
+        // From the trace chip the key must not drop focus: it goes back to the segment that was traced.
+        const key = document.activeElement instanceof HTMLElement ? document.activeElement.closest('[data-testid="summary-trace-chip"]')?.getAttribute('data-key') : null
         setTraceKey(null)
+        if (key) {
+          requestAnimationFrame(() => {
+            for (const seg of document.querySelectorAll<HTMLElement>('[data-testid="summary-overview-segment"]')) if (seg.dataset.key === key) seg.focus()
+          })
+        }
       }
     }
     document.addEventListener('keydown', onKeyDown)
