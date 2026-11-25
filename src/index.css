@@ -1,12 +1,18 @@
 @import "tailwindcss";
 
+/* One sans stack for the body and for `font-sans`, so text that switches back to sans inside a mono element (RailLine's invisible unit)
+   measures the same as the body text it is lined up with. */
+@theme {
+  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
