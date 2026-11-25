@@ -28,6 +28,8 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
   const fmt = (perMin: number) => fmtItemRateText(itemId, perMin / 60, unit)
   // The lines' rates carry no unit (the item's total does), except power, whose unit is part of the figure.
   const lineRate = isEnergyItem(itemId) ? fmt : (perMin: number) => fmtItemRate(itemId, perMin / 60, unit).value
+  // The unit the header's rate ends with, drawn invisibly after each line's rate so the digits line up (none for power).
+  const lineUnit = isEnergyItem(itemId) ? undefined : fmtItemRate(itemId, 0, unit).unit
   const empty = outputEmptyState(model)
 
   return (
@@ -80,6 +82,7 @@ function OutputEntry({ output, gameData }: { output: RowOutput; gameData: GameDa
               )}
               detail={l.areaName}
               rate={lineRate(l.rate)}
+              unit={lineUnit}
               tip={outputLineTip(l, fmt)}
               testId="output-line"
               labelTestId="output-line-label"

@@ -213,9 +213,11 @@ function Stat({ label, value, testId, valueClass = 'text-gray-100' }: {
   valueClass?: string
 }) {
   return (
-    <div className="flex-1 min-w-0">
+    // As wide as its label, so a long label takes the room a short one leaves; in a narrower panel the label wraps instead of
+    // running into the next column.
+    <div className="flex-auto min-w-0">
       <div data-testid={testId} className={`text-xl font-semibold tabular-nums ${valueClass}`}>{value}</div>
-      <div className="text-[11px] text-gray-400 whitespace-nowrap">{label}</div>
+      <div className="text-[11px] leading-tight text-gray-400">{label}</div>
     </div>
   )
 }
