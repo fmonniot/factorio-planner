@@ -1803,29 +1803,62 @@ describe('solver synthetic cases', () => {
         }
       }
 
-      it('a7: a block with areas is one member, its credit split by the needs of its areas', () => {
-        // J needs 25. H3 has areas L (pinned 12) and B (pinned 8). List [J, H3/L tied, H3/B tied]: members J (weight 1) and H3 (weight 2).
-        // waterFill(30, [25, 20], [1, 2]): offers 10 and 20; J short; H3 covered at exactly 20. Credits J 10, H3 20; H3's credit splits 12 and 8.
+      // a7 and a9: J needs 25; H3 needs 20, areas L (pinned 12) and B (pinned 8), each named by a tied entry. Each entry of H3 asks its area's
+      // need (a connection with several entries asks its need split by its areas' parts) and has its own weight; the credit of H3 is the sum.
+      const J7 = (): Block => mk('J', [['case11-other', 25]], [planNode('case11-use-x')], [{ id: 'c-J', itemId: X, fromBlockId: 'T' }])
+      const pinnedUse = (where: string, rate: number): GameRecipeNode => ({ ...rowIn('case11-use-x', where), pinnedRate: rate })
+      const H3 = (): Block => ({
+        ...mk('H3', [['case11-other', 20]], [], [{ id: 'c-H3', itemId: X, fromBlockId: 'T' }]),
+        rootPlan: subPlan('root-H3', [], [subPlan('L', [pinnedUse('L', 12)], [], true), subPlan('B', [pinnedUse('B', 8)], [], true)]),
+      })
+      it('a7: a block with areas, each area named by an entry, is credited by its entries: one weight each', () => {
+        // List [J, H3/L tied, H3/B tied]: waterFill(30, [25, 12, 8]) offers 10 each; B is covered at 8; J and L get 1 more each: 11, 11, 8.
+        for (const tabs of [['T', 'J', 'H3'], ['T', 'H3', 'J']]) {
+          const list: ServedEntry[] = [ent('J'), ent('H3', { tied: true, areaId: 'L' }), ent('H3', { tied: true, areaId: 'B' })]
+          const all = solveAll(tabsOf(tabs, { T: T(list), J: J7(), H3: H3() }), makeGameData())
+          expectFlow(all, 'J', [11, 'limited', 14])
+          expectFlow(all, 'H3', [19, 'limited', 1])
+          expect(linesOf(all).map(c => [c.blockId, c.areaId])).toEqual([['J', undefined], ['H3', 'L'], ['H3', 'B']])
+          expectLine(all, 'J', 11, 25)
+          expectLine(all, 'H3', 11, 12, 'L')
+          expectLine(all, 'H3', 8, 8, 'B')
+          for (const c of linesOf(all)) expect(c.got, `${c.blockId}/${c.areaId} got`).toBeCloseTo(c.share, 6)
+          noFlags(all)
+        }
+      })
+      it('a9: the entries of H3 carry their own weights: [J, H3/L 25, H3/B 75]', () => {
+        // J is alone above the group and is credited min(30, 25) = 25; 5 is left, waterFill(5, [12, 8], [25, 75]) = 1.25, 3.75 (neither is covered).
+        for (const tabs of [['T', 'J', 'H3'], ['T', 'H3', 'J']]) {
+          const list: ServedEntry[] = [ent('J'), ent('H3', { areaId: 'L', share: 25 }), ent('H3', { tied: true, areaId: 'B', share: 75 })]
+          const all = solveAll(tabsOf(tabs, { T: T(list), J: J7(), H3: H3() }), makeGameData())
+          expectFlow(all, 'J', [25, 'ok', 0])
+          expectFlow(all, 'H3', [5, 'limited', 15])
+          expectLine(all, 'H3', 1.25, 12, 'L')
+          expectLine(all, 'H3', 3.75, 8, 'B')
+          for (const l of linesOf(all).filter(c => c.blockId === 'H3')) expect(l.got, `${l.areaId} got`).toBeCloseTo(l.share, 6)
+          noFlags(all)
+        }
+      })
+      it('a10: the blocks of the list share the item, the unlisted areas of a named block get the remainder', () => {
+        // The a7 fixture with the list [J, H3/L tied], B unnamed: waterFill(30, [25, 20]) = 15, 15. H3's credit splits by area need:
+        // L 12 of 20 -> 9, B 6.
         const J = mk('J', [['case11-other', 25]], [planNode('case11-use-x')], [{ id: 'c-J', itemId: X, fromBlockId: 'T' }])
         const pinnedUse = (where: string, rate: number): GameRecipeNode => ({ ...rowIn('case11-use-x', where), pinnedRate: rate })
         const H3: Block = {
           ...mk('H3', [['case11-other', 20]], [], [{ id: 'c-H3', itemId: X, fromBlockId: 'T' }]),
           rootPlan: subPlan('root-H3', [], [subPlan('L', [pinnedUse('L', 12)], [], true), subPlan('B', [pinnedUse('B', 8)], [], true)]),
         }
-        const list: ServedEntry[] = [ent('J'), ent('H3', { tied: true, areaId: 'L' }), ent('H3', { tied: true, areaId: 'B' })]
+        const list: ServedEntry[] = [ent('J'), ent('H3', { tied: true, areaId: 'L' })]
         for (const tabs of [['T', 'J', 'H3'], ['T', 'H3', 'J']]) {
           const all = solveAll(tabsOf(tabs, { T: T(list), J, H3 }), makeGameData())
-          expect(flowIn(all, 'c-J').rate, 'c-J').toBeCloseTo(10, 6)
+          expect(flowIn(all, 'c-J').rate, 'c-J').toBeCloseTo(15, 6)
           expect(flowIn(all, 'c-J').status).toBe('limited')
-          expect(unsatisfiedRate(all.results.J, X) ?? 0, 'J imports').toBeCloseTo(15, 6)
-          expect(flowIn(all, 'c-H3').rate, 'c-H3').toBeCloseTo(20, 6)
-          expect(flowIn(all, 'c-H3').status).toBe('ok')
-          expect(unsatisfiedRate(all.results.H3, X) ?? 0, 'H3 imports').toBeCloseTo(0, 6)
-          const lines = linesOf(all).map(c => [c.blockId, c.areaId, c.share, c.got] as const)
-          expect(lines.map(l => [l[0], l[1]])).toEqual([['J', undefined], ['H3', 'L'], ['H3', 'B']])
-          expect(lines.map(l => l[2])).toEqual([expect.closeTo(10, 6), expect.closeTo(12, 6), expect.closeTo(8, 6)])
-          expect(lines.map(l => l[3])).toEqual([expect.closeTo(10, 6), expect.closeTo(12, 6), expect.closeTo(8, 6)])
-          expect(linesOf(all)[0].need).toBeCloseTo(25, 6)
+          expect(unsatisfiedRate(all.results.J, X) ?? 0, 'J imports').toBeCloseTo(10, 6)
+          expect(flowIn(all, 'c-H3').rate, 'c-H3').toBeCloseTo(15, 6)
+          expect(unsatisfiedRate(all.results.H3, X) ?? 0, 'H3 imports').toBeCloseTo(5, 6)
+          expectLine(all, 'H3', 9, undefined, 'L')
+          const b = linesOf(all).find(l => l.blockId === 'H3' && l.areaId === 'B')
+          expect(b?.share, 'H3/B share').toBeCloseTo(6, 6)
           noFlags(all)
         }
       })
