@@ -564,7 +564,6 @@ async function exportMachines(raw, locale, resolveIcon) {
     const table = raw[machineType]
     if (!table) continue
     for (const proto of Object.values(table)) {
-
       // In data.raw, allowed_effects and crafting_categories are plain arrays.
       const allowedEffects     = (proto.allowed_effects ?? []).slice().sort()
       const craftingCategories = (proto.crafting_categories ?? []).slice().sort()

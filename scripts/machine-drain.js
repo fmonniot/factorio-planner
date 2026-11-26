@@ -4,12 +4,15 @@
  * Kept free of side effects so unit tests can import it.
  */
 
-import { parseEnergyKw, energyDrainKw } from './energy.js'
+import { parseEnergyKw, energyDrainKw, inferEnergyType } from './energy.js'
 import { MACHINE_PROTO_TYPES } from './fuel.js'
+
+/** Equal within a small relative tolerance, so a re-parsed float does not read as a different dump. */
+const sameKw = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(Math.abs(a), Math.abs(b))
 
 /**
  * Write `drainKw` into the bundle's machines. Power-generation machines (boilers, generators) are not candidates.
- * A machine missing from the dump, or whose `energy_usage` there differs from the bundle's (a dump of another mod
+ * A machine missing from the dump, or whose `energy_usage` or energy type there differs from the bundle's (a dump of another mod
  * set), is listed and its entry kept. Returns the same object references when nothing changed. Safe to re-run.
  * @param {Record<string, any>} machines bundle machines
  * @param {Record<string, any>} raw data-raw dump
@@ -34,7 +37,7 @@ export function attachMachineDrain(machines, raw) {
       out[id] = machine
       continue
     }
-    if (machine.energyType !== 'void' && parseEnergyKw(proto.energy_usage) !== machine.energyUsageKw) {
+    if (inferEnergyType(proto) !== machine.energyType || (machine.energyType !== 'void' && !sameKw(parseEnergyKw(proto.energy_usage), machine.energyUsageKw))) {
       mismatched.push(id)
       out[id] = machine
       continue

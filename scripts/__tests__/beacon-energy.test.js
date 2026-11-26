@@ -3,7 +3,7 @@ import { beaconEnergyField, attachBeaconEnergy, patchedBundle } from '../beacon-
 
 const electric = (usage, drain) => ({
   energy_usage: usage,
-  energy_source: { type: 'electric', ...(drain ? { drain } : {}) },
+  energy_source: { type: 'electric', ...(drain !== undefined ? { drain } : {}) },
 })
 const base = id => ({
   id, name: id, iconPath: '', hidden: false, moduleSlots: 2, distributionEfficiency: 1.5, allowedEffects: ['speed'],
@@ -14,6 +14,7 @@ describe('beaconEnergyField', () => {
     expect(beaconEnergyField(electric('480kW'))).toEqual({ energyUsageKw: 480, drainKw: 16 })
     expect(beaconEnergyField(electric('1.5MW'))).toEqual({ energyUsageKw: 1500, drainKw: 50 })
     expect(beaconEnergyField(electric('480kW', '16kW'))).toEqual({ energyUsageKw: 480, drainKw: 16 })
+    expect(beaconEnergyField(electric('480kW', 0))).toEqual({ energyUsageKw: 480, drainKw: 0 })
     // '0kW' is a truthy string, so the helper writes it as an explicit drain.
     expect(beaconEnergyField(electric('480kW', '0kW'))).toEqual({ energyUsageKw: 480, drainKw: 0 })
   })

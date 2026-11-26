@@ -23,17 +23,18 @@ describe('bundled machine drain', () => {
 
   it('kompetenz-seablock drains energy_usage / 30 on every electric machine but the explicit ones', () => {
     const { machines } = load('kompetenz-seablock')
-    const explicit = /^angels-electric-boiler/
+    // The three boilers whose prototype sets an explicit drain.
+    const explicitIds = new Set(['angels-electric-boiler', 'angels-electric-boiler-2', 'angels-electric-boiler-3'])
     let checked = 0
     for (const m of Object.values(machines)) {
-      if (!MACHINE_PROTO_TYPES.includes(m.type) && !explicit.test(m.id)) continue
+      if (!MACHINE_PROTO_TYPES.includes(m.type) && !explicitIds.has(m.id)) continue
       if (m.energyType !== 'electric' || !(m.energyUsageKw > 0)) continue
       checked++
       expect(m.drainKw, m.id).toBeGreaterThan(0)
-      if (!explicit.test(m.id)) expect(m.drainKw, m.id).toBeCloseTo(m.energyUsageKw / 30, 9)
+      if (!explicitIds.has(m.id)) expect(m.drainKw, m.id).toBeCloseTo(m.energyUsageKw / 30, 9)
     }
     expect(checked).toBeGreaterThan(100)
-    const boilers = Object.values(machines).filter(m => explicit.test(m.id))
+    const boilers = [...explicitIds].map(id => machines[id])
     expect(boilers.length).toBe(3)
     expect(boilers.find(m => m.energyUsageKw === 2420)?.drainKw).toBe(80)
   })

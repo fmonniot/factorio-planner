@@ -61,6 +61,26 @@ describe('attachMachineDrain', () => {
     expect(r.machines.am).toBe(input.am)
   })
 
+  it('lists a machine whose energy type differs, either way, and keeps its entry', () => {
+    const input = machines()
+    const dump = raw()
+    dump['assembling-machine'].am.energy_source = { type: 'burner' }
+    dump.furnace.stone.energy_source = { type: 'electric' }
+    const r = attachMachineDrain(input, dump)
+    expect(r.mismatched).toEqual(['am', 'stone'])
+    expect(r.machines.am).toBe(input.am)
+    expect(r.machines.stone).toBe(input.stone)
+  })
+
+  it('tolerates float noise in energy_usage but not a real difference', () => {
+    const input = machines()
+    input.am.energyUsageKw = 90.00000000001
+    const dump = raw()
+    expect(attachMachineDrain(input, dump).mismatched).toEqual([])
+    dump['assembling-machine'].am.energy_usage = '90.01kW'
+    expect(attachMachineDrain(input, dump).mismatched).toEqual(['am'])
+  })
+
   it('returns the same references on a second run', () => {
     const first = attachMachineDrain(machines(), raw())
     const second = attachMachineDrain(first.machines, raw())
