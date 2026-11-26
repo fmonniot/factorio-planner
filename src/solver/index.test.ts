@@ -1992,6 +1992,25 @@ describe('solveAll — requests', () => {
       expect(line.notCredited).toBe(true)
       expect(line.share).toBeCloseTo(0, 4)
     })
+    it('names a take once when the block has two takes of the item from the same source, as the line is flagged once', () => {
+      const { data, byId } = slagTwin()
+      byId.B = { ...byId.B, inputConnections: [...byId.B.inputConnections, link('ct3', 'T', 'plate')] }
+      const all = solveAll([byId.T, byId.A, byId.B], data, undefined, { creditPassLimit: 3 })
+      const lines = all.served.T.plate.consumers.filter(c => c.blockId === 'B')
+      expect(lines).toHaveLength(1)
+      const flagged = lines[0].notCredited === true
+      const warned = all.results.B.warnings.some(w => w.type === 'take-credits-not-settled')
+      expect(warned).toBe(flagged)
+      expect(warned).toBe(true)
+    })
+    it('settles within the credit pass limit once the take has a limit (what the warning hint advises)', () => {
+      const { data, byId } = slagTwin()
+      byId.B = { ...byId.B, inputConnections: byId.B.inputConnections.map(c => (c.id === 'ct' ? { ...c, maxRate: 5 } : c)) }
+      const all = solveAll([byId.T, byId.A, byId.B], data, undefined, { creditPassLimit: 3 })
+      const warned = all.results.B.warnings.some(w => w.type === 'take-credits-not-settled')
+      expect(warned).toBe(false)
+      expect(flowOf(all, 'ct').rate).toBeCloseTo(5, 4)
+    })
     it('keeps result identity between solves cut short, and does not leak the warning to a settled solve', () => {
       const { data, byId } = slagTwin()
       const cache = createSolveCache()
@@ -2006,6 +2025,7 @@ describe('solveAll — requests', () => {
       expect(unsettledCredits(new Map())).toEqual([])
       expect(unsettledCredits(new Map([['a', { credit: 5, settled: 5 }], ['b', { credit: 0, settled: 0 }]]))).toEqual([])
       expect(unsettledCredits(new Map([['a', { credit: 5, settled: 5 }], ['b', { credit: 0, settled: 30 }]]))).toEqual(['b'])
+      expect(unsettledCredits(new Map([['a', { credit: 30, settled: 5 }]]))).toEqual([]) // credited more than it would have had: it does not count as 0
     })
 
     it('seeds the next credit pass: the settled credit first, then a secant step', () => {

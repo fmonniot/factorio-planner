@@ -1131,10 +1131,10 @@ export function creditsSettled(flushed: ReadonlyMap<string, FlushedCredit>): boo
   return true
 }
 
-/** The ids of the flushed takes whose credit differs from what they would have been credited had they waited. */
+/** The ids of the flushed takes credited less than they would have been had they waited (a take that settles at 0 is not one). */
 export function unsettledCredits(flushed: ReadonlyMap<string, FlushedCredit>): string[] {
   const ids: string[] = []
-  for (const [id, f] of flushed) if (!sameRate(f.credit, f.settled)) ids.push(id)
+  for (const [id, f] of flushed) if (f.settled > f.credit && !sameRate(f.credit, f.settled)) ids.push(id)
   return ids
 }
 
@@ -2697,10 +2697,20 @@ function solvePass(
 
   // A take the credit passes left credited 0 though it would have had more: one warning per consumer, one entry per item and source.
   if (requestPlan.unsettled.size > 0) {
+    // Only the connection `buildServed` counts for a (consumer, source, item) can be flagged on a line, so only that one can be named.
+    const counting = new Set<string>()
+    const seen = new Set<string>()
+    for (const f of flows) {
+      if (f.status === 'self' || f.status === 'missing-source') continue
+      const key = `${f.toBlockId}\0${f.fromBlockId}\0${f.itemId}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      counting.add(f.connectionId)
+    }
     for (const b of blocks) {
       const takes: { itemId: string; fromBlockId: string }[] = []
       for (const c of b.inputConnections) {
-        if (!requestPlan.unsettled.has(c.id)) continue
+        if (!requestPlan.unsettled.has(c.id) || !counting.has(c.id)) continue
         if (takes.some(t => t.itemId === c.itemId && t.fromBlockId === c.fromBlockId)) continue
         takes.push({ itemId: c.itemId, fromBlockId: c.fromBlockId })
       }
