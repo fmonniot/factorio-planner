@@ -124,7 +124,10 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
 }
 
 /** Factorio clamps a machine's energy consumption at -80 %: the multiplier on its base draw never goes below 0.2. */
+export const CONSUMPTION_FLOOR = -0.8
+
 export function consumptionMultiplier(consumptionBonus: number): number {
+  // 0.2 literally: 1 + CONSUMPTION_FLOOR is 0.19999999999999996 in floating point.
   return Math.max(0.2, 1 + consumptionBonus)
 }
 

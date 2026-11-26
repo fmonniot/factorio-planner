@@ -420,6 +420,26 @@ describe('EffectsSection', () => {
     expect(screen.getByTestId('effect-total-productivity')).toHaveTextContent('–')
   })
 
+  it('stops the energy total at -80 % and says what was cut', () => {
+    const gd = makeGameData()
+    gd.machines.am1.allowedEffects = ['speed', 'consumption']
+    // -0.3 × 4 modules = -120 % on the machine
+    renderEffects(gd, rowNode({ machineId: 'am1', modules: [{ moduleId: 'eff-1', count: 4 }] }))
+    const total = screen.getByTestId('effect-total-consumption')
+    expect(total).toHaveTextContent('-80%')
+    expect(total).toHaveAttribute('data-floored', 'true')
+    expect(total).toHaveAccessibleDescription('The sources add up to -120%. The game stops energy at -80%, so the rest has no effect.')
+  })
+
+  it('has no floor note below the cap', () => {
+    const gd = makeGameData()
+    gd.machines.am1.allowedEffects = ['speed', 'consumption']
+    renderEffects(gd, rowNode({ machineId: 'am1', modules: [{ moduleId: 'eff-1', count: 2 }] }))
+    const total = screen.getByTestId('effect-total-consumption')
+    expect(total).toHaveTextContent('-60%')
+    expect(total).not.toHaveAttribute('data-floored')
+  })
+
   it('counts the beacon effects with no machine in the horizon, limited by the beacon entity only', () => {
     const gd = makeGameData()
     gd.technologies.base.unlockedRecipes = ['iron-plate']

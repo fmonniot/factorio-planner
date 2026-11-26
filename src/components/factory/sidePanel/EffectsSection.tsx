@@ -66,6 +66,7 @@ export function EffectsSection({ node, beacons, gameData }: {
           </div>
           {ROWS.map(({ key, label }) => {
             const total = effects.total[key]
+            const beforeFloor = key === 'consumption' ? effects.consumptionBeforeFloor : undefined
             return (
               <div key={key} role="row" data-effect={key} className="contents">
                 <div role="rowheader" className="text-gray-400">{label}</div>
@@ -73,6 +74,8 @@ export function EffectsSection({ node, beacons, gameData }: {
                 <div
                   role="cell"
                   data-testid={`effect-total-${key}`}
+                  data-floored={beforeFloor !== undefined ? 'true' : undefined}
+                  {...describedTip(beforeFloor !== undefined ? `The sources add up to ${fmtEffect(beforeFloor)}. The game stops energy at ${fmtEffect(total)}, so the rest has no effect.` : undefined)}
                   className={`text-right tabular-nums font-medium ${total === 0 ? 'text-gray-400' : total > 0 ? 'text-green-400' : 'text-red-400'}`}
                 >
                   {total === 0 ? '–' : fmtEffect(total)}

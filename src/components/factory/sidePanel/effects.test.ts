@@ -38,6 +38,7 @@ function gameData(): GameData {
     },
     modules: {
       speed: { id: 'speed', name: 'Speed', category: 'speed', tier: 1, effects: { speed: 0.2, consumption: 0.5 }, limitation: [], limitationBlacklist: [], iconPath: '' },
+      eff: { id: 'eff', name: 'Eff', category: 'efficiency', tier: 1, effects: { consumption: -0.5 }, limitation: [], limitationBlacklist: [], iconPath: '' },
       prod: { id: 'prod', name: 'Prod', category: 'productivity', tier: 1, effects: { productivity: 0.1, speed: -0.1 }, limitation: [], limitationBlacklist: [], iconPath: '' },
     },
     beacons: {},
@@ -85,6 +86,19 @@ describe('rowEffects', () => {
     expect(fx.beacons[0].applied.speed).toBeCloseTo(0.8)
     expect(fx.total.speed).toBeCloseTo(fx.machine.applied.speed + fx.beacons[0].applied.speed)
     expect(fx.total.consumption).toBeCloseTo(fx.machine.applied.consumption + fx.beacons[0].applied.consumption)
+  })
+
+  it('stops the energy total at -80 % and keeps the sum it cut', () => {
+    const fx = rowEffects(node({ modules: [{ moduleId: 'eff', count: 3 }] }), [], gameData())
+    expect(fx.machine.applied.consumption).toBeCloseTo(-1.5)
+    expect(fx.total.consumption).toBeCloseTo(-0.8)
+    expect(fx.consumptionBeforeFloor).toBeCloseTo(-1.5)
+  })
+
+  it('reports no cut sum at or above the floor', () => {
+    const fx = rowEffects(node({ modules: [{ moduleId: 'eff', count: 1 }] }), [], gameData())
+    expect(fx.total.consumption).toBeCloseTo(-0.5)
+    expect(fx.consumptionBeforeFloor).toBeUndefined()
   })
 
   it('sums several beacon configurations', () => {
