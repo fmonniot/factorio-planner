@@ -450,7 +450,7 @@ export const LOOP_ROUND_LIMIT = 8
 /** Most demand rounds a cycle of requests is solved before its first round is kept. */
 export const REQUEST_ROUND_LIMIT = 30
 
-/** Most runs of the request pass that settle the credits of takes flushed while blocked (the first included). */
+/** Most runs of the request pass that settle the credits of takes flushed while blocked and of the groups of takes served in list order (the first included). */
 export const CREDIT_PASS_LIMIT = 6
 
 /** Rounds in a row the demand of a cycle of requests may grow before it is called diverging. */
@@ -1210,10 +1210,13 @@ function settleCredits(run: (seeds: ReadonlyMap<string, number>) => RequestPlan,
  * the item, whose source or higher-ranked takes are not credited yet (the request order reached it first), is parked and credited once they
  * are; so is a takes-first take, but a block its consumer requests the item from that has to come before the blocker leaves it no credit (flagged). Takes-first consumers the
  * list does not name are credited after the listed ones. The takes of a `tied` group are credited together, by need, when the first
- * member is reached (`creditGroups`: the other members are probed ahead, the source's leftover is water-filled by weight; readiness
- * edges put the blocks that request of a member before the members), unless the pass cannot know every need in time, or a consumer of
- * the pair is in a cycle of requests, or a member does not take the item first: such a group is credited in list order and granted in
- * list order, and its takes are flagged (`RequestPlan.inListOrder`).
+ * member is reached (`creditGroups`: the other members are probed ahead, the entries' needs are water-filled by weight, each entry of a
+ * connection asking its own part; readiness edges put the blocks that request of a member before the members), unless the pass cannot
+ * know every need in time, or a consumer of the pair is in a cycle of requests, or a member does not take the item first, or a
+ * connection has entries in several places of the list: such a group takes part in the credit passes. The first pass credits it in list
+ * order, a read-only walk at the end of the pass (`settlePairs`) records what each entry would have been credited, and `settleCredits`
+ * runs the pass again seeded with those (a fixed group when the request order is built, a reach-time one at its first member) until they
+ * settle; if they do not, the first pass stands, granted in list order and its takes flagged (`RequestPlan.inListOrder`).
  *
  * Cycles of requests are solved in demand rounds: members in order (consumers first), each probed
  * with its products plus what the other members requested of it, a request that closes the cycle

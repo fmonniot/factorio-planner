@@ -933,7 +933,7 @@ interface ServedConsumer {
   need?: number                 // items/min of the consumer's need still uncovered when the request pass reached this take; only for a take the pass reached
   notCredited?: true            // a ranked take the request pass flushed while it was blocked and the credit passes did not settle (or a split fluid's), a cycle member's take, or takes that wait on each other: `share` is 0 whatever the list says
   parts?: { temp: FluidTag; share: number; got: number }[]  // a split fluid, block lines only: the line's share and got per key, in the order of ConnectionFlow.parts
-  groupInListOrder?: true       // a member of a group of takes the request pass could not share by need (a need, the source or the ranks above not known in time, a member whose group take is not its first of the item, or a consumer of the pair in a cycle of requests): credited and served in list order, not by weights
+  groupInListOrder?: true       // a member of a group of takes whose shares the credit passes could not settle (they did not settle in `CREDIT_PASS_LIMIT` runs, or the source's leftover was not known when the pass ended), or of a split fluid's list the request pass could not allocate at once: credited and served in list order, not by weights
 }
 
 interface ServedExtra {
