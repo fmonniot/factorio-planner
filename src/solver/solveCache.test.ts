@@ -201,20 +201,17 @@ describe('request loop entries', () => {
     needs: new Map([['ct', 8]]), uncredited: new Set(), rounds: 3, converged: true,
   })
 
-  it('keeps two cycle outcomes per member list', () => {
-    expect(LOOP_SLOTS).toBe(2)
+  it('keeps LOOP_SLOTS cycle outcomes per member list, least recently used out first', () => {
+    expect(LOOP_SLOTS).toBeGreaterThanOrEqual(2 * 6) // every credit pass (CREDIT_PASS_LIMIT) and the short pass may key a cycle differently
     const cache = createSolveCache()
     const gd = gameData()
-    const [e1, e2, e3] = [loopSolve(), loopSolve(), loopSolve()]
-    cache.setRequestLoop(['a', 'b'], gd, 'k1', e1)
-    cache.setRequestLoop(['a', 'b'], gd, 'k2', e2)
-    expect(cache.getRequestLoop(['a', 'b'], gd, 'k1')).toBe(e1)
-    expect(cache.getRequestLoop(['a', 'b'], gd, 'k2')).toBe(e2)
-    expect(cache.getRequestLoop(['a', 'b'], gd, 'k1')).toBe(e1) // k2 is now the least recently used
-    cache.setRequestLoop(['a', 'b'], gd, 'k3', e3)
-    expect(cache.getRequestLoop(['a', 'b'], gd, 'k2')).toBeUndefined()
-    expect(cache.getRequestLoop(['a', 'b'], gd, 'k1')).toBe(e1)
-    expect(cache.getRequestLoop(['a', 'b'], gd, 'k3')).toBe(e3)
+    const entries = Array.from({ length: LOOP_SLOTS + 1 }, () => loopSolve())
+    for (let i = 0; i < LOOP_SLOTS; i++) cache.setRequestLoop(['a', 'b'], gd, `k${i}`, entries[i])
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k0')).toBe(entries[0]) // k1 is now the least recently used
+    cache.setRequestLoop(['a', 'b'], gd, 'kn', entries[LOOP_SLOTS])
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k1')).toBeUndefined()
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k0')).toBe(entries[0])
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'kn')).toBe(entries[LOOP_SLOTS])
   })
 
   it('round-trips an entry for the same members, key and game data', () => {

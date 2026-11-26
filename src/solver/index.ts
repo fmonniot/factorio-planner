@@ -450,6 +450,9 @@ export const LOOP_ROUND_LIMIT = 8
 /** Most demand rounds a cycle of requests is solved before its first round is kept. */
 export const REQUEST_ROUND_LIMIT = 30
 
+/** Most runs of the request pass that settle the credits of takes flushed while blocked (the first included). */
+export const CREDIT_PASS_LIMIT = 6
+
 /** Rounds in a row the demand of a cycle of requests may grow before it is called diverging. */
 const REQUEST_GROWTH_ROUNDS = 3
 
@@ -458,6 +461,8 @@ export interface SolveAllOptions {
   loopRoundLimit?: number
   /** Overrides `REQUEST_ROUND_LIMIT` (at least 1). */
   requestRoundLimit?: number
+  /** Overrides `CREDIT_PASS_LIMIT` (at least 1). */
+  creditPassLimit?: number
 }
 
 /** flow key (the item id for a plain item) → items/min; one block's offer, or what is still unclaimed of it. */
@@ -893,8 +898,10 @@ interface RequestPlan {
   loops: BlockLoop[]
   /** take connection id → items/min of its consumer's need still uncovered when the take was reached (only takes the pass reached). */
   needs: Map<string, number>
-  /** take connection ids the request pass reached before it could credit them (see `ServedConsumer.notCredited`). */
+  /** take connection ids the request pass reached before it could credit them and the credit passes did not settle (see `ServedConsumer.notCredited`). */
   uncredited: Set<string>
+  /** take connection id -> a plain item's take flushed while blocked whose blockers were done by the end (see `FlushedCredit`); the credit passes settle these. */
+  flushed: Map<string, FlushedCredit>
   /** take connection ids of the groups of takes the pass served in list order, not by need (see `ServedConsumer.groupInListOrder`). */
   inListOrder: Set<string>
   /** block id → item id → the block's areas that need the item from outside (its request probe, table order); only for probed blocks with areas. */
@@ -1113,6 +1120,55 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
   return left
 }
 
+/** A take of a plain item flushed while blocked: what the pass credited it, and what it would have been credited had it waited. */
+export interface FlushedCredit { credit: number; settled: number }
+
+/** Whether every flushed take was credited what it would have been credited had it waited. */
+export function creditsSettled(flushed: ReadonlyMap<string, FlushedCredit>): boolean {
+  for (const f of flushed.values()) if (!sameRate(f.credit, f.settled)) return false
+  return true
+}
+
+/**
+ * The credit each take of `ids` is seeded with in the next pass, from its credits and settled credits in the earlier passes (`history`, oldest first).
+ * The first seed is the settled credit; after that a secant step on the residual `settled - credit` (the plain step when the residuals or the credits
+ * of the last two passes are equal, or the step is not finite), never below 0.
+ */
+export function nextCreditSeeds(history: ReadonlyMap<string, readonly FlushedCredit[]>, ids: Iterable<string>): Map<string, number> {
+  const seeds = new Map<string, number>()
+  for (const id of ids) {
+    const h = history.get(id) ?? []
+    const last = h[h.length - 1]
+    if (!last) continue
+    let seed = last.settled
+    const prev = h[h.length - 2]
+    if (prev) {
+      const fl = last.settled - last.credit
+      const fp = prev.settled - prev.credit
+      if (fl !== fp && last.credit !== prev.credit) {
+        const step = last.credit - fl * (last.credit - prev.credit) / (fl - fp)
+        if (Number.isFinite(step)) seed = step
+      }
+    }
+    seeds.set(id, Math.max(0, seed))
+  }
+  return seeds
+}
+
+/** Run the request pass again, seeding the takes it flushed while blocked, until their credits equal what they would have had; the first pass if that does not happen in `limit` runs. */
+function settleCredits(run: (seeds: ReadonlyMap<string, number>) => RequestPlan, limit: number): RequestPlan {
+  const first = run(new Map())
+  let plan = first
+  const history = new Map<string, FlushedCredit[]>()
+  for (let pass = 1; !creditsSettled(plan.flushed); pass++) {
+    if (pass >= limit) return first
+    for (const id of [...history.keys()]) if (!plan.flushed.has(id)) history.delete(id) // a take the pass did not flush breaks its run of consecutive passes
+    for (const [id, f] of plan.flushed) history.set(id, [...(history.get(id) ?? []), f])
+    plan = run(nextCreditSeeds(history, plan.flushed.keys()))
+  }
+  return plan
+}
+
 /**
  * How much each source must make for its requesting consumers. A consumer's need
  * for an item does not depend on what it receives (solving it with unlimited
@@ -1130,7 +1186,9 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
  * the consumer's takes of the item from there on are parked with the need still left, and credited once the source and the takes above
  * them are done. A takes-first consumer's requests of the item wait with them (they are shared out when the slice resumes), so the blocks it
  * requests the item from are ordered after the blockers (wait edges) and a parked slice is flushed (`flushFor`: credited with what it has) before
- * the goals of a block it requests from are read.
+ * the goals of a block it requests from are read. A plain item's take flushed while blocked is credited its seed (`seeds`: 0 in the first
+ * pass) and its settled credit is recorded (`RequestPlan.flushed`, `settleShadows`); `settleCredits` runs the pass again with the settled
+ * credits as seeds until they agree.
  *
  * A pair the source's served list ranks (`ranked`; see `rankedPairs`) is credited by rank: a listed
  * take is credited what is left of the source's estimate after the extra (when listed above it) and
@@ -1170,6 +1228,7 @@ function computeRequests(
   ranked: RankedPairs,
   ranges: ReadonlyMap<string, FluidRange[]>,
   short: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map(),
+  seeds: ReadonlyMap<string, number> = new Map(),
 ): RequestPlan {
   const split = splitFluids(gameData)
   const probes = new Map<string, Map<string, number>>()
@@ -1201,7 +1260,7 @@ function computeRequests(
       else applicable.push({ consumer, connection: c })
     }
   }
-  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), inListOrder: new Set(), areaNeeds: new Map(), creditParts, splitAlloc, probes }
+  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), flushed: new Map(), inListOrder: new Set(), areaNeeds: new Map(), creditParts, splitAlloc, probes }
 
   const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
   for (const { consumer, connection } of applicable) {
@@ -1664,6 +1723,9 @@ function computeRequests(
   interface Held { sourceId: string; itemId: string; amount: number }
   interface DeferredTake { blockId: string; itemId: string; takes: BlockConnection[]; needed: Map<string, number>; held: Held[]; requests?: BlockConnection[] }
   const deferred: DeferredTake[] = []
+  // Takes of a plain item flushed while blocked (`flushRest`): credited their seed now, settled when their blockers are done (`settleShadows`).
+  const shadows: { take: BlockConnection; itemId: string }[] = []
+  const flushed = new Map<string, FlushedCredit>()
   const deferredTakes = new Set<string>()
   const deferFor = (blockId: string) => (itemId: string, takes: BlockConnection[], needed: ReadonlyMap<string, number>): boolean => {
     // Takes first: the take feeds the consumer's requests of the item, which wait with it.
@@ -1829,10 +1891,39 @@ function computeRequests(
       offers?.set(h.itemId, (offers.get(h.itemId) ?? 0) + h.amount)
     }
   }
+  // What a take flushed while blocked would have been credited had it waited: read once its blockers are done, capped by its limit and the need left.
+  // An unranked take's seed is reserved at its source from then on. A shadow still blocked at the very end is not settled: with a seed it is recorded with settled 0 (end of `computeRequests`), so the passes do not settle on it.
+  const settleShadows = (): void => {
+    for (let i = 0; i < shadows.length;) {
+      const { take: t, itemId } = shadows[i]
+      let rest: number
+      if (rankedTake.has(t.id)) {
+        const r = restOf(t, itemId, estimates, outerCreditOf)
+        if (r == null) {
+          i++
+          continue
+        }
+        rest = r
+      } else {
+        if (!processed.has(t.fromBlockId)) {
+          i++
+          continue
+        }
+        const offers = estimates.get(t.fromBlockId)
+        rest = offers?.get(itemId) ?? 0
+        const seed = credits.get(t.id) ?? 0
+        if (seed > 0 && offers?.has(itemId)) offers.set(itemId, Math.max(0, rest - seed))
+      }
+      flushed.set(t.id, { credit: credits.get(t.id) ?? 0, settled: Math.min(rest, t.maxRate ?? Infinity, needs.get(t.id) ?? 0) })
+      shadows.splice(i, 1)
+    }
+  }
   const resolveDeferred = (last = false): void => {
+    settleShadows() // a flushed take above the parked slices reserves its seed before they draw from the same source
     for (let progress = true; progress && deferred.length > 0;) {
       progress = false
       for (const d of deferred.splice(0)) {
+        settleShadows()
         unpark(d)
         const needed = new Map(d.needed)
         if (last) { // nothing else will come: credit the take, or flag it, now
@@ -1847,9 +1938,16 @@ function computeRequests(
         if (!again || again.takes.length < d.takes.length) progress = true
       }
     }
+    settleShadows()
   }
   // Finish the takes-first slices whose requests ask a block of `ids`, before that block's goals are read: they are credited with what they
   // have now (a take still blocked gets 0, a ranked one is flagged) and the consumer's requests are shared out, in the order they were parked.
+  const flushRest = (t: BlockConnection, itemId: string): number | null | undefined => {
+    const r = rankedRest(t, itemId)
+    if (r !== null) return r
+    shadows.push({ take: t, itemId })
+    return seeds.get(t.id) ?? 0
+  }
   const flushFor = (ids: ReadonlySet<string>): void => {
     for (let i = 0; i < deferred.length;) {
       const d = deferred[i]
@@ -1860,7 +1958,7 @@ function computeRequests(
       deferred.splice(i, 1)
       unpark(d)
       const needed = new Map(d.needed)
-      applyTakeCredits(new Map([[d.itemId, d.takes]]), needed, estimates, credits, rankedRest, needs, splitCredit)
+      applyTakeCredits(new Map([[d.itemId, d.takes]]), needed, estimates, credits, flushRest, needs, splitCredit)
       shareRequests(d.requests, needed)
     }
   }
@@ -2352,7 +2450,12 @@ function computeRequests(
   for (const g of takeGroups) if (g.status === 'pending') toListOrder(g) // unreachable: a group of a pair a cycle reads is served in list order from the start
   resolveDeferred()
   resolveDeferred(true) // takes that wait on each other: credited in the order they were parked, or flagged
-  return { goals, info, credits, loops, needs, uncredited, inListOrder, areaNeeds, creditParts, splitAlloc, probes }
+  for (const { take: t } of shadows) { // still blocked at the end: a seeded credit stays unchecked, so the passes must not settle on it
+    const credit = credits.get(t.id) ?? 0
+    if (credit > 0) flushed.set(t.id, { credit, settled: 0 })
+  }
+  for (const [id, f] of flushed) if (sameRate(f.credit, f.settled)) uncredited.delete(id)
+  return { goals, info, credits, loops, needs, uncredited, flushed, inListOrder, areaNeeds, creditParts, splitAlloc, probes }
 }
 
 function solvePass(
@@ -2367,7 +2470,8 @@ function solvePass(
   const ranked = rankedPairs(blocks)
   const split = splitFluids(gameData)
   const ranges = fluidRanges(blocks, gameData)
-  const requestPlan = computeRequests(blocks, gameData, selfConnectionIds, cache, requestRoundLimit, ranked, ranges, short)
+  const creditPassLimit = Math.max(1, options.creditPassLimit ?? CREDIT_PASS_LIMIT)
+  const requestPlan = settleCredits(seeds => computeRequests(blocks, gameData, selfConnectionIds, cache, requestRoundLimit, ranked, ranges, short, seeds), creditPassLimit)
   const solvePos = new Map(order.map((b, i) => [b.id, i]))
   const grants = new Map<string, number>()               // connection id → what a ranked source's list grants it
   const keyGrants = new Map<string, Map<string, number>>() // split fluid: connection id → key → what a ranked source's list grants it

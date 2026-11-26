@@ -782,3 +782,25 @@ describe('a coolant loop with Leftover off on the real Seablock data', () => {
     expect(at(125)).toBeCloseTo(965.5, 0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Credit passes
+// ---------------------------------------------------------------------------
+
+describe('credit passes on the bundled plans', () => {
+  const fixtures = resolve(import.meta.dirname, '../../e2e/fixtures')
+  const planFiles = () => readdirSync(fixtures).filter(f => f.endsWith('.json') && 'blocks' in JSON.parse(readFileSync(resolve(fixtures, f), 'utf-8')))
+
+  // A plan with no take flushed while blocked runs one pass, so the bundled plans must not change with the passes off.
+  it('every e2e fixture solves the same with one credit pass', () => {
+    for (const file of planFiles()) {
+      const blocks = parseAppState(JSON.parse(readFileSync(resolve(fixtures, file), 'utf-8'))).blocks
+      const data = file.includes('seablock') ? seablock : gameData
+      const passes = solveAll(blocks, data)
+      const one = solveAll(blocks, data, undefined, { creditPassLimit: 1 })
+      expect(passes.flows, file).toEqual(one.flows)
+      expect(passes.served, file).toEqual(one.served)
+      expect(passes.results, file).toEqual(one.results)
+    }
+  }, 60000)
+})
