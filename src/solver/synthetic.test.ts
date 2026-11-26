@@ -2166,21 +2166,29 @@ describe('solver synthetic cases', () => {
       }
     })
 
-    it('i: a member that takes the item from another source first is served in list order (F2)', () => {
-      // A makes 8 X as a byproduct and H1 takes it before T's. List {H1, H2} on T's 30. Hand values: H1 takes 8 of A and needs 12 of T's, so the group
-      // (served in list order) credits H1 min(30, 12) = 12 and H2 the 18 left (needs 25, imports 7); both lines carry the flag.
-      // Shared by need instead, H1 would ask 20 and H2 would get 15.
-      const A = mk('A', [['case11-goal', 8]], [planNode('case11-make-goal')])
-      const H1 = mk('H1', [['case11-other', 20]], [planNode('case11-use-x')], [{ id: 'c-H1A', itemId: X, fromBlockId: 'A' }, { id: 'c-H1', itemId: X, fromBlockId: 'T' }])
-      const all = solveAll([T([ent('H1'), tied('H2')]), A, H1, H('H2', 25)], makeGameData())
-      expect(flowIn(all, 'c-H1A').rate, 'c-H1A').toBeCloseTo(8, 6)
-      expect(flowIn(all, 'c-H1').rate, 'c-H1').toBeCloseTo(12, 6)
-      expectFlow(all, 'H2', [18, 'limited', 7])
-      expect(unsatisfiedRate(all.results.H1, X) ?? 0, 'H1 imports').toBeCloseTo(0, 6)
-      for (const c of linesOf(all)) {
-        expect(c.groupInListOrder, `${c.blockId} flag`).toBe(true)
-        expect(c).not.toHaveProperty('notCredited')
-      }
+    describe('i: a member that takes the item from another source first (F2)', () => {
+      // A makes 8 X as a byproduct and H1 takes it before T's. H1 needs 12 of T's 30. The first pass serves the group in list order; the credit
+      // passes credit it by need: the settle walk reads waterFill(30, [12, H2's need]) from the needs the pass recorded.
+      const A = (): Block => mk('A', [['case11-goal', 8]], [planNode('case11-make-goal')])
+      const H1 = (): Block => mk('H1', [['case11-other', 20]], [planNode('case11-use-x')], [{ id: 'c-H1A', itemId: X, fromBlockId: 'A' }, { id: 'c-H1', itemId: X, fromBlockId: 'T' }])
+      it('i: list {H1, H2}: waterFill(30, [12, 25]) = 12, 18', () => {
+        const all = solveAll([T([ent('H1'), tied('H2')]), A(), H1(), H('H2', 25)], makeGameData())
+        expect(flowIn(all, 'c-H1A').rate, 'c-H1A').toBeCloseTo(8, 6)
+        expect(flowIn(all, 'c-H1').rate, 'c-H1').toBeCloseTo(12, 6)
+        expectFlow(all, 'H2', [18, 'limited', 7])
+        expect(unsatisfiedRate(all.results.H1, X) ?? 0, 'H1 imports').toBeCloseTo(0, 6)
+        noFlags(all)
+      })
+      it('i2: list {H2, H1}: waterFill(30, [25, 12]) = 18, 12', () => {
+        // The first pass credits H2 25 and H1 5 (list order); the settle walk reads 18 and 12.
+        const all = solveAll([T([ent('H2'), tied('H1')]), A(), H1(), H('H2', 25)], makeGameData())
+        expect(flowIn(all, 'c-H1A').rate, 'c-H1A').toBeCloseTo(8, 6)
+        expect(flowIn(all, 'c-H1').rate, 'c-H1').toBeCloseTo(12, 6)
+        expect(unsatisfiedRate(all.results.H1, X) ?? 0, 'H1 imports').toBeCloseTo(0, 6)
+        expectFlow(all, 'H2', [18, 'limited', 7])
+        expect(linesOf(all).map(c => c.blockId)).toEqual(['H2', 'H1'])
+        noFlags(all)
+      })
     })
 
     describe('j: a take ranked below a group shared by need', () => {

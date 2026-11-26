@@ -882,7 +882,7 @@ With the list K1/A2, K1/A1, K2 on T, the grants read the cycle memo's needs: T l
 
 ## Case 20 — Groups of takes
 
-**Exercises:** a `tied` group of takes on a ranked pair is credited by need, not in list order: the water-fill on the members' needs (`min(need, maxRate)`, by weight, a covered member's spare going round again), a block with areas credited entry by entry, each entry asking its area's need at its own weight (a7, a9, a10), a readiness edge that lets the group share, a member that takes first and requests the rest from another source, a group the first pass serves in list order that the credit passes then credit by need (c1, c1b, c6, 29f), and the fallback to list order (flagged `groupInListOrder`) when the passes do not settle (c7), when a consumer of the pair is in a cycle of requests, when a member does not take the item first, or when a member has an entry below the group; a list with no `tied` staying as it was; a group of takes in a loop of blocks; a warm solve; and the cycle memo reading the lists' flags, weights and areas.
+**Exercises:** a `tied` group of takes on a ranked pair is credited by need, not in list order: the water-fill on the members' needs (`min(need, maxRate)`, by weight, a covered member's spare going round again), a block with areas credited entry by entry, each entry asking its area's need at its own weight (a7, a9, a10), a readiness edge that lets the group share, a member that takes first and requests the rest from another source, a group the first pass serves in list order that the credit passes then credit by need (c1, c1b, c6, i, i2, 29f), and the fallback to list order (flagged `groupInListOrder`) when the passes do not settle (c7), when a consumer of the pair is in a cycle of requests, or when a member has an entry below the group; a list with no `tied` staying as it was; a group of takes in a loop of blocks; a warm solve; and the cycle memo reading the lists' flags, weights and areas.
 
 **Recipes:** case 11's (`case11-make-goal`, `case11-use-x`, `case11-make-x`), case 13's for a8 and c, case 16's for e, case 17's for c2 and c3.
 
@@ -981,7 +981,9 @@ a7's fixture, list `[J, H3/L tied, H3/B]` (B is not in the group), tabs T, J, H3
 
 ### i — a member that does not take the item first
 
-T's list `{H1, H2}`; **A** makes 8 `case11-goal` and so 8 X (a byproduct); H1 (20) takes X from A (`c-H1A`) before T (`c-H1`); H2 = H(H2, 25). `c-H1A` 8, `c-H1` `min(30, 20 - 8) = 12`, H2 the 18 left (`limited`, imp 7); both lines `groupInListOrder`. (Shared by need, H1 would ask T for 20 and H2 would get 15.)
+T's list `{H1, H2}`; **A** makes 8 `case11-goal` and so 8 X (a byproduct); H1 (20) takes X from A (`c-H1A`) before T (`c-H1`); H2 = H(H2, 25). H1's group take is not its first take of X, so its need depends on the credits of its other sources: the first pass serves the group in list order (H1 `min(30, 20 - 8) = 12`, H2 the 18 left). The settle walk reads the needs the pass recorded (12 and 25) and gives `waterFill(30, [12, 25])` = 12, 18, which the second pass is seeded with at build time (the request order is the first pass's): `c-H1A` 8, `c-H1` 12, H2 18 (`limited`, imp 7), H1 imports 0, no flag. (Shared by need on H1's whole need of 20, H1 would ask T for 20 and H2 would get 15.)
+
+**i2 — the list `{H2, H1}`.** The first pass credits H2 25 and H1 5 (H1 then takes 8 of A and 5 of T and imports 7). The walk reads `waterFill(30, [25, 12])` = 18, 12; the second pass: `c-H1A` 8, `c-H1` 12 (H1 imports 0), H2 18 `limited` (imp 7); lines H2 (18) then H1 (12), no flag.
 
 ### j — a take ranked below a group shared by need
 

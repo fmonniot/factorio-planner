@@ -1361,6 +1361,8 @@ function computeRequests(
     status: 'pending' | 'shared' | 'listOrder'
     /** The pass has to know every need to share the group: when it cannot at the first member it serves the group in list order, or from its seeds, and the settle walk records what the entries would have had. */
     participant: boolean
+    /** A group the static checks send to list order but that the credit passes can credit by need: its first pass is in list order, the next ones seeded when the request order is built. */
+    fixed: boolean
     /** The group is `pending` when the request order is built: the readiness and wait edges follow it, whatever the pass later does with it. */
     orderEdges: boolean
     credit?: Map<string, number> // shared: connection id → credit
@@ -1395,7 +1397,7 @@ function computeRequests(
           } else byConnection.set(e.connection.id, { connection: e.connection, blockId: e.blockId, weight: e.weight ?? 1, entries: [i] })
         }
         if (byConnection.size === 0) continue // a group of requests: the request pass reads no weights
-        const group: TakeGroup = { pair, start, end, members: [...byConnection.values()], ...(extra ? { extra } : {}), status: 'pending', participant: false, orderEdges: true }
+        const group: TakeGroup = { pair, start, end, members: [...byConnection.values()], ...(extra ? { extra } : {}), status: 'pending', participant: false, fixed: false, orderEdges: true }
         takeGroups.push(group)
         const byStart = sharedAt.get(pair) ?? new Map<number, TakeGroup>()
         byStart.set(start, group)
@@ -1589,13 +1591,24 @@ function computeRequests(
       // group would credit it for the areas ranked below it too.
       const below = (m: TakeGroup['members'][number]): boolean =>
         g.pair.listed.some((e, i) => e.kind === 'block' && e.connection.id === m.connection.id && (i < g.start || i >= g.end))
-      if (
-        consumers.some(id => inCycle.has(id)) ||
-        g.members.some(m => takesOf(m.blockId)?.get(g.pair.itemId)?.[0]?.id !== m.connection.id || below(m))
-      ) {
+      const notFirst = g.members.some(m => takesOf(m.blockId)?.get(g.pair.itemId)?.[0]?.id !== m.connection.id)
+      if (consumers.some(id => inCycle.has(id)) || g.members.some(below)) {
         toListOrder(g)
         g.orderEdges = false
+      } else if (notFirst) {
+        // F2 is fixed: list order in the first pass, credited from the entries' seeds in the next ones (below).
+        g.fixed = g.participant = true
+        g.orderEdges = false
       } else for (const m of g.members) groupsOfBlock.set(m.blockId, [...(groupsOfBlock.get(m.blockId) ?? []), g])
+    }
+    // A pair's fixed groups are seeded together, when the earlier pass settled every entry of them; else all of them are served in list order.
+    for (const items of ranked.values()) {
+      for (const pair of items.values()) {
+        const fixed = takeGroups.filter(g => g.pair === pair && g.fixed)
+        if (fixed.length === 0) continue
+        if (fixed.every(g => groupOrder(g).every(o => seeds.has(entryId(pair, o.index))))) for (const g of fixed) seedGroup(g)
+        else for (const g of fixed) toListOrder(g)
+      }
     }
     // The same three conditions for a split fluid's list: with any of them its takes are credited in list order.
     for (const sp of splitPairs.values()) {
