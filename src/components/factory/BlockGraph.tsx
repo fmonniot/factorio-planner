@@ -589,7 +589,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
             <span data-testid="graph-legend-loop" className="flex items-center gap-1" data-tip="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
           </div>
         )}
-        {view !== 'power' && (loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
+        {view === 'graph' && (loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
         {power && <PowerFigures model={power} />}
         <button type="button" onClick={onClose} className={`${btn} ${view !== 'power' ? 'ml-auto' : ''}`}>Close</button>
       </div>
