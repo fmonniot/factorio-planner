@@ -105,6 +105,14 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
+ * Beacon-energy patch mode: write `energyUsageKw` and `drainKw` (the prototype's `energy_usage` and explicit
+ * `energy_source.drain`) on the bundle's electric beacons (same mod-set check); void beacons carry neither. Nothing
+ * else is touched. Safe to re-run. Exits without writing when more than 1 % of the beacons (a single one when there
+ * are fewer than 100) are missing from the dump:
+ *   node scripts/build-game-data.js --patch-beacon-energy \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
@@ -124,6 +132,7 @@ import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachP
 import { additionalCategories, recipeMadeIn, attachAdditionalCategories } from './recipe-categories.js'
 import { itemFuel, fluidFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
 import { moduleCategoriesField, attachModuleCategories, patchedBundle } from './module-categories.js'
+import { beaconEnergyField, attachBeaconEnergy, patchedBundle as patchedBeaconEnergyBundle } from './beacon-energy.js'
 import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
@@ -170,6 +179,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--patch-fuel') args.patchFuel = true
     else if (argv[i] === '--patch-additional-categories') args.patchAdditionalCategories = true
     else if (argv[i] === '--patch-module-categories') args.patchModuleCategories = true
+    else if (argv[i] === '--patch-beacon-energy') args.patchBeaconEnergy = true
     else if (argv[i] === '--patch-category-names') args.patchCategoryNames = true
   }
   return args
@@ -701,6 +711,7 @@ async function exportBeacons(raw, locale, resolveIcon) {
       distributionEfficiency: proto.distribution_effectivity ?? 0,
       allowedEffects,
       ...moduleCategoriesField(proto, proto.module_slots ?? 0),
+      ...beaconEnergyField(proto),
     }
   }
 
@@ -1134,6 +1145,28 @@ if (args.patchModuleCategories) {
   writeFileSync(outputPath, JSON.stringify(patchedBundle(existing, attached), null, 2))
   process.stderr.write(
     `[build-game-data] Patched ${outputPath}: machines=${attached.counts.machines} beacons=${attached.counts.beacons} ` +
+    `missing=${attached.missing.length}\n`
+  )
+  process.exit(0)
+}
+
+if (args.patchBeaconEnergy) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  if (existing.beacons === undefined) {
+    process.stderr.write(`[build-game-data] ${outputPath} has no beacons; nothing to patch.\n`)
+    process.exit(0)
+  }
+  // With fewer than 100 beacons, 1 % rounds to zero, so a single missing beacon aborts.
+  const attached = attachBeaconEnergy(existing.beacons, raw)
+  for (const id of attached.missing) process.stderr.write(`[warn] beacon ${id} is missing from the dump\n`)
+  if (attached.missing.length > attached.total * 0.01) {
+    process.stderr.write(`[build-game-data] ${attached.missing.length}/${attached.total} bundle beacons are missing from the dump; wrong dump? Nothing written.\n`)
+    process.exit(1)
+  }
+  writeFileSync(outputPath, JSON.stringify(patchedBeaconEnergyBundle(existing, attached), null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched ${outputPath}: electric=${attached.counts.electric} void=${attached.counts.void} ` +
     `missing=${attached.missing.length}\n`
   )
   process.exit(0)

@@ -41,7 +41,7 @@ function scenario(areas = true): SubPlan {
 function solvedNode(id: string, extra: Partial<SolvedNode> = {}): SolvedNode {
   return {
     recipeNodeId: id, inputRates: {}, outputRates: {}, throughput: 0,
-    machineCountExact: 0, machineCountCeil: 0, powerKw: 0, ...extra,
+    machineCountExact: 0, machineCountCeil: 0, powerKw: 0, beaconPowerKw: 0, ...extra,
   }
 }
 

@@ -27,7 +27,7 @@ const mockGameData: GameData = {
 const minerResult = (): SolverResult => ({
   nodes: [{
     recipeNodeId: 'm', inputRates: {}, outputRates: { 'iron-ore': 200 },
-    throughput: 200, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+    throughput: 200, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
   }],
   unsatisfied: [],
   warnings: [],

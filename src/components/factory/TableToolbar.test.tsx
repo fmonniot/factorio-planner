@@ -14,6 +14,7 @@ function solved(id: string, machines: number, powerKw: number): SolvedNode {
     machineCountExact: machines,
     machineCountCeil: machines,
     powerKw,
+    beaconPowerKw: 0,
   }
 }
 

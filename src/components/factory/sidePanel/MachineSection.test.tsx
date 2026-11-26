@@ -29,7 +29,7 @@ function SectionHarness({ nodeId = 'n1', recipeId = 'plate', machineId, machineC
     ...(neighbourCount !== undefined && { neighbourCount }),
     ...(fuelItemId !== undefined && { fuelItemId }),
   }
-  const solved = { recipeNodeId: nodeId, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: machineCountCeil, machineCountCeil, powerKw: 0 }
+  const solved = { recipeNodeId: nodeId, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: machineCountCeil, machineCountCeil, powerKw: 0, beaconPowerKw: 0 }
   return <MachineSection node={node} solved={solved} gameData={gameData} />
 }
 
@@ -444,7 +444,7 @@ describe('MachineSection — module counts and slots', () => {
     render(
       <MachineSection
         node={node}
-        solved={{ recipeNodeId: 'n1', inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 2.37, machineCountCeil: 3, powerKw: 0 }}
+        solved={{ recipeNodeId: 'n1', inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 2.37, machineCountCeil: 3, powerKw: 0, beaconPowerKw: 0 }}
         gameData={makeGameData()}
       />,
     )

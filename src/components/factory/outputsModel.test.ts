@@ -179,7 +179,7 @@ describe('itemConsumers, itemReceivers and itemLeftover', () => {
   const row = (id: string, recipeId: string, over: Partial<GameRecipeNode> = {}): GameRecipeNode =>
     ({ kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {}, ...over })
   const solvedNode = (id: string, inputs: Record<string, number>, outputs: Record<string, number>): SolvedNode =>
-    ({ recipeNodeId: id, inputRates: inputs, outputRates: outputs, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0 })
+    ({ recipeNodeId: id, inputRates: inputs, outputRates: outputs, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0 })
   const result = (nodes: SolvedNode[]): SolverResult => ({ nodes, unsatisfied: [], warnings: [] })
   const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
     connectionId: 'c1', fromBlockId: 'b1', toBlockId: 'b2', itemId: 'x', available: 40, capped: false, rate: 10, status: 'ok', kind: 'take', ...over,

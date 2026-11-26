@@ -140,7 +140,8 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
     const mods = b.modules.length > 0
       ? b.modules.map(m => `${m.count} × ${gameData.modules[m.moduleId]?.name ?? m.moduleId}`).join(' + ')
       : 'no module'
-    return `${b.beaconCount} × ${name}, ${mods}`
+    const shared = (b.machinesPerBeacon ?? 1) > 1 ? `, shared by ${b.machinesPerBeacon} machines` : ''
+    return `${b.beaconCount} × ${name}, ${mods}${shared}`
   }
   const chipTitle = beacons.map(describe).join('; ')
   const editTitle = beyondHorizon ? 'Edit beacon (beyond research horizon)' : 'Edit beacon'

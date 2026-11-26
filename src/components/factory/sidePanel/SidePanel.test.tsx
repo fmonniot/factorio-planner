@@ -48,7 +48,7 @@ const sub = (id: string, name: string, nodes: SubPlan['nodes'], extra: Partial<S
   ({ id, name, nodes, subPlans: [], createdAt: '', updatedAt: '', ...extra }) as SubPlan
 
 const solvedRow = (id: string, machines: number, powerKw: number, inputs: Record<string, number> = {}) => ({
-  recipeNodeId: id, inputRates: inputs, outputRates: {}, throughput: 1, machineCountExact: machines, machineCountCeil: machines, powerKw,
+  recipeNodeId: id, inputRates: inputs, outputRates: {}, throughput: 1, machineCountExact: machines, machineCountCeil: machines, powerKw, beaconPowerKw: 0,
 })
 
 let block: Block

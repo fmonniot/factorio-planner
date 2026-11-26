@@ -47,7 +47,7 @@ const electrolysis = (over: Partial<GameRecipeNode> = {}): GameRecipeNode =>
 
 const solved = (over: Partial<SolvedNode> = {}): SolvedNode => ({
   recipeNodeId: 'n1', inputRates: { water: 100 }, outputRates: { hydrogen: 60, oxygen: 30 },
-  throughput: 10, machineCountExact: 1, machineCountCeil: 1, powerKw: 50, ...over,
+  throughput: 10, machineCountExact: 1, machineCountCeil: 1, powerKw: 50, beaconPowerKw: 0, ...over,
 })
 
 function setRow(node: GameRecipeNode) {

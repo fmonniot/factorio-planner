@@ -972,8 +972,15 @@ export function RecipeRow({
       <td className="px-2 py-0.5 text-right whitespace-nowrap">
         {powerKw > 0 && (() => {
           const power = fmtPower(powerKw)
+          // The solver's own split: the machine part is what is left of the row's power.
+          const beaconKw = solvedNode?.beaconPowerKw ?? 0
+          const machineKw = Math.max(0, powerKw - beaconKw)
+          const text = (kw: number) => { const f = fmtPower(kw); return `${f.value}${f.unit}` }
+          const split = beaconKw > 0
+            ? (machineKw > 0 ? `Machines ${text(machineKw)} · Beacons ${text(beaconKw)}` : `Beacons ${text(beaconKw)}`)
+            : undefined
           return (
-            <span data-testid="row-power" className="font-mono tabular-nums text-[11px] text-cyan-300">
+            <span data-testid="row-power" {...describedTip(split)} className="font-mono tabular-nums text-[11px] text-cyan-300">
               {power.value}<span className="opacity-60">{power.unit}</span>
             </span>
           )

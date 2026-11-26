@@ -371,7 +371,7 @@ describe('ProductionTable — reveal a row', () => {
 
   const solvedNode = (id: string, ceil: number) => ({
     recipeNodeId: id, inputRates: { 'iron-ore': 60 }, outputRates: { 'iron-plate': 60 },
-    throughput: 1, machineCountExact: ceil - 0.5, machineCountCeil: ceil, powerKw: 0,
+    throughput: 1, machineCountExact: ceil - 0.5, machineCountCeil: ceil, powerKw: 0, beaconPowerKw: 0,
   })
 
   /** Block `id` with a root row `node-1` and an area "Plastics" (handle `h-p`) holding `p-1`, the same recipe. */

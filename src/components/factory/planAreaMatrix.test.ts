@@ -19,7 +19,7 @@ function block(id: string, name: string, subPlans: SubPlan[] = []): Block {
   return { ...makeEmptyBlock(name), id, color: '#abcdef', rootPlan: plan(`${id}-root`, subPlans) }
 }
 function node(out: Record<string, number>, inp: Record<string, number> = {}): SolvedNode {
-  return { recipeNodeId: 'n', inputRates: inp, outputRates: out, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0 }
+  return { recipeNodeId: 'n', inputRates: inp, outputRates: out, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0 }
 }
 const f = (itemId: string, rate: number) => ({ itemId, rate, boundary: true })
 function flow(over: Partial<ConnectionFlow>): ConnectionFlow {
