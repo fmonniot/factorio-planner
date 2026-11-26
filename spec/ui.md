@@ -65,8 +65,8 @@ The side panel appears to the right of the table only while a row is selected. T
 ## TopBar
 
 `TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block list button and the block tabs (a scrolling strip; see [Block tabs](#block-tabs)). On the right
-are, in order, the icon-only tool buttons (**Add block**, a 32px `+` with the same gray-300 icon, tooltip and spacing as the others, disabled until game data is loaded; the [horizon](#research-horizon)
-flag, the [factory overview](#block-graph) (the block graph, the matrix, the power view and the areas, all in one modal) and the [tech tree](#technology-tree)), a divider
+are, in order, the icon-only tool buttons (**Add block**, a 32px `+` with the same gray-300 icon, tooltip and spacing as the others, disabled until game data is loaded; the [factory overview](#block-graph) (the block graph, the matrix, the power view and the areas, all in one modal), the [horizon](#research-horizon)
+flag and the [tech tree](#technology-tree), the last two side by side as both are about research), a divider
 (shown only
 when game data is loaded, like the tools) and the [workspace menu](#workspace-menu), which also carries the
 [in-game viewer](#in-game-viewer) connection. The root
