@@ -1,10 +1,12 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { GameData, Machine } from '../../../data/types'
 import { useBlockStore } from '../../../store/blockStore'
 import { useHorizon } from '../../../store/horizon'
 import { withinHorizon } from '../../../data/horizon'
 import { acceptedFuels, defaultFuel, hasFuelData, resolveRowFuel } from '../../../data/fuel'
 import { Icon } from '../../Icon'
+import { slotsOf } from '../../gridNav'
+import { entryItem, giveFocusBack, moveListFocus } from '../../listNav'
 import { BeyondTag, Chevron } from './PanelParts'
 import { fmtFuelValue } from './fuelFormat'
 import { useDismiss } from './useDismiss'
@@ -20,7 +22,18 @@ export function FuelPicker({ nodeId, machine, fuelItemId, gameData }: {
   const horizon = useHorizon(gameData)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   useDismiss(ref, open, () => setOpen(false))
+
+  // The list opens on the selected fuel; closing it (Esc, a choice) gives focus back to the fuel button.
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    const trigger = triggerRef.current
+    if (!open || !panel) return
+    entryItem(slotsOf(panel, 'button'))?.focus()
+    return () => giveFocusBack(panel, trigger)
+  }, [open])
 
   const fuel = resolveRowFuel(gameData, machine, fuelItemId, horizon.defaultFuels)
   const fuelDefault = machine ? defaultFuel(gameData, machine, horizon.defaultFuels) : undefined
@@ -44,6 +57,7 @@ export function FuelPicker({ nodeId, machine, fuelItemId, gameData }: {
   return (
     <div ref={ref}>
       <button
+        ref={triggerRef}
         type="button"
         data-testid="fuel-button"
         onClick={() => setOpen(o => !o)}
@@ -62,13 +76,18 @@ export function FuelPicker({ nodeId, machine, fuelItemId, gameData }: {
         <Chevron />
       </button>
       {open && (
-        <div className="mt-1 bg-gray-800 border border-gray-700 rounded p-1.5 space-y-1 max-h-48 overflow-y-auto">
+        <div
+          ref={panelRef}
+          onKeyDown={e => moveListFocus(e, 'button', { wrap: true })}
+          className="mt-1 bg-gray-800 border border-gray-700 rounded p-1.5 space-y-1 max-h-48 overflow-y-auto"
+        >
           <div className="text-[10px] uppercase tracking-wide text-gray-400 px-1 mb-1">Select fuel</div>
           <button
             type="button"
             data-testid="fuel-default"
+            aria-current={fuelItemId === undefined ? 'true' : undefined}
             onClick={() => select(undefined)}
-            className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 ${fuelItemId === undefined ? 'text-teal-400' : 'text-gray-300'}`}
+            className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 focus-visible:bg-gray-700 outline-none ${fuelItemId === undefined ? 'text-teal-400' : 'text-gray-300'}`}
           >
             {fuelDefault ? `Default (${fuelDefault.name})` : 'Default'}
           </button>
@@ -78,8 +97,9 @@ export function FuelPicker({ nodeId, machine, fuelItemId, gameData }: {
               type="button"
               data-testid="fuel-option"
               data-item-id={f.id}
+              aria-current={f.id === fuelItemId ? 'true' : undefined}
               onClick={() => select(f.id)}
-              className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${f.id === fuelItemId ? 'text-teal-400' : 'text-gray-300'}`}
+              className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 focus-visible:bg-gray-700 outline-none flex items-center gap-1.5 ${f.id === fuelItemId ? 'text-teal-400' : 'text-gray-300'}`}
             >
               {f.iconPath && <Icon iconPath={f.iconPath} alt="" className="w-5 h-5 object-contain shrink-0" />}
               <span className="flex-1">{f.name}</span>

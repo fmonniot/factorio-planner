@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, createEvent, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BlockTabs, AddBlockButton } from './BlockTabs'
 import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
 import { useGameDataStore } from '../store/gameDataStore'
@@ -358,5 +359,155 @@ describe('BlockTabs reorder and overflow', () => {
     spy.mockClear()
     act(() => { useBlockStore.getState().moveBlock(a.id, 2) })
     expect(spy).toHaveBeenCalled()
+  })
+})
+
+describe('BlockTabs context menu, keyboard', () => {
+  const COLS = 9
+  const key = (k: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement ?? document.body, { key: k, cancelable: true, ...init })
+  const item = (name: string) => screen.getByRole('menuitem', { name })
+  const cells = () => Array.from(document.querySelectorAll<HTMLElement>('[data-testid="block-color-default"], [data-testid="block-color-swatch"]'))
+  const swatch = (color: string) => screen.getByLabelText(`Colour ${color}`)
+
+  /** Happy-dom has no layout: lay the colour cells out in the menu's nine columns by their index. */
+  function stubGrid() {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const all = cells()
+      const i = all.indexOf(this as HTMLElement)
+      if (i < 0) return new DOMRect(0, 0, 0, 0)
+      return new DOMRect((i % COLS) * 20, Math.floor(i / COLS) * 20, 16, 16)
+    })
+  }
+
+  /** Two or three blocks, the first one active; the menu opens on `name`. */
+  function openMenu(name: string, names = ['Plates', 'Gears', 'Wires']) {
+    const blocks = names.map((n, i) => makeEmptyBlock(n, BLOCK_PALETTE[i]))
+    useBlockStore.setState({ blocks, activeBlockId: blocks[0].id, history: {} })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: { items: {} } as unknown as GameData, sourceId: 'test' } })
+    render(<BlockTabs />)
+    const tab = tabBtn(name)
+    tab.focus()
+    fireEvent.contextMenu(tab)
+    return tab
+  }
+
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('does not take focus when it opens; ArrowDown enters it at Rename', () => {
+    const tab = openMenu('Gears')
+    expect(tab, 'focus stays on the tab').toHaveFocus()
+    key('ArrowDown')
+    expect(item('Rename')).toHaveFocus()
+  })
+
+  it('skips Move left on the first tab and Move right on the last', () => {
+    openMenu('Plates')
+    key('ArrowDown')
+    key('ArrowDown')
+    expect(item('Duplicate')).toHaveFocus()
+    key('ArrowDown')
+    expect(item('Move right'), 'Move left is disabled').toHaveFocus()
+    cleanupAndReopen('Wires')
+    key('ArrowDown')
+    key('ArrowDown')
+    key('ArrowDown')
+    expect(item('Move left')).toHaveFocus()
+    key('ArrowDown')
+    expect(item('Delete'), 'Move right is disabled').toHaveFocus()
+  })
+
+  function cleanupAndReopen(name: string) {
+    fireEvent.keyDown(document, { key: 'Escape' })
+    tabBtn(name).focus()
+    fireEvent.contextMenu(tabBtn(name))
+  }
+
+  it('goes from Delete into the colour grid at the checked swatch, and at Default for an automatic colour', () => {
+    stubGrid()
+    openMenu('Gears')
+    key('End')
+    key('Home')
+    item('Delete').focus()
+    key('ArrowDown')
+    expect(swatch(BLOCK_PALETTE[1]), 'Gears has the second palette colour').toHaveFocus()
+    cleanupAndReopen('Gears')
+    useBlockStore.getState().resetBlockColor(useBlockStore.getState().blocks[1].id)
+    cleanupAndReopen('Gears')
+    item('Delete').focus()
+    key('ArrowDown')
+    expect(screen.getByTestId('block-color-default')).toHaveFocus()
+  })
+
+  it('walks the grid with Left and Right, Down to the same column of the next row, and Up from the first row to Delete', () => {
+    stubGrid()
+    openMenu('Gears')
+    const all = cells()
+    all[1].focus()
+    key('ArrowRight')
+    expect(all[2]).toHaveFocus()
+    key('ArrowLeft')
+    key('ArrowLeft')
+    expect(all[0]).toHaveFocus()
+    key('ArrowLeft')
+    expect(all[0], 'stops at the start').toHaveFocus()
+    key('ArrowDown')
+    expect(all[COLS], 'same column, next row').toHaveFocus()
+    key('ArrowUp')
+    expect(all[0]).toHaveFocus()
+    key('ArrowUp')
+    expect(item('Delete')).toHaveFocus()
+  })
+
+  it('wraps Down from the last grid row to Rename, and ArrowUp from outside enters at the last cell', () => {
+    stubGrid()
+    openMenu('Gears')
+    const all = cells()
+    all[COLS].focus()
+    key('ArrowDown')
+    expect(item('Rename')).toHaveFocus()
+    cleanupAndReopen('Gears')
+    ;(document.activeElement as HTMLElement).blur()
+    key('ArrowUp')
+    expect(cells()[cells().length - 1]).toHaveFocus()
+  })
+
+  it('goes Up from the first grid row to the last enabled item when Delete is disabled (one block)', () => {
+    stubGrid()
+    openMenu('Plates', ['Plates'])
+    cells()[0].focus()
+    key('ArrowUp')
+    expect(item('Duplicate'), 'Move left, Move right and Delete are disabled').toHaveFocus()
+  })
+
+  it('picks the focused swatch with Enter, which sets the colour, closes the menu and returns focus to the tab', async () => {
+    const user = userEvent.setup()
+    stubGrid()
+    const tab = openMenu('Gears')
+    item('Delete').focus()
+    await user.keyboard('{End}{ArrowLeft}{Enter}')
+    expect(useBlockStore.getState().blocks[1].color?.toLowerCase()).toBe(BLOCK_PALETTE[BLOCK_PALETTE.length - 2].toLowerCase())
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(tab).toHaveFocus()
+  })
+
+  it('Tab closes the menu and Escape closes it too, each returning focus to the tab', () => {
+    const tab = openMenu('Gears')
+    key('ArrowDown')
+    key('Tab')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(tab).toHaveFocus()
+    fireEvent.contextMenu(tab)
+    key('ArrowDown')
+    key('Escape')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(tab).toHaveFocus()
+  })
+
+  it('leaves the focus in the rename dialog, not on the tab, after Rename', async () => {
+    const user = userEvent.setup()
+    openMenu('Gears')
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Block name' })).toHaveFocus()
   })
 })

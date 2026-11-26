@@ -15,7 +15,7 @@ import type { Item, Recipe, GameData } from '../data/types'
 import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 import { tipProps } from './tipProps'
 import { TipWrap } from './TipWrap'
-import { moveGridFocus, onPickerSearchKeyDown, pickFirstMatch, isPlainEnter, slotsOf } from './gridNav'
+import { focusFirstSlot, moveGridFocus, onPickerSearchKeyDown, pickFirstMatch, isPlainEnter, slotsOf } from './gridNav'
 
 // ---------------------------------------------------------------------------
 // Recipe detail panel — shown on hover/focus of a recipe slot
@@ -193,6 +193,13 @@ const PICKER_GRID = 'grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1'
 
 /** Every slot the arrow keys move between, in both pickers. */
 const SLOT_SELECTOR = '[data-testid="recipe-slot"], [data-testid="recipe-group-slot"], [data-testid="item-slot"]'
+const TAB_SELECTOR = '[data-testid="recipe-group-tab"], [data-testid="item-group-tab"]'
+
+/** ArrowUp from the top slot row: the active group tab (else the first one), the search field when there are no tabs. */
+function focusActiveTab(strip: HTMLElement | null, search: HTMLElement | null): void {
+  const tab = strip?.querySelector<HTMLElement>('[data-active]') ?? strip?.querySelector<HTMLElement>(TAB_SELECTOR) ?? search
+  tab?.focus()
+}
 
 function PickerFrame({
   onClose, onEscape, sidePanel, children, width = 'w-[32rem]',
@@ -261,10 +268,14 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
   const inputRef = useRef<HTMLInputElement>(null)
   const backRef = useRef<HTMLButtonElement>(null)
   const slotsRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
   const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => onPickerSearchKeyDown(e, slotsRef.current, SLOT_SELECTOR, query)
+  // Tabs switch group on Enter or Space (manual activation); arrows only move focus. Up leaves for the search field, Down enters the grid.
+  const onTabKeyDown = (e: React.KeyboardEvent<HTMLElement>) =>
+    moveGridFocus(e, TAB_SELECTOR, () => inputRef.current?.focus(), () => focusFirstSlot(slotsRef.current, SLOT_SELECTOR))
 
   const horizon = useHorizon(gameData)
   const available = horizon.recipeIds
@@ -554,7 +565,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
 
       {/* Item-group tabs (hidden when there's nothing to switch between) */}
       {showTabs && (
-        <div className="px-2 py-2 border-b border-gray-700 flex flex-wrap gap-1">
+        <div ref={tabsRef} onKeyDown={onTabKeyDown} className="px-2 py-2 border-b border-gray-700 flex flex-wrap gap-1">
           {visibleGroups.map(g => {
             const active = g.id === selectedGroupId
             return (
@@ -564,6 +575,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
                 data-testid="recipe-group-tab"
                 data-group-id={g.id}
                 data-active={active || undefined}
+                aria-pressed={active}
                 {...tipProps(g.name)}
                 onClick={() => { setPinnedGroupId(g.id); setHoveredRecipeId(null); setOpenMachineId(null) }}
                 className={`p-1 rounded border ${active ? 'bg-amber-900/40 border-amber-600' : 'bg-gray-800 border-gray-700 hover:bg-gray-700'}`}
@@ -581,7 +593,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
       {/* Body: subgroup grids, flowing within the selected group */}
       <div
         ref={slotsRef}
-        onKeyDown={e => moveGridFocus(e, SLOT_SELECTOR, () => inputRef.current?.focus())}
+        onKeyDown={e => moveGridFocus(e, SLOT_SELECTOR, () => focusActiveTab(tabsRef.current, inputRef.current))}
         className="overflow-y-auto flex-1 p-2 space-y-1"
       >
         {subgroupRows.length === 0 && (
@@ -622,10 +634,14 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const slotsRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
   const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => onPickerSearchKeyDown(e, slotsRef.current, SLOT_SELECTOR, query)
+  // Tabs switch group on Enter or Space (manual activation); arrows only move focus. Up leaves for the search field, Down enters the grid.
+  const onTabKeyDown = (e: React.KeyboardEvent<HTMLElement>) =>
+    moveGridFocus(e, TAB_SELECTOR, () => inputRef.current?.focus(), () => focusFirstSlot(slotsRef.current, SLOT_SELECTOR))
 
   const pickFirst = () => pickFirstMatch(slotsRef.current, SLOT_SELECTOR, query)
 
@@ -775,7 +791,7 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
 
       {/* Group tabs (hidden when bundle has no group metadata) */}
       {visibleGroups.length > 0 && (
-      <div className="px-2 py-2 border-b border-gray-700 flex flex-wrap gap-1">
+      <div ref={tabsRef} onKeyDown={onTabKeyDown} className="px-2 py-2 border-b border-gray-700 flex flex-wrap gap-1">
         {visibleGroups.map(g => {
           const active = g.id === selectedGroupId
           return (
@@ -785,6 +801,7 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
               data-testid="item-group-tab"
               data-group-id={g.id}
               data-active={active || undefined}
+              aria-pressed={active}
               {...tipProps(g.name)}
               onClick={() => setPinnedGroupId(g.id)}
               className={`p-1 rounded border ${active ? 'bg-amber-900/40 border-amber-600' : 'bg-gray-800 border-gray-700 hover:bg-gray-700'}`}
@@ -802,7 +819,7 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
       {/* Slot grid */}
       <div
         ref={slotsRef}
-        onKeyDown={e => moveGridFocus(e, SLOT_SELECTOR, () => inputRef.current?.focus())}
+        onKeyDown={e => moveGridFocus(e, SLOT_SELECTOR, () => focusActiveTab(tabsRef.current, inputRef.current))}
         className="overflow-y-auto flex-1 p-2 space-y-2"
       >
         {subgroupRows.length === 0 && (

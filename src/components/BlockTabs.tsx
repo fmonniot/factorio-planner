@@ -16,6 +16,7 @@ import { IconButton, TOOLTIP_BOX_CLASS, TOOLTIP_CLASS } from './IconButton'
 import { PlusIcon } from './icons'
 import { NameDialog } from './NameDialog'
 import { tipProps } from './tipProps'
+import { useMenuKeyboard } from './factory/useMenuKeyboard'
 
 // ---------------------------------------------------------------------------
 // Context menu
@@ -46,6 +47,8 @@ function BlockContextMenu({ blockId, anchor, onClose, onRename }: ContextMenuPro
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: anchor.left, y: anchor.bottom + 4 })
   useOverlayOpen()
+  // Arrows enter the menu (it does not take focus when it opens) and walk its items, then the colour grid.
+  useMenuKeyboard(ref, onClose, { grid: '[data-testid="block-color-default"], [data-testid="block-color-swatch"]' })
 
   // Keep the latest onClose in a ref so the document listeners bind once.
   const onCloseRef = useRef(onClose)
@@ -122,21 +125,21 @@ function BlockContextMenu({ blockId, anchor, onClose, onRename }: ContextMenuPro
     >
       <button
         role="menuitem"
-        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 focus:bg-gray-700 outline-none"
         onClick={handleRename}
       >
         Rename
       </button>
       <button
         role="menuitem"
-        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 focus:bg-gray-700 outline-none"
         onClick={handleDuplicate}
       >
         Duplicate
       </button>
       <button
         role="menuitem"
-        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 focus:bg-gray-700 outline-none disabled:opacity-40 disabled:cursor-not-allowed"
         onClick={() => handleMove(index - 1)}
         disabled={index <= 0}
       >
@@ -144,7 +147,7 @@ function BlockContextMenu({ blockId, anchor, onClose, onRename }: ContextMenuPro
       </button>
       <button
         role="menuitem"
-        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 focus:bg-gray-700 outline-none disabled:opacity-40 disabled:cursor-not-allowed"
         onClick={() => handleMove(index + 2)}
         disabled={index < 0 || index >= blocks.length - 1}
       >
@@ -152,7 +155,7 @@ function BlockContextMenu({ blockId, anchor, onClose, onRename }: ContextMenuPro
       </button>
       <button
         role="menuitem"
-        className="w-full text-left px-3 py-1 text-xs text-red-400 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full text-left px-3 py-1 text-xs text-red-400 hover:bg-gray-700 focus:bg-gray-700 outline-none disabled:opacity-40 disabled:cursor-not-allowed"
         onClick={handleDelete}
         disabled={blocks.length <= 1}
       >
@@ -166,7 +169,7 @@ function BlockContextMenu({ blockId, anchor, onClose, onRename }: ContextMenuPro
           aria-checked={colorAuto}
           {...tipProps('Default colour', "Default colour: the colour of the first product's icon")}
           data-testid="block-color-default"
-          className={`w-4 h-4 rounded-sm flex items-center justify-center overflow-hidden ${
+          className={`w-4 h-4 rounded-sm flex items-center justify-center overflow-hidden focus-visible:outline-2 focus-visible:outline-teal-400 ${
             firstItem === undefined ? 'border border-dashed border-gray-500' : ''
           } ${colorAuto ? 'ring-2 ring-gray-100' : 'hover:ring-1 hover:ring-gray-400'}`}
           style={{ background: firstItem?.iconColor ?? undefined }}
@@ -183,7 +186,7 @@ function BlockContextMenu({ blockId, anchor, onClose, onRename }: ContextMenuPro
             data-tip={c}
             data-testid="block-color-swatch"
             data-color={c}
-            className={`w-4 h-4 rounded-sm ${!colorAuto && c === currentColor ? 'ring-2 ring-gray-100' : 'hover:ring-1 hover:ring-gray-400'}`}
+            className={`w-4 h-4 rounded-sm focus-visible:outline-2 focus-visible:outline-teal-400 ${!colorAuto && c === currentColor ? 'ring-2 ring-gray-100' : 'hover:ring-1 hover:ring-gray-400'}`}
             style={{ background: c }}
             onClick={() => { setBlockColor(blockId, c); onClose() }}
           />

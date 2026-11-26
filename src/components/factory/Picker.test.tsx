@@ -90,6 +90,92 @@ describe('Picker', () => {
     expect(screen.queryByTestId('picker')).toBeNull()
   })
 
+  describe('keyboard', () => {
+    const press = (key: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement!, { key, ...init })
+    const row = (name: string) => screen.getByText(name).closest('button')!
+
+    it('opens with focus on the selected row, else on the first button', () => {
+      const { unmount } = render(<Page />)
+      fireEvent.click(screen.getByText('trigger'))
+      expect(row('Beta')).toHaveFocus()
+      expect(row('Beta')).toHaveAttribute('aria-current', 'true')
+      expect(row('Alpha')).not.toHaveAttribute('aria-current')
+      unmount()
+      render(
+        <PickerTrigger trigger={({ toggle }) => <button type="button" onClick={toggle}>trigger</button>}>
+          {close => <Picker onClose={close}><PickerRow name="First" onClick={() => {}} /><PickerRow name="Second" onClick={() => {}} /></Picker>}
+        </PickerTrigger>,
+      )
+      fireEvent.click(screen.getByText('trigger'))
+      expect(row('First')).toHaveFocus()
+    })
+
+    it('ArrowDown and ArrowUp wrap, Home and End jump to the ends', () => {
+      render(<Page />)
+      fireEvent.click(screen.getByText('trigger'))
+      press('ArrowDown')
+      expect(row('Alpha'), 'past the last row').toHaveFocus()
+      press('ArrowUp')
+      expect(row('Beta'), 'before the first row').toHaveFocus()
+      press('Home')
+      expect(row('Alpha')).toHaveFocus()
+      press('End')
+      expect(row('Beta')).toHaveFocus()
+    })
+
+    it('ignores an arrow with a modifier', () => {
+      render(<Page />)
+      fireEvent.click(screen.getByText('trigger'))
+      press('ArrowDown', { shiftKey: true })
+      press('ArrowUp', { altKey: true })
+      expect(row('Beta')).toHaveFocus()
+    })
+
+    it('gives focus back to the trigger on Esc and on a choice', () => {
+      render(<Page />)
+      fireEvent.click(screen.getByText('trigger'))
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+      expect(screen.queryByTestId('picker')).toBeNull()
+      expect(screen.getByText('trigger')).toHaveFocus()
+
+    })
+
+    it('gives focus back to the trigger when a choice closes it', () => {
+      render(
+        <PickerTrigger trigger={({ toggle }) => <button type="button" onClick={toggle}>trigger</button>}>
+          {close => <Picker onClose={close}><PickerRow name="One" onClick={close} /></Picker>}
+        </PickerTrigger>,
+      )
+      fireEvent.click(screen.getByText('trigger'))
+      expect(row('One')).toHaveFocus()
+      fireEvent.click(row('One'))
+      expect(screen.queryByTestId('picker')).toBeNull()
+      expect(screen.getByText('trigger')).toHaveFocus()
+    })
+
+    it('does not take focus back from where a press outside put it', () => {
+      render(<Page />)
+      fireEvent.click(screen.getByText('trigger'))
+      screen.getByText('elsewhere').focus()
+      fireEvent.mouseDown(screen.getByText('elsewhere'))
+      expect(screen.queryByTestId('picker')).toBeNull()
+      expect(screen.getByText('elsewhere')).toHaveFocus()
+    })
+
+    it('chains a caller keydown handler before moving focus', () => {
+      const onKeyDown = vi.fn()
+      render(
+        <PickerTrigger trigger={({ toggle }) => <button type="button" onClick={toggle}>trigger</button>}>
+          {close => <Picker onClose={close} onKeyDown={onKeyDown}><PickerRow name="One" onClick={() => {}} /><PickerRow name="Two" onClick={() => {}} /></Picker>}
+        </PickerTrigger>,
+      )
+      fireEvent.click(screen.getByText('trigger'))
+      press('ArrowDown')
+      expect(onKeyDown).toHaveBeenCalledTimes(1)
+      expect(row('Two')).toHaveFocus()
+    })
+  })
+
   describe('placement', () => {
     const rect = (r: Partial<DOMRect>) => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}), ...r }) as DOMRect
     afterEach(() => { vi.restoreAllMocks() })

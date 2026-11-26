@@ -245,3 +245,58 @@ test('a picker opened from the bottom row or the Beacons column stays inside the
   await row(page).getByLabel('Add beacon', { exact: true }).click()
   await expectInViewport()
 })
+
+test('the machine picker opens on its selected row, the arrows walk it, Enter picks and the focus returns to the chip', async ({ page }) => {
+  const chip = row(page).getByTestId('machine-chip')
+  await chip.focus()
+  await page.keyboard.press('Enter')
+  const picker = page.getByTestId('picker')
+  await expect(picker).toBeVisible()
+  // The row has no machine of its own, so it opens on the Default row.
+  await expect(picker.getByTestId('machine-option-default')).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(picker.getByTestId('machine-option').first()).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(picker.getByTestId('machine-option-default')).toBeFocused()
+  // Up from the first row wraps to the last button.
+  await page.keyboard.press('ArrowUp')
+  await expect(picker.getByRole('button').last()).toBeFocused()
+  await page.keyboard.press('Home')
+  await page.keyboard.press('ArrowDown')
+  const machineId = (await picker.getByTestId('machine-option').first().getAttribute('data-machine-id'))!
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('picker')).toHaveCount(0)
+  await expect.poll(async () => (await rootNode(page)).machineId).toBe(machineId)
+  await expect(chip).toBeFocused()
+
+  // Esc gives the focus back too.
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('picker')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('picker')).toHaveCount(0)
+  await expect(chip).toBeFocused()
+})
+
+test('the fill-all and beacon pickers open focused and take the arrows and Enter', async ({ page }) => {
+  const chip = row(page).getByTestId('module-chip')
+  await chip.focus()
+  await page.keyboard.press('Enter')
+  const options = page.getByTestId('picker').getByTestId('module-fill-option')
+  await expect(options.first()).toBeFocused()
+  const count = await options.count()
+  if (count > 1) {
+    await page.keyboard.press('ArrowDown')
+    await expect(options.nth(1)).toBeFocused()
+  }
+  await page.keyboard.press('Escape')
+  await expect(chip).toBeFocused()
+
+  const plus = row(page).getByLabel('Add beacon', { exact: true })
+  await plus.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('picker').getByTestId('module-fill-option').first()).toBeFocused()
+  const moduleId = (await page.getByTestId('picker').getByTestId('module-fill-option').first().getAttribute('data-module-id'))!
+  await page.keyboard.press('Enter')
+  await expect.poll(async () => (await rootNode(page)).beaconConfigs).toMatchObject([{ beaconCount: 1, modules: [{ moduleId }] }])
+  await expect(page.getByTestId('picker')).toHaveCount(0)
+})

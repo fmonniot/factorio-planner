@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { useState } from 'react'
+import userEvent from '@testing-library/user-event'
 import { BlockPicker, type BlockPickerOption } from './BlockPicker'
 
 const options: BlockPickerOption[] = [
@@ -81,5 +82,67 @@ describe('BlockPicker', () => {
     expect(screen.queryByRole('listbox')).toBeNull()
     expect(onWindowKey).not.toHaveBeenCalled()
     window.removeEventListener('keydown', onWindowKey)
+  })
+
+  describe('keyboard', () => {
+    const search = () => screen.getByLabelText('Find a block')
+    const option = (name: RegExp) => within(screen.getByRole('listbox', { name: 'Block' })).getByRole('option', { name })
+    const press = (key: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement!, { key, ...init })
+
+    it('ArrowDown in the search focuses the first option, and ArrowUp on it returns to the search', () => {
+      render(<Harness />)
+      fireEvent.click(trigger())
+      press('ArrowDown')
+      expect(option(/^All blocks/)).toHaveFocus()
+      press('ArrowUp')
+      expect(search()).toHaveFocus()
+    })
+
+    it('moves between options without wrapping, and Home and End jump to the ends', () => {
+      render(<Harness />)
+      fireEvent.click(trigger())
+      press('ArrowDown')
+      press('ArrowDown')
+      expect(option(/^Alpha/)).toHaveFocus()
+      press('End')
+      expect(option(/^Charlie/)).toHaveFocus()
+      press('ArrowDown')
+      expect(option(/^Charlie/), 'stops at the last option').toHaveFocus()
+      press('ArrowUp')
+      expect(option(/^Bravo/)).toHaveFocus()
+      press('Home')
+      expect(option(/^All blocks/)).toHaveFocus()
+    })
+
+    it('walks only the options the search leaves', () => {
+      render(<Harness />)
+      fireEvent.click(trigger())
+      fireEvent.change(search(), { target: { value: 'l' } })
+      expect(optionNames()).toEqual(['All blocks3 blocks', 'Alpha2 areas', 'Charlie1 area'])
+      press('ArrowDown')
+      press('ArrowDown')
+      press('ArrowDown')
+      expect(document.activeElement).toHaveTextContent('Charlie')
+    })
+
+    it('ignores an arrow with a modifier in the search', () => {
+      render(<Harness />)
+      fireEvent.click(trigger())
+      press('ArrowDown', { shiftKey: true })
+      expect(search()).toHaveFocus()
+    })
+
+    it('Enter on a focused option picks it and the focus goes back to the button', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+      render(<Harness onChange={onChange} />)
+      fireEvent.click(trigger())
+      press('ArrowDown')
+      press('ArrowDown')
+      press('ArrowDown')
+      await user.keyboard('{Enter}')
+      expect(onChange).toHaveBeenCalledWith('b')
+      expect(trigger()).toHaveFocus()
+    })
   })
 })

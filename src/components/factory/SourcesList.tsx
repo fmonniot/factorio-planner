@@ -16,7 +16,8 @@ import type { Side } from './itemSourcing'
 import { EPS, lineOpens, lineTip, reachReading } from './sourcesLineText'
 import { altMoveTarget } from './sourcesModel'
 import type { SourceLine } from './sourcesModel'
-import { DashedSquareIcon, DetailStatus, SourcesLine } from './SourcesLine'
+import { DashedSquareIcon, DetailStatus, LINE_NAME_SELECTOR, SourcesLine } from './SourcesLine'
+import { moveListFocus } from '../listNav'
 import type { SourcesView } from './useSourcesModel'
 import { StripIcon } from './StripIcon'
 import { MINI_BUTTON_CLASS, Switch } from './Switch'
@@ -567,7 +568,16 @@ export function SourcesList({ view, id, onScope }: {
 
   return (
     <>
-      <ul ref={listRef} id={id} role="list" aria-label={`Sources of ${name}`} data-testid="sources-list" className="relative flex flex-col py-0.5">
+      <ul
+        ref={listRef}
+        id={id}
+        role="list"
+        aria-label={`Sources of ${name}`}
+        data-testid="sources-list"
+        // Up, Down, Home and End walk the line names, without wrapping; Alt+Arrow reorders (the name's own handler), the helper skips it.
+        onKeyDown={e => moveListFocus(e, LINE_NAME_SELECTOR)}
+        className="relative flex flex-col py-0.5"
+      >
         {/* The rail, in the foot chevron's grey, ends at the chevron's vertex (13.5px above the list's bottom: 2px of padding,
             then the vertex 11.5px above the foot's bottom), so it tucks under the tip instead of running past it. */}
         <span aria-hidden="true" className="absolute left-[7px] top-1 bottom-[14px] w-0.5 bg-gray-500" />

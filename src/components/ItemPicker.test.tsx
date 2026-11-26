@@ -1172,6 +1172,32 @@ describe('ItemPicker — keyboard', () => {
       // The nearest slot above the third one (first column) is the first, not the second.
       key(document.activeElement!, 'ArrowUp')
       expect(focusedId()).toBe('iron-plate')
+      // The group tabs sit between the grid and the search field.
+      key(document.activeElement!, 'ArrowUp')
+      expect(document.activeElement).toHaveAttribute('data-testid', 'recipe-group-tab')
+      key(document.activeElement!, 'ArrowUp')
+      expect(search()).toHaveFocus()
+    })
+
+    it('walks the group tabs: Left and Right move focus, Enter switches the group, Down enters the grid, Up reaches the search', async () => {
+      const user = userEvent.setup()
+      open()
+      key(search(), 'ArrowDown')
+      key(document.activeElement!, 'ArrowUp')
+      const tabs = screen.getAllByTestId('recipe-group-tab')
+      expect(tabs.length, 'the fixture has several groups').toBeGreaterThan(1)
+      const active = screen.getAllByTestId('recipe-group-tab').find(t => t.hasAttribute('data-active'))!
+      expect(document.activeElement, 'the grid goes up to the active tab').toBe(active)
+      const from = tabs.indexOf(active)
+      const next = tabs[from + 1] ?? tabs[from - 1]
+      key(active, from + 1 < tabs.length ? 'ArrowRight' : 'ArrowLeft')
+      expect(document.activeElement, 'an arrow only moves focus').toBe(next)
+      expect(next).toHaveAttribute('aria-pressed', 'false')
+      await user.keyboard('{Enter}')
+      expect(next).toHaveAttribute('aria-pressed', 'true')
+      key(next, 'ArrowDown')
+      expect(document.activeElement).toHaveAttribute('data-testid', 'recipe-slot')
+      key(document.activeElement!, 'ArrowUp')
       key(document.activeElement!, 'ArrowUp')
       expect(search()).toHaveFocus()
     })
@@ -1241,6 +1267,40 @@ describe('ItemPicker — keyboard', () => {
       expect(focusedId()).toBe('iron-ore')
       key(document.activeElement!, 'ArrowUp')
       expect(focusedId()).toBe('iron-plate')
+      key(document.activeElement!, 'ArrowUp')
+      expect(document.activeElement).toHaveAttribute('data-testid', 'item-group-tab')
+      key(document.activeElement!, 'ArrowUp')
+      expect(search()).toHaveFocus()
+    })
+
+    it('walks the group tabs: Right moves focus without switching, Enter switches, Down enters the grid, search ArrowDown still does', async () => {
+      const user = userEvent.setup()
+      open()
+      const tabs = screen.getAllByTestId('item-group-tab')
+      expect(tabs.length, 'the fixture has several groups').toBeGreaterThan(1)
+      tabs[0].focus()
+      key(tabs[0], 'ArrowRight')
+      expect(document.activeElement).toBe(tabs[1])
+      expect(tabs[0]).toHaveAttribute('aria-pressed', 'true')
+      expect(tabs[1]).toHaveAttribute('aria-pressed', 'false')
+      await user.keyboard(' ')
+      expect(tabs[1]).toHaveAttribute('aria-pressed', 'true')
+      key(tabs[1], 'ArrowLeft')
+      expect(document.activeElement).toBe(tabs[0])
+      key(tabs[0], 'ArrowDown')
+      expect(document.activeElement).toHaveAttribute('data-testid', 'item-slot')
+      key(search(), 'ArrowDown')
+      expect(document.activeElement).toHaveAttribute('data-testid', 'item-slot')
+    })
+
+    it('ArrowUp from the top row goes straight to the search when there are no group tabs', () => {
+      const data = structuredClone(fixture)
+      data.itemGroups = {}
+      data.itemSubgroups = {}
+      useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+      open()
+      expect(screen.queryAllByTestId('item-group-tab')).toHaveLength(0)
+      key(search(), 'ArrowDown')
       key(document.activeElement!, 'ArrowUp')
       expect(search()).toHaveFocus()
     })

@@ -62,9 +62,9 @@ export function focusFirstSlot(root: HTMLElement | null, selector: string): bool
 
 /**
  * Keydown handler for the element holding a grid of slots: arrow keys move focus between slots.
- * `onTopEdge` runs on ArrowUp from the first row (the pickers return to the search field).
+ * `onTopEdge` runs on ArrowUp from the first row (the pickers return to the search field); `onBottomEdge` on ArrowDown from the last row.
  */
-export function moveGridFocus(e: React.KeyboardEvent<HTMLElement>, selector: string, onTopEdge?: () => void): void {
+export function moveGridFocus(e: React.KeyboardEvent<HTMLElement>, selector: string, onTopEdge?: () => void, onBottomEdge?: () => void): void {
   if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
   if (!GRID_KEYS.includes(e.key)) return
   const origin = (e.target as HTMLElement).closest<HTMLElement>(selector)
@@ -77,6 +77,7 @@ export function moveGridFocus(e: React.KeyboardEvent<HTMLElement>, selector: str
   const target = gridNavTarget(boxes, from, e.key as GridKey)
   if (target !== null) slots[target].focus()
   else if (e.key === 'ArrowUp') onTopEdge?.()
+  else if (e.key === 'ArrowDown') onBottomEdge?.()
 }
 
 /** Whether a keydown is a plain Enter that is not confirming an IME composition (Safari reports that one after compositionend, as keyCode 229). */

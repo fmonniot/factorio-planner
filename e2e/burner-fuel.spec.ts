@@ -43,3 +43,35 @@ test('a burner row burns a fuel that is one of its ingredients', async ({ page }
   await expect(overlay.locator('text=/Choose a recipe to produce /')).toBeVisible()
   expect(await overlay.locator('[data-testid="recipe-slot"]').count()).toBeGreaterThan(0)
 })
+
+test('the fuel list opens on the selected fuel, the arrows walk it, Enter picks and Esc returns to the fuel button', async ({ page }) => {
+  await loadPlanFixture(page, FIXTURE, 'kompetenz-seablock')
+  const row = page.locator('main table tbody tr').first()
+  await expect(row).toBeVisible({ timeout: 10000 })
+  await selectRow(page, row)
+
+  const button = page.getByTestId('fuel-button')
+  await button.focus()
+  await page.keyboard.press('Enter')
+  // No fuel is chosen on the row, so the list opens on Default.
+  await expect(page.getByTestId('fuel-default')).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByTestId('fuel-option').first()).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(page.getByTestId('fuel-default')).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(page.getByTestId('fuel-option').last()).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('fuel-option')).toHaveCount(0)
+  await expect(button).toBeFocused()
+
+  await page.keyboard.press('Enter')
+  const solid = page.locator('[data-testid="fuel-option"][data-item-id="solid-fuel"]')
+  await solid.focus()
+  await page.keyboard.press('Enter')
+  await expect(button).toContainText('Solid fuel')
+  await expect(button).toBeFocused()
+  // Reopened, the list is on the fuel in use.
+  await page.keyboard.press('Enter')
+  await expect(solid).toBeFocused()
+})
