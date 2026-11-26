@@ -961,7 +961,7 @@ b3: offers 6 and 24 (exact), both short; B asks A for 25 - 24 = 1; make-x runs 0
 
 **c6 — a member that requests from another member.** T makes 20 `case11-goal` (20 X), list `{H2, R}`; **R** makes 4 `case11-other` and 5 `case13-gear` (rows `case11-use-x` and `case13-use-plate`), takes X from T (`c-R`) and requests plate from H2 (`c-RH2`); H2 is a8's. Tabs T, R, H2 and H2, R, T. R is reached before H2, so the first pass serves the group in list order: H2 20, R 0. The settle walk gives `waterFill(20, [25, 4])` = 16, 4, and the second pass credits the group from those: `c-R` 4 `ok` (R imports 0), `c-H2` 16 `limited` (imp 9), `c-RH2` 5, no flags.
 
-**c7 — the passes do not settle.** c1 with `{ creditPassLimit: 1 }`: the first pass stands, as before the credit passes: H1 20, H2 10 (imp 15), both lines `groupInListOrder`. The documented fallback when the passes do not settle in `CREDIT_PASS_LIMIT`.
+**c7 — the passes do not settle.** c1 with `{ creditPassLimit: 1 }`: the first pass stands, as before the credit passes: H1 20, H2 10 (imp 15), both lines `groupInListOrder` (shares 20 and 10, `got` the same; `c-H1R` requested 0, rate 0, `unused`). The documented fallback when the passes do not settle in `CREDIT_PASS_LIMIT`.
 
 ### d — a list with no `tied`
 
@@ -986,6 +986,16 @@ a7's fixture, list `[J, H3/L tied, H3/B]` (the group is {J, H3/L}; B is alone be
 **h2 — an entry in each of two groups.** **T** makes 40 X; list `[J, H3/L tied, K, H3/B tied]` with K = H(K, 10): the groups are {J, H3/L} and {K, H3/B}. `waterFill(40, [25, 12])` = 25, 12 leaves 3; `waterFill(3, [10, 8])` = 1.5, 1.5. `c-J` 25 `ok`; `c-H3` 12 + 1.5 = 13.5 `limited` (imp 6.5); `c-K` 1.5 `limited` (imp 8.5); lines J 25, H3/L 12, K 1.5, H3/B 1.5; no flag. (A single credit of H3 at its first entry gave J 25, H3 15, K 0.)
 
 **h3 — a group made only of later entries, three passes.** **H5** makes 25 `case11-other` in areas L (`case11-use-x` pinned 12), B (8) and M (5); list `[H5/L, J, H5/B, H5/M tied]` (the group {B, M} holds no first entry); T leaves 30, J needs 25. Pass 1 credits H5 25 at its first entry and J 5; the walk reads L 12 (rest 18), J's credit 5 (rest 13) and `waterFill(13, [8, 5])` = 8, 5. Pass 2, seeded with those, credits J `min(30 - 12, 25) = 18`; its walk leaves 0 for the group, so its entries settle at 0, 0. Pass 3, seeded with those, is settled. `c-H5` 12 `limited` (imp 13), `c-J` 18 `limited` (imp 7); lines H5/L 12, J 18 (need 25), H5/B 0, H5/M 0; no flag.
+
+**h3 — the passes.** With `{ creditPassLimit: 2 }` the first pass stands (H5 25 `ok`, J 5 `limited`, imp 20); with 3 the settled values above. The lines' `got` equals their `share` in every row of this case.
+
+**h5 — the first pass keeps its readiness edges (a late entry).** **T** makes 40; list `[H3/L, J, K tied, H3/B tied]` with H3 as above (need 20), J 25, K 10; `{ creditPassLimit: 1 }`. The group {J, K, H3/B} is spread only by its late entry H3/B, so it is not served in list order in the first pass: H3 is credited 20 at its first entry, `waterFill(20, [25, 10])` = 10, 10 for J and K; `c-J` 10 `limited` (imp 15), `c-K` 10 `ok`, `c-H3` 20 `ok`; no flag, as before the credit passes.
+
+**h6 — a group of later entries only, one pass.** h3's fixture with `{ creditPassLimit: 1 }`: H5 25 `ok`, J 5 `limited` (imp 20); no line is flagged (H5's later entries are credited at their place of the list, as before).
+
+**h7 — a cascade over two blocks and three groups, three passes.** T makes 62; H5 (areas a 12, b 4, c 8, d 8) and H6 (a 7, b 7, c 6, d 10) each have entries in several places of the list, J needs 21, K 17; list `[H6/a, H5/a tied, H5/b tied, H5/c tied, H6/b tied, H6/c, J, H5/d, K, H6/d tied]`. The walk: the group of five asks 7 + 12 + 4 + 8 + 7 = 38 (rest 24), H6/c 6 (rest 18), J `min(18, 21)` = 18, nothing left for H5/d, K and H6/d. With `{ creditPassLimit: 3 }` it is settled and no line is flagged (the entries are stepped to their settled credits; a secant step on each entry alone needed more passes). `c-J` 18 `limited` (imp 3); shares 7, 12, 4, 8, 7, 6, 18, 0, 0, 0. Solved warm (H5 and H6 each topping X up from a feed, a short item) through one cache: no block of the plan is stored again.
+
+**Case 29 e4, a take with entries in two groups (test in `synthetic.test.ts`, listed here with its fixture's neighbours).** In case 29 e4's fixture, B (other 40, areas L 20 and M 20 pinned) takes X from T (`c-BT`) and requests it from A, with J (10) and K (5) taking X from T; list `[J, B/L tied, K, B/M tied]`; T leaves 30. B's take waits for T in every pass; the group {J, B/L} water-fills `waterFill(30, [10, 20])` = 10, 20: `c-BT` 20, `c-BA` requested 20, K 0, B/M 0, no flag, in three tab orders.
 
 ### i — a member that does not take the item first
 
