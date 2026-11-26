@@ -1934,6 +1934,30 @@ describe('solveAll — requests', () => {
       expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
     })
 
+    // Two takes-first consumers of one source. A makes plate on request and also polish for 10 slag from T, so the request pass reaches A before
+    // T and B (which requests plate from A) cannot wait for T: its take is flushed. D requests plate from A2 and its take parks until T is
+    // processed. T's slag goals are 20 + 10 = 30, so it leaves 30 plate. B needs 50 plate (25 gears), D needs 50 (25 gears). B comes first in
+    // the request order, so it is credited min(30, 50) = 30, D is left with 0: B asks A for 20, D asks A2 for 50.
+    const twoTakers = () => {
+      const { data } = dependsOnConsumer()
+      const taker = (id: string, gears: number, suffix: string, from: string) => block(
+        id,
+        [prod('gear', gears)],
+        [planNode('g', 'gear')],
+        [link(`ct${suffix}`, 'T', 'plate'), link(`cr${suffix}`, from, 'plate')],
+      )
+      const a = block('A', [prod('plate'), prod('polish', 10)], [planNode('p', 'plate'), planNode('s', 'polish')], [link('ca', 'T', 'slag')])
+      return { data, byId: { T: twinSource(), A: a, A2: smelter('A2'), B: taker('B', 25, 'B', 'A'), D: taker('D', 25, 'D', 'A2') } as Record<string, Block> }
+    }
+    it.each([['B', 'A', 'D', 'T', 'A2'], ['B', 'D', 'A', 'T', 'A2'], ['B', 'A', 'D', 'A2', 'T']])('serves two takes-first takes of one source in request order, whichever is flushed (tabs %s)', (...tabs) => {
+      const { data, byId } = twoTakers()
+      const all = solveAll(tabs.map(t => byId[t]), data)
+      expect(flowOf(all, 'ctB').rate).toBeCloseTo(30, 4)
+      expect(flowOf(all, 'ctD').rate).toBeCloseTo(0, 4)
+      expect(flowOf(all, 'crB').requested).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'crD').requested).toBeCloseTo(50, 4)
+    })
+
     // The same, with A turning slag from T into the plate it makes: A is reached before T through its request of slag, so the request of
     // plate cannot wait behind T's credit: the take is flushed with no credit. Its credit x drives A's slag request and so T's plate: the
     // credit passes settle it at x = min(50, 80 - x) = 40 (a secant step; plain iteration swings between 50 and 30 forever).

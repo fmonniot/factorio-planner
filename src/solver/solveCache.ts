@@ -7,7 +7,7 @@
  * and the second supply solve of a block with a short item.
  *
  * It also memoises the outcome of a whole cycle of requests (`LOOP_SLOTS` entries per member list,
- * most recently used first: a second request pass may key the same cycle differently), so a
+ * most recently used first: every credit pass and the short pass may key the same cycle differently), so a
  * warm solve runs none of the demand rounds; those entries are not counted by `size` or `has`,
  * and `retain` drops the member lists the solves since the last `retain` did not use.
  */
@@ -25,10 +25,10 @@ export interface BlockSolve {
 }
 
 /** Entries kept per block. */
-export const SLOTS_PER_BLOCK = 6
+export const SLOTS_PER_BLOCK = 12
 
 /** Cycle outcomes kept per member list. */
-export const LOOP_SLOTS = 2
+export const LOOP_SLOTS = 12
 
 /** What the demand rounds of one cycle of requests decided. */
 export interface RequestLoopSolve {

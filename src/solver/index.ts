@@ -1162,6 +1162,7 @@ function settleCredits(run: (seeds: ReadonlyMap<string, number>) => RequestPlan,
   const history = new Map<string, FlushedCredit[]>()
   for (let pass = 1; !creditsSettled(plan.flushed); pass++) {
     if (pass >= limit) return first
+    for (const id of [...history.keys()]) if (!plan.flushed.has(id)) history.delete(id) // a take the pass did not flush breaks its run of consecutive passes
     for (const [id, f] of plan.flushed) history.set(id, [...(history.get(id) ?? []), f])
     plan = run(nextCreditSeeds(history, plan.flushed.keys()))
   }
@@ -1891,7 +1892,7 @@ function computeRequests(
     }
   }
   // What a take flushed while blocked would have been credited had it waited: read once its blockers are done, capped by its limit and the need left.
-  // An unranked take's seed is reserved at its source from then on. A shadow still blocked at the very end is dropped (no seed, the flag stays).
+  // An unranked take's seed is reserved at its source from then on. A shadow still blocked at the very end is not settled: with a seed it is recorded with settled 0 (end of `computeRequests`), so the passes do not settle on it.
   const settleShadows = (): void => {
     for (let i = 0; i < shadows.length;) {
       const { take: t, itemId } = shadows[i]
@@ -1918,9 +1919,11 @@ function computeRequests(
     }
   }
   const resolveDeferred = (last = false): void => {
+    settleShadows() // a flushed take above the parked slices reserves its seed before they draw from the same source
     for (let progress = true; progress && deferred.length > 0;) {
       progress = false
       for (const d of deferred.splice(0)) {
+        settleShadows()
         unpark(d)
         const needed = new Map(d.needed)
         if (last) { // nothing else will come: credit the take, or flag it, now
@@ -2447,6 +2450,10 @@ function computeRequests(
   for (const g of takeGroups) if (g.status === 'pending') toListOrder(g) // unreachable: a group of a pair a cycle reads is served in list order from the start
   resolveDeferred()
   resolveDeferred(true) // takes that wait on each other: credited in the order they were parked, or flagged
+  for (const { take: t } of shadows) { // still blocked at the end: a seeded credit stays unchecked, so the passes must not settle on it
+    const credit = credits.get(t.id) ?? 0
+    if (credit > 0) flushed.set(t.id, { credit, settled: 0 })
+  }
   for (const [id, f] of flushed) if (sameRate(f.credit, f.settled)) uncredited.delete(id)
   return { goals, info, credits, loops, needs, uncredited, flushed, inListOrder, areaNeeds, creditParts, splitAlloc, probes }
 }
