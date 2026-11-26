@@ -1,5 +1,5 @@
 import type { BeaconConfig, GameData, GameRecipeNode, ModuleConfig } from '../../../data/types'
-import { computeNodeEffects, effectAllowed, rowMachine } from '../../../solver/effects'
+import { CONSUMPTION_FLOOR, computeNodeEffects, effectAllowed, rowMachine } from '../../../solver/effects'
 
 // ---------------------------------------------------------------------------
 // Effects of a row, per source: the machine's modules and each beacon configuration, then the total.
@@ -72,6 +72,8 @@ export interface RowEffects {
   beacons: EffectSource[]
   /** What the solver counts for the row (speed, productivity, energy). */
   total: Pick<EffectTotals, 'speed' | 'productivity' | 'consumption'>
+  /** The energy sum before the game's -80 % floor, set only when the floor cut it: `total.consumption` is then -0.8. */
+  consumptionBeforeFloor?: number
 }
 
 /** Effects of a recipe row per source, with the solver's own total. */
@@ -87,7 +89,12 @@ export function rowEffects(node: GameRecipeNode, beacons: readonly BeaconConfig[
       const beaconAllowed = b.beaconId ? gameData.beacons[b.beaconId]?.allowedEffects : undefined
       return { raw, applied: applyRecipeConstraints(raw, [beaconAllowed, machineAllowed], allowProductivity) }
     }),
-    total: { speed: solver.speedBonus, productivity: solver.productivityBonus, consumption: solver.consumptionBonus },
+    total: {
+      speed: solver.speedBonus,
+      productivity: solver.productivityBonus,
+      consumption: Math.max(CONSUMPTION_FLOOR, solver.consumptionBonus),
+    },
+    ...(solver.consumptionBonus < CONSUMPTION_FLOOR ? { consumptionBeforeFloor: solver.consumptionBonus } : {}),
   }
 }
 
