@@ -1999,7 +1999,6 @@ describe('solveAll — requests', () => {
       expect(creditsSettled(new Map())).toBe(true)
       expect(creditsSettled(new Map([['a', { credit: 5, settled: 5 }], ['b', { credit: 0, settled: 0 }]]))).toBe(true)
       expect(creditsSettled(new Map([['a', { credit: 5, settled: 5 }], ['b', { credit: 0, settled: 30 }]]))).toBe(false)
-      expect(creditsSettled(new Map([['a', { credit: 5, settled: 5, listOrder: true as const }]]))).toBe(false) // an entry served in list order is never settled
     })
 
     it('reserves a credited take against a take consumer solved before it', () => {

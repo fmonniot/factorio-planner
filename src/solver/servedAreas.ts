@@ -110,8 +110,6 @@ export function handOut(total: number, targets: readonly (readonly number[])[]):
 export interface PairEntries {
   entries: readonly RankedEntry[]
   granted: readonly number[]
-  /** What the request pass credited each entry of a group that shares by its lines' weights, parallel to `entries` (undefined: the connection's share times the entry's part). */
-  shares?: readonly (number | undefined)[]
 }
 
 /** What the report needs of the solve to draw the areas of a consumer. */
@@ -162,7 +160,7 @@ export function areaLines(
   for (const [id, idx] of entriesOfConn) {
     const c = byConn.get(id)
     if (!c) continue
-    const share = idx.map(i => ranked?.shares?.[i] ?? c.share * partOf(order[i]))
+    const share = idx.map(i => c.share * partOf(order[i]))
     const need = idx.map(i => areasOf(order[i]).reduce((a, n) => a + n.need, 0))
     const got = handOut(c.got, [idx.map(i => granted[i]), share, need])
     idx.forEach((i, m) => entryGot.set(i, got[m]))
@@ -184,9 +182,7 @@ export function areaLines(
       return
     }
     const total = e.total ?? 0
-    const own = ranked?.shares?.[i] // an entry credited by itself splits its credit over its areas by need
-    const entryNeed = e.areas.reduce((a, n) => a + n.need, 0)
-    const units = e.areas.map(a => ({ a, q: own === undefined ? (c.share * a.need) / total : entryNeed > 0 ? (own * a.need) / entryNeed : 0 }))
+    const units = e.areas.map(a => ({ a, q: (c.share * a.need) / total }))
     const got = handOut(entryGot.get(i) ?? 0, [units.map(u => u.q), units.map(u => u.a.need)])
     units.forEach((u, m) => {
       lines.push({

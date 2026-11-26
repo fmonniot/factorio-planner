@@ -450,7 +450,7 @@ export const LOOP_ROUND_LIMIT = 8
 /** Most demand rounds a cycle of requests is solved before its first round is kept. */
 export const REQUEST_ROUND_LIMIT = 30
 
-/** Most runs of the request pass that settle the credits of takes flushed while blocked and of the groups of takes served in list order (the first included). */
+/** Most runs of the request pass that settle the credits of takes flushed while blocked (the first included). */
 export const CREDIT_PASS_LIMIT = 6
 
 /** Rounds in a row the demand of a cycle of requests may grow before it is called diverging. */
@@ -912,8 +912,6 @@ interface RequestPlan {
   splitAlloc: Map<RankedPair, { entryKeys: Map<number, Map<string, number>>; extra: Map<string, number> }>
   /** block id → flow key → what the block's request probe would import; only probed blocks (the short-supply check reads it). */
   probes: Map<string, Map<string, number>>
-  /** take connection id → listed index → what a group of takes credited that entry of the connection (`-1`: the areas no entry names); only connections with two or more listed entries in a group shared by need. */
-  entryCredits: Map<string, Map<number, number>>
 }
 
 /**
@@ -1123,18 +1121,11 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
 }
 
 /** A take of a plain item flushed while blocked: what the pass credited it, and what it would have been credited had it waited. */
-export interface FlushedCredit {
-  credit: number
-  settled: number
-  /** An entry of a group of takes the pass served in list order: `settled` is what the entry would have been credited, and the next pass is seeded with it (never with a secant step). */
-  listOrder?: true
-  /** An entry of a group (or alone, in a `perEntry` connection) credited from its seed: the entries of a pair are coupled through one water-fill and one rest, so the next seed is the settled credit, never a secant step on the entry alone. */
-  entry?: true
-}
+export interface FlushedCredit { credit: number; settled: number }
 
-/** Whether every flushed take was credited what it would have been credited had it waited (an entry the pass served in list order never was). */
+/** Whether every flushed take was credited what it would have been credited had it waited. */
 export function creditsSettled(flushed: ReadonlyMap<string, FlushedCredit>): boolean {
-  for (const f of flushed.values()) if (f.listOrder || !sameRate(f.credit, f.settled)) return false
+  for (const f of flushed.values()) if (!sameRate(f.credit, f.settled)) return false
   return true
 }
 
@@ -1164,22 +1155,16 @@ export function nextCreditSeeds(history: ReadonlyMap<string, readonly FlushedCre
   return seeds
 }
 
-/**
- * Run the request pass again, seeding the takes it flushed while blocked and the entries of the groups it served in list order, until their
- * credits equal what they would have had; the first pass if that does not happen in `limit` runs. An entry served in list order is seeded
- * with its settled credit and starts its run of passes when it is seeded.
- */
+/** Run the request pass again, seeding the takes it flushed while blocked, until their credits equal what they would have had; the first pass if that does not happen in `limit` runs. */
 function settleCredits(run: (seeds: ReadonlyMap<string, number>) => RequestPlan, limit: number): RequestPlan {
   const first = run(new Map())
   let plan = first
   const history = new Map<string, FlushedCredit[]>()
   for (let pass = 1; !creditsSettled(plan.flushed); pass++) {
     if (pass >= limit) return first
-    for (const id of [...history.keys()]) if (!plan.flushed.has(id) || plan.flushed.get(id)!.listOrder || plan.flushed.get(id)!.entry) history.delete(id) // a take the pass did not flush breaks its run of consecutive passes
-    for (const [id, f] of plan.flushed) if (!f.listOrder && !f.entry) history.set(id, [...(history.get(id) ?? []), f])
-    const seeds = nextCreditSeeds(history, [...plan.flushed].filter(([, f]) => !f.listOrder && !f.entry).map(([id]) => id))
-    for (const [id, f] of plan.flushed) if (f.listOrder || f.entry) seeds.set(id, Math.max(0, f.settled))
-    plan = run(seeds)
+    for (const id of [...history.keys()]) if (!plan.flushed.has(id)) history.delete(id) // a take the pass did not flush breaks its run of consecutive passes
+    for (const [id, f] of plan.flushed) history.set(id, [...(history.get(id) ?? []), f])
+    plan = run(nextCreditSeeds(history, plan.flushed.keys()))
   }
   return plan
 }
@@ -1212,13 +1197,10 @@ function settleCredits(run: (seeds: ReadonlyMap<string, number>) => RequestPlan,
  * the item, whose source or higher-ranked takes are not credited yet (the request order reached it first), is parked and credited once they
  * are; so is a takes-first take, but a block its consumer requests the item from that has to come before the blocker leaves it no credit (flagged). Takes-first consumers the
  * list does not name are credited after the listed ones. The takes of a `tied` group are credited together, by need, when the first
- * member is reached (`creditGroups`: the other members are probed ahead, the entries' needs are water-filled by weight, each entry of a
- * connection asking its own part; readiness edges put the blocks that request of a member before the members), unless the pass cannot
- * know every need in time, or a consumer of the pair is in a cycle of requests, or a member does not take the item first, or a
- * connection has entries in several places of the list: such a group takes part in the credit passes. The first pass credits it in list
- * order, a read-only walk at the end of the pass (`settlePairs`) records what each entry would have been credited, and `settleCredits`
- * runs the pass again seeded with those (a fixed group when the request order is built, a reach-time one at its first member) until they
- * settle; if they do not, the first pass stands, granted in list order and its takes flagged (`RequestPlan.inListOrder`).
+ * member is reached (`creditGroups`: the other members are probed ahead, the source's leftover is water-filled by weight; readiness
+ * edges put the blocks that request of a member before the members), unless the pass cannot know every need in time, or a consumer of
+ * the pair is in a cycle of requests, or a member does not take the item first: such a group is credited in list order and granted in
+ * list order, and its takes are flagged (`RequestPlan.inListOrder`).
  *
  * Cycles of requests are solved in demand rounds: members in order (consumers first), each probed
  * with its products plus what the other members requested of it, a request that closes the cycle
@@ -1278,7 +1260,7 @@ function computeRequests(
       else applicable.push({ consumer, connection: c })
     }
   }
-  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), flushed: new Map(), inListOrder: new Set(), areaNeeds: new Map(), creditParts, splitAlloc, probes, entryCredits: new Map() }
+  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), flushed: new Map(), inListOrder: new Set(), areaNeeds: new Map(), creditParts, splitAlloc, probes }
 
   const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
   for (const { consumer, connection } of applicable) {
@@ -1354,51 +1336,18 @@ function computeRequests(
   }
 
   // Groups of takes: a `tied` group of a ranked pair with a take in it. The first member the pass reaches credits the whole
-  // group at once, by need (`creditGroups`); a group the pass cannot share that way takes part in the credit passes: credited from its entries' seeds, and in the first pass (no seeds) in list order (`toListOrder`).
+  // group at once, by need (`creditGroups`); a group the pass cannot share that way is served in list order (D7, `toListOrder`).
   // A list without `tied` makes no group, so none of the code for groups runs.
   interface TakeGroup {
     pair: RankedPair
     start: number
     end: number // listed indices [start, end)
     /** The take connections whose first entry is in [start, end), in list order; the weight sums the weights of the member's entries in the group. */
-    members: { connection: BlockConnection; blockId: string; weight: number; entries: number[] }[]
-    /** The entries in [start, end) of a connection whose first entry is above the group (a `perEntry` connection): credited by the group at their own place. */
-    late: { connection: BlockConnection; blockId: string; index: number }[]
-    extra?: { weight: number; index: number } // the extra, when it is in the group
+    members: { connection: BlockConnection; blockId: string; weight: number }[]
+    extra?: { weight: number } // the extra, when it is in the group
     status: 'pending' | 'shared' | 'listOrder'
-    /** The pass has to know every need to share the group: when it cannot at the first member it serves the group in list order, or from its seeds, and the settle walk records what the entries would have had. */
-    participant: boolean
-    /** A group the static checks send to list order but that the credit passes can credit by need: its first pass is in list order, the next ones seeded when the request order is built. */
-    fixed: boolean
-    /** The group is `pending` when the request order is built: the readiness and wait edges follow it, whatever the pass later does with it. */
-    orderEdges: boolean
-    /** The group is spread only by the entries of connections credited above it (`late`): its first pass shares its members as before (`skipLate`), the later ones credit it whole from the seeds. */
-    lateOnly: boolean
-    /** The first pass of a `lateOnly` group: the entries in `late` are not part of what the group asks and holds. */
-    skipLate: boolean
     credit?: Map<string, number> // shared: connection id → credit
-    entryCredit?: Map<number, number> // shared: listed index → what that entry of a member was credited
     held?: number // shared: the credits and what the extra holds, in all
-  }
-  // A take with entries in two or more groups or places of its list (at least one of them a group): each entry is credited on its own
-  // (`entryNeeds`), by the group it is in or alone; `entrySeeds` holds what the credit passes seed the entries of such a connection with.
-  const perEntry = new Set<string>()
-  const entrySeeds = new Map<string, Map<number, number>>() // connection id → listed index → seed
-  for (const items of ranked.values()) {
-    for (const pair of items.values()) {
-      if (split.has(pair.itemId)) continue
-      const spans = servedGroupSpans(pair.listed)
-      const spanOf = (i: number): number => spans.findIndex(([a, b]) => i >= a && i < b)
-      const mine = new Map<string, number[]>()
-      pair.listed.forEach((e, i) => {
-        if (e.kind !== 'block' || rankedTake.get(e.connection.id)?.pair !== pair) return
-        mine.set(e.connection.id, [...(mine.get(e.connection.id) ?? []), i])
-      })
-      for (const [id, indices] of mine) {
-        const inSpans = new Set(indices.map(spanOf))
-        if (inSpans.size >= 2 && [...inSpans].some(k => spans[k][1] - spans[k][0] >= 2)) perEntry.add(id)
-      }
-    }
   }
   const takeGroups: TakeGroup[] = []
   const sharedAt = new Map<RankedPair, Map<number, TakeGroup>>() // pair → start index → group
@@ -1411,28 +1360,21 @@ function computeRequests(
       for (const [start, end] of servedGroupSpans(pair.listed)) {
         if (end - start < 2) continue
         const byConnection = new Map<string, TakeGroup['members'][number]>()
-        const late: TakeGroup['late'] = []
         let extra: TakeGroup['extra']
         for (let i = start; i < end; i++) {
           const e = pair.listed[i]
           if (e.kind === 'extra') {
-            extra = { weight: e.weight ?? 1, index: i }
+            extra = { weight: e.weight ?? 1 }
             continue
           }
           const at = rankedTake.get(e.connection.id)
-          if (!at || at.pair !== pair) continue // a request
-          if (at.position < start) {
-            if (perEntry.has(e.connection.id)) late.push({ connection: e.connection, blockId: e.blockId, index: i }) // credited at an earlier entry, and at this one too
-            continue
-          }
+          if (!at || at.pair !== pair || at.position < start || at.position >= end) continue // a request, or credited at an earlier entry
           const member = byConnection.get(e.connection.id)
-          if (member) {
-            member.weight += e.weight ?? 1
-            member.entries.push(i)
-          } else byConnection.set(e.connection.id, { connection: e.connection, blockId: e.blockId, weight: e.weight ?? 1, entries: [i] })
+          if (member) member.weight += e.weight ?? 1
+          else byConnection.set(e.connection.id, { connection: e.connection, blockId: e.blockId, weight: e.weight ?? 1 })
         }
-        if (byConnection.size === 0 && late.length === 0) continue // a group of requests: the request pass reads no weights
-        const group: TakeGroup = { pair, start, end, members: [...byConnection.values()], late, ...(extra ? { extra } : {}), status: 'pending', participant: false, fixed: false, orderEdges: true, lateOnly: false, skipLate: false }
+        if (byConnection.size === 0) continue // a group of requests: the request pass reads no weights
+        const group: TakeGroup = { pair, start, end, members: [...byConnection.values()], ...(extra ? { extra } : {}), status: 'pending' }
         takeGroups.push(group)
         const byStart = sharedAt.get(pair) ?? new Map<number, TakeGroup>()
         byStart.set(start, group)
@@ -1443,87 +1385,7 @@ function computeRequests(
   }
   const toListOrder = (g: TakeGroup): void => {
     g.status = 'listOrder'
-    for (const m of g.members) inListOrder.add(m.connection.id) // a `late` entry's connection is credited at its first entry, as before: it is not flagged
-  }
-  const entryId = (pair: RankedPair, i: number): string => `\0group\0${pair.sourceId}\0${pair.itemId}\0${i}`
-  const weightOf = (pair: RankedPair, i: number): number => pair.listed[i].weight ?? 1
-  // What a group asks of its source, entry by entry: the members' entries in member order, each member's in list order, then the entries of
-  // connections credited above the group (`late`), then the extra.
-  interface GroupSlot { index: number; weight: number; connection?: BlockConnection }
-  const groupOrder = (g: TakeGroup, whole = false): GroupSlot[] => [
-    ...g.members.flatMap(m => m.entries.map((index): GroupSlot => ({ index, weight: weightOf(g.pair, index), connection: m.connection }))),
-    ...(g.skipLate && !whole ? [] : g.late).map((l): GroupSlot => ({ index: l.index, weight: weightOf(g.pair, l.index), connection: l.connection })),
-    ...(g.extra ? [{ index: g.extra.index, weight: g.extra.weight }] : []),
-  ]
-  const heldOf = (g: TakeGroup): number =>
-    g.members.reduce((a, m) => a + g.credit!.get(m.connection.id)!, 0) + (g.skipLate ? 0 : g.late.reduce((a, l) => a + g.entryCredit!.get(l.index)!, 0)) +
-    (g.extra ? Math.min(g.entryCredit!.get(g.extra.index)!, g.pair.extraRate) : 0)
-  // What each entry of a connection asks: its connection's need (at most the connection's limit) times its part of the block's areas
-  // (`splitByArea`). A connection with one listed entry asks all of it (an entry naming one area stands for the areas no entry names too);
-  // with several, the first listed entry also asks the areas none of them names.
-  const entryNeeds = (pair: RankedPair, needOf: (connectionId: string) => number, areaOf: (blockId: string) => readonly AreaNeed[]) => {
-    const parts = splitByArea(pair.listed, areaOf)
-    const first = new Map<string, number>()
-    const listedOf = new Map<string, number[]>()
-    pair.listed.forEach((e, i) => {
-      if (e.kind !== 'block') return
-      if (!first.has(e.connection.id)) first.set(e.connection.id, i)
-      listedOf.set(e.connection.id, [...(listedOf.get(e.connection.id) ?? []), i])
-    })
-    const demand = (c: BlockConnection): number => Math.min(needOf(c.id), c.maxRate ?? Infinity)
-    const partOfEntry = (i: number): number | undefined => {
-      const e = parts[i]
-      return e.kind === 'block' ? e.part : undefined
-    }
-    // The part of the block's areas no listed entry of the connection names, when the block entry stands among the unlisted ones.
-    const remainder = (c: BlockConnection): number => {
-      if (!pair.unlisted.some(u => u.areaNamed && u.connection.id === c.id)) return 0
-      return Math.max(0, 1 - (listedOf.get(c.id) ?? []).reduce((a, i) => a + (partOfEntry(i) ?? 0), 0))
-    }
-    return {
-      need: (i: number, c: BlockConnection): number => {
-        const D = demand(c)
-        if ((listedOf.get(c.id)?.length ?? 0) <= 1) return D
-        const part = partOfEntry(i)
-        const base = part === undefined ? (i === first.get(c.id) ? D : 0) : D * part
-        return i === first.get(c.id) ? base + D * remainder(c) : base
-      },
-      /** The entry's own part and the remainder it also asks, when it asks the remainder. */
-      rest: (i: number, c: BlockConnection): [number, number] | undefined => {
-        if ((listedOf.get(c.id)?.length ?? 0) <= 1 || i !== first.get(c.id)) return undefined
-        const rem = remainder(c)
-        return rem > 0 ? [partOfEntry(i) ?? 0, rem] : undefined
-      },
-    }
-  }
-  // Credit a group by need: water-fill `rest` over its entries (each asks `entryNeeds`, with its own weight), then the members' credits are
-  // the sums of their entries'. The group holds the credits and what the extra takes.
-  const fillGroup = (g: TakeGroup, rest: number, needOf: (connectionId: string) => number, areaOf: (blockId: string) => readonly AreaNeed[]): void => {
-    const slots = groupOrder(g)
-    const asks = entryNeeds(g.pair, needOf, areaOf)
-    const demands = slots.map(o => (o.connection ? asks.need(o.index, o.connection) : g.pair.extraRate))
-    const taken = waterFill(rest, demands, slots.map(o => o.weight))
-    g.entryCredit = new Map(slots.map((o, k) => [o.index, Math.min(taken[k], demands[k])])) // clamped: floating-point error
-    g.credit = new Map(g.members.map(m => [m.connection.id, m.entries.reduce((a, i) => a + g.entryCredit!.get(i)!, 0)]))
-    g.held = heldOf(g)
-    g.status = 'shared'
-  }
-  // A group the pass cannot share at its first member is credited from the entries' seeds when the earlier pass settled them all.
-  const seedGroup = (g: TakeGroup): boolean => {
-    if (g.skipLate) return false
-    const slots = groupOrder(g)
-    if (!slots.every(o => seeds.has(entryId(g.pair, o.index)))) return false
-    g.entryCredit = new Map(slots.map(o => [o.index, seeds.get(entryId(g.pair, o.index))!]))
-    g.credit = new Map(g.members.map(m => [m.connection.id, m.entries.reduce((a, i) => a + g.entryCredit!.get(i)!, 0)]))
-    g.held = heldOf(g)
-    g.status = 'shared'
-    return true
-  }
-  // The entries of a `perEntry` connection that no group holds: alone in their place of the list.
-  const aloneEntries = (pair: RankedPair): { index: number; connection: BlockConnection }[] => {
-    if (perEntry.size === 0) return []
-    const inGroup = new Set(takeGroups.filter(g => g.pair === pair).flatMap(g => groupOrder(g).map(o => o.index)))
-    return pair.listed.flatMap((e, i) => (e.kind === 'block' && perEntry.has(e.connection.id) && rankedTake.get(e.connection.id)?.pair === pair && !inGroup.has(i) ? [{ index: i, connection: e.connection }] : []))
+    for (const m of g.members) inListOrder.add(m.connection.id)
   }
 
   // A split fluid's ranked pair: its takes are credited from one allocation of the source's keys to the consumers' ranges (`creditSplitPairs`),
@@ -1625,51 +1487,15 @@ function computeRequests(
       const consumers = [...g.pair.listed.flatMap(e => (e.kind === 'block' ? [e.blockId] : [])), ...g.pair.unlisted.map(u => u.blockId)]
       // F1: a consumer of the pair is in a cycle of requests (the demand rounds read the list in order).
       // F2: a member's group take is not its first take of the item, so its need depends on the credits of its other sources.
-      // F4: a member's connection has entries outside the group (another group, or alone): its demand is the whole connection's need, so the
-      // group would credit it for the areas ranked elsewhere too.
-      // A group that only holds entries of connections credited above it (`late`) is shared as before in the first pass.
-      const base = consumers.some(id => inCycle.has(id)) || g.members.some(m => perEntry.has(m.connection.id)) || g.members.some(m => takesOf(m.blockId)?.get(g.pair.itemId)?.[0]?.id !== m.connection.id)
-      if (base) {
-        // Fixed: list order in the first pass, credited from the entries' seeds in the next ones (below).
-        g.fixed = g.participant = true
-        g.orderEdges = false
-      } else {
-        if (g.late.length > 0) g.lateOnly = g.participant = true
-        for (const m of g.members) groupsOfBlock.set(m.blockId, [...(groupsOfBlock.get(m.blockId) ?? []), g])
-      }
-    }
-    // A pair's fixed groups and the alone entries of its `perEntry` connections are seeded together, when the earlier pass settled every one of
-    // them; else the groups are served in list order and each connection is credited at its first entry.
-    for (const items of ranked.values()) {
-      for (const pair of items.values()) {
-        const fixed = takeGroups.filter(g => g.pair === pair && (g.fixed || g.lateOnly))
-        if (fixed.length === 0) continue
-        const alone = aloneEntries(pair)
-        if (fixed.every(g => groupOrder(g, true).every(o => seeds.has(entryId(pair, o.index)))) && alone.every(a => seeds.has(entryId(pair, a.index)))) {
-          for (const g of fixed) {
-            if (g.lateOnly) { // credited whole from the seeds: the block's turn does not credit it
-              g.fixed = true
-              g.lateOnly = false
-              for (const m of g.members) groupsOfBlock.set(m.blockId, (groupsOfBlock.get(m.blockId) ?? []).filter(x => x !== g))
-            }
-            seedGroup(g)
-          }
-          for (const [i, e] of pair.listed.entries()) {
-            if (e.kind !== 'block' || !perEntry.has(e.connection.id) || rankedTake.get(e.connection.id)?.pair !== pair) continue
-            const mine = entrySeeds.get(e.connection.id) ?? new Map<number, number>()
-            mine.set(i, seeds.get(entryId(pair, i)) ?? 0)
-            entrySeeds.set(e.connection.id, mine)
-          }
-        } else {
-          for (const g of fixed) {
-            if (g.fixed) toListOrder(g)
-            else {
-              g.skipLate = true // the first pass: as before, the members only
-              if (g.members.length === 0) g.status = 'listOrder' // a group of later entries only is no group yet: each entry is credited at its place
-            }
-          }
-        }
-      }
+      // F4: a member's connection has entries below the group (another group, or alone): its demand is the whole connection's need, so the
+      // group would credit it for the areas ranked below it too.
+      const below = (m: TakeGroup['members'][number]): boolean =>
+        g.pair.listed.some((e, i) => e.kind === 'block' && e.connection.id === m.connection.id && (i < g.start || i >= g.end))
+      if (
+        consumers.some(id => inCycle.has(id)) ||
+        g.members.some(m => takesOf(m.blockId)?.get(g.pair.itemId)?.[0]?.id !== m.connection.id || below(m))
+      ) toListOrder(g)
+      else for (const m of g.members) groupsOfBlock.set(m.blockId, [...(groupsOfBlock.get(m.blockId) ?? []), g])
     }
     // The same three conditions for a split fluid's list: with any of them its takes are credited in list order.
     for (const sp of splitPairs.values()) {
@@ -1703,9 +1529,9 @@ function computeRequests(
   }
   if (takeGroups.length > 0) {
     // Readiness: a member's need is known once the blocks that request of it are processed, so those go before the other members. After all
-    // the rank edges, so an edge refused here (the group is then credited from its seeds or in list order, see `creditGroups`) never takes a place from a list's own edge.
+    // the rank edges, so an edge refused here (it falls back to list order, see `creditGroups`) never takes a place from a list's own edge.
     for (const g of takeGroups) {
-      if (!g.orderEdges) continue
+      if (g.status !== 'pending') continue
       for (const mj of g.members) {
         for (const r of requestersOf.get(mj.blockId) ?? []) {
           for (const mi of g.members) if (mi.blockId !== mj.blockId) orderEdge(r, mi.blockId, g.pair.itemId, `group\0${r}\0${mi.connection.id}`)
@@ -1746,9 +1572,9 @@ function computeRequests(
     for (let i = 0; i < end; i++) {
       const g = sharedAt.get(pair)?.get(i)
       // The take's own group is credited together only when its source is processed by the time the first member is reached. When the
-      // source comes after the consumer the group is credited from its seeds or in list order (not together), so the members listed above the take are blockers like plain entries.
+      // source comes after the consumer the group is served in list order, so the members listed above the take are blockers like plain entries.
       const own = g !== undefined && g === groupOfTake.get(t.id)
-      if (g && g.orderEdges && !(own && out.includes(t.fromBlockId))) {
+      if (g && g.status === 'pending' && !(own && out.includes(t.fromBlockId))) {
         if (!own && g.members.every(m => after(consumerId, m.blockId))) for (const m of g.members) add(m.blockId)
         i = g.end - 1
         continue
@@ -1850,7 +1676,7 @@ function computeRequests(
       if (g && g.status !== 'listOrder') { // a group of takes shared by need: what it holds in all
         if (g.status === 'pending') return undefined
         rest -= g.held!
-        for (const m of g.members) if (!entrySeeds.has(m.connection.id)) counted.add(m.connection.id) // a seeded connection is read entry by entry
+        for (const m of g.members) counted.add(m.connection.id)
         i = g.end - 1
         continue
       }
@@ -1860,11 +1686,6 @@ function computeRequests(
         continue
       }
       if (!rankedTake.has(e.connection.id) || counted.has(e.connection.id)) continue // a request: its share is not in the leftover
-      const own = entrySeeds.get(e.connection.id)
-      if (own) {
-        rest -= own.get(i) ?? 0
-        continue
-      }
       counted.add(e.connection.id)
       const c = creditOf(e.blockId, e.connection.id, true)
       if (c === undefined) return undefined // a higher-ranked take is not credited yet
@@ -1882,19 +1703,10 @@ function computeRequests(
   const restOf = (t: BlockConnection, itemId: string, est: Map<string, Offers>, creditOf: CreditOf, blocked?: Set<string>): number | null | undefined => {
     const at = rankedTake.get(t.id)
     if (!at) return undefined
-    const seeded = entrySeeds.get(t.id)
-    if (seeded) {
-      // Credited entry by entry, from the seeds, once the take could be credited at all: it waits for its source and for the takes above it as any other.
-      if (restAt(at.pair, itemId, at.position < 0 ? at.pair.listed.length : at.position, at.position < 0, t.id, est, creditOf) === undefined) {
-        blocked?.add(t.id)
-        return null
-      }
-      return [...seeded.values()].reduce((a, v) => a + v, 0)
-    }
     const g = groupOfTake.get(t.id)
     if (g?.status === 'shared') return g.credit!.get(t.id) ?? 0
-    // A pending group is never read here: `creditGroups` settles every group of a block before the block reads a take, and a fixed group (a cycle reads it) is
-    // seeded or in list order from the start. Should it happen, `restAt` reads the group as not credited yet (blocked), changing no state.
+    // A pending group is never read here: `creditGroups` settles every group of a block before the block reads a take, and a group a cycle
+    // reads is served in list order from the start. Should it happen, `restAt` reads the group as not credited yet (blocked), changing no state.
     const r = restAt(at.pair, itemId, at.position < 0 ? at.pair.listed.length : at.position, at.position < 0, t.id, est, creditOf)
     if (r === undefined) {
       blocked?.add(t.id)
@@ -1978,7 +1790,7 @@ function computeRequests(
   }
   // Credit the groups of takes `block` belongs to that are still pending, once, when the first member is reached: every member's
   // credit is then known before any member shares its need out. A group whose members' needs are not all final (a requester of a
-  // member, or the source, or the takes above it, are not processed yet) is credited from its seeds, or in the first pass in list order, instead.
+  // member, or the source, or the takes above it, are not processed yet) is served in list order instead.
   const creditGroups = (block: Block, probe: Probe): void => {
     for (const g of groupsOfBlock.get(block.id) ?? []) {
       if (g.status !== 'pending') continue
@@ -1986,17 +1798,19 @@ function computeRequests(
       const ready = rest !== undefined && g.members.every(m =>
         m.blockId === block.id || (!processed.has(m.blockId) && (requestersOf.get(m.blockId) ?? []).every(r => processed.has(r))))
       if (rest === undefined || !ready) {
-        g.participant = true
-        if (!seedGroup(g)) toListOrder(g)
+        toListOrder(g)
         continue
       }
-      const probeOfBlock = new Map(g.members.map(m => [m.blockId, m.blockId === block.id ? probe : aheadProbe(m.blockId)]))
-      const probeOfConnection = new Map(g.members.map(m => [m.connection.id, probeOfBlock.get(m.blockId)!]))
-      fillGroup(
-        g, rest,
-        id => probeOfConnection.get(id)?.received.get(g.pair.itemId) ?? 0,
-        id => probeOfBlock.get(id)?.areaNeeds?.get(g.pair.itemId) ?? [],
-      )
+      const demands = g.members.map(m => Math.min((m.blockId === block.id ? probe : aheadProbe(m.blockId)).received.get(g.pair.itemId) ?? 0, m.connection.maxRate ?? Infinity))
+      const weights = g.members.map(m => m.weight)
+      if (g.extra) {
+        demands.push(g.pair.extraRate)
+        weights.push(g.extra.weight)
+      }
+      const taken = waterFill(rest, demands, weights)
+      g.credit = new Map(g.members.map((m, i) => [m.connection.id, Math.min(taken[i], demands[i])])) // clamped: floating-point error
+      g.held = [...g.credit.values()].reduce((a, c) => a + c, 0) + (g.extra ? Math.min(taken[taken.length - 1], g.pair.extraRate) : 0)
+      g.status = 'shared'
     }
   }
 
@@ -2238,66 +2052,6 @@ function computeRequests(
     }
   }
 
-  // What the groups that take part in the credit passes would have been credited, read once the pass is done: down each pair's list from the
-  // source's leftover, a participant group water-filling it by the needs the pass recorded, a group shared by need holding what it holds, an
-  // entry of a `perEntry` connection that no group holds asking its own need, any other take what it was credited. One `FlushedCredit` per
-  // entry of a participant group or alone, under its pseudo id; flagged when the pass did not credit it from seeds.
-  const settlePairs = (): void => {
-    for (const items of ranked.values()) {
-      for (const pair of items.values()) {
-        const groups = sharedAt.get(pair)
-        if (!groups || ![...groups.values()].some(g => g.participant)) continue
-        const offers = estimates.get(pair.sourceId)
-        if (offers === undefined) continue
-        let rest = offers.get(pair.itemId) ?? 0
-        const asks = entryNeeds(pair, id => needs.get(id) ?? 0, b => areaNeeds.get(b)?.get(pair.itemId) ?? [])
-        const counted = new Set<string>()
-        for (let i = 0; i < pair.listed.length; i++) {
-          const g = groups.get(i)
-          if (g?.participant) {
-            const slots = groupOrder(g, true)
-            const demands = slots.map(o => (o.connection ? asks.need(o.index, o.connection) : pair.extraRate))
-            const taken = waterFill(Math.max(0, rest), demands, slots.map(o => o.weight))
-            let total = 0
-            slots.forEach((o, k) => {
-              const settled = Math.min(taken[k], demands[k])
-              total += settled
-              flushed.set(entryId(pair, o.index), g.status === 'shared'
-                ? { credit: g.entryCredit!.get(o.index) ?? 0, settled, entry: true }
-                : { credit: 0, settled, listOrder: true })
-            })
-            rest -= total
-            for (const m of g.members) if (!perEntry.has(m.connection.id)) counted.add(m.connection.id)
-            i = g.end - 1
-            continue
-          }
-          if (g?.status === 'shared') {
-            rest -= g.held!
-            for (const m of g.members) if (!perEntry.has(m.connection.id)) counted.add(m.connection.id)
-            i = g.end - 1
-            continue
-          }
-          const e = pair.listed[i]
-          if (e.kind === 'extra') {
-            rest -= Math.min(pair.extraRate, Math.max(0, rest))
-            continue
-          }
-          if (!rankedTake.has(e.connection.id)) continue
-          if (perEntry.has(e.connection.id)) {
-            const settled = Math.min(Math.max(0, rest), asks.need(i, e.connection))
-            const seeded = entrySeeds.get(e.connection.id)?.get(i)
-            flushed.set(entryId(pair, i), seeded === undefined ? { credit: 0, settled, listOrder: true } : { credit: seeded, settled, entry: true })
-            rest -= settled
-            continue
-          }
-          if (counted.has(e.connection.id)) continue
-          counted.add(e.connection.id)
-          rest -= credits.get(e.connection.id) ?? 0
-        }
-      }
-    }
-  }
-
   for (const component of components) {
     flushFor(new Set(component.blocks.map(b => b.id)))
     const loop = component.loop && shapeOf(component.loop)
@@ -2430,9 +2184,6 @@ function computeRequests(
               ? ['extra', e.tied ?? false, e.weight ?? null]
               : [e.blockId, e.connection.id, rankedTake.has(e.connection.id), e.areaId ?? null, e.tied ?? false, e.weight ?? null])),
             pair.unlisted.map(u => [u.blockId, u.connection.id, rankedTake.has(u.connection.id), u.areaNamed ?? false]),
-            // A group seeded from the credit passes: what it holds changes what the takes below it read.
-            [...(sharedAt.get(pair)?.values() ?? [])].map(g => [g.start, g.status, g.held ?? null, [...(g.entryCredit ?? [])]]),
-            [...new Set(pair.listed.flatMap(e => (e.kind === 'block' && entrySeeds.has(e.connection.id) ? [e.connection.id] : [])))].map(id => [id, [...entrySeeds.get(id)!]]),
             // Only the credits a member's take reads: the listed takes above it, and the unlisted ones for a takes-first take.
             [...pair.listed.slice(0, read.listedEnd).flatMap(e => (e.kind === 'block' ? [e] : [])), ...(read.unlisted ? pair.unlisted : [])]
               .filter(e => rankedTake.has(e.connection.id) && !memberSet.has(e.blockId))
@@ -2696,46 +2447,15 @@ function computeRequests(
     loops.push({ ...loop, rounds: solved.rounds, converged: solved.converged })
     resolveDeferred()
   }
-  for (const g of takeGroups) if (g.status === 'pending') toListOrder(g) // unreachable: a fixed group is seeded or in list order from the start
+  for (const g of takeGroups) if (g.status === 'pending') toListOrder(g) // unreachable: a group of a pair a cycle reads is served in list order from the start
   resolveDeferred()
   resolveDeferred(true) // takes that wait on each other: credited in the order they were parked, or flagged
   for (const { take: t } of shadows) { // still blocked at the end: a seeded credit stays unchecked, so the passes must not settle on it
     const credit = credits.get(t.id) ?? 0
     if (credit > 0) flushed.set(t.id, { credit, settled: 0 })
   }
-  settlePairs()
   for (const [id, f] of flushed) if (sameRate(f.credit, f.settled)) uncredited.delete(id)
-  // What each entry of a connection with several listed entries was credited by a group shared by need or from seeds, for the grants and the
-  // report. An entry that also stands for the areas no entry names keeps its own part and `-1` gets the remainder's.
-  const entryCredits = new Map<string, Map<number, number>>()
-  const addEntryCredit = (pair: RankedPair, asks: ReturnType<typeof entryNeeds>, connection: BlockConnection, index: number, v: number): void => {
-    if (pair.listed.filter(e => e.kind === 'block' && e.connection.id === connection.id).length < 2) return
-    const mine = entryCredits.get(connection.id) ?? new Map<number, number>()
-    const r = asks.rest(index, connection)
-    if (r) {
-      mine.set(index, (v * r[0]) / (r[0] + r[1]))
-      mine.set(-1, (v * r[1]) / (r[0] + r[1]))
-    } else mine.set(index, v)
-    entryCredits.set(connection.id, mine)
-  }
-  const asksOf = new Map<RankedPair, ReturnType<typeof entryNeeds>>()
-  const asksFor = (pair: RankedPair): ReturnType<typeof entryNeeds> => {
-    if (!asksOf.has(pair)) asksOf.set(pair, entryNeeds(pair, id => needs.get(id) ?? 0, b => areaNeeds.get(b)?.get(pair.itemId) ?? []))
-    return asksOf.get(pair)!
-  }
-  for (const g of takeGroups) {
-    if (g.status !== 'shared') continue
-    for (const o of groupOrder(g)) if (o.connection) addEntryCredit(g.pair, asksFor(g.pair), o.connection, o.index, g.entryCredit!.get(o.index) ?? 0)
-  }
-  for (const items of ranked.values()) {
-    for (const pair of items.values()) {
-      for (const a of aloneEntries(pair)) {
-        const v = entrySeeds.get(a.connection.id)?.get(a.index)
-        if (v !== undefined) addEntryCredit(pair, asksFor(pair), a.connection, a.index, v)
-      }
-    }
-  }
-  return { goals, info, credits, loops, needs, uncredited, flushed, inListOrder, areaNeeds, creditParts, splitAlloc, probes, entryCredits }
+  return { goals, info, credits, loops, needs, uncredited, flushed, inListOrder, areaNeeds, creditParts, splitAlloc, probes }
 }
 
 function solvePass(
@@ -2815,14 +2535,7 @@ function solvePass(
     const given = grantByRank(
       offers.get(pair.itemId) ?? 0, entries, pair.extraRate,
       id => connectionShare(requestPlan.info.get(id), requestPlan.credits.get(id)),
-      id => requestPlan.inListOrder.has(id), // a group of takes the first pass served in list order (the passes did not settle) is granted in list order
-      // An entry of a connection a group credited entry by entry asks its own credit.
-      requestPlan.entryCredits.size > 0
-        ? (e, i) => {
-            const share = connectionShare(requestPlan.info.get(e.connection.id), requestPlan.credits.get(e.connection.id))
-            return requestPlan.entryCredits.get(e.connection.id)?.get(i < pair.listed.length ? i : -1) ?? (e.part === undefined ? share : share * e.part)
-          }
-        : undefined,
+      id => requestPlan.inListOrder.has(id), // a group of takes the request pass served in list order is granted in list order
     )
     for (const [id, amount] of given.grants) grants.set(id, amount)
     granted.set(pair, given.entryGrants) // last call wins, as `grants` does
@@ -3024,10 +2737,7 @@ function solvePass(
       // credit, so no share), so the request pass never probed it: its areas come from the final solve, like an unranked pair's.
       const listedEnd = pair.listed.length
       const entries = entriesOf.get(pair)!.map((e, i) => (i < listedEnd || e.kind === 'extra' || e.areas !== undefined ? e : splitByArea([e], id => reportNeedsOf(id, itemId))[0]))
-      const shares = requestPlan.entryCredits.size > 0
-        ? entries.map((e, i) => (e.kind === 'block' ? requestPlan.entryCredits.get(e.connection.id)?.get(i < listedEnd ? i : -1) : undefined))
-        : undefined
-      return { entries, granted: granted.get(pair) ?? entries.map(() => 0), ...(shares ? { shares } : {}) }
+      return { entries, granted: granted.get(pair) ?? entries.map(() => 0) }
     },
   }
   const served = buildServed(

@@ -381,16 +381,6 @@ describe('grantByRank with areas', () => {
     expect(grantByRank(10, group, 0, shareOf, () => true).entryGrants).toEqual([8, 2])
     expect(grantByRank(10, group, 0, shareOf, () => true).grants.get('c-H')).toBe(10)
   })
-  it('asks what entryAsk gives, so a group of entries water-fills the credits of its entries', () => {
-    // H3's entries L and B were credited 11 and 8 by weight (a7): a group offered 19 asks them in full, and offered less shares by weight.
-    const asks = [25, 11, 8]
-    const order: RankedEntry[] = [part('S', 1), { ...H1, tied: true as const }, { ...H2, tied: true as const }]
-    const ask = (_e: RankedEntry & { kind: 'block' }, i: number) => asks[i]
-    expect(grantByRank(100, order, 0, shareOf, undefined, ask).entryGrants).toEqual([25, 11, 8])
-    const short = grantByRank(30, order, 0, shareOf, undefined, ask)
-    expect(short.entryGrants.map(g => Math.round(g * 1e6) / 1e6)).toEqual([11, 11, 8])
-    expect(short.grants.get('c-H')).toBeCloseTo(19, 9)
-  })
   it('gives entryGrants parallel to the order when no entry has a part', () => {
     const e = (id: string): RankedEntry => ({ kind: 'block', blockId: id, connection: conn(id) })
     const { grants, entryGrants } = grantByRank(40, [e('S'), e('H')], 0, shareOf)
