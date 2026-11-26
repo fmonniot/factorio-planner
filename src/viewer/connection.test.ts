@@ -443,6 +443,15 @@ describe('the badge', () => {
     expect(b.detail).toMatch(/3/)
   })
 
+  it('says when the unknown ids are those of another plan than the planner holds', () => {
+    const { state } = run(connect(text(status({ mod: { link: 'connected', protocol: 1, stored: 'ffffffffffffffff', unknownIds: 3 } })), { type: 'solved', plan: A }))
+    const b = badgeFor(state)
+    expect(b.kind).toBe('data-set-mismatch')
+    expect(b.detail).toMatch(/ffffffffffffffff\), which is not the planner's current plan/)
+    const same = badgeFor(run(connect(text(status({ mod: { link: 'connected', protocol: 1, stored: A.id, unknownIds: 3 } })), { type: 'solved', plan: A })).state)
+    expect(same.detail).not.toMatch(/current plan/)
+  })
+
   it('follows later statuses', () => {
     const { state } = run(connect(text(status()), text(held(A.id, { mod: { link: 'connected', protocol: 1, stored: A.id, unknownIds: 0 }, transfer: { id: A.id, state: 'delivered', sent: 1, count: 1 } }))))
     expect(badgeFor(state).kind).toBe('connected')

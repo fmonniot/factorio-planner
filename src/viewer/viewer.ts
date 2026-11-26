@@ -83,11 +83,15 @@ export async function publishLatestPlan(isCurrent: () => boolean): Promise<void>
   }
 }
 
+/** How long the solver must stay quiet before the snapshot is rebuilt. */
+export const REBUILD_DEBOUNCE_MS = 300
+
 /**
  * Feeds every new solve to the connection. Called once at app startup. Returns the cleanup.
  */
 export function wireViewer(): () => void {
   let generation = 0
+  let timer: ReturnType<typeof setTimeout> | undefined
   const rebuild = () => {
     const mine = ++generation
     void publishLatestPlan(() => mine === generation)
@@ -95,13 +99,20 @@ export function wireViewer(): () => void {
   viewer.dispatch({ type: 'setAutoSend', value: useUiStore.getState().viewerAutoSend })
 
   const unsubSolver = useSolverStore.subscribe((state, prev) => {
-    if (state.lastResults !== prev.lastResults || state.status.type !== prev.status.type) rebuild()
+    if (state.lastResults === prev.lastResults && state.status.type === prev.status.type) return
+    // A build in flight was made from a result that is already out of date.
+    generation++
+    clearTimeout(timer)
+    if (viewer.getState().phase === 'off') return
+    // Editing a big plan solves again and again: build the snapshot once the solves have stopped.
+    timer = setTimeout(rebuild, REBUILD_DEBOUNCE_MS)
   })
   // Switching the connection on builds the plan once, whatever the solver last did.
   let wasOff = viewer.getState().phase === 'off'
   const unsubViewer = viewer.subscribe(state => {
     const isOff = state.phase === 'off'
     if (isOff === wasOff) return
+    clearTimeout(timer)
     if (wasOff) rebuild()
     // A build still running was started for a connection that is gone: its result is stale.
     else generation++
@@ -113,6 +124,7 @@ export function wireViewer(): () => void {
   if (useUiStore.getState().viewerEnabled) viewer.dispatch({ type: 'enable' })
   return () => {
     unsubSolver()
+    clearTimeout(timer)
     unsubViewer() // before the disable below, so a hot reload does not forget the switch
     generation++
     viewer.dispatch({ type: 'disable' })
