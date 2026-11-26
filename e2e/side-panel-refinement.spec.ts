@@ -84,7 +84,7 @@ test.describe('docked panel', () => {
   test('stays docked at 380 px', async ({ page }) => {
     await load(page, FIXTURE)
     const panel = await selectRow(page, row(page))
-    await expect(panel).toHaveCSS('position', 'static')
+    await expect(panel).toHaveCSS('position', 'relative')
     expect((await panel.boundingBox())!.width).toBe(380)
   })
 })

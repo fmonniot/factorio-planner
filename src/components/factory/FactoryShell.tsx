@@ -7,7 +7,7 @@ import { useUndoShortcuts } from './useUndoShortcuts'
 export function FactoryShell() {
   useUndoShortcuts()
   return (
-    <div className="h-dvh flex flex-col bg-gray-950 text-gray-100 overflow-hidden">
+    <div className="relative h-dvh flex flex-col bg-gray-950 text-gray-100 overflow-hidden">
       <TopBar />
       <main className="flex flex-col flex-1 min-h-0 overflow-hidden">
         <FactorySummary />

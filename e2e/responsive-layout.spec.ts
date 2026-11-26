@@ -229,7 +229,7 @@ test.describe('side panel below xl', () => {
     await load(page)
     const wide = (await tableScroller(page).boundingBox())!.width
     const panel = await selectRow(page, row(page))
-    await expect(panel).toHaveCSS('position', 'static')
+    await expect(panel).toHaveCSS('position', 'relative')
     await expect(backdrop(page)).toBeHidden()
     const tableBox = (await tableScroller(page).boundingBox())!
     expect(tableBox.width).toBeLessThan(wide)
