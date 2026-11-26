@@ -43,7 +43,7 @@ test.describe('block graph matrix, 15 blocks', () => {
     const counts = await page.getByTestId('matrix-cell').evaluateAll(els => els.map(el => Number(el.getAttribute('data-count'))))
     expect(counts.reduce((a, b) => a + b, 0)).toBe(140)
     expect(await page.locator('[data-testid="matrix-cell"][data-back="true"]').count()).toBeLessThanOrEqual(6)
-    await expect(page.getByTestId('matrix-summary')).toContainText('46 filled')
+    await expect(page.getByTestId('matrix-summary')).toHaveCount(0)
   })
 
   test('fits at 1280 px with no horizontal scroll', async ({ page }, testInfo) => {
@@ -142,7 +142,49 @@ test.describe('block graph matrix, 15 blocks', () => {
     const lonePanel = await selectCell(page, { connectionId: single.ids[0] })
     await lonePanel.getByTestId('graph-edge-remove').click()
     await expect(lone).toHaveCount(0)
-    await expect(page.getByTestId('matrix-legend')).toBeVisible()
+    await expect(page.getByTestId('matrix-panel')).toHaveCount(0)
+  })
+
+  test('the legend is behind the info button of the header: hover or click opens it, Escape closes it and not the modal', async ({ page }, testInfo) => {
+    await setup(page, out(testInfo))
+    await setView(page, 'Matrix')
+    const legend = page.getByTestId('matrix-legend')
+    const help = page.getByTestId('matrix-help')
+    await expect(legend).toHaveCount(0)
+    await expect(page.getByTestId('matrix-panel')).toHaveCount(0)
+
+    await help.hover()
+    await expect(legend).toBeVisible()
+    await expect(legend).toContainText('Reading the matrix')
+    await page.mouse.move(5, 5)
+    await expect(legend).toHaveCount(0)
+
+    await help.click()
+    await page.mouse.move(5, 5)
+    await expect(legend).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(legend).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Factory overview' })).toBeVisible()
+
+    await setView(page, 'Graph')
+    await expect(help).toHaveCount(0)
+  })
+
+  test('a selected cell shows its connections in a strip under the grid, which scrolls the cell into view', async ({ page }, testInfo) => {
+    await setup(page, out(testInfo))
+    await setView(page, 'Matrix')
+    const cell = page.getByTestId('matrix-cell').last()
+    await cell.click()
+    const panel = page.getByTestId('matrix-panel')
+    await expect(panel).toBeVisible()
+    const strip = (await panel.boundingBox())!
+    const pane = (await page.getByTestId('matrix-scroll').boundingBox())!
+    expect(strip.y).toBeGreaterThanOrEqual(pane.y + pane.height - 0.5)
+    expect(strip.width).toBeGreaterThan(pane.width - 1)
+    const box = (await cell.boundingBox())!
+    expect(box.y + box.height).toBeLessThanOrEqual(strip.y + 0.5)
+    await cell.click()
+    await expect(panel).toHaveCount(0)
   })
 
   test('hovering a cell crosses its row and its column', async ({ page }, testInfo) => {

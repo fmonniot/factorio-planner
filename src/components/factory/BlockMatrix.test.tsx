@@ -105,20 +105,22 @@ describe('BlockMatrix', () => {
     expect(c.getAttribute('aria-label')).toBe('2 items from Miner to Consumer')
     expect(tipOf(c)).toBe('2 items from Miner to Consumer')
     expect(document.querySelectorAll('[title]')).toHaveLength(0)
-    expect(screen.getByTestId('matrix-summary').textContent).toBe('2 × 2 blocks, 1 filled, 0 below the diagonal, in dependency order')
+    expect(screen.queryByTestId('matrix-summary')).toBeNull()
+    expect(screen.queryByText(/below the diagonal/)).toBeNull()
     expect(document.querySelectorAll('tbody td')).toHaveLength(4)
   })
 
-  it('shows the legend until a cell is selected, then its chips with the icon before the name', () => {
+  it('shows the chips in a strip under the grid while a cell is selected, and nothing otherwise', () => {
     setup()
     render(<BlockGraphButton />)
     openMatrix()
-    expect(screen.getByTestId('matrix-legend')).toBeTruthy()
-    expect(screen.queryByText(/Click a cell/)).toBeNull()
-    fireEvent.click(cell('miner', 'consumer'))
+    expect(screen.queryByTestId('matrix-panel')).toBeNull()
     expect(screen.queryByTestId('matrix-legend')).toBeNull()
+    fireEvent.click(cell('miner', 'consumer'))
     const panel = screen.getByTestId('matrix-panel')
     expect(panel.textContent).toContain('Miner → Consumer')
+    expect(panel.className).toContain('border-t')
+    expect(panel.previousElementSibling!.contains(screen.getByTestId('matrix-scroll'))).toBe(true)
     const chip = within(panel).getByTestId('graph-edge-label')
     expect(chip.textContent).toContain('Iron Ore')
     const img = chip.querySelector('img')!
@@ -126,7 +128,58 @@ describe('BlockMatrix', () => {
     expect(img.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     // A second click on the selected cell deselects.
     fireEvent.click(cell('miner', 'consumer'), { detail: 1 })
-    expect(screen.getByTestId('matrix-legend')).toBeTruthy()
+    expect(screen.queryByTestId('matrix-panel')).toBeNull()
+  })
+
+  describe('help', () => {
+    const help = () => screen.getByTestId('matrix-help')
+
+    it('is an info button in the header of the Matrix view only', () => {
+      setup()
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.queryByTestId('matrix-help')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Matrix' }))
+      expect(help()).toHaveAttribute('aria-label', 'Reading the matrix')
+      expect(help().closest('[data-testid="modal-panel"]')!.querySelector('h2')!.parentElement!.contains(help())).toBe(true)
+      fireEvent.click(screen.getByRole('button', { name: 'Power' }))
+      expect(screen.queryByTestId('matrix-help')).toBeNull()
+    })
+
+    it('opens the legend on a click, and closes it on a second one', () => {
+      setup()
+      render(<BlockGraphButton />)
+      openMatrix()
+      expect(screen.queryByTestId('matrix-legend')).toBeNull()
+      fireEvent.click(help())
+      expect(screen.getByTestId('matrix-legend').textContent).toContain('Reading the matrix')
+      expect(help()).toHaveAttribute('aria-describedby')
+      fireEvent.click(help())
+      expect(screen.queryByTestId('matrix-legend')).toBeNull()
+    })
+
+    it('closes on Escape and leaves the modal open; the next Escape closes the modal', () => {
+      setup()
+      render(<BlockGraphButton />)
+      openMatrix()
+      fireEvent.click(help())
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(screen.queryByTestId('matrix-legend')).toBeNull()
+      expect(screen.getByRole('heading', { name: 'Factory overview' })).toBeTruthy()
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(screen.queryByRole('heading', { name: 'Factory overview' })).toBeNull()
+    })
+
+    it('leaves a selected cell selected when Escape closes the legend', () => {
+      setup()
+      render(<BlockGraphButton />)
+      openMatrix()
+      fireEvent.click(cell('miner', 'consumer'))
+      fireEvent.click(help())
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(screen.queryByTestId('matrix-legend')).toBeNull()
+      expect(cell('miner', 'consumer').getAttribute('aria-pressed')).toBe('true')
+    })
   })
 
   it('sets a limit from the panel on the consumer\'s connection', () => {
@@ -149,7 +202,7 @@ describe('BlockMatrix', () => {
     fireEvent.click(screen.getByTestId('graph-edge-remove'))
     expect(consumerIn().inputConnections).toEqual([])
     expect(screen.queryAllByTestId('matrix-cell')).toHaveLength(0)
-    expect(screen.getByTestId('matrix-legend')).toBeTruthy()
+    expect(screen.queryByTestId('matrix-panel')).toBeNull()
   })
 
   it('tells a limited cell, and a cell where nothing is used', () => {
@@ -180,7 +233,6 @@ describe('BlockMatrix', () => {
     expect(below[0].getAttribute('data-loop')).toBe('true')
     expect(below[0].textContent).toContain('↻')
     expect(below[0].getAttribute('aria-label')).toMatch(/, loop, runs against the order$/)
-    expect(screen.getByTestId('matrix-summary').textContent).toContain('1 below the diagonal')
   })
 
   describe('cross-hair', () => {
@@ -243,6 +295,5 @@ describe('BlockMatrix', () => {
     expect(useUiStore.getState().blockMatrixOrder).toBe('plan')
     const names = screen.getAllByTestId('matrix-row-head').map(h => h.getAttribute('data-block-id'))
     expect(names).toEqual(['miner', 'consumer'])
-    expect(screen.getByTestId('matrix-summary').textContent).toContain('in plan order')
   })
 })

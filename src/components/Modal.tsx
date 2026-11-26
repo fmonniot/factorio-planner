@@ -15,7 +15,8 @@ export function Modal({ onClose, children, className = '' }: ModalProps) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return
+      // A popup that took the key (its capture listener prevents the default) has handled it: the modal stays.
+      if (e.key !== 'Escape' || e.defaultPrevented) return
       e.preventDefault()
       onClose()
     }

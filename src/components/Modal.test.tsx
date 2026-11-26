@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { Modal } from './Modal'
 
 const panelClass = (className?: string) => {
@@ -25,5 +25,24 @@ describe('Modal caps', () => {
 
   it('leaves the scroll to a caller that sets overflow on both axes or on y', () => {
     expect(panelClass('overflow-hidden')).not.toContain('overflow-y-auto')
+  })
+})
+
+describe('Modal Escape', () => {
+  it('closes on Escape', () => {
+    const onClose = vi.fn()
+    render(<Modal onClose={onClose}>x</Modal>)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays open when a popup already took the key (its listener prevented the default)', () => {
+    const onClose = vi.fn()
+    render(<Modal onClose={onClose}>x</Modal>)
+    const take = (e: KeyboardEvent) => e.preventDefault()
+    window.addEventListener('keydown', take, true)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    window.removeEventListener('keydown', take, true)
+    expect(onClose).not.toHaveBeenCalled()
   })
 })
