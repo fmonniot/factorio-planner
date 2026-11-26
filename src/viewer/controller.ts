@@ -5,7 +5,7 @@ import {
   type ConnectionEvent,
   type ConnectionState,
 } from './connection'
-import { PLANNER_RETRY_MS, encodeAnnounce, encodeSnapshotFrame } from './protocol'
+import { PLANNER_RETRY_MS, encodeAnnounce, encodeSnapshotFrame, type FrameName } from './protocol'
 
 // ---------------------------------------------------------------------------
 // The thin adapter around the pure state machine in connection.ts: it owns the WebSocket and the
@@ -125,7 +125,7 @@ export function createController(deps: ControllerDeps, initialAutoSend = false):
   }
 
   /** Writes one frame. A socket that is not open, or whose `send` throws, reports the frame as failed. */
-  function transmit(frame: 'snapshot' | 'announce', id: string, encode: () => string | Uint8Array<ArrayBuffer>) {
+  function transmit(frame: FrameName, id: string, encode: () => string | Uint8Array<ArrayBuffer>) {
     try {
       if (socket?.readyState === OPEN) {
         socket.send(encode())

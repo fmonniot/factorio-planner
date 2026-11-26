@@ -33,7 +33,7 @@ use crate::bridge::{Bridge, SnapshotError};
 use crate::cli::{Config, canonical_origin};
 use crate::driver::{Driver, Outcome, Step, Transport, classify};
 use crate::protocol::{MAX_FRAME_BYTES, QUIET_AFTER, WS_ENVELOPE};
-use crate::ws::{ErrorCode, PlannerText, parse_snapshot_frame, parse_text_frame};
+use crate::ws::{ErrorCode, FrameKind, PlannerText, parse_snapshot_frame, parse_text_frame};
 
 /// How long a connection thread waits for a frame before it looks at what the session queued for it.
 const POLL: Duration = Duration::from_millis(25);
@@ -406,6 +406,7 @@ impl Session {
 
     fn on_frame(&mut self, conn: u64, frame: Frame) {
         let now = Instant::now();
+        let kind = FrameKind::of_websocket_frame(matches!(frame, Frame::Binary(_)));
         match frame {
             Frame::Binary(frame) => self.on_snapshot(now, conn, frame),
             Frame::Text(text) => match parse_text_frame(&text) {
@@ -413,7 +414,7 @@ impl Session {
                     let step = self.driver.announce(now, id);
                     self.publish(step);
                 }
-                Err(code) => self.reply_error(conn, code),
+                Err(code) => self.reply_error(conn, code, kind),
             },
         }
     }
@@ -421,21 +422,21 @@ impl Session {
     fn on_snapshot(&mut self, now: Instant, conn: u64, mut frame: Vec<u8>) {
         let id = match parse_snapshot_frame(&frame) {
             Ok(parsed) => parsed.id,
-            Err(code) => return self.reply_error(conn, code),
+            Err(code) => return self.reply_error(conn, code, FrameKind::Snapshot),
         };
         // The snapshot stays opaque: drop the envelope and keep the rest, in the same allocation.
         frame.drain(..WS_ENVELOPE);
         match self.driver.receive_snapshot(now, id, frame) {
             Ok(step) => self.publish(step),
-            Err(SnapshotError::Empty) => self.reply_error(conn, ErrorCode::BadEnvelope),
-            Err(SnapshotError::TooLarge) => self.reply_error(conn, ErrorCode::TooLarge),
+            Err(SnapshotError::Empty) => self.reply_error(conn, ErrorCode::BadEnvelope, FrameKind::Snapshot),
+            Err(SnapshotError::TooLarge) => self.reply_error(conn, ErrorCode::TooLarge, FrameKind::Snapshot),
         }
     }
 
     /// An `error` goes only to the connection that sent the offending frame.
-    fn reply_error(&mut self, conn: u64, code: ErrorCode) {
+    fn reply_error(&mut self, conn: u64, code: ErrorCode, frame: FrameKind) {
         if let Some(outbox) = self.planners.get(&conn)
-            && !queue(conn, outbox, code.to_json())
+            && !queue(conn, outbox, code.to_json(frame))
         {
             self.planners.remove(&conn);
         }

@@ -68,7 +68,7 @@ describe('messages from the bridge', () => {
 
   it('has fixtures to replay', () => {
     expect(statuses.length).toBeGreaterThan(5)
-    expect(errors).toHaveLength(4)
+    expect(errors).toHaveLength(5)
   })
 
   it.each(statuses.map(m => [m.name, m] as const))('reads %s', (_name, m) => {
@@ -79,8 +79,18 @@ describe('messages from the bridge', () => {
 
   it.each(errors.map(m => [m.name, m] as const))('reads %s and describes it', (_name, m) => {
     const parsed = parseBridgeMessage(new TextDecoder().decode(fromHex(m.hex)))
-    expect(parsed).toEqual({ kind: 'error', code: m.fields.code })
+    expect(parsed).toEqual({ kind: 'error', code: m.fields.code, frame: m.fields.frame })
     expect(describeBridgeError(parsed && parsed.kind === 'error' ? parsed.code : '')).not.toMatch(/reported an error/)
+  })
+
+  it('reads an error without a frame, as an older bridge writes it', () => {
+    expect(parseBridgeMessage('{"type":"error","code":"too-large"}')).toEqual({ kind: 'error', code: 'too-large', frame: undefined })
+  })
+
+  it('reads an error whose frame it does not know, without the frame', () => {
+    for (const frame of ['"x"', '7']) {
+      expect(parseBridgeMessage(`{"type":"error","code":"too-large","frame":${frame}}`)).toEqual({ kind: 'error', code: 'too-large', frame: undefined })
+    }
   })
 
   it('keeps the game port of a status, and reads one without', () => {

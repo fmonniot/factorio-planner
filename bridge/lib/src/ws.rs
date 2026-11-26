@@ -8,6 +8,40 @@ use serde::Deserialize;
 
 use crate::protocol::{MAX_SNAPSHOT_BYTES, PROTOCOL_VERSION, SnapshotId, WS_ENVELOPE};
 
+/// The kind of frame an `error` answers, decided by the transport frame kind: binary is a snapshot, text an announce.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FrameKind {
+    /// A binary frame.
+    Snapshot,
+    /// A text frame. An unreadable text frame is labelled `announce` too: a planner only sends announces as text.
+    Announce,
+}
+
+impl FrameKind {
+    /// The kind as written in the `frame` field of an `error` message.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Snapshot => "snapshot",
+            Self::Announce => "announce",
+        }
+    }
+
+    /// The kind named by `name`, as written in an `error` message.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        [Self::Snapshot, Self::Announce]
+            .into_iter()
+            .find(|k| k.as_str() == name)
+    }
+
+    /// The kind of a WebSocket frame: any binary frame is a snapshot, any text frame an announce.
+    #[must_use]
+    pub fn of_websocket_frame(binary: bool) -> Self {
+        if binary { Self::Snapshot } else { Self::Announce }
+    }
+}
+
 /// The code of an `error` message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorCode {
@@ -46,10 +80,14 @@ impl ErrorCode {
         .find(|c| c.as_str() == code)
     }
 
-    /// The JSON text frame that carries the code.
+    /// The JSON text frame that carries the code and the kind of frame it answers.
     #[must_use]
-    pub fn to_json(self) -> String {
-        format!(r#"{{"type":"error","code":"{}"}}"#, self.as_str())
+    pub fn to_json(self, frame: FrameKind) -> String {
+        format!(
+            r#"{{"type":"error","code":"{}","frame":"{}"}}"#,
+            self.as_str(),
+            frame.as_str()
+        )
     }
 }
 
@@ -185,5 +223,27 @@ mod tests {
             assert_eq!(ErrorCode::from_code(code.as_str()), Some(code));
         }
         assert_eq!(ErrorCode::from_code("nope"), None);
+    }
+
+    #[test]
+    fn error_json_names_the_frame() {
+        assert_eq!(
+            ErrorCode::TooLarge.to_json(FrameKind::Snapshot),
+            r#"{"type":"error","code":"too-large","frame":"snapshot"}"#
+        );
+        assert_eq!(
+            ErrorCode::BadMessage.to_json(FrameKind::Announce),
+            r#"{"type":"error","code":"bad-message","frame":"announce"}"#
+        );
+    }
+
+    #[test]
+    fn frame_kinds_round_trip() {
+        for kind in [FrameKind::Snapshot, FrameKind::Announce] {
+            assert_eq!(FrameKind::from_name(kind.as_str()), Some(kind));
+        }
+        assert_eq!(FrameKind::from_name("nope"), None);
+        assert_eq!(FrameKind::of_websocket_frame(true), FrameKind::Snapshot);
+        assert_eq!(FrameKind::of_websocket_frame(false), FrameKind::Announce);
     }
 }

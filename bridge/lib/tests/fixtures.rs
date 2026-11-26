@@ -6,7 +6,9 @@ use bridge_lib::protocol::{
     BridgeInbound, BridgeMessage, Inbound, ModMessage, SnapshotId, encode_chunk, encode_end_of_window, encode_ping,
     encode_probe, parse_bridge_datagram, parse_mod_datagram,
 };
-use bridge_lib::ws::{ErrorCode, PlannerText, encode_snapshot_frame, parse_snapshot_frame, parse_text_frame};
+use bridge_lib::ws::{
+    ErrorCode, FrameKind, PlannerText, encode_snapshot_frame, parse_snapshot_frame, parse_text_frame,
+};
 use bridge_lib::{Bridge, Link, Phase, Status};
 use serde_json::Value;
 use support::{Clock, Sent, drain, hex_decode, id, read_json};
@@ -186,7 +188,8 @@ fn every_websocket_message_matches_the_codec() {
             "error" => {
                 let expected: Value = serde_json::from_slice(&bytes).unwrap();
                 let code = error_code(fields["code"].as_str().unwrap());
-                let actual: Value = serde_json::from_str(&code.to_json()).unwrap();
+                let frame = FrameKind::from_name(fields["frame"].as_str().unwrap()).unwrap();
+                let actual: Value = serde_json::from_str(&code.to_json(frame)).unwrap();
                 assert_eq!(actual, expected, "{name}");
             }
             other => panic!("unknown websocket message type {other}"),
@@ -229,6 +232,11 @@ fn every_malformed_input_is_dropped_by_its_reader() {
                         .unwrap_err()
                 };
                 assert_eq!(actual, expected, "ws reader: {why}");
+                assert_eq!(
+                    FrameKind::from_name(input["errorFrame"].as_str().unwrap()),
+                    Some(FrameKind::of_websocket_frame(input["frame"] == "binary")),
+                    "ws reader: {why}"
+                );
                 counts[2] += 1;
             }
             other => panic!("unknown reader {other}"),

@@ -92,13 +92,21 @@ const StatusSchema = z.object({
 /** The bridge's whole state. Only `protocol` is certain to be there when it is another version's. */
 export type BridgeStatus = z.output<typeof StatusSchema>
 
-const ErrorSchema = z.object({ type: z.literal('error'), code: z.string() })
+/** The kind of frame an `error` answers: a binary frame is a `snapshot`, a text frame an `announce`. */
+export type FrameName = 'snapshot' | 'announce'
+
+// A `frame` this version does not know must not make the whole error unreadable.
+const ErrorSchema = z.object({
+  type: z.literal('error'),
+  code: z.string(),
+  frame: z.enum(['snapshot', 'announce']).optional().catch(undefined),
+})
 
 export type BridgeMessage =
   | { kind: 'status'; status: BridgeStatus }
   /** A `status` that claims our protocol version but does not have the shape that version defines. */
   | { kind: 'unreadable-status' }
-  | { kind: 'error'; code: string }
+  | { kind: 'error'; code: string; frame?: FrameName }
 
 /**
  * Reads a text frame from the bridge; null for anything else. A status of another protocol version
@@ -113,7 +121,7 @@ export function parseBridgeMessage(text: string): BridgeMessage | null {
     return null
   }
   const error = ErrorSchema.safeParse(raw)
-  if (error.success) return { kind: 'error', code: error.data.code }
+  if (error.success) return { kind: 'error', code: error.data.code, frame: error.data.frame }
   const status = StatusSchema.safeParse(raw)
   if (status.success) return { kind: 'status', status: status.data }
   const other = z.object({ type: z.literal('status'), protocol: z.number() }).safeParse(raw)

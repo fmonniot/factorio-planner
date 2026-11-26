@@ -201,7 +201,7 @@ Examples: no game yet; no game yet, on a bridge started with another `--game-por
 ### `error`
 
 ```
-{"type":"error","code":"too-large"}
+{"type":"error","code":"too-large","frame":"snapshot"}
 ```
 
 | Code | Sent for |
@@ -211,6 +211,10 @@ Examples: no game yet; no game yet, on a bridge started with another `--game-por
 | `protocol-mismatch` | A binary frame or an `announce` of another protocol version |
 | `bad-message` | A text frame that is not JSON, has an unknown `type`, or has a bad id |
 
+`frame` is `snapshot` or `announce`, the kind of frame the `error` answers. The transport frame decides it: any binary frame is a `snapshot`, any text frame is an `announce`, so a text frame that cannot be read is labelled `announce` too (a planner only sends announces as text). A bridge older than this field omits it.
+
+`frame` was added without a protocol version bump: a planner ignores fields it does not know, and a planner that reads an `error` without `frame` (an older bridge) falls back to blaming its most recent frame, as step 5 says. A planner also ignores a `frame` it does not know. The `error` does not echo the snapshot id, so two snapshots sent back to back leave one ambiguity: an `error` that arrives after the second was sent is attributed to the newest one.
+
 An `error` goes only to the connection that sent the offending frame. The bridge keeps the connection open after it and its state does not change.
 
 ### What the planner does
@@ -219,7 +223,7 @@ An `error` goes only to the connection that sent the offending frame. The bridge
 2. **Restore, but only onto an empty bridge.** If it has sent a snapshot since the page loaded and the first `status` shows that the bridge holds nothing (no `transfer` and no `newest`), it sends those same bytes again. It keeps the last bytes it sent for this purpose. This restores a restarted bridge. If the first `status` shows anything held, it sends nothing: with two planners connected, the bridge may hold a newer snapshot sent from the other one, and an older one must not replace it unasked. Only the first `status` after a connection decides this; later ones never trigger a restore.
 3. It sends `announce` with the current plan's id, unless the bridge now holds exactly that plan: the restore in step 2 just sent those bytes, or the first `status` already reports that id as `newest`. A bridge that holds something else (for example a plan another planner sent) is therefore told which plan is current. A plan from before the connection was switched off is not announced; the planner builds a fresh one after switching on.
 4. After each solve it computes the id of the new snapshot and sends either `snapshot` (auto-send, or the Send action) or `announce`. **Before sending a `snapshot` it checks the size.** Above `MAX_SNAPSHOT_BYTES` it sends no `snapshot`, tells the player that the plan is too large for the in-game viewer, and sends `announce` instead, so the mod still shows `Stale`.
-5. **On `error`,** it shows the code in plain words and resends nothing automatically. An `error` answers the planner's most recent frame; if that was a `snapshot`, the planner forgets those bytes, so step 2 can never send a refused snapshot again. Only the player's Send, after the plan has changed or the cause is fixed, tries again.
+5. **On `error`,** it shows the code in plain words and resends nothing automatically. If its `frame` is `snapshot`, the planner forgets the bytes it last sent, so step 2 can never send a refused snapshot again; if it is `announce`, the bytes are kept, so a refused announce after a restore does not cost the restore. An `error` without `frame` (a bridge older than the field) answers the planner's most recent frame, and the restore `snapshot` and `announce` sent back to back count as a snapshot: the planner forgets the bytes, which is conservative. Only the player's Send, after the plan has changed or the cause is fixed, tries again.
 6. If the socket closes while the connection is switched on, it retries every `PLANNER_RETRY`, and repeats from step 1. Because of steps 2 and 5, a reconnect loop never resends bytes the bridge refused.
 
 The planner always sends the bytes for a Send, even when `mod.stored` already equals the id, so that the bridge can repair a later load of an older save.
