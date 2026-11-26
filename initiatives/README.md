@@ -23,8 +23,8 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
-| Power across every block    | Future   | [power-overview/](power-overview/plan.md)              |
 | Surplus-aware objective     | Future   | [surplus-aware-objective/](surplus-aware-objective/plan.md) |
+| Power across every block | Shipped | [archive/power-overview/](archive/power-overview/plan.md) |
 | Less text: facts instead of prose | Shipped | [archive/less-text/](archive/less-text/plan.md) |
 | Summary strip: icon actions | Shipped | [archive/summary-strip-icons/](archive/summary-strip-icons/plan.md) |
 | Block graph past 6–7 blocks | Shipped | [archive/block-graph-scale/](archive/block-graph-scale/plan.md) |

@@ -202,6 +202,11 @@ export function selectBlockResults(state: SolverStoreState): Record<string, Solv
   return state.lastResults
 }
 
+/** Latest solver error of every block that failed, keyed by block id. */
+export function selectBlockErrors(state: SolverStoreState): Record<string, string> {
+  return state.lastErrors
+}
+
 /** Latest delivery on every block-to-block connection. Filter in useMemo, not here. */
 export function selectFlows(state: SolverStoreState): ConnectionFlow[] {
   return state.flows

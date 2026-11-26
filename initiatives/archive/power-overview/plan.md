@@ -1,8 +1,8 @@
 # Initiative: Power across every block
 
-Status: Future
+Status: Shipped
 
-Design decision for a plan-wide view of electric power. Nothing is implemented yet. It follows [archive/power-generation/](../archive/power-generation/plan.md), which lets a block make power, and depends on the Beacon power item being finished first (see [Depends on](#depends-on)).
+Design decision for a plan-wide view of electric power, now built (see `spec/ui.md`, Block graph). It follows [archive/power-generation/](../power-generation/plan.md), which lets a block make power.
 
 ---
 
@@ -33,12 +33,13 @@ The view was built as an interactive page, and the page is the reference for lay
 ## Where the numbers come from
 
 - **Demand** is the sum of `powerKw` over the solved nodes of every block, which is what the toolbar total already sums for one block. A group's figure is the recursive sum the group row already shows.
-- **Generation** is the Electricity (`power:electricity`) the blocks make, from the solved nodes' `outputRates`, converted to MW (1 unit/s is 1 MW; rates are per minute).
+- **Generation** is the Electricity (`power:electricity`) the blocks make, from the solved nodes' `outputRates`, converted to kW (1 unit is 1 MJ, so units/min x 1000 / 60). It is the gross output, not netted against anything.
+- Demand is summed over a block's flat `result.nodes`, exactly like the toolbar total, so the two always agree; the list's groups and recipes come from walking the block's tree.
 - The view reads the last solve of each block and is read-only, as the areas modal is.
 
 ## Depends on
 
-- **Beacon power.** The solver leaves beacon power out of a row's power today ([backlog](../backlog.md#planning-features)); it is being done in parallel. The design assumes beacons are counted, so there is no "count beacons" switch. Land that item first, or the view's totals are low for any beaconed block.
+- **Beacon power** is counted in a row's power (see `spec/solver.md`), so beaconed blocks are not low. The one gap left is the Nullius bundle, which has no beacon energy use (see the backlog), so beaconed Nullius rows read low.
 
 ## Not chosen
 
@@ -47,7 +48,7 @@ The view was built as an interactive page, and the page is the reference for lay
 - **Electricity as an ingredient of every block**, connected to the power plant like any item, so the plant's goal follows its consumers. Dropped for now: it turns consumption into a solver quantity (it is computed after the solve today), with loops through the plant's own machines.
 - **A treemap** of power by block, group and recipe. Replaced by the list.
 
-## Open questions
+## Decisions
 
-- Whether to keep a "set the Power plant goal to the demand" action, and if so whether the headroom (none, +10 %, +25 %) is per plan or one fixed choice. Not decided.
-- The owner is thinking of merging the areas modal into the block graph modal. Where Power sits then, and whether it should also split by area, is not part of this initiative.
+- **Read-only.** The view has no "set the Power plant goal" action and none is planned. To change what the plant makes, edit its block.
+- **Where Power sits with areas.** The owner is thinking of merging the areas modal into the block graph modal. Where Power sits then, and whether it should also split by area, is not part of this initiative.
