@@ -1935,41 +1935,71 @@ describe('solver synthetic cases', () => {
       for (const tabs of tabOrders) {
         it(`c1: a need not known in time, list {H1, H2}, tabs ${tabs.join(' ')}`, () => {
           const all = solveAll(tabsOf(tabs, { T: T([ent('H1'), tied('H2')]), H1: H1R(), R: R(), H2: H2() }), makeGameData())
-          expect(flowIn(all, 'c-H1').rate, 'c-H1').toBeCloseTo(20, 6)
-          expect(flowIn(all, 'c-H1').status).toBe('ok')
-          expect(unsatisfiedRate(all.results.H1, X) ?? 0, 'H1 imports').toBeCloseTo(0, 6)
-          expect(flowIn(all, 'c-H1R')).toMatchObject({ rate: 0, status: 'unused', requested: 0 })
-          expectFlow(all, 'H2', [10, 'limited', 15])
+          expectFlow(all, 'H1', [15, 'ok', 0])
+          expect(flowIn(all, 'c-H1R').requested, 'c-H1R requested').toBeCloseTo(5, 6)
+          expect(flowIn(all, 'c-H1R').rate).toBeCloseTo(5, 6)
+          expect(flowIn(all, 'c-H1R').status).toBe('ok')
+          expect(nodeOf(all.results.R, 'case11-make-x').throughput, 'make-x').toBeCloseTo(2.5, 6)
+          expectFlow(all, 'H2', [15, 'limited', 10])
           expect(flowIn(all, 'c-RH2').requested, 'plate requested').toBeCloseTo(5, 6)
           expect(flowIn(all, 'c-RH2').rate).toBeCloseTo(5, 6)
           expect(flowIn(all, 'c-RH2').status).toBe('ok')
-          expectLine(all, 'H1', 20, 20)
-          expectLine(all, 'H2', 10, 25)
-          for (const id of ['H1', 'H2']) {
-            expect(flagged(all, id).groupInListOrder, `${id} flag`).toBe(true)
-            expect(flagged(all, id)).not.toHaveProperty('notCredited')
-          }
+          expect(linesOf(all).map(c => c.blockId)).toEqual(['H1', 'H2'])
+          expectLine(all, 'H1', 15, 20)
+          expectLine(all, 'H2', 15, 25)
+          noFlags(all)
         })
         // H1 cannot wait: R, which it requests X from, comes before H2 (R is probed first, so the request must be shared out before H2's credit is known).
         it(`c1b: the same fixture, list {H2, H1}, tabs ${tabs.join(' ')}`, () => {
           const all = solveAll(tabsOf(tabs, { T: T([ent('H2'), tied('H1')]), H1: H1R(), R: R(), H2: H2() }), makeGameData())
-          expectFlow(all, 'H2', [25, 'ok', 0])
-          expect(flowIn(all, 'c-H1')).toMatchObject({ rate: 5, status: 'ok' })
-          expect(flowIn(all, 'c-H1R')).toMatchObject({ status: 'ok' })
-          expect(flowIn(all, 'c-H1R').requested, 'c-H1R requested').toBeCloseTo(15, 6)
-          expect(flowIn(all, 'c-H1R').rate).toBeCloseTo(15, 6)
-          expect(nodeOf(all.results.R, 'case11-make-x').throughput, 'make-x').toBeCloseTo(7.5, 6)
-          expect(unsatisfiedRate(all.results.H1, X) ?? 0, 'H1 imports').toBeCloseTo(0, 6)
-          expect(unsatisfiedRate(all.results.H2, X) ?? 0, 'H2 imports').toBeCloseTo(0, 6)
+          expectFlow(all, 'H1', [15, 'ok', 0])
+          expect(flowIn(all, 'c-H1R').requested, 'c-H1R requested').toBeCloseTo(5, 6)
+          expect(flowIn(all, 'c-H1R').rate).toBeCloseTo(5, 6)
+          expect(nodeOf(all.results.R, 'case11-make-x').throughput, 'make-x').toBeCloseTo(2.5, 6)
+          expectFlow(all, 'H2', [15, 'limited', 10])
           expect(flowIn(all, 'c-RH2').rate, 'plate').toBeCloseTo(5, 6)
-          expectLine(all, 'H2', 25, 25)
-          expectLine(all, 'H1', 5, 20)
-          for (const id of ['H1', 'H2']) {
-            expect(flagged(all, id).groupInListOrder, `${id} flag`).toBe(true)
-            expect(flagged(all, id)).not.toHaveProperty('notCredited')
-          }
+          expect(linesOf(all).map(c => c.blockId)).toEqual(['H2', 'H1'])
+          expectLine(all, 'H2', 15, 25)
+          expectLine(all, 'H1', 15, 20)
+          noFlags(all)
         })
       }
+
+      it('c5: c1 solved warm through one cache sets no entry and reports what a cold solve reports', () => {
+        const gd = makeGameData()
+        const blocks = (): Block[] => [T([ent('H1'), tied('H2')]), H1R(), R(), H2()]
+        const cold = solveAll(blocks(), gd)
+        const cache = createSolveCache()
+        solveAll(blocks(), gd, cache)
+        const set = vi.spyOn(cache, 'set')
+        const warm = solveAll(blocks(), gd, cache)
+        expect(set, 'no block is solved again').not.toHaveBeenCalled()
+        expect(warm.served).toEqual(cold.served)
+        expect(warm.flows).toEqual(cold.flows)
+      })
+      it('c6: a member that requests from another member: the group is shared by the credit passes', () => {
+        // T makes 20 X. R (other 4, gear 5) takes X from T (`c-R`) and requests plate from H2 (`c-RH2`); H2 is a8's. List {H2, R}. R is
+        // reached before H2 (it requests of it), so the first pass serves the group in list order: H2 20, R 0. The settle walk reads
+        // waterFill(20, [25, 4]) = 16, 4.
+        const t = mk('T', [['case11-goal', 20]], [planNode('case11-make-goal')], [], [ent('H2'), tied('R')], X)
+        const r = mk('R', [['case11-other', 4], ['case13-gear', 5]], [planNode('case11-use-x'), planNode('case13-use-plate')], [
+          { id: 'c-R', itemId: X, fromBlockId: 'T' },
+          { id: 'c-RH2', itemId: P, fromBlockId: 'H2' },
+        ])
+        for (const tabs of [['T', 'R', 'H2'], ['H2', 'R', 'T']]) {
+          const all = solveAll(tabsOf(tabs, { T: t, R: r, H2: H2() }), makeGameData())
+          expectFlow(all, 'R', [4, 'ok', 0])
+          expectFlow(all, 'H2', [16, 'limited', 9])
+          expect(flowIn(all, 'c-RH2').rate, 'plate').toBeCloseTo(5, 6)
+          noFlags(all)
+        }
+      })
+      it('c7: with one credit pass the first pass stands, in list order and flagged', () => {
+        const all = solveAll([T([ent('H1'), tied('H2')]), H1R(), R(), H2()], makeGameData(), undefined, { creditPassLimit: 1 })
+        expect(flowIn(all, 'c-H1').rate, 'c-H1').toBeCloseTo(20, 6)
+        expectFlow(all, 'H2', [10, 'limited', 15])
+        for (const id of ['H1', 'H2']) expect(flagged(all, id).groupInListOrder, `${id} flag`).toBe(true)
+      })
 
       // Case 17's fixture: T makes 15 X, V makes X on request, K1 and K2 request each other's product and each needs 10 X.
       const T17 = (list?: ServedEntry[]): Block => mk('T', [['case11-goal', 15]], [planNode('case11-make-goal')], [], list, X)
@@ -2079,10 +2109,10 @@ describe('solver synthetic cases', () => {
     describe('g: a readiness edge never refuses a rank edge of another list', () => {
       // T lists {H1, H2} on X (case 20 a8's fixture: R requests plate from H2, so the group wants the edge R -> H1). S also makes X, in
       // short supply (6), and lists [H1, R] on it with no tie: the rank edge H1 -> R must stand, so R reads what H1 leaves of S.
-      // Hand values: R is not processed when H1 is reached (the edge R -> H1 is refused), so the group of T is served in list order:
-      // H1 takes its whole need 20 from T, H2 the 10 left (needs 25, imports 15). H1 then needs nothing of S, so S's 6 X go to R,
-      // which needs 4 (other 4): credit min(6 - 0, 4) = 4, R imports 0, no flag on R's line of S (without the rank edge R is credited
-      // before H1 and its line says notCredited).
+      // Hand values: R is not processed when H1 is reached (the edge R -> H1 is refused), so the first pass serves the group of T in list
+      // order; the credit passes settle it: waterFill(30, [20, 25]) = 15, 15. H1 needs 5 more X: credited min(6, 5) = 5 of S, imports 0.
+      // R, listed below H1, is credited the 1 left of S for its need of 4 (other 4): imports 3; its line of S shows 1, with no flag
+      // (without the rank edge R is credited before H1 and its line says notCredited). H2 15 `limited` (imports 10); R asks H2 for 5 plate.
       const S = (): Block => mk('S', [['case11-goal', 6]], [planNode('case11-make-goal')], [], [ent('H1'), ent('R')], X)
       const H1 = (): Block => mk('H1', [['case11-other', 20]], [planNode('case11-use-x')], [{ id: 'c-H1', itemId: X, fromBlockId: 'T' }, { id: 'c-H1S', itemId: X, fromBlockId: 'S' }])
       const H2 = (): Block =>
@@ -2095,16 +2125,16 @@ describe('solver synthetic cases', () => {
       for (const tabs of [['T', 'S', 'H1', 'R', 'H2'], ['T', 'S', 'H2', 'R', 'H1']]) {
         it(`tabs ${tabs.join(' ')}`, () => {
           const all = solveAll(tabsOf(tabs, { T: T([ent('H1'), tied('H2')]), S: S(), H1: H1(), R: R(), H2: H2() }), makeGameData())
-          expectFlow(all, 'H1', [20, 'ok', 0])
-          expect(flowIn(all, 'c-H1S').rate, 'c-H1S').toBeCloseTo(0, 6)
-          expectFlow(all, 'H2', [10, 'limited', 15])
-          expect(flowIn(all, 'c-RS').rate, 'c-RS').toBeCloseTo(4, 6)
-          expect(unsatisfiedRate(all.results.R, X) ?? 0, 'R imports').toBeCloseTo(0, 6)
+          expectFlow(all, 'H1', [15, 'ok', 0])
+          expect(flowIn(all, 'c-H1S').rate, 'c-H1S').toBeCloseTo(5, 6)
+          expectFlow(all, 'H2', [15, 'limited', 10])
+          expect(flowIn(all, 'c-RS').rate, 'c-RS').toBeCloseTo(1, 6)
+          expect(unsatisfiedRate(all.results.R, X) ?? 0, 'R imports').toBeCloseTo(3, 6)
           expect(flowIn(all, 'c-RH2').rate, 'plate').toBeCloseTo(5, 6)
           const r = linesOf(all, 'S').find(c => c.blockId === 'R')!
-          expect(r.share, 'R share of S').toBeCloseTo(4, 6)
+          expect(r.share, 'R share of S').toBeCloseTo(1, 6)
           expect(r, 'R line of S').not.toHaveProperty('notCredited')
-          expect(linesOf(all).every(c => c.groupInListOrder === true), 'the group of T is in list order').toBe(true)
+          noFlags(all)
         })
       }
     })
@@ -4000,15 +4030,20 @@ describe('solver synthetic cases', () => {
         for (const b of ['A', 'B']) expect(unsatisfiedRate(all.results[b], X) ?? 0, `${b} imports X`).toBeCloseTo(0, 6)
         for (const b of ['A', 'B']) expect(['S1', 'S2'].reduce((n, src) => n + (all.served[src][X].consumers.find(c => c.blockId === b)?.share ?? 0), 0), `${b} credited`).toBeCloseTo(10, 6)
       })
-      it('a tied group below a parked take falls back to list order', () => {
-        // List: H, then C and H2 tied. T is not processed when the pass reaches the group, so it is credited in list order anyway;
-        // the parked flag of H is not what decides here.
+      it('a group reached before its source is shared by the credit passes', () => {
+        // List: H, then C and H2 tied: the tie binds to H, so the group is {H, C, H2}. T is not processed when the pass reaches the group, so
+        // the first pass serves it in list order (H 10, C 20, H2 0); the settle walk reads waterFill(30, [10, 25, 5]) = 10, 15, 5 and the
+        // second pass credits the group from those.
         const H2 = (): Block => mk('H2', [['case11-other', 5]], [planNode('case11-use-x')], [{ id: 'c-H2T', itemId: X, fromBlockId: 'T' }])
         const list: ServedEntry[] = [entry('H'), { kind: 'block', blockId: 'C', tied: true }, { kind: 'block', blockId: 'H2', tied: true }]
         const all = solveAll([T(list), H(), C(), H2()], makeGameData())
         expectFlow(all, 'c-HT', 10, 'ok', 0, 'H')
-        expectFlow(all, 'c-CT', 20, 'limited', 5, 'C')
-        expectFlow(all, 'c-H2T', 0, 'limited', 5, 'H2')
+        expectFlow(all, 'c-CT', 15, 'limited', 10, 'C')
+        expectFlow(all, 'c-H2T', 5, 'ok', 0, 'H2')
+        for (const c of lines(all)) {
+          expect(c, `${c.blockId} groupInListOrder`).not.toHaveProperty('groupInListOrder')
+          expect(c, `${c.blockId} notCredited`).not.toHaveProperty('notCredited')
+        }
       })
     })
 
@@ -4071,7 +4106,8 @@ describe('solver synthetic cases', () => {
           expectLine(all, 'B', 20, 40)
         })
       }
-      // e2d: the same list with H2 and B tied. B's group is served in list order (T comes after B), so B waits for H2 as in e2c, and V comes after H2.
+      // e2d: the same list with H2 and B tied. B's group is served in list order at first (T comes after B), so B waits for H2 as in e2c, and V comes after H2;
+      // the credit passes settle it (waterFill(30, [10, 40]) is 10, 20 as the list order gave): no line is flagged.
       for (const tabs of [['V', 'B', 'T', 'H2'], ['B', 'V', 'T', 'H2'], ['T', 'B', 'V', 'H2']]) {
         it(`e2d: list H2, B tied, tabs ${tabs.join(',')}`, () => {
           const all = solveE(tabs, [{ kind: 'block', blockId: 'H2' }, { kind: 'block', blockId: 'B', tied: true }])
@@ -4080,6 +4116,7 @@ describe('solver synthetic cases', () => {
           expect(flowIn(all, 'c-BV').requested, 'c-BV requested').toBeCloseTo(20, 6)
           expectLine(all, 'H2', 10, 10)
           expectLine(all, 'B', 20, 40)
+          for (const c of lines(all)) expect(c, `${c.blockId} groupInListOrder`).not.toHaveProperty('groupInListOrder')
         })
       }
       it('e2a: B is not flagged, whatever the list', () => {
@@ -4275,6 +4312,25 @@ describe('solver synthetic cases', () => {
         expect(warm.flows).toEqual(cold.flows)
         expect(warm.served).toEqual(cold.served)
       })
+    })
+
+    describe('f: a tied group reached before its source is shared by the credit passes', () => {
+      // 29a's blocks, list {C, H} on X (C needs 25, H 10; T leaves 30). The request pass reaches H, C, T, so the first pass serves the group in
+      // list order (C 25, H 5); the settle walk reads waterFill(30, [25, 10]) = 20, 10 and the second pass credits the group from those.
+      for (const tabs of TABS) {
+        it(`tabs ${tabs.join(',')}`, () => {
+          const list: ServedEntry[] = [entry('C'), { kind: 'block', blockId: 'H', tied: true }]
+          const all = solveAll(tabsOf(tabs, { T: T(list), H: H(), C: C() }), makeGameData())
+          expectFlow(all, 'c-HT', 10, 'ok', 0, 'H')
+          expectFlow(all, 'c-CT', 20, 'limited', 5, 'C')
+          expectFlow(all, 'c-HC', 10, 'ok')
+          expectFlow(all, 'c-CP', 5, 'ok')
+          expect(lines(all).map(c => c.blockId)).toEqual(['C', 'H'])
+          expectLine(all, 'C', 20, 25)
+          expectLine(all, 'H', 10, 10)
+          for (const c of lines(all)) expect(c, `${c.blockId} groupInListOrder`).not.toHaveProperty('groupInListOrder')
+        })
+      }
     })
   })
   describe('case 30: Receive it first with a short supply', () => {
