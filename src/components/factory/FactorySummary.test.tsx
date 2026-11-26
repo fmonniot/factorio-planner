@@ -3228,4 +3228,28 @@ describe('FactorySummary — a split fluid per temperature and range', () => {
       expect(within(screen.getByTestId('summary-line-popup')).getByText('Steam ≥465°C')).toBeInTheDocument()
     })
   })
+
+  describe('Add product shortcut', () => {
+    const press = (target: Element = document.body) => fireEvent.keyDown(target, { key: 'a', bubbles: true, cancelable: true })
+
+    it('opens the picker on a, and a second a while it is open opens nothing more', () => {
+      render(<FactorySummary />)
+      press()
+      expect(screen.getByRole('heading', { name: 'Add product' })).toBeInTheDocument()
+      press()
+      expect(screen.getAllByRole('heading', { name: 'Add product' })).toHaveLength(1)
+    })
+
+    it('does nothing before the game data has loaded', () => {
+      useGameDataStore.setState({ status: { type: 'idle' } } as never)
+      render(<FactorySummary />)
+      press()
+      expect(screen.queryByRole('heading', { name: 'Add product' })).not.toBeInTheDocument()
+    })
+
+    it('announces the shortcut on the button', () => {
+      render(<FactorySummary />)
+      expect(screen.getByRole('button', { name: 'Add product' })).toHaveAttribute('aria-keyshortcuts', 'A')
+    })
+  })
 })

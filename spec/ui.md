@@ -85,6 +85,10 @@ are `Icon.tsx` / `TechIcon.tsx`). A disabled `IconButton` shows the not-allowed 
 
 `useUndoShortcuts.ts` binds the keys on the document, once, from `FactoryShell`: Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z and Ctrl+Y redo (Cmd+Y is not bound). A key press is ignored when it was already handled (`defaultPrevented`) or is part of an IME composition, when the target is a text field with its own undo (a `TEXTAREA`, a `contentEditable` element or an `INPUT` of type text, search, number, email, url, tel, password or none; checkboxes, radios, sliders, buttons, colour inputs and `SELECT`s do not block it), and while an overlay is open: any dismissible or `useOverlayOpen` guard blocks it (`isUndoBlockedByOverlay`), except the factory overview, a `Modal` marked `undoable`, so Ctrl/Cmd+Z works inside the graph (a menu, popover, hover popup or limit editor opened over the graph still blocks it: each registers with `useOverlayOpen`). When there is nothing to undo or redo the key is left alone, otherwise it is prevented and the action runs. Auto-repeat (`e.repeat`) is ignored, so holding the keys runs one step.
 
+#### Add product shortcut
+
+`useAddGoalShortcut.ts` (`factory/`) binds **A** on the document; `FactorySummary` calls it with a callback that opens the item picker, also while the summary is collapsed, once game data is loaded and a block is active. The Add product button carries `aria-keyshortcuts="A"` and the tooltip `Add product (A)`. The key is ignored with Ctrl, Meta, Alt or Shift held, when it was already handled, during IME composition or auto-repeat, when the target is a text field (as for undo) or a `SELECT`, and while any menu, popover, picker or modal is open (`isDismissibleOpen`), the factory overview included, unlike undo. Otherwise it is prevented, so the letter is not typed into the picker's search field, and the picker opens.
+
 Switching the active block has the effects of a tab click: the summary's open detail and served popover close, and the Comes from popover closes. The factory overview stays open and highlights the new active block.
 
 ### Plans
@@ -1095,6 +1099,8 @@ Every list that opens under a button follows one pattern, in `Picker.tsx` and `P
 
 The pickers are the machine picker, the fuel picker, the module slot pickers, the beacon type picker and the two fill-all pickers (`ModuleFillPicker.tsx`, rows `module-fill-option`).
 
+**Keyboard.** The item and recipe pickers (the slot grids, below) take arrow keys: `gridNav.ts` moves focus between slots, Left and Right in reading order (Right on the last slot of a row goes to the first of the next row, across subgroups) and Up and Down to the nearest slot, by horizontal centre, in the adjacent row, whatever the gap between rows. ArrowUp from the first row returns to the search field. Arrows with Ctrl, Meta, Alt or Shift are left alone, and so are the tabs, the Back button and the fields; Home, End and the page keys are not bound. The machine, module, beacon, fuel, fill-all and block pickers do not take arrows yet.
+
 #### Machine picker
 
 `MachinePicker.tsx`, opened from the table's machine chip and the panel's machine button; headed "Select machine", 288px wide:
@@ -1202,6 +1208,7 @@ backdrop and close on Escape (not when a popup inside has already handled it and
 - An item that is already a product of the block is dimmed with `aria-disabled="true"`, `data-present="true"` and the title "<name> (already a product of this block)"; clicking it does nothing.
 - Clicking an item adds it as a product immediately when the amount is valid or empty;
   **Submit** does the same for the last clicked item.
+- Keyboard: ArrowDown in the search field enters the slot grid (see [Pickers](#pickers)). Enter in the search field adds the first enabled match with the typed amount, only when the search is not empty. Enter in the Amount field submits the last clicked item when there is one that is still an enabled match on screen (and the amount is valid; an item the search has since filtered out is forgotten), otherwise it acts as Enter in the search field. Slots dimmed as already a product are skipped by Enter but stay focusable. Enter with Ctrl, Meta, Alt or Shift held, or one that confirms an IME composition (also keyCode 229, as Safari reports it), does nothing. The picker opens with **A** (see [Add product shortcut](#add-product-shortcut)).
 
 ### Recipe picker
 
@@ -1212,6 +1219,7 @@ The same component in recipes mode (`source="recipes"`).
   active, a **Beyond research horizon** checkbox (see below).
 - Item-group tabs (only when results span more than one group), then recipe
   slots in subgroup rows. Each slot shows the icon of the recipe's main product.
+- Keyboard: the same as the item picker. ArrowDown in the search field enters the grid, the arrows move between slots (the fuel view's slots too), and Enter in a non-empty search adds the first enabled match (a recipe already in the area is skipped); when that first slot is a fuel group, Enter opens its fuel view and focuses Back.
 - Hovering or focusing a slot shows a side panel with the recipe's ingredients,
   crafting time, products (with probability) and the machines that can make it.
   When the data set has technology data, the panel ends with an **Unlocked by:**

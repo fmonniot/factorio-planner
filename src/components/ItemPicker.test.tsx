@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ItemPicker } from './ItemPicker'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
@@ -1112,5 +1113,201 @@ describe('ItemPicker — recipe detail panel unlock section', () => {
     noMachines.recipes['iron-plate'].madeIn = []
     hover(noMachines, 'iron-plate')
     expect(screen.getByTestId('recipe-unlock')).not.toHaveClass('border-t')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Keyboard navigation
+// ---------------------------------------------------------------------------
+
+describe('ItemPicker — keyboard', () => {
+  const COLS = 2
+  const key = (el: Element, k: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(el, { key: k, ...init })
+  const search = () => screen.getByPlaceholderText('Search…')
+  const type = (q: string) => fireEvent.change(search(), { target: { value: q } })
+  const slotId = (el: Element) => el.getAttribute('data-item-id') ?? el.getAttribute('data-recipe-id')
+  const focusedId = () => slotId(document.activeElement!)
+
+  /** jsdom has no layout: place the slots of one kind in a two-column grid by their index. */
+  function stubLayout(testId: string) {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.getAttribute('data-testid') !== testId) return new DOMRect(0, 0, 0, 0)
+      const i = Array.from(document.querySelectorAll(`[data-testid="${testId}"]`)).indexOf(this)
+      return new DOMRect((i % COLS) * 40, Math.floor(i / COLS) * 40, 36, 36)
+    })
+  }
+  afterEach(() => { vi.restoreAllMocks() })
+
+  describe('recipes', () => {
+    beforeEach(() => stubLayout('recipe-slot'))
+    const open = (props: Partial<React.ComponentProps<typeof ItemPicker>> = {}, onSelect = vi.fn(), onClose = vi.fn()) => {
+      render(<ItemPicker source="recipes" onSelect={onSelect} onClose={onClose} {...props as object} />)
+      return { onSelect, onClose }
+    }
+
+    it('ArrowDown in the search focuses the first slot and shows its detail panel', () => {
+      open()
+      key(search(), 'ArrowDown')
+      expect(focusedId()).toBe('iron-plate')
+      expect(screen.getByTestId('recipe-detail-panel')).toBeInTheDocument()
+    })
+
+    it('ArrowRight and ArrowLeft move through the slots and stop at the ends', () => {
+      open()
+      key(search(), 'ArrowDown')
+      for (const id of ['copper-plate', 'fill-water-barrel', 'fill-water-barrel']) {
+        key(document.activeElement!, 'ArrowRight')
+        expect(focusedId()).toBe(id)
+      }
+      key(document.activeElement!, 'ArrowLeft')
+      expect(focusedId()).toBe('copper-plate')
+    })
+
+    it('ArrowDown and ArrowUp move between rows, and ArrowUp from the top row returns to the search', () => {
+      open()
+      key(search(), 'ArrowDown')
+      key(document.activeElement!, 'ArrowRight')
+      key(document.activeElement!, 'ArrowDown')
+      expect(focusedId()).toBe('fill-water-barrel')
+      // The nearest slot above the third one (first column) is the first, not the second.
+      key(document.activeElement!, 'ArrowUp')
+      expect(focusedId()).toBe('iron-plate')
+      key(document.activeElement!, 'ArrowUp')
+      expect(search()).toHaveFocus()
+    })
+
+    it('ignores an arrow with Shift or Ctrl', () => {
+      open()
+      key(search(), 'ArrowDown')
+      key(document.activeElement!, 'ArrowRight', { shiftKey: true })
+      key(document.activeElement!, 'ArrowRight', { ctrlKey: true })
+      expect(focusedId()).toBe('iron-plate')
+    })
+
+    it('Enter in the search picks the first match, but nothing for an empty query', () => {
+      const { onSelect, onClose } = open()
+      key(search(), 'Enter')
+      expect(onSelect).not.toHaveBeenCalled()
+      expect(onClose).not.toHaveBeenCalled()
+      type('copper')
+      key(search(), 'Enter')
+      expect(onSelect).toHaveBeenCalledWith('copper-plate')
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('Enter skips a recipe that is already present', () => {
+      const { onSelect } = open({ presentRecipes: { ids: new Set(['iron-plate']), where: 'x' } })
+      type('plate')
+      key(search(), 'Enter')
+      expect(onSelect).toHaveBeenCalledWith('copper-plate')
+    })
+
+    it('Enter and Space on a focused slot select it', async () => {
+      const user = userEvent.setup()
+      const { onSelect } = open()
+      key(search(), 'ArrowDown')
+      await user.keyboard('{Enter}')
+      expect(onSelect).toHaveBeenLastCalledWith('iron-plate')
+      await user.keyboard(' ')
+      expect(onSelect).toHaveBeenCalledTimes(2)
+    })
+
+    it('Enter on a first fuel-group slot opens the fuel view and focuses Back', () => {
+      useGameDataStore.setState({ status: { type: 'loaded', gameData: fixtureWithBoilerFuels(), sourceId: 'test' } })
+      const { onSelect } = open()
+      type('boiler')
+      key(search(), 'Enter')
+      expect(screen.getByTestId('recipe-fuel-view')).toBeInTheDocument()
+      expect(screen.getByTestId('recipe-fuel-back')).toHaveFocus()
+      expect(onSelect).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('items', () => {
+    beforeEach(() => stubLayout('item-slot'))
+    const amount = () => screen.getByLabelText('Amount')
+    const open = (props: Partial<React.ComponentProps<typeof ItemPicker>> = {}, onSelect = vi.fn(), onClose = vi.fn()) => {
+      render(<ItemPicker source="items" onSelect={onSelect} onClose={onClose} {...props as object} />)
+      return { onSelect, onClose }
+    }
+
+    it('moves with the arrows like the recipe picker', () => {
+      open()
+      key(search(), 'ArrowDown')
+      expect(focusedId()).toBe('iron-plate')
+      key(document.activeElement!, 'ArrowRight')
+      expect(focusedId()).toBe('copper-plate')
+      key(document.activeElement!, 'ArrowDown')
+      expect(focusedId()).toBe('iron-ore')
+      key(document.activeElement!, 'ArrowUp')
+      expect(focusedId()).toBe('iron-plate')
+      key(document.activeElement!, 'ArrowUp')
+      expect(search()).toHaveFocus()
+    })
+
+    it('Enter in the search picks the first match with the typed amount, but nothing for an empty query', () => {
+      const { onSelect, onClose } = open()
+      fireEvent.change(amount(), { target: { value: '120' } })
+      key(search(), 'Enter')
+      expect(onSelect).not.toHaveBeenCalled()
+      type('copper')
+      key(search(), 'Enter')
+      expect(onSelect).toHaveBeenCalledWith('copper-plate', 120)
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('Enter skips an item that is already present', () => {
+      const { onSelect } = open({ presentItems: new Set(['iron-plate']) })
+      type('plate')
+      key(search(), 'Enter')
+      expect(onSelect).toHaveBeenCalledWith('copper-plate', undefined)
+    })
+
+    it('Enter in the Amount submits the last clicked item once the amount is valid', () => {
+      const { onSelect } = open()
+      fireEvent.change(amount(), { target: { value: '-3' } })
+      fireEvent.click(screen.getAllByTestId('item-slot')[0])
+      expect(onSelect).not.toHaveBeenCalled()
+      fireEvent.change(amount(), { target: { value: '50' } })
+      key(amount(), 'Enter')
+      expect(onSelect).toHaveBeenCalledWith('iron-plate', 50)
+    })
+
+    it('Enter in the Amount ignores a clicked item the search has filtered out', () => {
+      const { onSelect } = open()
+      type('plate')
+      fireEvent.change(amount(), { target: { value: '-5' } })
+      fireEvent.click(screen.getAllByTestId('item-slot').find(s => s.getAttribute('data-item-id') === 'iron-plate')!)
+      type('copper')
+      fireEvent.change(amount(), { target: { value: '90' } })
+      key(amount(), 'Enter')
+      expect(onSelect).toHaveBeenCalledTimes(1)
+      expect(onSelect).toHaveBeenCalledWith('copper-plate', 90)
+    })
+
+    it('ignores Enter with a modifier and Enter that confirms an IME composition', () => {
+      const { onSelect } = open()
+      type('copper')
+      for (const init of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { keyCode: 229 }]) {
+        const notPrevented = fireEvent.keyDown(search(), { key: 'Enter', cancelable: true, ...init })
+        expect(notPrevented, JSON.stringify(init)).toBe(true)
+      }
+      expect(onSelect).not.toHaveBeenCalled()
+    })
+
+    it('Enter in the Amount without a selection picks the first match with the typed amount', () => {
+      const { onSelect } = open()
+      type('copper')
+      fireEvent.change(amount(), { target: { value: '30' } })
+      key(amount(), 'Enter')
+      expect(onSelect).toHaveBeenCalledWith('copper-plate', 30)
+    })
+
+    it('leaves ArrowDown in the Amount to the number input', () => {
+      open()
+      const notPrevented = fireEvent.keyDown(amount(), { key: 'ArrowDown', cancelable: true })
+      expect(notPrevented).toBe(true)
+      expect(document.activeElement?.getAttribute('data-testid')).not.toBe('item-slot')
+    })
   })
 })

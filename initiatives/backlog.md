@@ -42,7 +42,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## UI / UX
 
-- [~] **Keyboard navigation.** Arrow keys and Enter in the item and recipe pickers (they handle Escape only); a shortcut for add goal. Done: Escape closes modals, popovers and pickers, and the menus (`MenuButton`) and the Comes from control take arrow keys; undo and redo shortcuts (Ctrl/Cmd+Z, Ctrl+Shift+Z, Ctrl+Y).
+- [~] **Keyboard navigation.** Arrow keys in the other pickers (machine, module, beacon, fuel, fill-all and block pickers), in the item-group tabs of the item and recipe pickers, in the Comes from control (its connection menu and Sources list; only Alt+Arrow reorders lines), and in the row actions menu; a shortcut for add recipe. Done: Escape closes modals, popovers and pickers; the `MenuButton` menus take arrow keys; the item and recipe pickers take arrow keys and Enter; A adds a goal; undo and redo shortcuts (Ctrl/Cmd+Z, Ctrl+Shift+Z, Ctrl+Y).
 
 ## Data sets
 
