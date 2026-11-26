@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { makeEmptyBlock, makeEmptySubPlan } from '../../store/blockStore'
 import {
-  barPercent, buildPowerOverview, flattenPowerRows, gaugeGeometry, initialExpanded, sharePercentText,
+  barPercent, buildPowerOverview, flattenPowerRows, gaugeGeometry, sharePercentText,
 } from './powerOverview'
-import type { PowerBlock, PowerEntry } from './powerOverview'
+import type { PowerEntry } from './powerOverview'
 import type { Block, GameData, RecipeNode, SolvedNode, SolverResult, SolverWarning, SubPlan } from '../../data/types'
 
 const gameData = {
@@ -146,7 +146,7 @@ describe('buildPowerOverview', () => {
   })
 })
 
-describe('flattenPowerRows and initialExpanded', () => {
+describe('flattenPowerRows', () => {
   it('lists only the children of expanded rows', () => {
     const m = build()
     const label = (r: ReturnType<typeof flattenPowerRows>[number]) => `${r.depth}:${r.entry.name}:${r.expandable}`
@@ -164,13 +164,6 @@ describe('flattenPowerRows and initialExpanded', () => {
     const m = buildPowerOverview([b], { B: result([]) }, {}, gameData)
     const rows = flattenPowerRows(m.blocks, new Set(['B']))
     expect(rows[1].expandable).toBe(false)
-  })
-
-  it('opens the first block only when it draws power', () => {
-    expect([...initialExpanded(build())]).toEqual(['Metals'])
-    const zero = buildPowerOverview([block('B', plan('Main', ['plate']))], { B: result([solved('plate', 0, 1)]) }, {}, gameData)
-    expect(initialExpanded(zero).size).toBe(0)
-    expect(initialExpanded({ ...zero, blocks: [] as PowerBlock[] }).size).toBe(0)
   })
 })
 

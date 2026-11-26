@@ -3,7 +3,7 @@ import { Icon } from '../Icon'
 import { Segmented, Segment } from '../SegmentedControl'
 import { fmtPower } from './ItemTile'
 import {
-  barPercent, flattenPowerRows, gaugeGeometry, initialExpanded, sharePercentText,
+  barPercent, flattenPowerRows, gaugeGeometry, sharePercentText,
 } from './powerOverview'
 import type { PowerLine, PowerListRow, PowerOverview } from './powerOverview'
 
@@ -199,7 +199,7 @@ function Gauge({ model }: { model: PowerOverview }) {
       data-testid="power-gauge"
       role="img"
       aria-label={`Demand ${text(model.demandKw)}, generation ${text(model.generationKw)}, ${balanceText}`}
-      className="relative w-[190px] shrink-0 flex flex-col max-md:w-full max-md:h-56"
+      className="relative w-[190px] shrink-0 flex flex-col py-[34px] max-md:w-full max-md:h-56 max-md:py-0"
     >
       <div className="relative flex-1 min-h-[16rem] max-md:min-h-0">
         <div className="absolute bottom-0 top-0 left-0 w-16 flex flex-col-reverse">
@@ -222,10 +222,11 @@ function Gauge({ model }: { model: PowerOverview }) {
         {g.short && (
           <div
             data-testid="power-gauge-short"
-            className="absolute left-[126px] w-16 rounded-sm border border-amber-400"
+            className="absolute left-[126px] w-16 rounded-t-sm border border-b-0 border-amber-400"
             style={{
-              bottom: pct(g.short.bottom),
-              height: pct(g.short.height),
+              // Starts 2px inside the generation bar so no seam shows between the two.
+              bottom: `calc(${pct(g.short.bottom)} - 2px)`,
+              height: `calc(${pct(g.short.height)} + 2px)`,
               backgroundImage: 'repeating-linear-gradient(135deg, rgba(251,191,36,.9) 0 5px, rgba(251,191,36,.25) 5px 10px)',
             }}
           />
@@ -263,13 +264,14 @@ function Gauge({ model }: { model: PowerOverview }) {
 
 type Mode = 'block' | 'recipe'
 
-export function BlockPower({ model }: { model: PowerOverview }) {
+/** `expanded` (the keys of the open rows) is owned by the modal, so it survives a switch to another view; closing the modal resets it. */
+export function BlockPower({ model, expanded, onExpandedChange }: {
+  model: PowerOverview
+  expanded: ReadonlySet<string>
+  onExpandedChange: (next: Set<string>) => void
+}) {
   const [mode, setMode] = useState<Mode>('block')
   const [query, setQuery] = useState('')
-  // Until a row is toggled the open rows follow the model (the first block opens once its solve arrives).
-  const [chosen, setChosen] = useState<Set<string> | undefined>(undefined)
-  const expanded = useMemo(() => chosen ?? initialExpanded(model), [chosen, model])
-
   const rows = useMemo(() => flattenPowerRows(model.blocks, expanded), [model.blocks, expanded])
   const q = query.trim().toLowerCase()
   const lines = useMemo(
@@ -280,7 +282,7 @@ export function BlockPower({ model }: { model: PowerOverview }) {
   function toggle(key: string) {
     const next = new Set(expanded)
     if (!next.delete(key)) next.add(key)
-    setChosen(next)
+    onExpandedChange(next)
   }
 
   const maxKw = mode === 'block' ? (model.blocks[0]?.powerKw ?? 0) : (model.lines[0]?.powerKw ?? 0)

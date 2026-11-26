@@ -246,12 +246,6 @@ export function flattenPowerRows(blocks: readonly PowerBlock[], expanded: Readon
   return rows
 }
 
-/** The first block's row is open when it draws any power, so the list does not open as a bare column of blocks. */
-export function initialExpanded(model: PowerOverview): Set<string> {
-  const first = model.blocks[0]
-  return first && first.powerKw > 0 ? new Set([first.key]) : new Set()
-}
-
 /** Width of a weight bar, percent of the biggest row. */
 export function barPercent(kw: number, maxKw: number): number {
   if (kw <= 0 || maxKw <= 0) return 0

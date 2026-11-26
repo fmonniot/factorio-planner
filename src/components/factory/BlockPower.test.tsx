@@ -107,10 +107,12 @@ describe('BlockPower', () => {
     expect(screen.queryByTestId('power-gauge-spare')).toBeNull()
   })
 
-  it('lists blocks by power, with the first one open', () => {
+  it('lists blocks by power, every row collapsed', () => {
     setup()
     render(<BlockGraphButton />)
     openPower()
+    expect(labels()).toEqual(['block:Gears', 'block:Chem', 'block:Plant'])
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Gears' }))
     expect(labels()).toEqual(['block:Gears', 'group:Iron', 'recipe:R-plate', 'block:Chem', 'block:Plant'])
     expect(row('block', 'Gears').textContent).toContain('84.2%')
     expect(row('block', 'Plant').textContent).toContain('–')
@@ -122,12 +124,39 @@ describe('BlockPower', () => {
     setup()
     render(<BlockGraphButton />)
     openPower()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Gears' }))
     fireEvent.click(screen.getByRole('button', { name: 'Expand Iron' }))
     expect(labels().slice(0, 5)).toEqual(['block:Gears', 'group:Iron', 'recipe:R-gear', 'recipe:R-stick', 'recipe:R-plate'])
     expect((within(row('recipe', 'R-gear')).getByText('R-gear').parentElement as HTMLElement).style.paddingLeft).toBe('36px')
     expect(row('recipe', 'R-gear')).toHaveAttribute('data-power-kw', '5000')
     fireEvent.click(screen.getByRole('button', { name: 'Collapse Gears' }))
     expect(labels()).toEqual(['block:Gears', 'block:Chem', 'block:Plant'])
+  })
+
+  it('keeps the open rows across views and starts collapsed again when the modal reopens', () => {
+    setup()
+    render(<BlockGraphButton />)
+    openPower()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Gears' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Matrix' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Power' }))
+    expect(labels()).toEqual(['block:Gears', 'group:Iron', 'recipe:R-plate', 'block:Chem', 'block:Plant'])
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    open()
+    expect(labels()).toEqual(['block:Gears', 'block:Chem', 'block:Plant'])
+  })
+
+  it('leaves the loop status out of the Power header, and keeps it in the other views', () => {
+    setup()
+    useSolverStore.setState({ loops: [{ blockIds: ['gears', 'chem'], connectionIds: [], backConnectionIds: [], converged: true, rounds: 1 }] })
+    render(<BlockGraphButton />)
+    open()
+    expect(screen.getByTestId('graph-loop-status').textContent).toBe('↻ 1 loop')
+    fireEvent.click(screen.getByRole('button', { name: 'Matrix' }))
+    expect(screen.getByTestId('graph-loop-status')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Power' }))
+    expect(screen.queryByTestId('graph-loop-status')).toBeNull()
+    expect(screen.getByTestId('power-figures')).toBeTruthy()
   })
 
   it('sizes the weight bars against the biggest block', () => {

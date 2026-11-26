@@ -538,6 +538,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const results = useSolverStore(selectBlockResults)
   const errors = useSolverStore(selectBlockErrors)
   const view = useUiStore(s => s.blockGraphView)
+  // The Power list's open rows live here, not in the view: they survive a switch between views and start collapsed each time the modal opens.
+  const [powerExpanded, setPowerExpanded] = useState<Set<string>>(() => new Set())
   const setBlockGraphView = useUiStore(s => s.setBlockGraphView)
 
   const power = useMemo(
@@ -587,7 +589,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
             <span data-testid="graph-legend-loop" className="flex items-center gap-1" data-tip="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
           </div>
         )}
-        {(loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
+        {view !== 'power' && (loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
         {power && <PowerFigures model={power} />}
         <button type="button" onClick={onClose} className={`${btn} ${view !== 'power' ? 'ml-auto' : ''}`}>Close</button>
       </div>
@@ -615,7 +617,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           onSetLimit={onSetLimit}
         />
       ) : (
-        power && <BlockPower model={power} />
+        power && <BlockPower model={power} expanded={powerExpanded} onExpandedChange={setPowerExpanded} />
       )}
     </Modal>
   )

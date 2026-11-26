@@ -33,7 +33,7 @@ test('the Power view reads demand against generation, by block and by recipe', a
   await expect(page.getByTestId('power-balance')).toHaveAttribute('data-status', 'short')
   await expect(page.getByTestId('power-balance')).toHaveText('2.4MW short')
 
-  // 2. By block: biggest first, the first block open.
+  // 2. By block: biggest first, every row collapsed.
   const blocks = page.locator('[data-testid="power-row"][data-kind="block"]')
   await expect(blocks).toHaveCount(3)
   await expect(blocks.nth(0)).toContainText('Gears')
@@ -45,6 +45,8 @@ test('the Power view reads demand against generation, by block and by recipe', a
   await expect(blocks.nth(1)).toContainText('1.2MW')
   await expect(blocks.nth(1)).toContainText('15.6%')
   const rows = page.getByTestId('power-row')
+  await expect(rows).toHaveCount(3)
+  await page.getByTestId('power-view').getByRole('button', { name: 'Expand Gears' }).click()
   await expect(rows).toHaveCount(5)
   await expect(rows.nth(1)).toHaveAttribute('data-kind', 'group')
   await expect(rows.nth(1)).toContainText('Beaconed')
