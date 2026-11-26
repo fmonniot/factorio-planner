@@ -271,6 +271,15 @@ discarded unwanted byproducts): a negative total is what the block imports, a po
 one is what it exports, and a residual within the solver's surplus tolerance is shown as
 nothing. Each row carries `data-item-id`, each cell `data-col` (the area id, or
 `from-outside` / `to-outside`), `data-rate` (items/min, signed) and `data-sign`.
+Each **From outside** figure of an item or fluid key is split into what other blocks
+supply (connected), what is imported and what Import off leaves missing. The split reads the
+block's own unsatisfied import of the key, and the part of it Import off leaves missing, as the
+Sources list does, so it holds for every item and not only those with per-area slacks. A thin
+bar under the figure shows the parts (green connected, grey imported, amber missing), and the
+tooltip says them in words ("120/m connected and 180/m imported."). The cell carries
+`data-connected`, `data-imported` and `data-missing` (items/min). Electricity and heat, the
+group totals, **To outside** and the focus (counterpart) mode show no split. The **From
+outside** heading has a tooltip that explains the bar.
 The row header of an item that has a source rule with an effect in this block shows the
 [source rule marker](#source-rule-marker) on the corner of its icon; the same item in
 another block's matrix shows none, and neither does the **All blocks** view.
@@ -339,7 +348,7 @@ the Trades with heading's tooltip), and the Flow
 order uses the same routes.
 
 **All blocks** (`AllBlocksMatrix.tsx`, built by `planAreaMatrix.ts`). Flow keys are rows and
-each block is a column group. Under **Only items that cross a block boundary** (on by
+each block is a column group. This view has no outside column: **Not taken** and **Not supplied** are its split. Under **Only items that cross a block boundary** (on by
 default) the columns are the ends of the active connections (rate above the flow
 tolerance, not `missing-source` or `self`) and the rows the items they carry; off, every
 block with a solve and every item with a boundary net or an area cell. A block's

@@ -180,3 +180,38 @@ test('counterpart figures follow the solver routes', async ({ page }) => {
     await expect(cell).toHaveAccessibleDescription(tip)
   }
 })
+
+/**
+ * From outside tells what other blocks supply from what is imported. In the connected fixture a "Chlorine" block
+ * feeds "Hydrogen 2" up to 100/min of the 300 its Chlorides area needs, so 200 stay imported.
+ */
+test('From outside splits connected supply from imports', async ({ page }) => {
+  await loadPlanFixture(page, path.resolve('e2e/fixtures/area-matrix-connected.json'))
+  await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+  await expect(row(page, ROOT_ELEC)).toBeVisible({ timeout: 10000 })
+  await page.getByRole('button', { name: 'Areas in every block' }).click()
+  await blockTabs(page).getByRole('button', { name: /^Hydrogen 2/ }).click()
+
+  const cell = matrix(page, 'Hydrogen 2').locator('tr[data-item-id="nullius-chlorine"] td[data-col="from-outside"]')
+  await expect(cell).toHaveAttribute('data-rate', '300')
+  await expect(cell).toHaveAttribute('data-connected', '100')
+  await expect(cell).toHaveAttribute('data-imported', '200')
+  await expect(cell).toHaveAttribute('data-missing', '0')
+  await expect(cell.getByTestId('outside-split').locator('[data-part]')).toHaveCount(2)
+  await cell.hover()
+  await expect(page.getByTestId('tooltip')).toHaveText('100/m connected and 200/m imported.')
+})
+
+test('a pure import reads fully imported', async ({ page }) => {
+  await open(page)
+  const cell = matrix(page).locator('tr[data-item-id="nullius-steam"] td[data-col="from-outside"]')
+  await expect(cell).toHaveAttribute('data-connected', '0')
+  const rate = await cell.getAttribute('data-rate')
+  await expect(cell).toHaveAttribute('data-imported', rate!)
+})
+
+test('the From outside heading explains the bar', async ({ page }) => {
+  await open(page)
+  await matrix(page).getByRole('columnheader', { name: 'From outside' }).getByText('From outside').hover()
+  await expect(page.getByTestId('tooltip')).toHaveText('What the block takes from outside. The bar under a figure shows how much other blocks supply and how much is imported.')
+})
