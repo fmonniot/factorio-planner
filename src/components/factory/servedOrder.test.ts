@@ -134,6 +134,12 @@ describe('splitServed', () => {
     expect(areaExistsIn([])('b', 'z')).toBe(false)
   })
 
+  it('ranks a stored entry that appears twice as its first occurrence does', () => {
+    const e = blk('b')
+    const lines = servedLines(list(), 'plate', 'min')
+    expect(splitServed(lines, [e, e, blk('c')]).ranked.map(l => [l.blockId, l.rank])).toEqual([['b', 1], ['c', 2]])
+  })
+
   it('counts what the stored list does not rank', () => {
     expect(unrankedCount(servedLines(list(), 'plate', 'min'), undefined)).toBe(0)
     expect(unrankedCount(servedLines(list(), 'plate', 'min'), [blk('b'), blk('c'), blk('d')])).toBe(1)

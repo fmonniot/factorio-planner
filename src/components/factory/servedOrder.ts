@@ -163,7 +163,7 @@ export function splitServed(
     const key = servedEntryKey(e)
     const repeat = seen.has(key)
     const mine = repeat ? [] : linesOf(e)
-    linesByEntry.set(e, mine)
+    if (!repeat) linesByEntry.set(e, mine) // a repeat of the same object must not overwrite its first occurrence
     seen.add(key)
     if (mine.length === 0) return repeat || !(e.kind === 'block' && e.areaId !== undefined && hasArea?.(e.blockId, e.areaId) === true)
     mine.forEach(l => used.add(lineKey(l)))
