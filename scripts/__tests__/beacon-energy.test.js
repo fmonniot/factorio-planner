@@ -11,9 +11,11 @@ const base = id => ({
 
 describe('beaconEnergyField', () => {
   it('reads the usage and drain of an electric beacon', () => {
-    expect(beaconEnergyField(electric('480kW'))).toEqual({ energyUsageKw: 480, drainKw: 0 })
-    expect(beaconEnergyField(electric('1.5MW'))).toEqual({ energyUsageKw: 1500, drainKw: 0 })
+    expect(beaconEnergyField(electric('480kW'))).toEqual({ energyUsageKw: 480, drainKw: 16 })
+    expect(beaconEnergyField(electric('1.5MW'))).toEqual({ energyUsageKw: 1500, drainKw: 50 })
     expect(beaconEnergyField(electric('480kW', '16kW'))).toEqual({ energyUsageKw: 480, drainKw: 16 })
+    // '0kW' is a truthy string, so the helper writes it as an explicit drain.
+    expect(beaconEnergyField(electric('480kW', '0kW'))).toEqual({ energyUsageKw: 480, drainKw: 0 })
   })
 
   it('is empty for a void or burner beacon', () => {
@@ -31,7 +33,7 @@ describe('attachBeaconEnergy', () => {
 
   it('adds the fields, leaves a void beacon without, and counts both', () => {
     const r = attachBeaconEnergy({ b: base('b'), v: base('v') }, raw())
-    expect(r.beacons.b).toEqual({ ...base('b'), energyUsageKw: 480, drainKw: 0 })
+    expect(r.beacons.b).toEqual({ ...base('b'), energyUsageKw: 480, drainKw: 16 })
     expect(Object.keys(r.beacons.b).slice(-2)).toEqual(['energyUsageKw', 'drainKw'])
     expect(r.beacons.v).toEqual(base('v'))
     expect(r.counts).toEqual({ electric: 1, void: 1 })

@@ -162,7 +162,7 @@ node scripts/build-game-data.js \
   --output    public/data/nullius/game-data.json
 ```
 
-The build prefers the game's own resolved English names from the `<type>-locale.json` files written by `--dump-prototype-locale` (items, fluids, entities, recipes, technologies, item groups, and the optional `recipe-category-locale.json` that names the crafting categories; without it the names come from the merged locale map's `recipe-category-name` keys, and categories with no name are labelled from their id in the planner). `--locale-dir` says where they are and defaults to the dump's directory. Any file or id that is missing falls back to the merged mod locale map, which ignores mod load order and can pick the wrong name when several mods define the same key. The normal export warns on stderr when only some of the six files are found (or a file has no names); an unparsable file stops the build. `--patch-names` requires all six files and exits non-zero otherwise (patching from the flat map alone would regress names), so pass `--locale-dir` if the dump was copied away from `script-output`.
+A full export records the default drain too. The build prefers the game's own resolved English names from the `<type>-locale.json` files written by `--dump-prototype-locale` (items, fluids, entities, recipes, technologies, item groups, and the optional `recipe-category-locale.json` that names the crafting categories; without it the names come from the merged locale map's `recipe-category-name` keys, and categories with no name are labelled from their id in the planner). `--locale-dir` says where they are and defaults to the dump's directory. Any file or id that is missing falls back to the merged mod locale map, which ignores mod load order and can pick the wrong name when several mods define the same key. The normal export warns on stderr when only some of the six files are found (or a file has no names); an unparsable file stops the build. `--patch-names` requires all six files and exits non-zero otherwise (patching from the flat map alone would regress names), so pass `--locale-dir` if the dump was copied away from `script-output`.
 
 To add technology data (including research cost and technology icons, written to `<bundle dir>/icons/technology/`) to an existing bundle without re-exporting recipes and the other icons (the dump must come from the same mod set as the bundle; this is checked), use patch mode (the mod-set check ignores `base` and `factorio-planner-viewer`, the in-game viewer mod, which adds no game data):
 
@@ -218,7 +218,15 @@ node scripts/build-game-data.js --patch-module-categories \
   --output public/data/kompetenz-seablock/game-data.json
 ```
 
-`--patch-beacon-energy` writes `energyUsageKw` and `drainKw` (the prototype's `energy_usage` and explicit `energy_source.drain`) on the bundle's electric beacons; void beacons carry neither, and a bundle with no `beacons` key is left alone (same mod-set check, which refuses a dump from a different mod set; safe to re-run; it touches nothing else). It refuses a dump that lacks more than 1 % of the beacons (a single one when there are fewer than 100). The planner adds a beacon's power to its rows' power with it. The Seablock bundle has it; the Nullius bundle does not until its re-dump, so there beacons draw nothing.
+`--patch-machine-drain` writes `drainKw` on the bundle's crafting machines, drills and pumps from the dump: the explicit `energy_source.drain`, else `energy_usage / 30` for an electric source (the game's default), 0 for any other source. It uses the same mod-set check, refuses a dump that lacks more than 1 % of those machines or lists a different `energy_usage` for them (a dump of another mod set), and is safe to re-run; it touches nothing else. Run it together with `--patch-beacon-energy`. The Seablock bundle has it; the Nullius bundle does not until its re-dump, so there machines draw no idle power.
+
+```sh
+node scripts/build-game-data.js --patch-machine-drain \
+  --dump ... --factorio-dir ... --mods-dir ... \
+  --output public/data/kompetenz-seablock/game-data.json
+```
+
+`--patch-beacon-energy` writes `energyUsageKw` and `drainKw` (the prototype's `energy_usage` and its drain, the explicit `energy_source.drain` or else `energy_usage / 30`) on the bundle's electric beacons; void beacons carry neither, and a bundle with no `beacons` key is left alone (same mod-set check, which refuses a dump from a different mod set; safe to re-run; it touches nothing else). It refuses a dump that lacks more than 1 % of the beacons (a single one when there are fewer than 100). The planner adds a beacon's power to its rows' power with it. The Seablock bundle has it; the Nullius bundle does not until its re-dump, so there beacons draw nothing.
 
 ```sh
 node scripts/build-game-data.js --patch-beacon-energy \
@@ -261,6 +269,7 @@ After re-exporting the Seablock bundle, run `npm run contract`: the in-game view
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/icon-url.js` | Derives the public-relative `iconPath` prefix from the icons output directory |
 | `scripts/locale.js` | Locale parsing, name resolution and the game's resolved-name lookup (used by the build script) |
+| `scripts/machine-drain.js` | Machine idle drain (used by `--patch-machine-drain`) |
 | `scripts/beacon-energy.js` | Beacon power draw (used by the build script and `--patch-beacon-energy`) |
 | `scripts/module-categories.js` | Module categories machines and beacons accept (used by the build script and `--patch-module-categories`) |
 | `scripts/modset.js` | Compares the bundle's mod set with the dump's, ignoring `base` and the viewer mod (used by the patch modes) |

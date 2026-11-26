@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 // Regression guard for the exported beacon power: the invariants are asserted for every bundle and the exact values
-// for kompetenz-seablock, which was patched with `--patch-beacon-energy`. The Nullius bundle is not patched yet.
+// (drain = energy_usage / 30) for kompetenz-seablock, which was patched with `--patch-beacon-energy`. The Nullius bundle is not patched yet.
 const DATA_DIR = join(import.meta.dirname, '../../public/data')
 const load = dir => JSON.parse(readFileSync(join(DATA_DIR, dir, 'game-data.json'), 'utf8'))
 const KNOWN = new Set([
@@ -34,9 +34,9 @@ describe('bundled beacon energy', () => {
 
   it('kompetenz-seablock pins the electric beacons and leaves the void one without', () => {
     const { beacons } = load('kompetenz-seablock')
-    expect(beacons.beacon).toMatchObject({ energyUsageKw: 480, drainKw: 0 })
-    expect(beacons['bob-beacon-2']).toMatchObject({ energyUsageKw: 960, drainKw: 0 })
-    expect(beacons['bob-beacon-3']).toMatchObject({ energyUsageKw: 1920, drainKw: 0 })
+    expect(beacons.beacon).toMatchObject({ energyUsageKw: 480, drainKw: 16 })
+    expect(beacons['bob-beacon-2']).toMatchObject({ energyUsageKw: 960, drainKw: 32 })
+    expect(beacons['bob-beacon-3']).toMatchObject({ energyUsageKw: 1920, drainKw: 64 })
     expect(beacons['ee-super-beacon']).not.toHaveProperty('energyUsageKw')
     expect(beacons['ee-super-beacon']).not.toHaveProperty('drainKw')
   })

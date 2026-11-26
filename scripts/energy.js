@@ -26,6 +26,18 @@ export function parseEnergyKw(s) {
   return num / 1000 // plain W
 }
 
+/**
+ * Idle drain in kW. Only an electric source drains: the explicit `energy_source.drain` when present (an explicit
+ * "0kW" stays 0), else the game's default of `energy_usage / 30`. 0 for any other energy source.
+ * @param {any} proto machine, drill, pump or beacon prototype
+ */
+export function energyDrainKw(proto) {
+  if (inferEnergyType(proto) !== 'electric') return 0
+  const drain = proto.energy_source.drain
+  if (drain != null) return parseEnergyKw(drain)
+  return parseEnergyKw(proto.energy_usage) / 30
+}
+
 // ---------------------------------------------------------------------------
 // Energy amounts — joule strings to kJ, and per-tick joule strings to kW
 // ---------------------------------------------------------------------------

@@ -105,8 +105,16 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
- * Beacon-energy patch mode: write `energyUsageKw` and `drainKw` (the prototype's `energy_usage` and explicit
- * `energy_source.drain`) on the bundle's electric beacons (same mod-set check); void beacons carry neither. Nothing
+ * Machine-drain patch mode: write `drainKw` (the explicit `energy_source.drain`, else `energy_usage / 30` for an
+ * electric source, 0 for any other) on the bundle's crafting machines, drills and pumps (same mod-set check).
+ * Nothing else is touched. Safe to re-run. Exits without writing when more than 1 % of those machines are missing
+ * from the dump or have a different `energy_usage` there (a dump of another mod set):
+ *   node scripts/build-game-data.js --patch-machine-drain \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
+ * Beacon-energy patch mode: write `energyUsageKw` and `drainKw` (the prototype's `energy_usage` and its drain,
+ * explicit or `energy_usage / 30`) on the bundle's electric beacons (same mod-set check); void beacons carry neither. Nothing
  * else is touched. Safe to re-run. Exits without writing when more than 1 % of the beacons (a single one when there
  * are fewer than 100) are missing from the dump:
  *   node scripts/build-game-data.js --patch-beacon-energy \
@@ -132,9 +140,10 @@ import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachP
 import { additionalCategories, recipeMadeIn, attachAdditionalCategories } from './recipe-categories.js'
 import { itemFuel, fluidFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
 import { moduleCategoriesField, attachModuleCategories, patchedBundle } from './module-categories.js'
+import { attachMachineDrain } from './machine-drain.js'
 import { beaconEnergyField, attachBeaconEnergy, patchedBundle as patchedBeaconEnergyBundle } from './beacon-energy.js'
 import { iconPublicUrl } from './icon-url.js'
-import { parseEnergyKw, inferEnergyType } from './energy.js'
+import { parseEnergyKw, inferEnergyType, energyDrainKw } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
 import {
   exportPower, isPowerCategory, parsePowerRecipeId, powerRecipeName,
@@ -179,6 +188,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--patch-fuel') args.patchFuel = true
     else if (argv[i] === '--patch-additional-categories') args.patchAdditionalCategories = true
     else if (argv[i] === '--patch-module-categories') args.patchModuleCategories = true
+    else if (argv[i] === '--patch-machine-drain') args.patchMachineDrain = true
     else if (argv[i] === '--patch-beacon-energy') args.patchBeaconEnergy = true
     else if (argv[i] === '--patch-category-names') args.patchCategoryNames = true
   }
@@ -554,7 +564,6 @@ async function exportMachines(raw, locale, resolveIcon) {
     const table = raw[machineType]
     if (!table) continue
     for (const proto of Object.values(table)) {
-      const drain = proto.energy_source?.drain
 
       // In data.raw, allowed_effects and crafting_categories are plain arrays.
       const allowedEffects     = (proto.allowed_effects ?? []).slice().sort()
@@ -567,7 +576,7 @@ async function exportMachines(raw, locale, resolveIcon) {
         craftingSpeed:     proto.crafting_speed ?? 1,
         energyUsageKw:     parseEnergyKw(proto.energy_usage),
         energyType:        inferEnergyType(proto),
-        drainKw:           parseEnergyKw(drain),
+        drainKw:           energyDrainKw(proto),
         moduleSlots:       proto.module_slots ?? 0,
         allowedEffects,
         craftingCategories,
@@ -1146,6 +1155,25 @@ if (args.patchModuleCategories) {
   process.stderr.write(
     `[build-game-data] Patched ${outputPath}: machines=${attached.counts.machines} beacons=${attached.counts.beacons} ` +
     `missing=${attached.missing.length}\n`
+  )
+  process.exit(0)
+}
+
+if (args.patchMachineDrain) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  const attached = attachMachineDrain(existing.machines, raw)
+  for (const id of attached.missing) process.stderr.write(`[warn] machine ${id} is missing from the dump\n`)
+  for (const id of attached.mismatched) process.stderr.write(`[warn] machine ${id} has a different energy_usage in the dump\n`)
+  const bad = attached.missing.length + attached.mismatched.length
+  if (bad > attached.total * 0.01) {
+    process.stderr.write(`[build-game-data] ${bad}/${attached.total} bundle machines are missing from the dump or differ in energy_usage; wrong dump? Nothing written.\n`)
+    process.exit(1)
+  }
+  writeFileSync(outputPath, JSON.stringify({ ...existing, machines: attached.machines }, null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched ${outputPath}: machines=${attached.total} changed=${attached.counts.changed} ` +
+    `missing=${attached.missing.length} mismatched=${attached.mismatched.length}\n`
   )
   process.exit(0)
 }

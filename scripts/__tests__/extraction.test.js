@@ -190,6 +190,15 @@ describe('exportExtraction — drills', () => {
     expect(plain.machines['electric-drill']).not.toHaveProperty('allowedModuleCategories')
   })
 
+  it('defaults the drain of an electric drill without one to energy_usage / 30, and keeps an explicit 0kW', async () => {
+    const raw = makeRaw()
+    raw['mining-drill']['electric-drill'].energy_source = { type: 'electric' }
+    const { machines } = await exportExtraction(raw, makeOpts())
+    expect(machines['electric-drill'].drainKw).toBeCloseTo(3, 12)
+    const explicit = await exportExtraction(makeRaw(), makeOpts())
+    expect(explicit.machines['electric-drill'].drainKw).toBe(0)
+  })
+
   it('reads an empty allowed_effects as no effects', async () => {
     const { machines } = await exportExtraction(makeRaw(), makeOpts())
     expect(machines['burner-drill'].allowedEffects).toEqual([])
@@ -224,6 +233,7 @@ describe('exportExtraction — offshore pumps', () => {
     expect(m.craftingSpeed).toBe(20)
     expect(m.energyUsageKw).toBe(0)
     expect(m.energyType).toBe('void')
+    expect(m.drainKw).toBe(0)
     expect(m.craftingCategories).toEqual(['offshore:water'])
   })
 

@@ -37,7 +37,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Fluid-burning non-crafting machines.** Drills and pumps with a `burns_fluid` source are exported as `fluid-burner` but have no UI or tests.
 - [ ] **Heat-powered crafting machines.** Crafting machines with a heat energy source are not tied to the `power:heat` item.
 - [ ] **Fusion and Space Age generators.** Fusion reactors and generators, lightning attractors and per-surface solar power are not exported; neither bundle has them.
-- [ ] **Implicit default drain.** A machine or beacon without an explicit `energy_source.drain` drains `energy_usage / 30` in the game; the export reads 0, so the reported power is about 3.3 % low. Fix for machines and beacons together.
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective. Two real plans show the objective matters more than the unit: the solver leaves rows at zero and lets an unwanted output pile up. The options (machines, priced surplus, required rows) and the measurements are in [surplus-aware-objective/](surplus-aware-objective/plan.md).
 
 ## Data sets
@@ -72,4 +71,4 @@ Items that need a Nullius game to check or regenerate. Nullius is not the priori
   - [ ] *Power* (`--patch-power`): `scripts/power.js` handles the Nullius prototypes (script-placed turbine generators: `nullius-energy` → 1 / 2.5 / 6 MW; solar panels at 70 %) and will also export `nullius-reactor` (burner, `nullius-nuclear`, 50 MW, bonus 0.5), skipping the void and electric reactors. Then check in the app: the generators' names, whether the backup / standard / exhaust variants (identical numbers, different priority) should collapse to one, and the turbine and generator row counts for a 10 MW goal.
   - [ ] *Additional crafting categories* (`--patch-additional-categories`): first check whether Nullius uses `additional_categories` at all; if it does not, nothing changes.
   - [ ] *Module categories* (`--patch-module-categories`): until then the bundle accepts every module category and `module-not-allowed` only reports effect misfits.
-  - [ ] *Beacon energy* (`--patch-beacon-energy`): until then Nullius beacons draw nothing and a row's power leaves them out. The Seablock bundle is patched; Nullius needs a dump matching the bundle's mod set, which we do not have (the mod-set check refuses the local one).
+  - [ ] *Machine drain* (`--patch-machine-drain`) and *beacon energy* (`--patch-beacon-energy`): until then Nullius machines and beacons draw no idle power (8 electric machines with drain 0, 19 beacons without fields) and a row's power leaves the beacons out. The Seablock bundle is patched; Nullius needs a dump matching the bundle's mod set, which we do not have (the mod-set check refuses the local one).
