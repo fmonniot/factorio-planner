@@ -16,10 +16,9 @@ import type { Block, ConnectionFlow, GameData } from '../../data/types'
 // Block matrix — the second view of the Factory overview modal: rows supply, columns receive.
 // ---------------------------------------------------------------------------
 
-/** Width of the row-header column; the grid's own columns share the rest, between COL_MIN and COL_MAX px each. */
+/** Width of the row-header column; the grid's own columns share the rest of the pane, at least COL_MIN px each. */
 const ROW_HEAD = '11rem'
 const COL_MIN = 28
-const COL_MAX = 56
 
 /** The row and the column the pointer or the focus is on; either may be absent (a header has only one). */
 interface Cross { row?: number; col?: number }
@@ -209,7 +208,7 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
           {n >= 2 && (
             <table
               className="table-fixed border-separate border-spacing-0 text-xs"
-              style={{ width: '100%', minWidth: `calc(${ROW_HEAD} + ${n * COL_MIN}px)`, maxWidth: `calc(${ROW_HEAD} + ${n * COL_MAX}px)` }}
+              style={{ width: '100%', minWidth: `calc(${ROW_HEAD} + ${n * COL_MIN}px)` }}
             >
               <colgroup>
                 <col style={{ width: ROW_HEAD }} />
