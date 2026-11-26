@@ -61,8 +61,8 @@ export async function pointOnEdge(page: Page, edge: Locator): Promise<{ x: numbe
   })
 }
 
-/** Switch the modal between its two views, by the pill in the header. */
-export async function setView(page: Page, view: 'Graph' | 'Matrix') {
+/** Switch the modal between its views, by the pill in the header. */
+export async function setView(page: Page, view: 'Graph' | 'Matrix' | 'Power') {
   const pill = page.getByRole('button', { name: view, exact: true })
   await pill.click()
   await expect(pill).toHaveAttribute('aria-pressed', 'true')
@@ -82,4 +82,9 @@ export async function selectCell(page: Page, ref: EdgeRef): Promise<Locator> {
   if ((await cell.getAttribute('aria-pressed')) !== 'true') await cell.click()
   await expect(cell).toHaveAttribute('aria-pressed', 'true')
   return page.getByTestId('matrix-panel')
+}
+
+/** A row of the Power view's list: of a kind (a block, a group or a recipe) whose text holds `name`. */
+export function powerRow(page: Page, kind: 'block' | 'group' | 'recipe', name: string): Locator {
+  return page.locator(`[data-testid="power-row"][data-kind="${kind}"]`).filter({ hasText: name })
 }

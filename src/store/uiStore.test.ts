@@ -98,6 +98,17 @@ describe('blockGraphView and blockMatrixOrder', () => {
     expect(useUiStore.getState().blockMatrixOrder).toBe('plan')
   })
 
+  it('save and restore the power view', () => {
+    const unsub = initUiStatePersistence()
+    useUiStore.getState().setBlockGraphView('power')
+    unsub()
+    expect(JSON.parse(localStorageMock.setItem.mock.calls.at(-1)?.[1] as string).blockGraphView).toBe('power')
+    useUiStore.setState({ blockGraphView: 'graph' })
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ blockGraphView: 'power' }))
+    loadPersistedUiState()
+    expect(useUiStore.getState().blockGraphView).toBe('power')
+  })
+
   it('ignore a value they do not know', () => {
     localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ blockGraphView: 'table', blockMatrixOrder: 'alphabetical' }))
     loadPersistedUiState()

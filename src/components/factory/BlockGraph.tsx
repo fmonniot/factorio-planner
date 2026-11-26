@@ -3,7 +3,7 @@ import type { MouseEvent } from 'react'
 import { useBlockStore } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useSolverStore, selectFlows, selectLoops, selectRequestLoops } from '../../store/solverStore'
+import { useSolverStore, selectFlows, selectLoops, selectRequestLoops, selectBlockResults, selectBlockErrors } from '../../store/solverStore'
 import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { layoutBlockGraph, edgePath, fitScale, NODE_W, NODE_H, GRAPH_PAD } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout, BlockGraphLayout } from '../../utils/blockGraphLayout'
@@ -20,6 +20,8 @@ import { CHIP_TONE, connectionStatus, edgeKey, edgeSummaryTitle, pairStatus } fr
 import type { EdgeStatus } from './graphConnection'
 import { BlockGraphDetail } from './BlockGraphDetail'
 import { BlockMatrix } from './BlockMatrix'
+import { BlockPower, PowerFigures } from './BlockPower'
+import { buildPowerOverview } from './powerOverview'
 import type { GraphLit } from './BlockGraphDetail'
 
 // ---------------------------------------------------------------------------
@@ -533,9 +535,17 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const flows = useSolverStore(selectFlows)
   const loops = useSolverStore(selectLoops)
   const requestLoops = useSolverStore(selectRequestLoops)
+  const results = useSolverStore(selectBlockResults)
+  const errors = useSolverStore(selectBlockErrors)
   const view = useUiStore(s => s.blockGraphView)
+  // The Power list's open rows live here, not in the view: they survive a switch between views and start collapsed each time the modal opens.
+  const [powerExpanded, setPowerExpanded] = useState<Set<string>>(() => new Set())
   const setBlockGraphView = useUiStore(s => s.setBlockGraphView)
 
+  const power = useMemo(
+    () => (view === 'power' ? buildPowerOverview(blocks, results, errors, gameData) : undefined),
+    [view, blocks, results, errors, gameData],
+  )
   const layout = useMemo(() => layoutBlockGraph(blocks), [blocks])
   const flowsById = useMemo(() => new Map(flows.map(f => [f.connectionId, f])), [flows])
   const edgeStatuses = useMemo(
@@ -559,6 +569,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
         <Segmented label="View" size="sm">
           <Segment pressed={view === 'graph'} onClick={() => setBlockGraphView('graph')} data-tip="The blocks and their connections as a graph">Graph</Segment>
           <Segment pressed={view === 'matrix'} onClick={() => setBlockGraphView('matrix')} data-tip="Who supplies whom, as a grid">Matrix</Segment>
+          <Segment pressed={view === 'power'} onClick={() => setBlockGraphView('power')} data-tip="Electric power by block, against what the power plant makes">Power</Segment>
         </Segmented>
         {view === 'graph' && (
           <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -578,8 +589,9 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
             <span data-testid="graph-legend-loop" className="flex items-center gap-1" data-tip="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
           </div>
         )}
-        {(loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
-        <button type="button" onClick={onClose} className={`${btn} ml-auto`}>Close</button>
+        {view !== 'power' && (loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
+        {power && <PowerFigures model={power} />}
+        <button type="button" onClick={onClose} className={`${btn} ${view !== 'power' ? 'ml-auto' : ''}`}>Close</button>
       </div>
 
       {view === 'graph' ? (
@@ -594,7 +606,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           onRemove={onRemove}
           onSetLimit={onSetLimit}
         />
-      ) : (
+      ) : view === 'matrix' ? (
         <BlockMatrix
           blocks={blocks}
           dependencyOrder={layout.order}
@@ -604,6 +616,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           onRemove={onRemove}
           onSetLimit={onSetLimit}
         />
+      ) : (
+        power && <BlockPower model={power} expanded={powerExpanded} onExpandedChange={setPowerExpanded} />
       )}
     </Modal>
   )

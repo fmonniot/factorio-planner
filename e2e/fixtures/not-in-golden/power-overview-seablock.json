@@ -1,0 +1,136 @@
+{
+  "blocks": [
+    {
+      "id": "ffff0003-0000-0000-0000-000000000001",
+      "name": "Gears",
+      "color": "#60a5fa",
+      "goals": [
+        {
+          "id": "ffff0003-0000-0000-0000-0000000000g1",
+          "itemId": "iron-gear-wheel",
+          "rate": 936
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "ffff0003-0000-0000-0000-000000000010",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "ffff0003-0000-0000-0000-000000000011",
+            "recipeId": "iron-stick",
+            "machineId": "assembling-machine-2",
+            "modules": [],
+            "byproductPolicy": {},
+            "pinnedRate": 450
+          },
+          {
+            "kind": "subplan",
+            "id": "ffff0003-0000-0000-0000-000000000022",
+            "subPlanId": "ffff0003-0000-0000-0000-000000000020"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "ffff0003-0000-0000-0000-000000000020",
+            "name": "Beaconed",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "ffff0003-0000-0000-0000-000000000021",
+                "recipeId": "iron-gear-wheel",
+                "machineId": "assembling-machine-2",
+                "modules": [],
+                "byproductPolicy": {},
+                "pinnedRate": 936,
+                "beaconConfigs": [
+                  {
+                    "beaconId": "beacon",
+                    "modules": [
+                      {
+                        "moduleId": "speed-module-3",
+                        "count": 2
+                      }
+                    ],
+                    "beaconCount": 2,
+                    "modulesPerBeacon": 2,
+                    "distributionEfficiency": 1
+                  }
+                ]
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-11-01T00:00:00.000Z",
+            "updatedAt": "2026-11-01T00:00:00.000Z"
+          }
+        ],
+        "createdAt": "2026-11-01T00:00:00.000Z",
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "ffff0003-0000-0000-0000-000000000002",
+      "name": "Fabrication",
+      "color": "#f59e0b",
+      "goals": [
+        {
+          "id": "ffff0003-0000-0000-0000-0000000000g2",
+          "itemId": "iron-stick",
+          "rate": 810
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "ffff0003-0000-0000-0000-000000000030",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "ffff0003-0000-0000-0000-000000000031",
+            "recipeId": "iron-stick",
+            "machineId": "assembling-machine-2",
+            "modules": [],
+            "byproductPolicy": {},
+            "pinnedRate": 810
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-11-01T00:00:00.000Z",
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "ffff0003-0000-0000-0000-000000000003",
+      "name": "Power plant",
+      "color": "#34d399",
+      "goals": [
+        {
+          "id": "ffff0003-0000-0000-0000-0000000000g3",
+          "itemId": "power:electricity",
+          "rate": 324
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "ffff0003-0000-0000-0000-000000000040",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "ffff0003-0000-0000-0000-000000000041",
+            "recipeId": "power:steam-engine:steam",
+            "machineId": "steam-engine",
+            "modules": [],
+            "byproductPolicy": {},
+            "pinnedRate": 360
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-11-01T00:00:00.000Z",
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "ffff0003-0000-0000-0000-000000000001"
+}

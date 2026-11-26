@@ -13,8 +13,8 @@ export const UI_STATE_STORAGE_KEY = 'factorio-planner:ui'
 
 export type RateUnit = 'sec' | 'min'
 
-/** The two views of the Block graph modal. */
-export type BlockGraphView = 'graph' | 'matrix'
+/** The three views of the Block graph modal. */
+export type BlockGraphView = 'graph' | 'matrix' | 'power'
 /** How the dependency matrix orders its blocks: the graph layout's order, or the order of the tabs. */
 export type BlockMatrixOrder = 'dependency' | 'plan'
 
@@ -35,7 +35,7 @@ export interface UiStoreState {
   /** The summary strip shows one line per pane (true, the default) or the three full panes. Persisted; it spans block switches. */
   summaryCollapsed: boolean
   setSummaryCollapsed: (value: boolean) => void
-  /** The view the Block graph modal opens in: the graph (the default) or the dependency matrix. Persisted. */
+  /** The view the Block graph modal opens in: the graph (the default), the dependency matrix or the power overview. Persisted. */
   blockGraphView: BlockGraphView
   setBlockGraphView: (view: BlockGraphView) => void
   /** The matrix's block order: the layout's dependency order (the default) or the tabs' plan order. Persisted. */
@@ -223,7 +223,7 @@ export function loadPersistedUiState(): void {
     if (typeof parsed.summaryCollapsed === 'boolean') {
       useUiStore.setState({ summaryCollapsed: parsed.summaryCollapsed })
     }
-    if (parsed.blockGraphView === 'graph' || parsed.blockGraphView === 'matrix') {
+    if (parsed.blockGraphView === 'graph' || parsed.blockGraphView === 'matrix' || parsed.blockGraphView === 'power') {
       useUiStore.setState({ blockGraphView: parsed.blockGraphView })
     }
     if (parsed.blockMatrixOrder === 'dependency' || parsed.blockMatrixOrder === 'plan') {
