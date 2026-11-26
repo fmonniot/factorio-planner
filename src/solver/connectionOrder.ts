@@ -62,17 +62,36 @@ function importOf(lp: LPResult, byproductsFirst: Set<string>): number {
   return total
 }
 
+/** Whether a left-over of today's result is above the noise floor of its item (`floor` per flow key). */
+export function leftoverAbove(lp: Pick<LPResult, 'leftover'>, floor: (key: string) => number): boolean {
+  for (const [key, rate] of lp.leftover) if (rate > floor(key)) return true
+  return false
+}
+
+/** Total left-over of a result, as the steps count it. */
+export function totalLeftover(lp: Pick<LPResult, 'leftover'>): number {
+  let total = 0
+  for (const rate of lp.leftover.values()) total += rate
+  return total
+}
+
+/** Whether the least left-over a step found is a gain over the left-over of today's result (the same noise as `improvesImport`). */
+export function improvesLeftover(least: number, todayLeft: number): boolean {
+  return least < todayLeft - surplusTolerance(todayLeft)
+}
+
 /**
- * The gate of D3: the steps run only for a block whose two passes end with an import of an intermediate
- * (above LP noise) while a default-rule connected intermediate still has offer to spare. Every other block
- * keeps today's result, number for number, and its LP count.
+ * The gate of D3: the steps run only for a block whose two passes end with an import of an intermediate, or a
+ * left-over of an item with Leftover off (both above LP noise), while a default-rule connected intermediate
+ * still has offer to spare. Every other block keeps today's result, number for number, and its LP count.
  */
 export function needsConnectionOrder(input: ConnectionOrderInput): boolean {
   const { today, system, byproductsFirst } = input
   if (!today.feasible || today.shortfall.size > 0 || hasUnreliableRates(today.warnings)) return false
   const imports = [...today.slack].some(([itemId, rate]) =>
     !byproductsFirst.has(itemId) && rate > surplusTolerance(itemGrossFlow(system.S.get(itemId), today.throughput)))
-  if (!imports) return false
+  const floor = (key: string) => surplusTolerance(itemGrossFlow(system.S.get(key), today.throughput))
+  if (!imports && !leftoverAbove(today, floor)) return false
   return defaultItems(input).some(itemId => {
     // A supplied key shares its fluid's offers: what is spare is the offers of all its keys less all that was supplied.
     const fluid = system.flow?.supply.get(itemId)?.fluid
@@ -135,14 +154,21 @@ export function improvesImport(least: number, todayImport: number): boolean {
  * Connections-first items keep their supply, capped by the offer, in every step. A locked connected item
  * whose step-3 slack is zero is locked again in step 4, as `pass2Plan` does.
  *
- * LP solves: step 2 alone when it finds no gain (1); otherwise steps 2 to 4 (3), plus 1 for a refill, plus 1 per
- * bounded step that is retried (at most 7). A retry has not been seen on any test fixture.
+ * A left-over of an item with Leftover off is priced in step 3 (10 per unit against 1 per unit received), so a
+ * block with no import but such a left-over takes a connection when that lowers the left-over. Limit: a loop
+ * that needs more than 10 received units per left-over unit it avoids stays open on the default rule.
  *
- * Returns undefined when today's result stands: step 2 finds no smaller import, or a step is infeasible.
+ * LP solves: step 2 alone when it finds no gain and there is no left-over (1); steps 2 and 3 when step 3 does not
+ * lower the left-over (2); otherwise steps 2 to 4 (3), plus 1 for a refill, plus 1 per bounded step that is
+ * retried (at most 7). A retry has not been seen on any test fixture. Runs may rise: no objective guard.
+ *
+ * Returns undefined when today's result stands: no smaller import and no smaller left-over, or a step is infeasible.
  */
 export function connectionOrder(input: ConnectionOrderInput): LPResult | undefined {
   const { system, pinnedRates, bcRecipeIds, markedFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today } = input
   const defaults = defaultItems(input)
+  const leftAbove = leftoverAbove(today, key => surplusTolerance(itemGrossFlow(system.S.get(key), today.throughput)))
+  const todayLeft = totalLeftover(today)
   const supplied = new Set([...firstItems, ...defaults])
   const bfConnected = [...totalCaps.keys()].filter(itemId =>
     system.classification.intermediates.has(itemId) && byproductsFirst.has(itemId))
@@ -187,7 +213,8 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
   if (step2.feasible !== true) return undefined
   const leastImport = sumOf(step2, importSlacks)
   const todayImport = importOf(today, byproductsFirst)
-  if (!improvesImport(leastImport, todayImport)) return undefined
+  const lowerImport = improvesImport(leastImport, todayImport)
+  if (!lowerImport && !leftAbove) return undefined
 
   // Step 3: least received, with the import at its least.
   tag(lp, importSlacks, '__impcap')
@@ -201,6 +228,7 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
   })
   if (!step3) return undefined
   const leastReceived = sumOf(step3, defaultSupplies)
+  if (!lowerImport && !improvesLeftover(sumOf(step3, lp.itemToLeftover.values()), todayLeft)) return undefined
 
   // Step 4: fill, both totals bounded, today's objective.
   tag(lp, defaultSupplies, '__reccap')
@@ -247,5 +275,7 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
     step4 = fill()
     if (!step4) return undefined
   }
-  return readLPResult(step4, lp, system.recipes, pinnedRates, true)
+  const result = readLPResult(step4, lp, system.recipes, pinnedRates, true)
+  if (!lowerImport && !improvesLeftover(totalLeftover(result), todayLeft)) return undefined
+  return result
 }

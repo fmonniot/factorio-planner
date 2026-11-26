@@ -729,6 +729,22 @@ describe('leftover off', () => {
     expect(lp.constraints[rowOf(lp, 'slack_ingot')]).toEqual({ min: 0 })
   })
 
+  it('reports the left-over of the solve, and none without a rule', () => {
+    // make gives a gear and 2 plates per run; use-plate is in the system (so plate has a row) but use-plate is pinned at 0: 60 plates are left over.
+    const gameData = makeGameData({
+      recipes: {
+        make: recipe('make', 1, [item('ore', 1)], [product('gear', 1), product('plate', 2)]),
+        'use-plate': recipe('use-plate', 1, [item('plate', 1)], [product('gadget', 1)]),
+      },
+    })
+    const sys = buildClassifiedSystem(gameData, ['make', 'use-plate'], new Map([['gear', 30]]))
+    const none = new Set<string>()
+    const pinned = new Map([['use-plate', 0]])
+    const withRule = solveLP(sys, pinned, none, none, new Map(), none, none, none, { leftoverOff: new Set(['plate']) })
+    expect(withRule.leftover.get('plate')).toBeCloseTo(60, 6)
+    expect(solveLP(sys, pinned, none, none, new Map(), none, none, none).leftover.size).toBe(0)
+  })
+
   it('gives a raw item (no row) no variable', () => {
     const lp = build(['ore'])
     expect(lp.itemToLeftover.size).toBe(0)

@@ -1358,8 +1358,12 @@ Plain made-up ids, every recipe 1 s. `use` turns 100 coolant into 1 P and 100 ho
 | b | Leftover off on hot, warm and cold | use 10, cool-a 5, cool-b 5, filter 5, brew 2 (27 runs); hot, warm and cold net 0; no `overconstrained` |
 | c | Leftover off on hot only | use 10, cool-a 5, cool-b 0, brew 10; hot net 0, 1000 warm left over (the chain limit) |
 | d | as b, `use` in an area of its own, the loop at the root | as b |
-| e | as b with `filter-cart` for `filter`, `make-cart` pinned at 0, 100 carts offered by a connection (default rule on cart) | as a; no cart received; 1000 hot left over (the connected-input limit) |
-| f | as e, cart on Receive it first | as b with `filter-cart` 5; 5 carts received |
+| e | as b with `filter-cart` for `filter`, `make-cart` pinned at 0, 100 carts offered by a connection (default rule on cart) | as b with `filter-cart` 5; 5 carts received; hot, warm and cold net 0; 4 LP calls |
+| f | as e, cart on Receive it first | as e; 1 LP call (the gate stays shut) |
+| i | as e with no connection for cart (the limit) | as a with `filter-cart` 0: use 10, brew 10; 1000 hot left over, `overconstrained` names hot; no cart import |
+| j | as e, 3 carts offered (default rule) | use 10, cool-a 3, cool-b 3, filter-cart 3, brew 5.2; 3 carts received; 400 hot left over; warm and cold net 0 |
+| k | as e with `use` in an area of its own, the rest at the root | as e (5 carts received); more than 4 LP calls (the area path) |
+| l | as i with 100 coolant offered by a connection (default rule) | as i; no coolant received; 1000 hot left over; 3 LP calls |
 | g | goals 10 P and 40 Q, `twin` and `make-q`, no rule | twin 20, make-q 0 (20 runs); P net 20 (10 over its goal) |
 | h | as g, Leftover off on P | twin 10, make-q 20 (30 runs); P net 10 |
 
@@ -1367,8 +1371,12 @@ Plain made-up ids, every recipe 1 s. `use` turns 100 coolant into 1 P and 100 ho
 a: the 10 use need 1000 coolant, which 10 brew make: 20 runs. The loop would recover 800 of it for 15 runs (27 in all with 2 brew), and a left-over is free, so the 1000 hot stays.
 b: 10 use make 1000 hot; the loop takes it all: 5 cool-a, 5 cool-b, 5 filter give 800 coolant, brew 2 gives the other 200. 10 + 5 + 5 + 5 + 2 = 27 runs. Priced at 10 per unit, 1000 hot left over costs 10,000 against 7 more runs.
 c: hot is priced, warm is not: cool-a turns the 1000 hot into warm (5 runs, 10,000 saved) and nothing is gained by going on.
-e: the loop needs 5 carts; the default rule prices one as an import at BIG_M (5e6 for the five) against 10,000 for the left-over, and the residual after pass 1 has no cart for the loop: it stays open.
-f: Receive it first supplies the 5 carts at no cost, so the loop costs 27 runs against 20 + 10,000.
+e: the loop needs 5 carts. Pass 1 and pass 2 leave it open (1000 hot left over, no import), the gate opens on the left-over, and the least-received step prices a cart at 1 against 10 per unit of left-over: the loop costs 27 runs and 5 carts, against 20 runs + 10,000. 1 pass + 3 steps = 4 LP calls.
+f: Receive it first supplies the 5 carts at no cost in every pass, so the loop costs 27 runs against 20 + 10,000 at once; the gate stays shut (1 LP call).
+i: nothing offers a cart and make-cart is pinned at 0: the loop cannot close; the cart is not imported either (the left-over is cheaper than the import), so the result is a's.
+j (derived by hand, measured when implemented): x runs of filter-cart need x each of cool-a and cool-b, and x carts; the left-over is 1000 − 200x. At x = 3 the cost is 24.2 runs (10 use, 3 + 3 + 3, 5.2 brew) + 4000, against 20 + 10,000 open: the 3 carts offered are all taken, and the loop closes in part.
+k: the same as e, solved on the area LP (the left-over of the block row of hot is what the gate reads).
+l: the coolant connection only replaces brew; it cannot lower the hot left-over, so the gate opens on the left-over, step 2 (nothing to gain) and step 3 (left-over still 1000) end it: 1 + 2 = 3 LP calls, today's result.
 g, h (derived by hand, not measured): with t twin runs, the cost of h is t + max(0, 40 − 2t) + 10 (t − 10) = 9t − 60 for t ≤ 20, minimal at t = 10 (30 runs); at t = 20 it is 120.
 ```
 

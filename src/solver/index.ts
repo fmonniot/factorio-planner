@@ -377,8 +377,8 @@ export function solveBlock(
   const activeFeeders = ordinary ? new Set<string>() : markedFeeders
   let lp = passes
 
-  // A connection replaces an import: when the two passes still import an intermediate while a connection
-  // has offer to spare, the order of connectionOrder.ts decides (least import, least received, fill).
+  // A connection replaces an import or a left-over: when the two passes still import an intermediate, or leave an
+  // item with Leftover off over, while a connection has offer to spare, the order of connectionOrder.ts decides (least import, least received, fill).
   const order = {
     system, pinnedRates, bcRecipeIds: activeBc, markedFeeders: activeFeeders, pass1NoImport, locked, byproductsFirst, firstItems, totalCaps, today: lp,
     fluidCaps: offerFluidCaps, keySupply: keySupplyPlan, leftoverOff: sets.leftoverOff,

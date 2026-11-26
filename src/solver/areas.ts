@@ -26,7 +26,7 @@ import {
 } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import { isFeeder } from './absorbers'
-import { boundOf, boundedStep, improvesImport } from './connectionOrder'
+import { boundOf, boundedStep, improvesImport, improvesLeftover, leftoverAbove, totalLeftover } from './connectionOrder'
 import {
   FLOW_TOLERANCE,
   blockDiagnostics,
@@ -1343,12 +1343,14 @@ export function solveAreaBlock(
 
   /**
    * The order of connectionOrder.ts on the area LP: when the passes end with an import (a slack at BIG_M, per area for an
-   * area item) while a default-rule connected intermediate has offer to spare, measure the least import with every such
+   * area item), or with a left-over of an item with Leftover off, while a default-rule connected intermediate has offer to
+   * spare, measure the least import with every such
    * supply capped by the offer, then the least received at that import, then solve both stages with the two sums
    * bounded. As on the plain path, a Don't make more here item or area has no supply in steps 2 and 3 and gets it back in
    * a refill of the fill (capped at the slack the fill left it), and a locked connected item (plain, or per area) whose
-   * step-3 slack is 0 is locked again in the fill. Undefined: today's result stands. The retry and the "least import is a
-   * gain" test are shared with the plain path (connectionOrder.ts); the gate and the steps stay two copies, because
+   * step-3 slack is 0 is locked again in the fill. With no import to lower, a result is taken only if its left-over total
+   * falls by more than the noise (`improvesLeftover`). Undefined: today's result stands. The retry and the "is a
+   * gain" tests are shared with the plain path (connectionOrder.ts); the gate and the steps stay two copies, because
    * each solves a different model (one mutable LP there, `solveAreaLP`'s two stages here).
    */
   const areaConnectionOrder = (today: AreaLPResult): AreaLPResult | undefined => {
@@ -1372,7 +1374,9 @@ export function solveAreaBlock(
       todayImport += rate
       if (rate > tol(itemId)) imports = true
     }
-    if (!imports) return undefined
+    const leftAbove = leftoverAbove(today, tol)
+    if (!imports && !leftAbove) return undefined
+    const todayLeft = totalLeftover(today)
     const intermediate = (itemId: string) => system.classification.intermediates.has(itemId)
     const plainDefaults = new Set([...plainCaps.keys()].filter(itemId =>
       intermediate(itemId) && !firstItems.has(itemId) && !byproductsFirst.has(itemId)))
@@ -1396,12 +1400,15 @@ export function solveAreaBlock(
     const defaultsFirst = new Set([...firstItems, ...plainDefaults])
     const step2 = step({ ...base, measure: '__imp' }, pass1NoImport, caps, defaultsFirst, specs)
     if (!step2.feasible || step2.measured === undefined) return undefined
-    if (!improvesImport(step2.measured, todayImport)) return undefined
+    const lowerImport = improvesImport(step2.measured, todayImport)
+    if (!lowerImport && !leftAbove) return undefined
     // The bounds count the variables their sum runs over (the LP reports it), and a tight bound that comes back
     // infeasible is retried once looser, as on the plain path (boundedStep).
     const step3 = boundedStep(looser =>
       step({ ...base, measure: '__rec', importCap: boundOf(step2.measured!, step2.measuredTerms!, looser) }, pass1NoImport, caps, defaultsFirst, specs))
     if (!step3 || step3.measured === undefined) return undefined
+    if (!lowerImport && !improvesLeftover(totalLeftover(step3), todayLeft)) return undefined
+    const accept = (r: AreaLPResult | undefined) => r && (lowerImport || improvesLeftover(totalLeftover(r), todayLeft)) ? r : undefined
     // A locked connected item (plain, or per area) that step 3 left no slack is locked again in the fill, as `pass2Plan` does.
     const noImport = new Set([...pass1NoImport, ...[...locked].filter(id => plainCaps.has(id) && (step3.slack.get(id) ?? 0) <= FLOW_TOLERANCE)])
     const relock = new Set<string>()
@@ -1450,11 +1457,11 @@ export function solveAreaBlock(
       m.set(o.area, o.slack)
       refillAreas.set(o.itemId, m)
     }
-    if (refillPlain.size === 0 && refillAreas.size === 0) return fill1
-    return fill(
+    if (refillPlain.size === 0 && refillAreas.size === 0) return accept(fill1)
+    return accept(fill(
       new Map([...caps, ...refillPlain]), new Set([...defaultsFirst, ...refillPlain.keys()]), areaItemSpecs(undefined, { relock, refill: refillAreas }),
       new Map([...offerFluidCaps, ...refillFluid]),
-    )
+    ))
   }
 
   // The passes run twice when the absorber rewards make the objective unbounded: the second time with no rewards at all.

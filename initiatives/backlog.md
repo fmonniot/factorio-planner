@@ -29,12 +29,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
   - *Rebuild debounce.* `src/viewer/viewer.ts` rebuilds the snapshot on every new solver result, with no debounce. Debouncing it would save work while the player edits a big plan. Performance only.
 - [ ] **In-game viewer: every beacon configuration.** A row can hold several beacon configurations, but the snapshot sends only the first one that has something to place (`beacon`). Send a `beacons` list instead: the snapshot schema (`src/snapshot/schema.ts`), `npm run contract`, the bridge fixtures, and the mod (`mod/lib/blueprint.lua`, `mod/scripts/cursor.lua`), and every module of a beacon with mixed slots (today only the module most of its slots hold).
 
-## Surplus rule
-
-Follow-ups of the [surplus rule initiative](archive/surplus-rule/plan.md), which shipped (the Leftover switch, solver and player-facing).
-
-- [ ] **The connection order for a leftover.** A loop that needs an input a connection offers stays open under the default rule: pass 1 prices that input as an import and the residual leaves no room for the loop, so the player must set the input to *Receive it first* (synthetic case 28, rows e and f). Open the gate of `needsConnectionOrder` also when an item with Leftover off is still left over and a default-rule connection has offer left, so that the least-received step, which carries the price, takes the input the loop needs.
-
 ## Planning features
 
 - [ ] **Mining productivity research.** Extraction rows use the drill's base mining speed. Mining productivity research and a drill's base `effect_receiver` are ignored.

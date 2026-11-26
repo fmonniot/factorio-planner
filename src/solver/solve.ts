@@ -28,6 +28,8 @@ export interface LPResult {
   shortfall: Map<string, number>
   /** the absorber chains the model was built with (see `absorberRoles`) */
   absorbers: AbsorberRoles
+  /** Flow key → items/min left over of an item whose rule has Leftover off; only entries above `SLACK_TOLERANCE`. Empty without such a rule. */
+  leftover: Map<string, number>
 }
 
 /** Sanitize a string to be a valid LP variable / constraint name. */
@@ -624,6 +626,12 @@ export function readLPResult(
     }
   }
 
+  const leftover = new Map<string, number>()
+  for (const [key, name] of lp.itemToLeftover) {
+    const val = result[name]
+    if (typeof val === 'number' && val > SLACK_TOLERANCE) leftover.set(key, val)
+  }
+
   const supply = new Map<string, number>()
   for (const [itemId, supplyName] of itemToSupply) {
     const val = result[supplyName]
@@ -647,7 +655,7 @@ export function readLPResult(
   }
 
   return {
-    throughput, slack, supply, keySupplyUse, warnings, feasible, shortfall, absorbers: lp.absorbers,
+    throughput, slack, supply, keySupplyUse, warnings, feasible, shortfall, absorbers: lp.absorbers, leftover,
   }
 }
 
