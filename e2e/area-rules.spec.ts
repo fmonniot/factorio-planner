@@ -6,6 +6,7 @@ import { exportPlan } from './support/appMenu'
 import { openRowMenu } from './support/rowMenu'
 import { detail, pane, selectSlot, slot } from './support/summary'
 import { expectPreset, openLine, setPreset } from './support/sourcesList'
+import { openAreas } from './support/blockGraph'
 
 /**
  * Case 21 A of spec/test-synthetic.md on real Nullius recipes: plate is the Stone box, gear the Gravel box, "Stone boxing"
@@ -110,7 +111,7 @@ test.describe('area source rules (case 21 A)', () => {
 
     // The column of the area in the areas matrix has the marker; the other column has none.
     await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: 'Areas in every block' }).click()
+    await openAreas(page)
     const matrix = page.locator('div.fixed.inset-0').getByRole('table', { name: /^Areas of / })
     await expect(matrix.locator(`th[data-area-id="${L_ID}"]`).getByTestId('source-rule-marker')).toBeVisible()
     await expect(matrix.locator('th[data-area-id]').getByTestId('source-rule-marker')).toHaveCount(1)

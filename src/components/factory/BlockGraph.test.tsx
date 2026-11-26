@@ -113,7 +113,7 @@ function setup(opts: {
 }
 
 const node = (id: string) => document.querySelector(`[data-testid="graph-node"][data-block-id="${id}"]`) as HTMLElement
-const open = () => fireEvent.click(screen.getByRole('button', { name: 'Block graph' }))
+const open = () => fireEvent.click(screen.getByRole('button', { name: 'Factory overview' }))
 /** Click the summary chip of an edge (the first one unless `i` says so): the edge is pinned and the strip lists its chips. */
 const pinEdge = (i = 0) => fireEvent.click(screen.getAllByTestId('graph-edge-summary')[i])
 const consumerIn = () => useBlockStore.getState().blocks.find(b => b.id === 'consumer')!
@@ -125,7 +125,7 @@ describe('BlockGraph', () => {
 
   it('renders no button without game data', () => {
     render(<BlockGraphButton />)
-    expect(screen.queryByRole('button', { name: 'Block graph' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Factory overview' })).toBeNull()
   })
 
   it('shows the blocks and the connection between them', () => {
@@ -195,7 +195,7 @@ describe('BlockGraph', () => {
     open()
     fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
     // The graph stays open and the active block does not change.
-    expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Factory overview' })).toBeTruthy()
     expect(useBlockStore.getState().activeBlockId).toBe('consumer')
     expect(node('miner')).toHaveAttribute('data-pinned', 'true')
     expect(node('miner')).toHaveAttribute('data-lit', 'true')
@@ -227,7 +227,7 @@ describe('BlockGraph', () => {
     expect(goTo.closest('[data-tip]')).toHaveAttribute('data-tip', 'Go to Miner')
     fireEvent.click(goTo)
     expect(useBlockStore.getState().activeBlockId).toBe('miner')
-    expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Factory overview' })).toBeNull()
   })
 
   it('offers Go to in the strip for the pinned block', () => {
@@ -237,7 +237,7 @@ describe('BlockGraph', () => {
     fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
     fireEvent.click(within(screen.getByTestId('graph-detail')).getByTestId('graph-detail-open'))
     expect(useBlockStore.getState().activeBlockId).toBe('miner')
-    expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Factory overview' })).toBeNull()
   })
 
   it('shows its hints as instant tooltips and leaves no native title in the graph', () => {
@@ -430,7 +430,7 @@ describe('BlockGraph', () => {
       fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Connection limit' }), { key: 'Escape' })
       expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).toBeNull()
       expect(limitOf()).toBeUndefined()
-      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'Factory overview' })).toBeTruthy()
     })
 
     it('titles a chip held back by its limit', () => {
@@ -857,7 +857,7 @@ describe('BlockGraph', () => {
       fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Connection limit' }), { key: 'Escape' })
       expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).toBeNull()
       expect(rows()).toHaveLength(12)
-      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'Factory overview' })).toBeTruthy()
     })
 
     it('unpins with the first Escape and closes the graph with the second', () => {
@@ -867,9 +867,9 @@ describe('BlockGraph', () => {
       fireEvent.click(summary())
       escape()
       expect(rows()).toHaveLength(0)
-      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'Factory overview' })).toBeTruthy()
       escape()
-      expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Factory overview' })).toBeNull()
     })
 
     it('pins a block the same way, and Escape unpins it first', () => {
@@ -880,7 +880,7 @@ describe('BlockGraph', () => {
       expect(node('miner')).toHaveAttribute('data-pinned', 'true')
       escape()
       expect(document.querySelectorAll('[data-pinned]')).toHaveLength(0)
-      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'Factory overview' })).toBeTruthy()
     })
 
     it('replaces the pin: a block pin gives way to an edge pin and back', () => {
@@ -1169,7 +1169,7 @@ describe('BlockGraph', () => {
       fireEvent.click(marker)
       expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
       expect(useUiStore.getState().comesFromPopover).toBeNull()
-      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'Factory overview' })).toBeTruthy()
       expect(useBlockStore.getState().activeBlockId).toBe('consumer')
     })
 
@@ -1185,7 +1185,7 @@ describe('BlockGraph', () => {
       expect(marker).toHaveAccessibleName('Import off')
       fireEvent.click(marker)
       expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
-      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'Factory overview' })).toBeTruthy()
     })
 
     it('marks the item on a summary chip, counts it in the tooltip, and is on its chip in the list', () => {

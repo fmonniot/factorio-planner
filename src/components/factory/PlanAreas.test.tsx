@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
-import { PlanAreasButton, PlanAreasModal } from './PlanAreas'
+import { PlanAreasView } from './PlanAreas'
+import { BlockGraphButton } from './BlockGraph'
+import { blocksWithAreas, defaultAreasTab, useAreasUi } from './areasUi'
 import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
-import { useSolverStore } from '../../store/solverStore'
+import { useSolverStore, selectBlockResults } from '../../store/solverStore'
 import type { Block, GameData, SolverResult, SubPlan } from '../../data/types'
 
 const gameData = {
@@ -82,19 +84,34 @@ function setup(withAreas = true, extra: string[] = []) {
   })
 }
 
-const group = (name: string) => within(screen.getByRole('group', { name: 'Block' })).getByRole('button', { name: new RegExp(`^${name}`) })
+/** The Areas view on its own, as the Factory overview modal mounts it: the modal holds the state and opens on the active block. */
+function PlanAreasModal({ gameData: data, onClose }: { gameData: GameData; onClose: () => void }) {
+  const blocks = useBlockStore(s => s.blocks)
+  const activeBlockId = useBlockStore(s => s.activeBlockId)
+  const results = useSolverStore(selectBlockResults)
+  const ui = useAreasUi(defaultAreasTab(blocksWithAreas(blocks, results), activeBlockId), activeBlockId)
+  return <PlanAreasView ui={ui} gameData={data} onClose={onClose} />
+}
+
+/** Chooses a block in the block picker. */
+const pick = (name: string) => {
+  fireEvent.click(screen.getByTestId('block-picker'))
+  fireEvent.click(within(screen.getByRole('listbox', { name: 'Block' })).getByRole('option', { name: new RegExp(`^${name}`) }))
+}
 const table = (block: string) => screen.getByRole('table', { name: `Areas of ${block}` })
 const colNames = () => within(table('Alpha')).getAllByRole('columnheader').map(h => h.textContent)
 
 describe('PlanAreasModal', () => {
   beforeEach(() => setup())
 
-  it('opens on the active block, with a tab per block that has areas plus All blocks', () => {
+  it('opens on the active block, and lists the blocks that have areas after All blocks', () => {
     render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
-    const tabs = within(screen.getByRole('group', { name: 'Block' })).getAllByRole('button')
-    expect(tabs.map(t => t.textContent)).toEqual(['Alpha2', 'Charlie2', 'All blocks'])
-    expect(group('Alpha')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('block-picker')).toHaveTextContent('Alpha2 areas')
     expect(table('Alpha')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('block-picker'))
+    const options = within(screen.getByRole('listbox', { name: 'Block' })).getAllByRole('option')
+    expect(options.map(o => o.textContent)).toEqual(['All blocks2 blocks', 'Alpha2 areas', 'Charlie2 areas'])
+    expect(options[1]).toHaveAttribute('aria-selected', 'true')
   })
 
   it('shows the areas as columns between the two outside columns', () => {
@@ -214,7 +231,7 @@ describe('PlanAreasModal', () => {
     }
     expect(screen.getByText('Rates per minute.')).toBeInTheDocument()
     noProse()
-    fireEvent.click(group('All blocks'))
+    pick('All blocks')
     expect(screen.getByText('Rates per minute.')).toBeInTheDocument()
     noProse()
   })
@@ -247,7 +264,7 @@ describe('PlanAreasModal', () => {
   it('opens an area: switches block, reveals the handle and closes', () => {
     const onClose = vi.fn()
     render(<PlanAreasModal gameData={gameData} onClose={onClose} />)
-    fireEvent.click(group('Charlie'))
+    pick('Charlie')
     fireEvent.click(within(table('Charlie')).getByRole('button', { name: 'Plastics' }))
     fireEvent.click(screen.getByRole('button', { name: 'Show in table' }))
     expect(useBlockStore.getState().activeBlockId).toBe('C')
@@ -258,7 +275,7 @@ describe('PlanAreasModal', () => {
   it('opens the top level without a reveal request', () => {
     const onClose = vi.fn()
     render(<PlanAreasModal gameData={gameData} onClose={onClose} />)
-    fireEvent.click(group('Charlie'))
+    pick('Charlie')
     fireEvent.click(within(table('Charlie')).getByRole('button', { name: 'Top level' }))
     fireEvent.click(screen.getByRole('button', { name: 'Show in table' }))
     expect(useBlockStore.getState().activeBlockId).toBe('C')
@@ -268,7 +285,7 @@ describe('PlanAreasModal', () => {
 
   it('shows every block with the crossing filter on', () => {
     render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
-    fireEvent.click(group('All blocks'))
+    pick('All blocks')
     expect(screen.getByRole('checkbox', { name: 'Only items that cross a block boundary' })).toBeChecked()
     expect(screen.getByText('No item crosses a block boundary.')).toBeInTheDocument()
   })
@@ -281,7 +298,7 @@ describe('PlanAreasModal', () => {
     })
     useSolverStore.setState({ lastResults: { A: quiet('A'), C: quiet('C') } })
     render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
-    fireEvent.click(group('All blocks'))
+    pick('All blocks')
     expect(screen.getByText('No item crosses a block boundary.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('checkbox', { name: 'Only items that cross a block boundary' }))
     expect(screen.queryByText('No item crosses a block boundary.')).toBeNull()
@@ -305,33 +322,11 @@ describe('PlanAreasModal', () => {
       },
     })
     render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
-    fireEvent.click(group('All blocks'))
+    pick('All blocks')
     fireEvent.click(screen.getByRole('checkbox', { name: 'Only items that cross a block boundary' }))
     fireEvent.change(screen.getByLabelText('Filter areas'), { target: { value: 'charlie' } })
     expect(screen.getByText('Nothing to show for these blocks.')).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: 'Items across blocks' })).toBeNull()
-  })
-
-  it('closes on Escape', () => {
-    const onClose = vi.fn()
-    render(<PlanAreasModal gameData={gameData} onClose={onClose} />)
-    fireEvent.keyDown(window, { key: 'Escape' })
-    expect(onClose).toHaveBeenCalled()
-  })
-})
-
-describe('PlanAreasButton', () => {
-  it('opens the matrix when some block has areas', () => {
-    setup()
-    render(<PlanAreasButton />)
-    fireEvent.click(screen.getByRole('button', { name: 'Areas in every block' }))
-    expect(table('Alpha')).toBeInTheDocument()
-  })
-
-  it('is not rendered when no block has areas', () => {
-    setup(false)
-    render(<PlanAreasButton />)
-    expect(screen.queryByRole('button', { name: 'Areas in every block' })).toBeNull()
   })
 })
 
@@ -377,10 +372,10 @@ describe('PlanAreasModal — source rule marker', () => {
     expect(within(row('Alpha', 'o2')).queryByTestId('source-rule-marker')).toBeNull()
 
     // Charlie moves hydrogen between its areas too and has no rule.
-    fireEvent.click(group('Charlie'))
+    pick('Charlie')
     expect(row('Charlie', 'h2')).not.toBeNull()
     expect(markers()).toHaveLength(0)
-    fireEvent.click(group('All blocks'))
+    pick('All blocks')
     expect(markers()).toHaveLength(0)
   })
 
@@ -422,7 +417,7 @@ describe('PlanAreasModal — source rule marker', () => {
     lockHydrogen('C')
     render(<PlanAreasModal gameData={dataWithMaker()} onClose={onClose} />)
     expect(markers(), 'Alpha, the active block, has no rule').toHaveLength(0)
-    fireEvent.click(group('Charlie'))
+    pick('Charlie')
     const marker = within(row('Charlie', 'h2')).getByTestId('source-rule-marker')
     expect(marker.tagName).toBe('SPAN')
     expect(marker).toHaveAttribute('role', 'img')
@@ -439,5 +434,80 @@ describe('PlanAreasModal — source rule marker', () => {
     act(() => lockHydrogen('A', false))
     expect(row('Alpha', 'h2')).not.toBeNull()
     expect(markers()).toHaveLength(0)
+  })
+})
+
+describe('Factory overview: the Areas view', () => {
+  beforeEach(() => {
+    setup()
+    useUiStore.setState({ blockGraphView: 'graph' })
+  })
+
+  const open = () => fireEvent.click(screen.getByRole('button', { name: 'Factory overview' }))
+  const viewButton = (name: string) => within(screen.getByRole('group', { name: 'View' })).getByRole('button', { name })
+  const node = (id: string) => document.querySelector(`[data-testid="graph-node"][data-block-id="${id}"]`) as HTMLElement
+
+  it('is a view between the matrix and power, while some block has areas', () => {
+    render(<BlockGraphButton />)
+    open()
+    expect(within(screen.getByRole('group', { name: 'View' })).getAllByRole('button').map(b => b.textContent)).toEqual(['Graph', 'Matrix', 'Areas', 'Power'])
+    fireEvent.click(viewButton('Areas'))
+    expect(viewButton('Areas')).toHaveAttribute('aria-pressed', 'true')
+    expect(table('Alpha')).toBeInTheDocument()
+    expect(screen.getByTestId('areas-toolbar')).toBeInTheDocument()
+  })
+
+  it('is not offered without areas, and a stored choice of it shows the graph', () => {
+    setup(false)
+    useUiStore.setState({ blockGraphView: 'areas' })
+    render(<BlockGraphButton />)
+    open()
+    expect(within(screen.getByRole('group', { name: 'View' })).queryByRole('button', { name: 'Areas' })).toBeNull()
+    expect(viewButton('Graph')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('opens on the active block even when the areas arrive after the modal opened', () => {
+    setup(false)
+    render(<BlockGraphButton />)
+    open()
+    expect(within(screen.getByRole('group', { name: 'View' })).queryByRole('button', { name: 'Areas' })).toBeNull()
+    act(() => setup())
+    fireEvent.click(viewButton('Areas'))
+    expect(screen.getByTestId('block-picker')).toHaveTextContent('Alpha')
+    expect(table('Alpha')).toBeInTheDocument()
+  })
+
+  it('keeps the chosen block and the filter across a switch of view', () => {
+    render(<BlockGraphButton />)
+    open()
+    fireEvent.click(viewButton('Areas'))
+    pick('Charlie')
+    fireEvent.change(screen.getByLabelText('Filter areas'), { target: { value: 'plas' } })
+    fireEvent.click(viewButton('Graph'))
+    expect(screen.queryByTestId('areas-view')).toBeNull()
+    fireEvent.click(viewButton('Areas'))
+    expect(screen.getByTestId('block-picker')).toHaveTextContent('Charlie')
+    expect(screen.getByLabelText('Filter areas')).toHaveValue('plas')
+  })
+
+  it('links a pinned block of the graph to its areas, and only a block that has some', () => {
+    render(<BlockGraphButton />)
+    open()
+    fireEvent.click(within(node('B')).getByTestId('graph-node-select'))
+    expect(screen.queryByTestId('graph-detail-areas')).toBeNull()
+    fireEvent.click(within(node('C')).getByTestId('graph-node-select'))
+    fireEvent.click(screen.getByRole('button', { name: 'Areas of Charlie' }))
+    expect(viewButton('Areas')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('block-picker')).toHaveTextContent('Charlie')
+    expect(table('Charlie')).toBeInTheDocument()
+  })
+
+  it('moves the graph legend into the graph view and leaves the header to the title, the views and Close', () => {
+    render(<BlockGraphButton />)
+    open()
+    expect(within(screen.getByTestId('graph-toolbar')).getByTestId('graph-legend-back')).toBeInTheDocument()
+    fireEvent.click(viewButton('Areas'))
+    expect(screen.queryByTestId('graph-toolbar')).toBeNull()
+    expect(screen.queryByTestId('graph-legend-back')).toBeNull()
   })
 })

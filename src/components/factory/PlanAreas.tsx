@@ -1,52 +1,40 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useBlockStore } from '../../store/blockStore'
-import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { Modal } from '../Modal'
-import { IconButton } from '../IconButton'
-import { AreasIcon } from '../icons'
 import { Segment, Segmented } from '../SegmentedControl'
+import { BlockPicker, type BlockPickerOption } from './BlockPicker'
+import { ViewToolbar } from './ViewToolbar'
 import { BlockAreaMatrix } from './BlockAreaMatrix'
 import { AllBlocksMatrix } from './AllBlocksMatrix'
-import { blockMatrix, machineItemIds, type ColumnMode, type MatrixArea, type RowMode } from './areaMatrix'
+import { blockMatrix, machineItemIds, type MatrixArea } from './areaMatrix'
 import { planMatrix } from './planAreaMatrix'
 import type { GameData } from '../../data/types'
+import { ALL, blocksWithAreas, type AreasUi } from './areasUi'
 import { BlockSourceRuleMarker, SourceRuleMarker } from './SourceRuleMarker'
 import { useAreaRuleItems, useSourceRuleItems } from './useSourceRuleItems'
 
 // ---------------------------------------------------------------------------
 // Areas as a balance matrix: items as rows, areas as columns, the outside at both ends. One block
 // at a time, or every block side by side. Read-only: it jumps to an area's row in its block's table.
+// The Areas view of the Factory overview modal (see BlockGraph.tsx), which keeps its state across a switch of view.
 // ---------------------------------------------------------------------------
 
-const ALL = 'all'
-
-export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onClose: () => void }) {
+export function PlanAreasView({ ui, gameData, onClose }: { ui: AreasUi; gameData: GameData; onClose: () => void }) {
   const blocks = useBlockStore(s => s.blocks)
-  const activeBlockId = useBlockStore(s => s.activeBlockId)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const rateUnit = useUiStore(s => s.rateUnit)
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
 
-  const withAreas = useMemo(() => blocks.filter(b => results[b.id]?.areas !== undefined), [blocks, results])
-
-  const [tab, setTab] = useState<string>(() => {
-    if (withAreas.some(b => b.id === activeBlockId)) return activeBlockId
-    return withAreas[0]?.id ?? ALL
-  })
-  const [rowMode, setRowMode] = useState<RowMode>('category')
-  const [columnMode, setColumnMode] = useState<ColumnMode>('flow')
-  const [query, setQuery] = useState('')
-  const [focusedAreaId, setFocusedAreaId] = useState<string | null>(null)
-  const [showAllAreas, setShowAllAreas] = useState(false)
-  const [groupOverrides, setGroupOverrides] = useState<Map<string, boolean>>(() => new Map())
-  const [closedTails, setClosedTails] = useState<Set<string>>(() => new Set())
-  const [crossingOnly, setCrossingOnly] = useState(true)
-  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(() => new Set([activeBlockId]))
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const withAreas = useMemo(() => blocksWithAreas(blocks, results), [blocks, results])
+  const {
+    tab, selectTab, rowMode, setRowMode, columnMode, setColumnMode, query, setQuery,
+    focusedAreaId, setFocusedAreaId, showAllAreas, setShowAllAreas,
+    groupOverrides, setGroupOverrides, closedTails, setClosedTails,
+    crossingOnly, setCrossingOnly, expandedBlocks, toggleBlock, selectedKey, setSelectedKey,
+  } = ui
 
   const machines = useMemo(() => machineItemIds(gameData), [gameData])
   const block = tab === ALL ? undefined : withAreas.find(b => b.id === tab)
@@ -63,14 +51,6 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
     [tab, blocks, results, flows, gameData, machines, crossingOnly],
   )
 
-  function selectTab(next: string) {
-    setTab(next)
-    setFocusedAreaId(null)
-    setShowAllAreas(false)
-    setSelectedKey(null)
-    setGroupOverrides(new Map())
-    setClosedTails(new Set())
-  }
   function focusArea(id: string | null) {
     setFocusedAreaId(id)
     setShowAllAreas(false)
@@ -106,22 +86,18 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
     return <SourceRuleMarker label={`Has its own source rule for ${names}`} />
   }
 
-  const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
+  const options: BlockPickerOption[] = withAreas.map(b => ({
+    id: b.id,
+    label: b.name,
+    color: b.color,
+    meta: `${results[b.id].areas!.length} ${results[b.id].areas!.length === 1 ? 'area' : 'areas'}`,
+  }))
+  const allOption: BlockPickerOption = { id: ALL, label: 'All blocks', meta: `${withAreas.length} ${withAreas.length === 1 ? 'block' : 'blocks'}` }
 
   return (
-    <Modal onClose={onClose} className="w-[min(96rem,98vw)] h-[90vh] flex flex-col">
-      <div className="p-3 border-b border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h2 className="text-lg font-semibold text-amber-200">Areas</h2>
-        <Segmented label="Block">
-          {withAreas.map(b => (
-            <Segment key={b.id} pressed={tab === b.id} onClick={() => selectTab(b.id)}>
-              <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: b.color }} />
-              {b.name}
-              <span className="text-gray-400 font-mono">{results[b.id].areas!.length}</span>
-            </Segment>
-          ))}
-          <Segment pressed={tab === ALL} onClick={() => selectTab(ALL)}>All blocks</Segment>
-        </Segmented>
+    <div data-testid="areas-view" className="flex-1 min-h-0 flex flex-col">
+      <ViewToolbar testId="areas-toolbar">
+        <BlockPicker label="Block" options={options} extra={allOption} value={tab} onChange={selectTab} />
         <Segmented label="Rows">
           <Segment pressed={rowMode === 'category'} onClick={() => setRowMode('category')}>By category</Segment>
           <Segment pressed={rowMode === 'rate'} onClick={() => setRowMode('rate')}>By rate</Segment>
@@ -139,10 +115,9 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
           placeholder="Filter by area, block or item"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="flex-1 min-w-[10rem] text-sm bg-gray-800 text-gray-200 border border-gray-600 rounded px-2 py-1"
+          className="flex-1 min-w-[10rem] h-7 box-border text-[13px] bg-gray-950 text-gray-100 border border-gray-700 rounded-md px-2.5 placeholder:text-gray-400"
         />
-        <button type="button" onClick={onClose} className={btn}>Close</button>
-      </div>
+      </ViewToolbar>
 
       {matrix && (
         <BlockAreaMatrix
@@ -175,11 +150,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
           crossingOnly={crossingOnly}
           onCrossingOnly={setCrossingOnly}
           expandedBlocks={expandedBlocks}
-          onToggleBlock={id => setExpandedBlocks(s => {
-            const next = new Set(s)
-            if (!next.delete(id)) next.add(id)
-            return next
-          })}
+          onToggleBlock={toggleBlock}
           selectedKey={selectedKey}
           onSelectKey={id => setSelectedKey(cur => (cur === id ? null : id))}
           groupOverrides={groupOverrides}
@@ -195,27 +166,6 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
         <span className="flex items-center gap-1.5"><i aria-hidden className="w-5 h-3 rounded-sm bg-orange-400/30 inline-block" />{'\u2212'} receives</span>
         <span>Rates per {rateUnit === 'min' ? 'minute' : 'second'}.</span>
       </div>
-    </Modal>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// PlanAreasButton — top-bar entry point, only when some block has areas
-// ---------------------------------------------------------------------------
-
-export function PlanAreasButton() {
-  const gameData = useGameDataStore(selectGameData)
-  const anyAreas = useSolverStore(s => Object.values(s.lastResults).some(r => r.areas !== undefined))
-  const [open, setOpen] = useState(false)
-
-  if (!gameData || !anyAreas) return null
-
-  return (
-    <>
-      <IconButton label="Areas in every block" onClick={() => setOpen(true)}>
-        <AreasIcon className="w-[17px] h-[17px]" />
-      </IconButton>
-      {open && <PlanAreasModal gameData={gameData} onClose={() => setOpen(false)} />}
-    </>
+    </div>
   )
 }

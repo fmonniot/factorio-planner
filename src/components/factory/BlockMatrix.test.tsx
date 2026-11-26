@@ -52,7 +52,7 @@ function setup(opts: { two?: boolean; loop?: boolean; flows?: ConnectionFlow[]; 
   })
 }
 
-const open = () => fireEvent.click(screen.getByRole('button', { name: 'Block graph' }))
+const open = () => fireEvent.click(screen.getByRole('button', { name: 'Factory overview' }))
 const openMatrix = () => { open(); fireEvent.click(screen.getByRole('button', { name: 'Matrix' })) }
 const cells = () => screen.getAllByTestId('matrix-cell')
 const cell = (from: string, to: string) =>
@@ -218,9 +218,9 @@ describe('BlockMatrix', () => {
     fireEvent.click(cell('miner', 'consumer'))
     fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(cell('miner', 'consumer').getAttribute('aria-pressed')).toBe('false')
-    expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Factory overview' })).toBeTruthy()
     fireEvent.keyDown(document.body, { key: 'Escape' })
-    expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Factory overview' })).toBeNull()
   })
 
   it('moves the focus into the panel on a keyboard activation, and back to the cell on Escape', () => {

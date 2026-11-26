@@ -12,7 +12,7 @@ const gameData = {
   factorioVersion: '2.0.0', modSet: {},
   items: { x: { id: 'x', name: 'X', type: 'item', iconPath: 'x.png', hidden: false }, 'power:electricity': { id: 'power:electricity', name: 'Electricity', type: 'item', hidden: false } },
   recipes: Object.fromEntries(recipeIds.map(id => [id, { id, name: `R-${id}`, products: [{ itemId: 'x', amount: 1 }], ingredients: [], time: 1, category: 'c' }])),
-  machines: {}, beacons: {}, modules: {}, defaultMachines: {}, technologies: {}, startingRecipes: [],
+  machines: {}, beacons: {}, modules: {}, defaultMachines: {}, technologies: {}, startingRecipes: [], itemGroups: {}, itemSubgroups: {},
 } as unknown as GameData
 
 const rec = (recipeId: string): RecipeNode => ({ kind: 'game-recipe', id: `n-${recipeId}`, recipeId, modules: [], byproductPolicy: {} })
@@ -49,7 +49,7 @@ function setup(opts: { generationKw?: number; extra?: Block[]; results?: Record<
   useSolverStore.setState({ lastResults: results, lastErrors: opts.errors ?? {}, flows: [], loops: [], requestLoops: [], _setStatus: () => {} })
 }
 
-const open = () => fireEvent.click(screen.getByRole('button', { name: 'Block graph' }))
+const open = () => fireEvent.click(screen.getByRole('button', { name: 'Factory overview' }))
 const openPower = () => { open(); fireEvent.click(screen.getByRole('button', { name: 'Power' })) }
 const rows = () => screen.getAllByTestId('power-row')
 const labels = () => rows().map(r => r.getAttribute('data-key') && `${r.getAttribute('data-kind')}:${within(r).queryAllByText(/^(Gears|Chem|Plant|Iron|R-\w+)$/)[0]?.textContent}`)
@@ -60,6 +60,20 @@ const toLines = () => fireEvent.click(screen.getByRole('button', { name: 'By rec
 describe('BlockPower', () => {
   beforeEach(() => {
     useGameDataStore.setState({ status: { type: 'empty' } })
+  })
+
+  it('links a block row to its areas, for a block that has some', () => {
+    setup()
+    const results = useSolverStore.getState().lastResults
+    useSolverStore.setState({ lastResults: { ...results, gears: { ...results.gears, areas: [] } } })
+    render(<BlockGraphButton />)
+    openPower()
+    expect(screen.getAllByTestId('power-row-areas')).toHaveLength(1)
+    expect(within(row('block', 'Chem')).queryByTestId('power-row-areas')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Areas of Gears' }))
+    expect(useUiStore.getState().blockGraphView).toBe('areas')
+    expect(screen.getByTestId('areas-view')).toBeTruthy()
+    expect(screen.getByTestId('block-picker')).toHaveTextContent('Gears')
   })
 
   it('adds a Power pill that stores the view and replaces the graph', () => {

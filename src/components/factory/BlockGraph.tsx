@@ -22,6 +22,9 @@ import { BlockGraphDetail } from './BlockGraphDetail'
 import { BlockMatrix } from './BlockMatrix'
 import { BlockPower, PowerFigures } from './BlockPower'
 import { buildPowerOverview } from './powerOverview'
+import { PlanAreasView } from './PlanAreas'
+import { blocksWithAreas, defaultAreasTab, useAreasUi } from './areasUi'
+import { ViewToolbar } from './ViewToolbar'
 import type { GraphLit } from './BlockGraphDetail'
 
 // ---------------------------------------------------------------------------
@@ -276,12 +279,15 @@ interface GraphViewProps {
   gameData: GameData
   activeBlockId: string | null
   goTo: (id: string) => void
+  /** The blocks that have areas, and the way to open one's areas; the strip offers the link for those blocks. */
+  areaBlockIds: ReadonlySet<string>
+  onOpenAreas: (id: string) => void
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
 }
 
 /** The graph view of the modal: the canvas fitted to its viewport, and the detail strip under it. */
-function GraphView({ layout, blocks, flowsById, edgeStatuses, gameData, activeBlockId, goTo, onRemove, onSetLimit }: GraphViewProps) {
+function GraphView({ layout, blocks, flowsById, edgeStatuses, gameData, activeBlockId, goTo, areaBlockIds, onOpenAreas, onRemove, onSetLimit }: GraphViewProps) {
   // What the pointer, the keyboard focus and the pin (a click on a block or an edge, or Enter on an edge's chip) are on, in
   // that order of precedence: the pointer previews over the pin and the highlight falls back to the pin when it leaves.
   // Lights its edges and blocks, dims the rest. One pin at a time.
@@ -513,6 +519,8 @@ function GraphView({ layout, blocks, flowsById, edgeStatuses, gameData, activeBl
           lit={lit}
           pinned={lit !== null && isPin(lit.kind, lit.key)}
           onGoTo={goTo}
+          areaBlockIds={areaBlockIds}
+          onOpenAreas={onOpenAreas}
           edges={layout.edges}
           blocks={blocks}
           flowsById={flowsById}
@@ -537,10 +545,18 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const requestLoops = useSolverStore(selectRequestLoops)
   const results = useSolverStore(selectBlockResults)
   const errors = useSolverStore(selectBlockErrors)
-  const view = useUiStore(s => s.blockGraphView)
+  const storedView = useUiStore(s => s.blockGraphView)
   // The Power list's open rows live here, not in the view: they survive a switch between views and start collapsed each time the modal opens.
   const [powerExpanded, setPowerExpanded] = useState<Set<string>>(() => new Set())
   const setBlockGraphView = useUiStore(s => s.setBlockGraphView)
+
+  // Areas is a view only while some block has areas; a stored choice of it falls back to the graph without them.
+  const withAreas = useMemo(() => blocksWithAreas(blocks, results), [blocks, results])
+  const areasBlockIds = useMemo(() => new Set(withAreas.map(b => b.id)), [withAreas])
+  const view = storedView === 'areas' && withAreas.length === 0 ? 'graph' : storedView
+  // The Areas view's state lives here, so it survives a switch to another view; closing the modal resets it.
+  const areasUi = useAreasUi(defaultAreasTab(withAreas, activeBlockId), activeBlockId)
+  const { selectTab: selectAreasTab } = areasUi
 
   const power = useMemo(
     () => (view === 'power' ? buildPowerOverview(blocks, results, errors, gameData) : undefined),
@@ -557,6 +573,11 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
     setActiveBlock(id)
     onClose()
   }
+  // The graph's strip and the Power list link a block to its areas.
+  function openAreasOf(id: string) {
+    selectAreasTab(id)
+    setBlockGraphView('areas')
+  }
 
   const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
   const onRemove = (id: string, to: string) => removeInputConnection(id, to)
@@ -565,13 +586,21 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   return (
     <Modal onClose={onClose} className="w-[96vw] h-[92vh] flex flex-col overflow-hidden">
       <div className="p-3 border-b border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h2 className="text-lg font-semibold text-amber-200">Block graph</h2>
+        <h2 className="text-lg font-semibold text-amber-200">Factory overview</h2>
         <Segmented label="View" size="sm">
           <Segment pressed={view === 'graph'} onClick={() => setBlockGraphView('graph')} data-tip="The blocks and their connections as a graph">Graph</Segment>
           <Segment pressed={view === 'matrix'} onClick={() => setBlockGraphView('matrix')} data-tip="Who supplies whom, as a grid">Matrix</Segment>
+          {withAreas.length > 0 && (
+            <Segment pressed={view === 'areas'} onClick={() => setBlockGraphView('areas')} data-tip="What each area of a block sends and receives, item by item">Areas</Segment>
+          )}
           <Segment pressed={view === 'power'} onClick={() => setBlockGraphView('power')} data-tip="Electric power by block, against what the power plant makes">Power</Segment>
         </Segmented>
-        {view === 'graph' && (
+        {power && <PowerFigures model={power} />}
+        <button type="button" onClick={onClose} className={`${btn} ${view !== 'power' ? 'ml-auto' : ''}`}>Close</button>
+      </div>
+
+      {view === 'graph' && (
+        <ViewToolbar testId="graph-toolbar">
           <div className="flex items-center gap-3 text-xs text-gray-400">
             <span className="flex items-center gap-1" data-tip="In the source block's colour">
               <span
@@ -588,11 +617,9 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
             </span>
             <span data-testid="graph-legend-loop" className="flex items-center gap-1" data-tip="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
           </div>
-        )}
-        {view === 'graph' && (loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
-        {power && <PowerFigures model={power} />}
-        <button type="button" onClick={onClose} className={`${btn} ${view !== 'power' ? 'ml-auto' : ''}`}>Close</button>
-      </div>
+          {(loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
+        </ViewToolbar>
+      )}
 
       {view === 'graph' ? (
         <GraphView
@@ -603,6 +630,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           gameData={gameData}
           activeBlockId={activeBlockId}
           goTo={goTo}
+          areaBlockIds={areasBlockIds}
+          onOpenAreas={openAreasOf}
           onRemove={onRemove}
           onSetLimit={onSetLimit}
         />
@@ -616,8 +645,18 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           onRemove={onRemove}
           onSetLimit={onSetLimit}
         />
+      ) : view === 'areas' ? (
+        <PlanAreasView ui={areasUi} gameData={gameData} onClose={onClose} />
       ) : (
-        power && <BlockPower model={power} expanded={powerExpanded} onExpandedChange={setPowerExpanded} />
+        power && (
+          <BlockPower
+            model={power}
+            expanded={powerExpanded}
+            onExpandedChange={setPowerExpanded}
+            areaBlockIds={areasBlockIds}
+            onOpenAreas={openAreasOf}
+          />
+        )
       )}
     </Modal>
   )
@@ -635,7 +674,7 @@ export function BlockGraphButton() {
 
   return (
     <>
-      <IconButton label="Block graph" onClick={() => setOpen(true)}>
+      <IconButton label="Factory overview" onClick={() => setOpen(true)}>
         <GraphIcon className="w-[17px] h-[17px]" />
       </IconButton>
       {open && <BlockGraphModal gameData={gameData} onClose={() => setOpen(false)} />}

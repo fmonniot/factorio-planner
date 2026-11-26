@@ -3,6 +3,7 @@ import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { openRowMenu } from './support/rowMenu'
 import { sidePanel } from './support/sidePanel'
+import { openAreas } from './support/blockGraph'
 
 /**
  * A sub-factory becomes a separate area from its right-click menu. The fixture builds steam
@@ -35,12 +36,11 @@ test('a sub-factory solved as a separate area gets its own row, and the toggle p
   await expect(toggle).toHaveAttribute('aria-checked', 'false')
   await toggle.click()
 
-  const areasButton = page.getByRole('button', { name: 'Areas in every block' })
   await expect(page.getByTestId('area-marker')).toBeVisible()
   await expect(warnings).toHaveCount(0)
   await expect(counts.nth(0)).not.toHaveText('0')
   await expect(counts.nth(1)).not.toHaveText('0')
-  await areasButton.click()
+  await openAreas(page)
   const areas = page.locator('div.fixed.inset-0')
   const matrix = areas.getByRole('table', { name: /^Areas of / })
   await expect(matrix.getByRole('button', { name: 'Top level' })).toBeVisible()
@@ -59,10 +59,13 @@ test('a sub-factory solved as a separate area gets its own row, and the toggle p
   }
   await expect.poll(savedArea).toBe(true)
 
-  // Off again: the areas list button goes and the duplicate is back.
+  // Off again: the Areas view goes and the duplicate is back.
   const again = await openRowMenu(page, compression)
   await again.getByRole('menuitemcheckbox', { name: 'Separate area' }).click()
-  await expect(areasButton).toHaveCount(0)
+  // The overview has no Areas view while no block has areas.
+  await page.getByRole('button', { name: 'Factory overview' }).click()
+  await expect(page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Areas' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Close' }).click()
   await expect(page.getByTestId('area-marker')).toHaveCount(0)
   await expect.poll(savedArea).toBeUndefined()
   await warnings.click()

@@ -6,6 +6,7 @@ import { exportPlan } from './support/appMenu'
 import { pane, selectSlot, slot } from './support/summary'
 import { openLine, setPreset } from './support/sourcesList'
 import { inputLines, selectRow } from './support/sidePanel'
+import { openAreas } from './support/blockGraph'
 
 /**
  * Case 21 B of spec/test-synthetic.md on real Nullius recipes: plate is the Stone box (20 stone for 4 boxes), gear the Gravel
@@ -62,7 +63,7 @@ async function expectRows(page: Page, f: { m1: number; m2: number }) {
 
 /** The Stone boxes the areas matrix says Line L trades, per partner ("Trades with" of the focused Line L). */
 async function expectTrades(page: Page, f: { m1: number; m2: number; outside: number }) {
-  await page.getByRole('button', { name: 'Areas in every block' }).click()
+  await openAreas(page)
   await page.getByRole('table', { name: 'Areas of Crushing B' }).getByRole('button', { name: 'Line L' }).click()
   const panel = page.getByRole('complementary', { name: 'Line L' })
   const check = async (testId: string, rate: number) => {
@@ -233,7 +234,7 @@ test('case 21 C, rows c and d: the area that takes nothing from T leaves the sid
     await popover(page).getByTestId('comes-from-scope').getByRole('button', { name: area, exact: true }).click()
   }
   const trades = async (area: string, f: { t: number; outside: number }) => {
-    await page.getByRole('button', { name: 'Areas in every block' }).click()
+    await openAreas(page)
     await page.getByRole('table', { name: 'Areas of Dust' }).getByRole('button', { name: area }).click()
     const panel = page.getByRole('complementary', { name: area })
     for (const [testId, rate] of [[`trade-lines-${T}`, f.t], ['trade-lines-outside', f.outside]] as const) {

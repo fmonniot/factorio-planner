@@ -114,19 +114,13 @@ test('the toolbar filter and the item-picker search placeholders read at 4.5:1',
   const s = await expectRatio(search, 4.5, 'item picker placeholder', '::placeholder')
   expect(s.fg).toEqual(GRAY_400)
 })
-
-test('the Areas tool is gray-300 and reads at 3:1', async ({ page }) => {
-  const tool = page.getByTestId('top-bar').getByRole('button', { name: 'Areas in every block' })
-  const m = await expectRatio(tool, 3, 'Areas tool')
-  expect(m.fg).toEqual(GRAY_300)
-})
 })
 
 // Horizon and Tech tree need a data set with technologies, which Nullius does not have.
 test('the Horizon, Graph and Tech tree tools are gray-300 and read at 3:1', async ({ page }) => {
   await loadPlanFixture(page, SEABLOCK_FIXTURE, 'kompetenz-seablock')
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  for (const name of [/^Horizon/, 'Block graph', 'Tech tree']) {
+  for (const name of [/^Horizon/, 'Factory overview', 'Tech tree']) {
     const tool = page.getByTestId('top-bar').getByRole('button', { name })
     const m = await expectRatio(tool, 3, `tool ${name}`)
     expect(m.fg).toEqual(GRAY_300)

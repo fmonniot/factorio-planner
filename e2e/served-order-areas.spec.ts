@@ -168,7 +168,7 @@ test('Served areas: a list written before the popover drew areas expands on the 
   // The graph chips: the Hub chip is "Limited: ..." so it is found by its connection.
   await page.keyboard.press('Escape')
   await expect(popover(page)).toHaveCount(0)
-  await page.getByRole('button', { name: 'Block graph' }).click()
+  await page.getByRole('button', { name: 'Factory overview' }).click()
   // One edge list is open at a time: open the list of the edge, then find the chip.
   const chipOf = async (id: string) => {
     await pinEdge(page, { connectionId: id })

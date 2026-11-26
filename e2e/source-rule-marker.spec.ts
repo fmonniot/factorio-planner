@@ -5,7 +5,7 @@ import { loadPlanFixture } from './support/loadPlan'
 import { detail, pane, slot } from './support/summary'
 import { inputLines, openSources, comesFromPopover } from './support/sidePanel'
 import { importSwitch, setPreset } from './support/sourcesList'
-import { pinEdge } from './support/blockGraph'
+import { pinEdge, openAreas, pickAreasBlock } from './support/blockGraph'
 
 const FIXTURE = path.resolve('e2e/fixtures/item-sourcing.json')
 const OXYGEN = 'nullius-oxygen'
@@ -183,8 +183,12 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   const matrixHeader = matrix.locator(`tr[data-item-id="${OXYGEN}"] th[scope="row"]`)
   const edgeSummary = page.getByTestId('graph-edge-summary')
   const edgeChip = page.getByTestId('graph-detail').getByTestId('graph-edge-label')
-  const openMatrix = () => page.getByRole('button', { name: 'Areas in every block' }).click()
-  const openGraph = () => page.getByRole('button', { name: 'Block graph' }).click()
+  const openMatrix = () => openAreas(page)
+  // The overview opens in the view used last, so the graph is chosen explicitly.
+  const openGraph = async () => {
+    await page.getByRole('button', { name: 'Factory overview' }).click()
+    await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Graph' }).click()
+  }
   const close = () => page.getByRole('button', { name: 'Close' }).click()
 
   // The default: no marker on any of the surfaces.
@@ -253,9 +257,9 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await expect(markers(matrixHeader)).toHaveAccessibleName(ruleName)
   await expect(markers(matrixHeader)).toHaveAttribute('aria-label', ruleName)
   // Every block side by side has none: a rule belongs to one block.
-  await page.getByRole('group', { name: 'Block' }).getByRole('button', { name: 'All blocks' }).click()
+  await pickAreasBlock(page, 'All blocks')
   await expect(markers(page.getByTestId('modal-panel'))).toHaveCount(0)
-  await page.getByRole('group', { name: 'Block' }).getByRole('button', { name: /^Acid/ }).click()
+  await pickAreasBlock(page, /^Acid/)
   // Acid is the active block, and the marker still only shows the rule: a click on it leaves the matrix open.
   await expect(markers(matrixHeader)).toHaveRole('img')
   await markers(matrixHeader).click({ force: true })
@@ -279,7 +283,7 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   // From O2 maker, which holds no rule, the same chip shows Acid's rule too.
   await openGraph()
   await page.getByTestId('graph-node').filter({ has: page.getByRole('button', { name: 'O2 maker', exact: true }) }).getByTestId('graph-node-open').click()
-  await expect(page.getByRole('heading', { name: 'Block graph' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Factory overview' })).toHaveCount(0)
   await expect(markers(summary)).toHaveCount(0)
   await openGraph()
   await pinEdge(page, { to: 'Acid' })

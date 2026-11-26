@@ -216,7 +216,7 @@ test('the add-block button is a tool button: 32px, in the tool row, with the too
   const geometry = () => page.evaluate(() => {
     const bar = document.querySelector('[data-testid=top-bar]')!
     const rect = (label: string) => bar.querySelector(`button[aria-label="${label}"]`)!.getBoundingClientRect()
-    const add = rect('Add block'), horizon = rect('Horizon: none'), graph = rect('Block graph')
+    const add = rect('Add block'), horizon = rect('Horizon: none'), graph = rect('Factory overview')
     return {
       size: [add.width, add.height],
       gapToHorizon: horizon.left - add.right,

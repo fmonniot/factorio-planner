@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { openAreas } from './support/blockGraph'
 
 /**
  * The chips of an area row and the "Trades with" list of the areas viewer name the partner of each route: "from Oil",
@@ -28,7 +29,7 @@ async function open(page: Page, fixture: string, firstRow: string): Promise<void
 }
 
 async function focus(page: Page, block: string, area: string): Promise<void> {
-  await page.getByRole('button', { name: 'Areas in every block' }).click()
+  await openAreas(page)
   await matrix(page, block).getByRole('button', { name: area }).click()
 }
 

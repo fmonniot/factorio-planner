@@ -78,7 +78,7 @@ test.describe('block graph', () => {
     await setup(page)
     await connectPlatesToGears(page)
     await node(page, 'Plates').getByRole('button', { name: 'Plates', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Block graph' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Factory overview' })).toBeVisible()
     await expect(node(page, 'Plates')).toHaveAttribute('data-pinned', 'true')
     await page.mouse.move(2, 2)
     await expect(page.getByTestId('graph-detail')).toContainText('Supplies')
@@ -208,7 +208,7 @@ test.describe('block graph', () => {
     // Escape unpins first; the graph stays open.
     await page.keyboard.press('Escape')
     await expect(summary).not.toHaveAttribute('data-pinned', 'true')
-    await expect(page.getByRole('heading', { name: 'Block graph' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Factory overview' })).toBeVisible()
   })
 
   test('unpinning a block by a second click, with the pointer away, leaves nothing lit', async ({ page }) => {
@@ -271,14 +271,14 @@ test.describe('block graph', () => {
     await page.keyboard.press('Escape')
     await expect(summary).not.toHaveAttribute('data-pinned', 'true')
     await expect(summary).toBeFocused()
-    await expect(page.getByRole('heading', { name: 'Block graph' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Factory overview' })).toBeVisible()
   })
 
   test('the Go to button opens the block and closes the graph', async ({ page }) => {
     await setup(page)
     await openGraph(page)
     await node(page, 'Plates').getByTestId('graph-node-open').click()
-    await expect(page.getByRole('heading', { name: 'Block graph' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Factory overview' })).toHaveCount(0)
     await expect(page.locator('[data-testid="block-tab"] button[aria-label="Plates"]')).toBeVisible()
   })
 })

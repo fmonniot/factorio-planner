@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { openAreas, pickAreasBlock } from './support/blockGraph'
 
 /**
  * The areas viewer as a balance matrix. The fixture has two copies of the area-row-conveniences
@@ -15,20 +16,25 @@ const HYDROGEN = 'ffff0001-0000-0000-0000-000000000001'
 const HCl = 'nullius-hydrogen-chloride'
 
 const row = (page: Page, id: string) => page.locator(`main tr[data-node-id="${id}"]`)
-const blockTabs = (page: Page) => page.getByRole('group', { name: 'Block' })
+const blockOptions = async (page: Page) => {
+  await page.getByTestId('block-picker').click()
+  return page.getByRole('listbox', { name: 'Block' }).getByRole('option')
+}
 const matrix = (page: Page, block = 'Hydrogen') => page.getByRole('table', { name: `Areas of ${block}` })
 
 async function open(page: Page): Promise<void> {
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
   await expect(row(page, ROOT_ELEC)).toBeVisible({ timeout: 10000 })
-  await page.getByRole('button', { name: 'Areas in every block' }).click()
+  await openAreas(page)
 }
 
 test('the block view balances every row and names the areas', async ({ page }) => {
   await open(page)
 
-  await expect(blockTabs(page).getByRole('button')).toHaveText([/^Hydrogen\s*3$/, /^Hydrogen 2\s*3$/, 'All blocks'])
+  await expect(await blockOptions(page)).toHaveText([/^All blocks\s*2 blocks$/, /^Hydrogen\s*3 areas$/, /^Hydrogen 2\s*3 areas$/])
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('areas-view')).toBeVisible()
   await expect(matrix(page).getByRole('columnheader')).toHaveText([
     /items/, 'From outside', /^Top level/, /^Compression/, /^Chlorides/, 'To outside',
   ])
@@ -101,7 +107,7 @@ test('the filter keeps the matching area column', async ({ page }) => {
 test('All blocks puts the blocks side by side with what no block takes', async ({ page }) => {
   await open(page)
 
-  await blockTabs(page).getByRole('button', { name: 'All blocks' }).click()
+  await pickAreasBlock(page, 'All blocks')
   await expect(page.getByRole('checkbox', { name: 'Only items that cross a block boundary' })).toBeChecked()
   const hcl = page.locator(`tr[data-item-id="${HCl}"]`)
   await expect(hcl).toBeVisible()
@@ -156,7 +162,7 @@ test('counterpart figures follow the solver routes', async ({ page }) => {
   await loadPlanFixture(page, path.resolve('e2e/fixtures/area-routes.json'))
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
   await expect(row(page, 'ffff0004-0000-0000-0000-000000000001')).toBeVisible({ timeout: 10000 })
-  await page.getByRole('button', { name: 'Areas in every block' }).click()
+  await openAreas(page)
 
   const ROOT = 'ffff0002-0000-0000-0000-000000000001'
   const BACKUP = 'ffff0030-0000-0000-0000-000000000001'
@@ -189,8 +195,8 @@ test('From outside splits connected supply from imports', async ({ page }) => {
   await loadPlanFixture(page, path.resolve('e2e/fixtures/area-matrix-connected.json'))
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
   await expect(row(page, ROOT_ELEC)).toBeVisible({ timeout: 10000 })
-  await page.getByRole('button', { name: 'Areas in every block' }).click()
-  await blockTabs(page).getByRole('button', { name: /^Hydrogen 2/ }).click()
+  await openAreas(page)
+  await pickAreasBlock(page, /^Hydrogen 2/)
 
   const cell = matrix(page, 'Hydrogen 2').locator('tr[data-item-id="nullius-chlorine"] td[data-col="from-outside"]')
   await expect(cell).toHaveAttribute('data-rate', '300')

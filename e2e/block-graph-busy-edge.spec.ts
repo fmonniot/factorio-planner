@@ -16,12 +16,12 @@ const FIRST_ITEM_ID = 'nullius-iron-sheet'
 
 const summary = (page: Page) => page.locator(`[data-testid="graph-edge-summary"][data-to="${SCIENCES_ID}"]`)
 const list = (page: Page) => page.getByTestId('graph-detail')
-const heading = (page: Page) => page.getByRole('heading', { name: 'Block graph' })
+const heading = (page: Page) => page.getByRole('heading', { name: 'Factory overview' })
 
 async function setup(page: Page) {
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  await page.getByRole('button', { name: 'Block graph' }).click()
+  await page.getByRole('button', { name: 'Factory overview' }).click()
   await expect(heading(page)).toBeVisible()
 }
 
