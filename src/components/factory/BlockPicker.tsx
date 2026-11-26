@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useDismiss, useOverlayOpen } from './sidePanel/useDismiss'
 import { focusFirstSlot } from '../gridNav'
-import { moveListFocus } from '../listNav'
+import { closeOnTab, moveListFocus } from '../listNav'
 
 export interface BlockPickerOption {
   id: string
@@ -85,6 +85,7 @@ export function BlockPicker({ label, options, extra, value, onChange }: {
         <div
           ref={panelRef}
           data-testid="block-picker-panel"
+          onKeyDown={e => closeOnTab(e, triggerRef.current, () => { setOpen(false); setQuery('') })}
           className="absolute left-9 top-full z-50 mt-1 w-80 rounded-lg bg-gray-900 border border-gray-700 shadow-2xl p-2"
         >
           <input

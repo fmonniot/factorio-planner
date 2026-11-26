@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, renderHook, fireEvent } from '@testing-library/react'
+import { useKeyShortcut } from './useKeyShortcut'
 import { useAddGoalShortcut } from './useAddGoalShortcut'
 import { Modal } from '../Modal'
 import { useOverlayOpen } from './sidePanel/useDismiss'
@@ -107,5 +108,15 @@ describe('useAddGoalShortcut', () => {
     press({ key: 'a' })
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useKeyShortcut', () => {
+  it('takes the key case-insensitively', () => {
+    const onPress = vi.fn()
+    renderHook(() => useKeyShortcut('Q', onPress, true))
+    press({ key: 'q' })
+    press({ key: 'Q' })
+    expect(onPress).toHaveBeenCalledTimes(2)
   })
 })

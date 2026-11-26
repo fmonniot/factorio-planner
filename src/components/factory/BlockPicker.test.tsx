@@ -89,6 +89,16 @@ describe('BlockPicker', () => {
     const option = (name: RegExp) => within(screen.getByRole('listbox', { name: 'Block' })).getByRole('option', { name })
     const press = (key: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement!, { key, ...init })
 
+    it('Tab and Shift+Tab close the list and put focus on the button, without cancelling the key', () => {
+      render(<Harness />)
+      for (const shiftKey of [false, true]) {
+        fireEvent.click(trigger())
+        expect(fireEvent.keyDown(search(), { key: 'Tab', shiftKey, bubbles: true, cancelable: true }), 'the browser carries on').toBe(true)
+        expect(screen.queryByRole('listbox')).toBeNull()
+        expect(trigger()).toHaveFocus()
+      }
+    })
+
     it('ArrowDown in the search focuses the first option, and ArrowUp on it returns to the search', () => {
       render(<Harness />)
       fireEvent.click(trigger())

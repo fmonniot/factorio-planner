@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import { ITEM_SELECTOR } from '../MenuButton'
 import { gridNavTarget, type GridKey } from '../gridNav'
+import { isTypingTarget } from './useKeyShortcut'
 import { entryItem, giveFocusBack, stepListFocus } from '../listNav'
 
 export interface MenuKeyboardOptions {
@@ -15,8 +16,8 @@ const ARROWS: readonly string[] = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRi
  * The first ArrowDown enters it at the first item, the first ArrowUp at the last; Up, Down, Home and End then walk the enabled
  * items and wrap. With `grid`, the items matching it form a 2-D grid after the list: Down from the last list item enters it
  * (at the checked cell, else the first), Left / Right / Up / Down move inside it, and Up from its first row returns to the list.
- * Tab closes the menu and lets the browser carry on from where focus goes back to; closing gives focus back to where it was.
- * Esc stays with the menu's own handler.
+ * Tab and Shift+Tab close the menu and lets the browser carry on from where focus goes back to; closing gives focus back to where it was.
+ * Keys typed in a text field, a select or another overlay are left alone. Esc stays with the menu's own handler.
  */
 export function useMenuKeyboard(ref: RefObject<HTMLElement | null>, onClose: () => void, opts: MenuKeyboardOptions = {}): void {
   const onCloseRef = useRef(onClose)
@@ -35,12 +36,17 @@ export function useMenuKeyboard(ref: RefObject<HTMLElement | null>, onClose: () 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const panel = ref.current
-      if (!panel || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
-      if (e.key === 'Tab') {
+      if (!panel || e.defaultPrevented) return
+      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         giveFocusBack(panel, origin.current instanceof HTMLElement ? origin.current : null)
         onCloseRef.current()
         return
       }
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+      // Keys typed in a field or another overlay are theirs: only the menu, its opener and the page itself reach the menu's walk.
+      const target = e.target
+      if (isTypingTarget(target)) return
+      if (target instanceof Element && target !== document.body && target !== document.documentElement && target !== origin.current && !panel.contains(target)) return
       const items = Array.from(panel.querySelectorAll<HTMLElement>(ITEM_SELECTOR))
       const active = document.activeElement
       const handled = grid ? stepGrid(items, grid, active, e.key) : stepListFocus(items, active, e.key, { wrap: true })

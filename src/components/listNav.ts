@@ -72,3 +72,13 @@ export function giveFocusBack(panel: HTMLElement | null, target: HTMLElement | n
   const active = document.activeElement
   if (active === null || active === document.body || (panel !== null && panel.contains(active))) target.focus()
 }
+
+/**
+ * Tab and Shift+Tab in a popover list: focus goes back to `trigger` and the overlay closes, and the key's default is kept,
+ * so the browser carries on from the trigger instead of leaving the list open behind. Call from the panel's keydown handler.
+ */
+export function closeOnTab(e: React.KeyboardEvent, trigger: HTMLElement | null | undefined, onClose: () => void): void {
+  if (e.key !== 'Tab' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
+  if (trigger?.isConnected) trigger.focus()
+  onClose()
+}

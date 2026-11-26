@@ -79,6 +79,18 @@ describe('Picker', () => {
     expect(document.body.querySelector(':scope > [data-testid="picker"]')).not.toBeNull()
   })
 
+  it('Tab and Shift+Tab close it and put focus on the trigger, without cancelling the key', () => {
+    render(<Page />)
+    for (const shiftKey of [false, true]) {
+      fireEvent.click(screen.getByText('trigger'))
+      const row = screen.getByText('Beta').closest('button')!
+      expect(row).toHaveFocus()
+      expect(fireEvent.keyDown(row, { key: 'Tab', shiftKey, bubbles: true, cancelable: true }), 'the browser carries on').toBe(true)
+      expect(screen.queryByTestId('picker')).toBeNull()
+      expect(screen.getByText('trigger')).toHaveFocus()
+    }
+  })
+
   it('Esc closes only the topmost picker', () => {
     render(<div><Harness label="first" heading="One" /><Harness label="second" heading="Two" /></div>)
     fireEvent.click(screen.getByText('first'))

@@ -817,6 +817,18 @@ describe('MachineSection — fuel', () => {
   const openFuel = () => fireEvent.click(screen.getByTestId('fuel-button'))
   const storedFuel = () => (useBlockStore.getState().blocks[0].rootPlan.nodes[0] as GameRecipeNode).fuelItemId
 
+  it('Tab and Shift+Tab close the fuel list and put focus on the fuel button, without cancelling the key', () => {
+    renderBurner()
+    for (const shiftKey of [false, true]) {
+      openFuel()
+      const option = screen.getAllByTestId('fuel-option')[0]
+      option.focus()
+      expect(fireEvent.keyDown(option, { key: 'Tab', shiftKey, bubbles: true, cancelable: true }), 'the browser carries on').toBe(true)
+      expect(screen.queryAllByTestId('fuel-option')).toHaveLength(0)
+      expect(screen.getByTestId('fuel-button')).toHaveFocus()
+    }
+  })
+
   it('has no Fuel section for an electric machine', () => {
     renderModal(makeGameData())
     expect(screen.queryByTestId('fuel-button')).not.toBeInTheDocument()

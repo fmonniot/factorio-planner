@@ -4,7 +4,7 @@ import { Icon } from '../Icon'
 import { useDismiss } from './sidePanel/useDismiss'
 import { usePickerAnchor } from './pickerAnchor'
 import { slotsOf } from '../gridNav'
-import { entryItem, giveFocusBack, moveListFocus } from '../listNav'
+import { closeOnTab, entryItem, giveFocusBack, moveListFocus } from '../listNav'
 
 const MAX_HEIGHT = 288
 const MARGIN = 8
@@ -23,7 +23,7 @@ export const PICKER_STOP = 'button:not(:disabled)'
  * to the viewport, so a table's scroll container never clips it.
  *
  * It opens with focus on the selected row (else the first button); Up, Down, Home and End walk the buttons, wrapping at the
- * ends. Closing it gives focus back to the trigger.
+ * ends. Tab closes it and carries on from the trigger; closing gives focus back to the trigger.
  */
 export function Picker({ heading, onClose, children, className = '', style, onKeyDown, ...rest }: {
   heading?: ReactNode
@@ -89,6 +89,7 @@ export function Picker({ heading, onClose, children, className = '', style, onKe
       {...rest}
       onKeyDown={e => {
         onKeyDown?.(e)
+        closeOnTab(e, anchor?.current?.querySelector('button'), onClose)
         moveListFocus(e, PICKER_STOP, { wrap: true })
       }}
     >

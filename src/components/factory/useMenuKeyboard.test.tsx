@@ -99,6 +99,37 @@ describe('useMenuKeyboard, a plain list', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('closes on Shift+Tab too, without cancelling it', () => {
+    const onClose = vi.fn()
+    render(<Menu onClose={onClose} />)
+    press('ArrowDown')
+    expect(press('Tab', { shiftKey: true }), 'the browser carries on').toBe(false)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves Home, End and arrows to a text field, a select or another overlay', () => {
+    render(<Page open onClose={() => {}} />)
+    const input = document.body.appendChild(document.createElement('input'))
+    const select = document.body.appendChild(document.createElement('select'))
+    const other = document.body.appendChild(document.createElement('button'))
+    for (const el of [input, select, other]) {
+      el.focus()
+      for (const key of ['Home', 'End', 'ArrowDown', 'ArrowUp']) expect(press(key), `${el.tagName} ${key}`).toBe(false)
+    }
+    expect(item('Rename')).not.toHaveFocus()
+    input.remove()
+    select.remove()
+    other.remove()
+  })
+
+  it('still enters from the opener', () => {
+    const { rerender } = render(<Page open={false} onClose={() => {}} />)
+    screen.getByText('origin').focus()
+    rerender(<Page open onClose={() => {}} />)
+    expect(press('ArrowDown')).toBe(true)
+    expect(item('Rename')).toHaveFocus()
+  })
+
   it('gives focus back to where it was when the menu closes from inside it', () => {
     const { rerender } = render(<Page open={false} onClose={() => {}} />)
     screen.getByText('origin').focus()

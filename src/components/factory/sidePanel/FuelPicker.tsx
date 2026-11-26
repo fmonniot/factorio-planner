@@ -6,7 +6,7 @@ import { withinHorizon } from '../../../data/horizon'
 import { acceptedFuels, defaultFuel, hasFuelData, resolveRowFuel } from '../../../data/fuel'
 import { Icon } from '../../Icon'
 import { slotsOf } from '../../gridNav'
-import { entryItem, giveFocusBack, moveListFocus } from '../../listNav'
+import { closeOnTab, entryItem, giveFocusBack, moveListFocus } from '../../listNav'
 import { BeyondTag, Chevron } from './PanelParts'
 import { fmtFuelValue } from './fuelFormat'
 import { useDismiss } from './useDismiss'
@@ -78,7 +78,10 @@ export function FuelPicker({ nodeId, machine, fuelItemId, gameData }: {
       {open && (
         <div
           ref={panelRef}
-          onKeyDown={e => moveListFocus(e, 'button', { wrap: true })}
+          onKeyDown={e => {
+            closeOnTab(e, triggerRef.current, () => setOpen(false))
+            moveListFocus(e, 'button', { wrap: true })
+          }}
           className="mt-1 bg-gray-800 border border-gray-700 rounded p-1.5 space-y-1 max-h-48 overflow-y-auto"
         >
           <div className="text-[10px] uppercase tracking-wide text-gray-400 px-1 mb-1">Select fuel</div>

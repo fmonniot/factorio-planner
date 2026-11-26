@@ -3,7 +3,7 @@ import { isDismissibleOpen } from './sidePanel/useDismiss'
 import { isTextTarget } from './useUndoShortcuts'
 
 /** A field that takes typed letters: a text field, or a select that jumps to options by typing. */
-function isTypingTarget(target: EventTarget | null): boolean {
+export function isTypingTarget(target: EventTarget | null): boolean {
   return isTextTarget(target) || (target instanceof HTMLElement && target.tagName === 'SELECT')
 }
 
@@ -16,12 +16,13 @@ export function useKeyShortcut(key: string, onPress: () => void, enabled: boolea
   useEffect(() => {
     latest.current = onPress
   })
+  const wanted = key.toLowerCase()
   useEffect(() => {
     if (!enabled) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || e.repeat) return
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
-      if (e.key.toLowerCase() !== key) return
+      if (e.key.toLowerCase() !== wanted) return
       if (isTypingTarget(e.target)) return
       // Also true for the undoable factory overview: the picker would open behind it, and the overview edits its goals itself.
       if (isDismissibleOpen()) return
@@ -31,5 +32,5 @@ export function useKeyShortcut(key: string, onPress: () => void, enabled: boolea
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [enabled, key])
+  }, [enabled, wanted])
 }
