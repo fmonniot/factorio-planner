@@ -146,14 +146,14 @@ describe('BlockPower', () => {
     expect(labels()).toEqual(['block:Gears', 'block:Chem', 'block:Plant'])
   })
 
-  it('leaves the loop status out of the Power header, and keeps it in the other views', () => {
+  it('shows the loop status in the Graph header only', () => {
     setup()
     useSolverStore.setState({ loops: [{ blockIds: ['gears', 'chem'], connectionIds: [], backConnectionIds: [], converged: true, rounds: 1 }] })
     render(<BlockGraphButton />)
     open()
     expect(screen.getByTestId('graph-loop-status').textContent).toBe('↻ 1 loop')
     fireEvent.click(screen.getByRole('button', { name: 'Matrix' }))
-    expect(screen.getByTestId('graph-loop-status')).toBeTruthy()
+    expect(screen.queryByTestId('graph-loop-status')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Power' }))
     expect(screen.queryByTestId('graph-loop-status')).toBeNull()
     expect(screen.getByTestId('power-figures')).toBeTruthy()
