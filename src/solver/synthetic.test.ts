@@ -2630,6 +2630,34 @@ describe('solver synthetic cases', () => {
         expect(into(INGOT)?.supplied, 'supplied').toBeCloseTo(50, 6)
         expect(into(PLATE), 'no outside leg of plate').toBeUndefined()
       })
+
+      // Row d: as row c, but S is pinned at 10 in N. M's rule keeps N's ingots out, so they leave through N's sink and M still
+      // takes all 50 from the connection. The block's net of ingot is -40, but what the connection delivered is 50.
+      it('d: S pinned in N, M takes no ingot from N, ingot (100): the connection feeds all 50', () => {
+        const a = fixtureA('1-1')
+        const sp = (id: string, nodes: RecipeNode[], rules?: SubPlan['sourceRules']) => ({ ...subPlan(id, nodes, [], true), ...(rules ? { sourceRules: rules } : {}) })
+        const b: Block = {
+          id: 'H', name: 'H', color: '#60a5fa',
+          products: [{ id: 'p-H-0', itemId: 'case22-gear', extraRate: 25 }],
+          sourceRules: {}, inputConnections: [],
+          rootPlan: subPlan('root', [], [sp('L', [a.nodes[0]]), sp('M', [a.nodes[1]], { [INGOT]: { areasOff: ['N'] } }), sp('N', [a.nodes[2]])]),
+        }
+        const { result, received } = solveBlock(flattenBlock(b), makeGameData(), new Map([[INGOT, 100]]))
+        expect(received.get(INGOT) ?? 0, 'ingot received').toBeCloseTo(50, 6)
+        expect(received.get(PLATE) ?? 0, 'plate received').toBeCloseTo(0, 6)
+        expect(nodeOf(result, 'P').throughput, 'P runs').toBeCloseTo(50, 6)
+        expect(nodeOf(result, 'case22-ingot').throughput, 'S runs').toBeCloseTo(10, 6)
+        expect(nodeOf(result, 'case22-gear').throughput, 'G runs').toBeCloseTo(25, 6)
+        expect(unsat(result, PLATE), 'plate imported').toBeCloseTo(0, 6)
+        expect(unsat(result, INGOT), 'ingot imported').toBeCloseTo(0, 6)
+        const routes = result.areaRoutes ?? []
+        const into = (itemId: string) => routes.find(r => r.itemId === itemId && r.from === undefined && r.to === 'M')
+        expect(into(INGOT)?.rate, 'outside leg of ingot into M').toBeCloseTo(50, 6)
+        expect(into(INGOT)?.supplied, 'supplied').toBeCloseTo(50, 6)
+        expect(into(PLATE), 'no outside leg of plate').toBeUndefined()
+        const suppliedSum = routes.filter(r => r.itemId === INGOT && r.from === undefined).reduce((s, r) => s + (r.supplied ?? 0), 0)
+        expect(suppliedSum, 'received is the sum of the supplied outside legs').toBeCloseTo(received.get(INGOT) ?? 0, 6)
+      })
     })
 
     describe('B: a loop that loses', () => {

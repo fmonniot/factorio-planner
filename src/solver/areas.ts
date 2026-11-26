@@ -990,11 +990,13 @@ function areaFlows(
   pairItems: ReadonlySet<string>,
   pairs: AreaPair[],
   supply: Map<string, number>,
-): { areas: SolvedArea[]; routes: AreaRoute[] } {
+): { areas: SolvedArea[]; routes: AreaRoute[]; pairSupplied: Map<string, number> } {
   const colById = new Map(lpColumns(columns, system).map(c => [c.id, c]))
   const dedicatedInOf = new Map(dedicatedIn.map(d => [`${d.area}\u0000${d.itemId}`, d.rate]))
   const solved: SolvedArea[] = areas.map(a => ({ areaId: a.id, receives: [], sends: [] }))
   const routes: AreaRoute[] = []
+  // A pair item's supplied outside legs into areas, summed: what the connections really delivered.
+  const pairSupplied = new Map<string, number>()
   // What leaves the solver names the base item and, for a split fluid, the tag.
   const tagged = (key: string): { itemId: string; temp?: FluidTag } => resultItem(system, key)
   const outsideOf = new Map<string, AreaOutside[]>()
@@ -1049,10 +1051,14 @@ function areaFlows(
       }
     }
     if (areaItems.has(itemId) || pairItems.has(itemId)) {
-      routes.push(...areaItemRoutes(
+      const legs = areaItemRoutes(
         itemId, areas, outsideOf.get(itemId) ?? [], senders, receivers,
         pairItems.has(itemId) ? pairs.filter(p => p.itemId === itemId) : undefined,
-      ).map(r => ({ ...r, ...tagged(itemId) })))
+      )
+      if (pairItems.has(itemId)) {
+        pairSupplied.set(itemId, legs.reduce((sum, r) => r.from === undefined && r.to !== undefined ? sum + (r.supplied ?? 0) : sum, 0))
+      }
+      routes.push(...legs.map(r => ({ ...r, ...tagged(itemId) })))
       continue
     }
     // A range key of an area is connected supply or imported: what the supply covers of an outside leg is `supplied`.
@@ -1075,7 +1081,7 @@ function areaFlows(
     a.receives.sort(byRate)
     a.sends.sort(byRate)
   }
-  return { areas: solved, routes }
+  return { areas: solved, routes, pairSupplied }
 }
 
 /** The pieces of an area solve that depend on the rows only: one column per row, the classified system over them, and the notes on the rows. */
@@ -1494,8 +1500,10 @@ export function solveAreaBlock(
     const main = c.recipe ? explicitMainProduct(c.node, c.recipe) : undefined
     if (main !== undefined) mainItemOfCol.set(c.id, main)
   }
+  const flows = areaFlows(system, columns, throughput, areas, lp.dedicatedIn, lp.outside, areaItems, lp.feasible ? pairItems : new Set(), lp.pairs, lp.supply)
   const { overconstrained, itemSurplus, itemGross, unsatisfied, received, receivedKeys, receivedParts } = blockDiagnostics({
     goals: plan.goals, system, throughput, slack: lp.slack, supply: lp.supply, nodes, totalCaps, keySupplyUse: lp.keySupplyUse,
+    pairSupplied: flows.pairSupplied,
   })
   if (overconstrained) warnings.push(overconstrained)
   // Pins that cannot be met, or an unbounded objective, make the flows meaningless for this check.
@@ -1556,7 +1564,6 @@ export function solveAreaBlock(
   const cut = lp.feasible && lp.shortfall.size > 0 ? cutOffAreas() : []
   if (cut.length > 0) warnings.push({ type: 'area-cut-off', cutOffs: cut })
 
-  const flows = areaFlows(system, columns, throughput, areas, lp.dedicatedIn, lp.outside, areaItems, lp.feasible ? pairItems : new Set(), lp.pairs, lp.supply)
   const conversions = conversionsOf(system, throughput, a => areas[a].id)
   return {
     result: {
