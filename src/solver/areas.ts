@@ -923,7 +923,7 @@ function legRoutes(
  * in the table first) and moved to an outside leg into the receiver, `supplied` for the supply's part. A relay (c to a,
  * a to b) stays as two legs.
  */
-function pairItemRoutes(
+export function pairItemRoutes(
   itemId: string,
   areas: SolverArea[],
   outside: AreaOutside[],
@@ -954,8 +954,11 @@ function pairItemRoutes(
       const part = Math.min(excess, leg.rate)
       leg.rate -= part
       excess -= part
-      // Outside, through the area, back outside: nothing to add.
-      if (leg.to === undefined) continue
+      // Outside, through the area, back outside: the sink takes its part of the supply first, nothing to add.
+      if (leg.to === undefined) {
+        passing -= Math.min(passing, part)
+        continue
+      }
       const supplied = Math.min(passing, part)
       passing -= supplied
       const v = into.get(leg.to) ?? { rate: 0, supplied: 0 }
@@ -972,6 +975,16 @@ function pairItemRoutes(
   const all: ItemRoute[] = legs.filter(l => l.rate > tol)
   for (const [to, v] of into) all.push({ to, rate: v.rate })
   return legRoutes(itemId, areas, all, into)
+}
+
+/**
+ * What the LP drew from the connections for a pair item: the sum of its areas' supplies, however the supply is routed
+ * afterwards (an area's own take, a leg to another area, or out through its sink), unthresholded, at most the item's
+ * supply. Undefined when no area has a supply for it (the caller keeps the net-based figure).
+ */
+export function pairDrawn(outside: AreaOutside[], supply: number): number | undefined {
+  if (outside.length === 0 || supply <= 0) return undefined
+  return Math.min(supply, outside.reduce((sum, o) => sum + o.supply, 0))
 }
 
 /**
@@ -995,7 +1008,7 @@ function areaFlows(
   const dedicatedInOf = new Map(dedicatedIn.map(d => [`${d.area}\u0000${d.itemId}`, d.rate]))
   const solved: SolvedArea[] = areas.map(a => ({ areaId: a.id, receives: [], sends: [] }))
   const routes: AreaRoute[] = []
-  // A pair item's supplied outside legs into areas, summed: what the connections really delivered.
+  // A pair item's supply as the areas drew it (`pairDrawn`): what the connections really delivered.
   const pairSupplied = new Map<string, number>()
   // What leaves the solver names the base item and, for a split fluid, the tag.
   const tagged = (key: string): { itemId: string; temp?: FluidTag } => resultItem(system, key)
@@ -1056,7 +1069,8 @@ function areaFlows(
         pairItems.has(itemId) ? pairs.filter(p => p.itemId === itemId) : undefined,
       )
       if (pairItems.has(itemId)) {
-        pairSupplied.set(itemId, legs.reduce((sum, r) => r.from === undefined && r.to !== undefined ? sum + (r.supplied ?? 0) : sum, 0))
+        const drawn = pairDrawn(outsideOf.get(itemId) ?? [], supply.get(itemId) ?? 0)
+        if (drawn !== undefined) pairSupplied.set(itemId, drawn)
       }
       routes.push(...legs.map(r => ({ ...r, ...tagged(itemId) })))
       continue

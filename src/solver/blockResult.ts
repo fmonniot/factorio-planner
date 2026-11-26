@@ -427,7 +427,7 @@ export function blockDiagnostics(args: {
   totalCaps: Map<string, number>
   /** what each supplied key took from each connection (`LPResult.keySupplyUse`) */
   keySupplyUse?: { key: string; connectionId: string; offeredKey: string; value: number }[]
-  /** pair item → sum of the `supplied` of its outside legs into areas (area solve only); replaces the block-net deficit cap, which counts production stranded in a switched-off area */
+  /** pair item → what its areas drew from the connections (area solve only, `pairDrawn`); replaces the block-net deficit cap, which counts production stranded in a switched-off area */
   pairSupplied?: ReadonlyMap<string, number>
 }): BlockDiagnostics {
   const { goals, system, throughput: throughputMap, slack: slackMap, supply, nodes, totalCaps } = args
