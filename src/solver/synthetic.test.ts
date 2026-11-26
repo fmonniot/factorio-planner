@@ -3742,7 +3742,7 @@ describe('solver synthetic cases', () => {
         expect(JSON.stringify(r.warnings).includes(CART)).toBe(false)
       })
 
-      it('j: 3 carts offered on the default rule: the loop closes in part (derived by hand, measured when implemented)', () => {
+      it('j: 3 carts offered on the default rule: the loop closes in part (derived by hand)', () => {
         // x runs of filter-cart need cool-a = cool-b = x; the left-over is 1000 - 200x; at x = 3 the cost is 24.2 runs + 4000 against 20 + 10000 open.
         const { result, received } = solveBlock(
           flattenBlock(case28Block({ nodes: cartNodes(), rules: LOOP, connections: [CART] })), makeGameData(), new Map([[CART, 3]]),
@@ -3769,6 +3769,37 @@ describe('solver synthetic cases', () => {
         })
         expectClosedOnCarts(out.result, out.received)
         expect(calls, 'the area path runs more LPs').toBeGreaterThan(4)
+      })
+
+      it('m: a source that offers 3 of the 5 carts the loop wants (solveAll): the take is served 3 and nothing is left stale', () => {
+        // The request pass probes with an unlimited offer, so the left-over-driven take of 5 carts may go upstream as a request; the source can serve 3.
+        const source: Block = {
+          id: 'upstream',
+          name: 'Source',
+          color: '#60a5fa',
+          products: [{ id: 'ps', itemId: CART, extraRate: 3 }],
+          sourceRules: {},
+          inputConnections: [],
+          rootPlan: subPlan('root-up', [planNode('case28-make-cart', [], { pinnedRate: 3 })]),
+        }
+        const consumer: Block = { ...case28Block({ nodes: cartNodes(), rules: LOOP, connections: [CART] }), id: 'consumer' }
+        const all = solveAll([source, consumer], makeGameData())
+        const flow = all.flows.find(f => f.connectionId === 'c0')!
+        expect(flow.rate, 'received').toBeCloseTo(3, 3)
+        expect(nodeOf(all.results.upstream, 'case28-make-cart').throughput, 'source makes 3').toBeCloseTo(3, 3)
+        expect(nodeOf(all.results.consumer, 'case28-filter-cart').throughput).toBeCloseTo(3, 3)
+        expect(nodeOf(all.results.consumer, 'case28-brew').throughput).toBeCloseTo(5.2, 3)
+        expect(net(all.results.consumer, HOT)).toBeCloseTo(400, 3)
+        // The probe's take goes upstream as a request of 5 (kind 'request'), as the take of a hard need of 5 would: the pinned source is short by what
+        // it cannot make (5 requested + 3 extra - 3 made), the pin warns, and the consumer still gets the 3 the source serves.
+        expect(flow.kind).toBe('request')
+        expect(flow.requested).toBeCloseTo(5, 3)
+        expect(flow.status).toBe('ok')
+        const unsat = (r: SolverResult) => r.unsatisfied.find(u => u.itemId === CART)?.rate ?? 0
+        expect(unsat(all.results.consumer), 'no cart import').toBeCloseTo(0, 3)
+        expect(unsat(all.results.upstream), 'source short of what it was asked').toBeCloseTo(5, 3)
+        expect(all.results.upstream.warnings.map(w => w.type)).toEqual(['infeasible-pins'])
+        expect(JSON.stringify(all.results.consumer.warnings).includes(CART)).toBe(false)
       })
 
       it("l: a left-over no connection can lower: the result is today's", () => {

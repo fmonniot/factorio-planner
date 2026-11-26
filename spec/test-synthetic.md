@@ -1364,6 +1364,7 @@ Plain made-up ids, every recipe 1 s. `use` turns 100 coolant into 1 P and 100 ho
 | j | as e, 3 carts offered (default rule) | use 10, cool-a 3, cool-b 3, filter-cart 3, brew 5.2; 3 carts received; 400 hot left over; warm and cold net 0 |
 | k | as e with `use` in an area of its own, the rest at the root | as e (5 carts received); more than 4 LP calls (the area path) |
 | l | as i with 100 coolant offered by a connection (default rule) | as i; no coolant received; 1000 hot left over; 3 LP calls |
+| m | as j through `solveAll`: an upstream block pinned at 3 carts (extra 3) feeds the connection | the flow is a request of 5 (the probe's take) and is served 3 (`ok`); consumer as j with no cart import; upstream short by 5 (5 asked + 3 extra - 3 made) with `infeasible-pins`, as for any short pinned source |
 | g | goals 10 P and 40 Q, `twin` and `make-q`, no rule | twin 20, make-q 0 (20 runs); P net 20 (10 over its goal) |
 | h | as g, Leftover off on P | twin 10, make-q 20 (30 runs); P net 10 |
 
@@ -1374,7 +1375,7 @@ c: hot is priced, warm is not: cool-a turns the 1000 hot into warm (5 runs, 10,0
 e: the loop needs 5 carts. Pass 1 and pass 2 leave it open (1000 hot left over, no import), the gate opens on the left-over, and the least-received step prices a cart at 1 against 10 per unit of left-over: the loop costs 27 runs and 5 carts, against 20 runs + 10,000. 1 pass + 3 steps = 4 LP calls.
 f: Receive it first supplies the 5 carts at no cost in every pass, so the loop costs 27 runs against 20 + 10,000 at once; the gate stays shut (1 LP call).
 i: nothing offers a cart and make-cart is pinned at 0: the loop cannot close; the cart is not imported either (the left-over is cheaper than the import), so the result is a's.
-j (derived by hand, measured when implemented): x runs of filter-cart need x each of cool-a and cool-b, and x carts; the left-over is 1000 − 200x. At x = 3 the cost is 24.2 runs (10 use, 3 + 3 + 3, 5.2 brew) + 4000, against 20 + 10,000 open: the 3 carts offered are all taken, and the loop closes in part.
+j (derived by hand): x runs of filter-cart need x each of cool-a and cool-b, and x carts; the left-over is 1000 − 200x. At x = 3 the cost is 24.2 runs (10 use, 3 + 3 + 3, 5.2 brew) + 4000, against 20 + 10,000 open: the 3 carts offered are all taken, and the loop closes in part.
 k: the same as e, solved on the area LP (the left-over of the block row of hot is what the gate reads).
 l: the coolant connection only replaces brew; it cannot lower the hot left-over, so the gate opens on the left-over, step 2 (nothing to gain) and step 3 (left-over still 1000) end it: 1 + 2 = 3 LP calls, today's result.
 g, h (derived by hand, not measured): with t twin runs, the cost of h is t + max(0, 40 − 2t) + 10 (t − 10) = 9t − 60 for t ≤ 20, minimal at t = 10 (30 runs); at t = 20 it is 120.

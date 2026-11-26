@@ -1343,15 +1343,15 @@ export function solveAreaBlock(
 
   /**
    * The order of connectionOrder.ts on the area LP: when the passes end with an import (a slack at BIG_M, per area for an
-   * area item), or with a left-over of an item with Leftover off, while a default-rule connected intermediate has offer to
-   * spare, measure the least import with every such
-   * supply capped by the offer, then the least received at that import, then solve both stages with the two sums
-   * bounded. As on the plain path, a Don't make more here item or area has no supply in steps 2 and 3 and gets it back in
-   * a refill of the fill (capped at the slack the fill left it), and a locked connected item (plain, or per area) whose
-   * step-3 slack is 0 is locked again in the fill. With no import to lower, a result is taken only if its left-over total
-   * falls by more than the noise (`improvesLeftover`). Undefined: today's result stands. The retry and the "is a
-   * gain" tests are shared with the plain path (connectionOrder.ts); the gate and the steps stay two copies, because
-   * each solves a different model (one mutable LP there, `solveAreaLP`'s two stages here).
+   * area item), or with a left-over of an item with Leftover off, while a default-rule connected intermediate has offer
+   * to spare, measure the least import with every such supply capped by the offer, then the least received at that
+   * import, then solve both stages with the two sums bounded. As on the plain path, a Don't make more here item or area
+   * has no supply in steps 2 and 3 and gets it back in a refill of the fill (capped at the slack the fill left it), and
+   * a locked connected item (plain, or per area) whose step-3 slack is 0 is locked again in the fill. With no import to
+   * lower, a result is taken only if its left-over total falls by more than the noise (`improvesLeftover`). Undefined:
+   * today's result stands. The retry and the "is a gain" tests are shared with the plain path (connectionOrder.ts); the
+   * gate and the steps stay two copies, because each solves a different model (one mutable LP there, `solveAreaLP`'s two
+   * stages here).
    */
   const areaConnectionOrder = (today: AreaLPResult): AreaLPResult | undefined => {
     if (!today.feasible || today.shortfall.size > 0 || hasUnreliableRates(today.warnings)) return undefined

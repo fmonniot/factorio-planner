@@ -1,7 +1,7 @@
 import type { ClassifiedSystem } from './build'
 import { FLOW_TOLERANCE, itemGrossFlow, surplusTolerance, type KeySupplyPlan } from './blockResult'
 import { fluidSupply, itemKeys } from './flowKeys'
-import { BIG_M, hasUnreliableRates, LEFTOVER_COST, buildLPModel, readLPResult, runLP, type LPModel, type LPResult } from './solve'
+import { BIG_M, hasUnreliableRates, LEFTOVER_COST, SLACK_TOLERANCE, buildLPModel, readLPResult, runLP, type LPModel, type LPResult } from './solve'
 
 // ---------------------------------------------------------------------------
 // A connection replaces an import (sourcing priority phase 6)
@@ -105,6 +105,16 @@ function tag(lp: LPModel, names: Iterable<string>, attr: string): void {
   for (const name of names) lp.variables[name][attr] = 1
 }
 
+/** The left-over a step's solution leaves over, counted as `readLPResult` counts it (entries above `SLACK_TOLERANCE`), so it compares with `totalLeftover(today)`. */
+function leftoverOf(result: Record<string, unknown>, names: Iterable<string>): number {
+  let total = 0
+  for (const name of names) {
+    const v = result[name]
+    if (typeof v === 'number' && v > SLACK_TOLERANCE) total += v
+  }
+  return total
+}
+
 function sumOf(result: Record<string, unknown>, names: Iterable<string>): number {
   let total = 0
   for (const name of names) {
@@ -158,9 +168,10 @@ export function improvesImport(least: number, todayImport: number): boolean {
  * block with no import but such a left-over takes a connection when that lowers the left-over. Limit: a loop
  * that needs more than 10 received units per left-over unit it avoids stays open on the default rule.
  *
- * LP solves: step 2 alone when it finds no gain and there is no left-over (1); steps 2 and 3 when step 3 does not
- * lower the left-over (2); otherwise steps 2 to 4 (3), plus 1 for a refill, plus 1 per bounded step that is
- * retried (at most 7). A retry has not been seen on any test fixture. Runs may rise: no objective guard.
+ * LP solves: step 2 alone when it finds no gain and there is no left-over above its floor (1); steps 2 and 3 when
+ * step 3 does not lower the left-over (2); otherwise steps 2 to 4 (3), plus 1 for a refill, plus 1 per bounded step
+ * that is retried (at most 7). When steps 2 to 4 all run with no import gain and the final left-over check rejects
+ * the fill's result, today's result is returned after those 3 solves (4 with a refill). A retry has not been seen on any test fixture. Runs may rise: no objective guard.
  *
  * Returns undefined when today's result stands: no smaller import and no smaller left-over, or a step is infeasible.
  */
@@ -228,7 +239,7 @@ export function connectionOrder(input: ConnectionOrderInput): LPResult | undefin
   })
   if (!step3) return undefined
   const leastReceived = sumOf(step3, defaultSupplies)
-  if (!lowerImport && !improvesLeftover(sumOf(step3, lp.itemToLeftover.values()), todayLeft)) return undefined
+  if (!lowerImport && !improvesLeftover(leftoverOf(step3, lp.itemToLeftover.values()), todayLeft)) return undefined
 
   // Step 4: fill, both totals bounded, today's objective.
   tag(lp, defaultSupplies, '__reccap')
