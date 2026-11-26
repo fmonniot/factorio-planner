@@ -34,7 +34,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 Follow-ups of the [surplus rule initiative](archive/surplus-rule/plan.md), which shipped (the Leftover switch, solver and player-facing).
 
 - [ ] **The connection order for a leftover.** A loop that needs an input a connection offers stays open under the default rule: pass 1 prices that input as an import and the residual leaves no room for the loop, so the player must set the input to *Receive it first* (synthetic case 28, rows e and f). Open the gate of `needsConnectionOrder` also when an item with Leftover off is still left over and a default-rule connection has offer left, so that the least-received step, which carries the price, takes the input the loop needs.
-- [ ] **A Leftover rule per area.** The rule is the block's alone; at area scope the control shows it read-only. Add an area-level rule if a plan needs an area that loops its own item while the block's other areas may leave it over.
 
 ## Planning features
 
