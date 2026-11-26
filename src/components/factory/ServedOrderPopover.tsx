@@ -18,7 +18,9 @@ import { TIPPED_LABEL_CLASS, describedTip, tippedLabel } from '../tipProps'
 
 /** The drag type of a line. */
 const DRAG_TYPE = 'application/x-served-line'
-export const NOT_CREDITED_HINT = 'No credit\nIt is served from what the others leave over, not by its rank.'
+export const NOT_CREDITED_HINT = 'No credit\nIt is served from what the others leave over.'
+/** The same for a line the stored list ranks: its rank was not used. */
+export const RANKED_NOT_CREDITED_HINT = 'No credit\nIt is served from what the others leave over, not by its rank.'
 
 /** The title of the `list order` badge. */
 export const LIST_ORDER_HINT =
@@ -312,7 +314,7 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
         <span data-testid="served-short" className="font-mono tabular-nums text-amber-300">short {amount(line.short)}</span>
       )}
       {line.notCredited && (
-        <span data-testid="served-not-credited" role="img" aria-label="no credit" {...describedTip(NOT_CREDITED_HINT)} className="rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">no credit</span>
+        <span data-testid="served-not-credited" role="img" aria-label="no credit" {...describedTip(stored !== undefined && line.rank > 0 ? RANKED_NOT_CREDITED_HINT : NOT_CREDITED_HINT)} className="rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">no credit</span>
       )}
       {line.group?.listOrder && (
         <span data-testid="served-list-order" role="img" aria-label="list order" {...describedTip(LIST_ORDER_HINT)} className="rounded bg-amber-900/40 px-1 text-[10px] text-amber-300">list order</span>

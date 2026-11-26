@@ -64,3 +64,15 @@ describe('warningTargets of an unbounded-source warning', () => {
     expect(warningTargets(w, plan(row('n1', 'turbine')), gameData, name, undefined, links)).toEqual(expected)
   })
 })
+
+describe('warningTargets of a take-credits-not-settled warning', () => {
+  const w: SolverWarning = {
+    type: 'take-credits-not-settled',
+    takes: [{ itemId: 'a', fromBlockId: 'boilers' }, { itemId: 'b', fromBlockId: 'boilers' }, { itemId: 'c', fromBlockId: 'self' }],
+  }
+  const expected = [{ kind: 'block', label: 'Go to Boilers', blockId: 'boilers' }]
+  it('links each source block except the open one, with or without a plan', () => {
+    expect(warningTargets(w, undefined, gameData, name, 'self', links)).toEqual(expected)
+    expect(warningTargets(w, plan(row('n1', 'turbine')), gameData, name, 'self', links)).toEqual(expected)
+  })
+})

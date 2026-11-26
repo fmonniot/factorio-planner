@@ -155,6 +155,38 @@ describe('WarningsPopover — request-loop-not-converged', () => {
 })
 
 // ---------------------------------------------------------------------------
+// take-credits-not-settled
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — take-credits-not-settled', () => {
+  beforeEach(() => {
+    useBlockStore.setState({
+      blocks: [{ ...makeEmptyBlock('Plates'), id: 'p' }, { ...makeEmptyBlock('Gears'), id: 'g' }],
+      activeBlockId: 'g',
+    })
+    setupWithWarnings({ warnings: [{ type: 'take-credits-not-settled', takes: [{ itemId: 'iron-plate', fromBlockId: 'p' }] }] })
+    render(<WarningsPopover />)
+    openPopover()
+  })
+
+  it('shows the title', () => {
+    expect(screen.getByText(/Take counted as 0/)).toBeInTheDocument()
+  })
+
+  it('names the item and the source', () => {
+    expect(screen.getByText(/The credit of the Iron Plate this block takes from Plates did not settle, so it counts as 0 here\. The block asks its other sources for all it needs, and what Plates leaves over may stay unused\./)).toBeInTheDocument()
+  })
+
+  it('hint suggests limiting or removing the take', () => {
+    expect(screen.getByText(/Put a limit on the take, or remove it/)).toBeInTheDocument()
+  })
+
+  it('is not critical', () => {
+    expect(screen.getByText(/Take counted as 0/).className).toContain('text-yellow-400')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // no-fitting-temperature
 // ---------------------------------------------------------------------------
 

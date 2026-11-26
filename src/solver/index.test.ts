@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { parseAppState } from '../data/loader'
-import { solve, productGoals, solveBlock, solveAll, creditsSettled, nextCreditSeeds, markUnboundedSources, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance, trimConsumedSurplus, withShortNeeds } from './index'
+import { solve, productGoals, solveBlock, solveAll, creditsSettled, unsettledCredits, nextCreditSeeds, markUnboundedSources, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance, trimConsumedSurplus, withShortNeeds } from './index'
 import { coproductDrivenWarning, itemGrossFlow, pass2Plan } from './blockResult'
 import type { LoopShape } from './blockGraph'
 import type { FlowKeys } from './build'
@@ -1975,6 +1975,8 @@ describe('solveAll — requests', () => {
       expect(flowOf(all, 'ca').requested).toBeCloseTo(10, 4)
       expect(throughput(all, 'T')).toBeCloseTo(40, 4)
       expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
+      for (const id of ['T', 'A', 'B']) expect(all.results[id].warnings.some(w => w.type === 'take-credits-not-settled'), id).toBe(false)
+      expect(all.served.T.plate.consumers.find(c => c.blockId === 'B')).not.toHaveProperty('notCredited')
     })
     it('keeps the first pass when the credit passes are cut short', () => {
       const { data, byId } = slagTwin()
@@ -1984,6 +1986,46 @@ describe('solveAll — requests', () => {
       expect(flowOf(all, 'ca').requested).toBeCloseTo(50, 4)
       // T's slag goals: 20 of its own + 10 for cs + 50 for ca, one slag per twin run.
       expect(throughput(all, 'T')).toBeCloseTo(80, 4)
+      expect(all.results.B.warnings).toContainEqual({ type: 'take-credits-not-settled', takes: [{ itemId: 'plate', fromBlockId: 'T' }] })
+      for (const id of ['T', 'A']) expect(all.results[id].warnings.some(w => w.type === 'take-credits-not-settled'), id).toBe(false)
+      const line = all.served.T.plate.consumers.find(c => c.blockId === 'B')!
+      expect(line.notCredited).toBe(true)
+      expect(line.share).toBeCloseTo(0, 4)
+    })
+    it('names a take once when the block has two takes of the item from the same source, as the line is flagged once', () => {
+      const { data, byId } = slagTwin()
+      byId.B = { ...byId.B, inputConnections: [...byId.B.inputConnections, link('ct3', 'T', 'plate')] }
+      const all = solveAll([byId.T, byId.A, byId.B], data, undefined, { creditPassLimit: 3 })
+      const lines = all.served.T.plate.consumers.filter(c => c.blockId === 'B')
+      expect(lines).toHaveLength(1)
+      const flagged = lines[0].notCredited === true
+      const warned = all.results.B.warnings.some(w => w.type === 'take-credits-not-settled')
+      expect(warned).toBe(flagged)
+      expect(warned).toBe(true)
+    })
+    it('settles within the credit pass limit once the take has a limit (what the warning hint advises)', () => {
+      const { data, byId } = slagTwin()
+      byId.B = { ...byId.B, inputConnections: byId.B.inputConnections.map(c => (c.id === 'ct' ? { ...c, maxRate: 5 } : c)) }
+      const all = solveAll([byId.T, byId.A, byId.B], data, undefined, { creditPassLimit: 3 })
+      const warned = all.results.B.warnings.some(w => w.type === 'take-credits-not-settled')
+      expect(warned).toBe(false)
+      expect(flowOf(all, 'ct').rate).toBeCloseTo(5, 4)
+    })
+    it('keeps result identity between solves cut short, and does not leak the warning to a settled solve', () => {
+      const { data, byId } = slagTwin()
+      const cache = createSolveCache()
+      const tabs = () => [byId.T, byId.A, byId.B]
+      const first = solveAll(tabs(), data, cache, { creditPassLimit: 3 })
+      const second = solveAll(tabs(), data, cache, { creditPassLimit: 3 })
+      expect(second.results.B).toBe(first.results.B)
+      const settled = solveAll(tabs(), data, cache)
+      expect(settled.results.B.warnings.some(w => w.type === 'take-credits-not-settled')).toBe(false)
+    })
+    it('lists the flushed takes whose credit differs from the settled one', () => {
+      expect(unsettledCredits(new Map())).toEqual([])
+      expect(unsettledCredits(new Map([['a', { credit: 5, settled: 5 }], ['b', { credit: 0, settled: 0 }]]))).toEqual([])
+      expect(unsettledCredits(new Map([['a', { credit: 5, settled: 5 }], ['b', { credit: 0, settled: 30 }]]))).toEqual(['b'])
+      expect(unsettledCredits(new Map([['a', { credit: 30, settled: 5 }]]))).toEqual([]) // credited more than it would have had: it does not count as 0
     })
 
     it('seeds the next credit pass: the settled credit first, then a secant step', () => {

@@ -70,6 +70,10 @@ export function warningTargets(
   connections: readonly ConnectionLink[] = [],
 ): WarningTarget[] {
   if (w.type === 'unbounded-source') return w.blockIds.filter(id => id !== activeBlockId).map(id => ({ kind: 'block', label: `Go to ${blockName(id)}`, blockId: id }))
+  if (w.type === 'take-credits-not-settled') {
+    const ids = [...new Set(w.takes.map(t => t.fromBlockId))]
+    return ids.filter(id => id !== activeBlockId).map(id => ({ kind: 'block', label: `Go to ${blockName(id)}`, blockId: id }))
+  }
   if (w.type === 'loop-not-converged' || w.type === 'request-loop-not-converged') {
     // The block that is open already shows its own rows: a link to it would do nothing.
     return w.blockIds.filter(id => id !== activeBlockId).map(id => ({ kind: 'block', label: `Go to ${blockName(id)}`, blockId: id }))
