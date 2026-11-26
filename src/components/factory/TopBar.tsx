@@ -17,8 +17,8 @@ export function TopBar() {
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           <AddBlockButton />
-          <HorizonButton />
           <BlockGraphButton />
+          <HorizonButton />
           <TechTreeButton />
           {hasGameData && <div aria-hidden className="w-px h-5 bg-gray-700 mx-1.5" />}
           <WorkspaceMenu />

@@ -219,14 +219,14 @@ test('the add-block button is a tool button: 32px, in the tool row, with the too
     const add = rect('Add block'), horizon = rect('Horizon: none'), graph = rect('Factory overview')
     return {
       size: [add.width, add.height],
-      gapToHorizon: horizon.left - add.right,
-      gapBetweenTools: graph.left - horizon.right,
+      gapToOverview: graph.left - add.right,
+      gapBetweenTools: horizon.left - graph.right,
       centreY: [add.top + add.height / 2, horizon.top + horizon.height / 2],
     }
   })
   const g = await geometry()
   expect(g.size).toEqual([32, 32])
-  expect(g.gapToHorizon, 'as far from Horizon as the tools are from each other').toBe(g.gapBetweenTools)
+  expect(g.gapToOverview, 'as far from the factory overview as the tools are from each other').toBe(g.gapBetweenTools)
   expect(g.centreY[0]).toBe(g.centreY[1])
   // It is a tool button: after the tabs, with no "+" glyph left among them.
   expect((await addBlockButton(page).boundingBox())!.x).toBeGreaterThan((await tabButton(page, 'Iron coils').boundingBox())!.x + 400)
