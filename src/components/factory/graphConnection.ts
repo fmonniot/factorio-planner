@@ -1,12 +1,13 @@
 import { useUiStore } from '../../store/uiStore'
 import { useSolverStore } from '../../store/solverStore'
+import { useBlockStore } from '../../store/blockStore'
 import { fmtFluidTag } from '../../data/flowKey'
 import { FLOW_TOLERANCE } from '../../solver/index'
 import { servedListOf } from '../../data/servedEntries'
 import { fmtItemRateText, inputRateUnit } from './ItemTile'
 import { cappedTitle, cappingLimit, REQUEST_IGNORED_TITLE } from './summarySegments'
 import { fmtPartTemp } from './temperature'
-import { lineName, servedLines, splitServed } from './servedOrder'
+import { areaExistsIn, lineName, servedLines, splitServed } from './servedOrder'
 import type { Block, ConnectionFlow, ConnectionPart, GameData, Item } from '../../data/types'
 
 // What the block graph knows about one connection: shared by the chip lists and the detail strip.
@@ -71,6 +72,7 @@ export function useConnectionDetail({ connectionId: id, edge, source, target, fl
   const connection = target?.inputConnections.find(c => c.id === id)
   // Only the (source, item) list of this connection, so a solve that changes another list does not re-render it.
   const servedList = useSolverStore(s => (source && connection ? s.served[source.id]?.[connection.itemId] : undefined))
+  const blocks = useBlockStore(s => s.blocks)
   const sourceName = source?.name ?? edge.from
   const targetName = target?.name ?? edge.to
   if (!connection) return null
@@ -83,7 +85,7 @@ export function useConnectionDetail({ connectionId: id, edge, source, target, fl
   // The rank this connection's block has in the source's served list for the item; none while the source has no stored list
   // for it, or while the list does not name the block (the chip then says nothing, as the list's divider does).
   const stored = source ? servedListOf(source, connection.itemId) : undefined
-  const ranked = stored && servedList ? splitServed(servedLines(servedList, connection.itemId, rateUnit), stored).ranked : []
+  const ranked = stored && servedList ? splitServed(servedLines(servedList, connection.itemId, rateUnit), stored, areaExistsIn(blocks)).ranked : []
   const mine = ranked.filter(l => l.blockId === target?.id) // ranked order: ranks never decrease, so the first is the best
   const line = mine[0]
   const rank = line?.rank

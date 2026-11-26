@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Block, ServedConsumer, ServedEntry, ServedList } from '../../data/types'
 import { makeEmptyBlock, makeEmptySubPlan } from '../../store/blockStore'
-import { dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, insertionIndex, isTiedLine, lineKey, lineName, moveTarget, placement, servedLines, splitServed, underIn, unrankedCount } from './servedOrder'
+import { dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, insertionIndex, isTiedLine, lineKey, lineName, moveTarget, placement, servedLines, splitServed, underIn, unrankedCount, areaExistsIn } from './servedOrder'
 
 const c = (blockId: string, kind: 'request' | 'take', share: number, got: number): ServedConsumer =>
   ({ blockId, connectionId: `c-${blockId}`, kind, share, got })
@@ -122,6 +122,16 @@ describe('splitServed', () => {
 
   it('counts a consumer named only by an area entry as unranked', () => {
     expect(unrankedCount(servedLines(list(), 'plate', 'min'), [{ kind: 'block', blockId: 'b', areaId: 'x' }, blk('c'), blk('d'), { kind: 'extra' }])).toBe(1)
+  })
+
+  it('ranks and counts with the same predicate the popover uses, so the summary and the graph agree with it', () => {
+    const entries: ServedEntry[] = [{ kind: 'block', blockId: 'b', areaId: 'z' }, { kind: 'block', blockId: 'c', tied: true }, blk('d')]
+    const lines = servedLines(list(), 'plate', 'min')
+    const has = (blockId: string, areaId: string) => blockId === 'b' && areaId === 'z'
+    // with the area existing, c and d keep the places the popover shows (c shares b's place, d is second)
+    expect(splitServed(lines, entries, has).ranked.map(l => [l.blockId, l.rank])).toEqual([['c', 1], ['d', 2]])
+    expect(unrankedCount(lines, entries, has)).toBe(splitServed(lines, entries, has).unranked.length)
+    expect(areaExistsIn([])('b', 'z')).toBe(false)
   })
 
   it('counts what the stored list does not rank', () => {

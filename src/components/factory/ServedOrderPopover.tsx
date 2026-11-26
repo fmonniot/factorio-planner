@@ -6,8 +6,7 @@ import type { RateUnit } from '../../store/uiStore'
 import { fmtItemRateText } from './ItemTile'
 import { MINI_BUTTON_CLASS } from './Switch'
 import { useDismiss, useEscapeLayer } from './sidePanel/useDismiss'
-import { blockAreas } from '../../solver/areas'
-import { dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, isTiedLine, lineKey, lineName, moveTarget, placement, servedLines, splitServed, underIn, type DropZone, type ServedLine } from './servedOrder'
+import { dropPlace, dropZone, entryOf, fmtPercent, hasServedOrder, isTiedLine, lineKey, lineName, moveTarget, placement, servedLines, splitServed, areaExistsIn, underIn, type DropZone, type ServedLine } from './servedOrder'
 import { TIPPED_LABEL_CLASS, describedTip, tippedLabel } from '../tipProps'
 
 // ---------------------------------------------------------------------------
@@ -128,10 +127,7 @@ export function ServedOrderPopover({ itemId, list, items, blocks, rateUnit, stor
   const amount = (perMin: number) => fmtItemRateText(itemId, perMin / 60, rateUnit)
   const lines = servedLines(list, itemId, rateUnit)
   // An area that exists but needs nothing has no line; the solver still counts its entry in its group, so the lines do too.
-  const hasArea = (blockId: string, areaId: string) => {
-    const root = blocks.find(b => b.id === blockId)?.rootPlan
-    return root !== undefined && (blockAreas(root)?.some(a => a.id === areaId) ?? false)
-  }
+  const hasArea = areaExistsIn(blocks)
   const { ranked, unranked } = splitServed(lines, stored, hasArea)
   const nameOf = (line: ServedLine) => lineName(line, blocks.find(b => b.id === line.blockId))
 

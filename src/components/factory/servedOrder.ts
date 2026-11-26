@@ -4,6 +4,7 @@ import { dropServedEntries, expandServedAreas, groupPercents, servedEntryKey, se
 import type { ServedPlace } from '../../data/servedEntries'
 import type { RateUnit } from '../../store/uiStore'
 import { isShortfall } from './summarySegments'
+import { blockAreas } from '../../solver/areas'
 
 /** A line's group: how many lines share its place, its index among them, its percentage and whether the solver served the group in list order. */
 export interface ServedLineGroup { size: number; index: number; percent: number; listOrder: boolean }
@@ -105,6 +106,14 @@ export function insertionIndex(order: readonly ServedEntry[], before: ServedEntr
   return i < 0 ? order.length : i
 }
 
+/** The `hasArea` predicate of `splitServed` over the plan's blocks: whether the block's plan has an area with that id, even one that needs nothing. */
+export function areaExistsIn(blocks: readonly Block[]): (blockId: string, areaId: string) => boolean {
+  return (blockId, areaId) => {
+    const root = blocks.find(b => b.id === blockId)?.rootPlan
+    return root !== undefined && (blockAreas(root)?.some(a => a.id === areaId) ?? false)
+  }
+}
+
 export interface ServedSections {
   /** a list is stored: the ranked lines are the list, the rest is not ranked */
   hasList: boolean
@@ -148,11 +157,13 @@ export function splitServed(
   }
   const seen = new Set<string>()
   const used = new Set<string>()
+  const linesByEntry = new Map<ServedEntry, ServedLine[]>() // each stored entry's lines, computed once
   // the solver's own stale rule: a stale or repeated entry goes, a removed head promotes its first follower
   const kept = dropServedEntries(stored, e => {
     const key = servedEntryKey(e)
     const repeat = seen.has(key)
     const mine = repeat ? [] : linesOf(e)
+    linesByEntry.set(e, mine)
     seen.add(key)
     if (mine.length === 0) return repeat || !(e.kind === 'block' && e.areaId !== undefined && hasArea?.(e.blockId, e.areaId) === true)
     mine.forEach(l => used.add(lineKey(l)))
@@ -163,7 +174,7 @@ export function splitServed(
   for (const [start, end] of servedGroupSpans(kept)) {
     const members = kept.slice(start, end)
     const percents = groupPercents(members)
-    const covered = members.map(linesOf)
+    const covered = members.map(e => linesByEntry.get(e) ?? linesOf(e))
     const visible = covered.flatMap((ls, i) => (ls.length > 0 ? [i] : [])) // members that have a line; the rest need nothing
     if (visible.length === 0) continue
     place++
@@ -183,8 +194,12 @@ export function splitServed(
 }
 
 /** How many of the lines the stored list does not rank (0 without a stored list). */
-export function unrankedCount(lines: readonly ServedLine[], stored: readonly ServedEntry[] | undefined): number {
-  return stored === undefined ? 0 : splitServed(lines, stored).unranked.length
+export function unrankedCount(
+  lines: readonly ServedLine[],
+  stored: readonly ServedEntry[] | undefined,
+  hasArea?: (blockId: string, areaId: string) => boolean,
+): number {
+  return stored === undefined ? 0 : splitServed(lines, stored, hasArea).unranked.length
 }
 
 /** Where `entry` goes in the store's terms when dropped before `before` (null: last): an insertion index into the current list, and the order shown for a block with no list. */
