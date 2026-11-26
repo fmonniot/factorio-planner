@@ -56,6 +56,7 @@ test.describe('block graph matrix, 15 blocks', () => {
     const modal = (await page.getByTestId('modal-panel').boundingBox())!
     const pane = (await scroll.boundingBox())!
     const table = (await page.locator('table').boundingBox())!
+    expect(table.width, 'the grid takes the pane\'s width, less its padding').toBeGreaterThan(pane.width - 32)
     expect(table.x).toBeGreaterThanOrEqual(modal.x - 0.5)
     expect(table.x + table.width).toBeLessThanOrEqual(modal.x + modal.width + 0.5)
     const heads = page.getByTestId('matrix-col-head')
