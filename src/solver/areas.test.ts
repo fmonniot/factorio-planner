@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import solver from 'javascript-lp-solver'
 import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveAll, solveBlock, flattenBlock, surplusTolerance } from './index'
-import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker, areaRuleOf, areaLPItems } from './areas'
+import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker, areaRuleOf, areaLPItems, pairItemRoutes, pairDrawn } from './areas'
 import { outsideLegParts } from './areaRoutes'
 import { canonicalAreas, createSolveCache, exactKey, planKey, sourcingKey } from './solveCache'
 import { coproductDrivenWarning } from './blockResult'
@@ -1704,5 +1704,41 @@ describe('areaLPItems and outsideLegParts', () => {
     expect(outsideLegParts(leg(12, 5), { importOff: true })).toEqual({ received: 5, imported: 0, missing: 7 })
     expect(outsideLegParts(leg(12), { importOff: true })).toEqual({ received: 0, imported: 0, missing: 12 })
     expect(outsideLegParts(leg(12, 12), { importOff: true })).toEqual({ received: 12, imported: 0, missing: 0 })
+  })
+})
+
+describe('a pair item: supply that passes through an area', () => {
+  const areas = [{ id: 'A', nodeIds: [] }, { id: 'B', nodeIds: [] }]
+  const tol = 1e-6
+  const rcv = (area: number, rate: number) => ({ area, rate, restricted: false, dedicatedIn: 0, tol })
+  const outsideA = [{ itemId: 'x', area: 0, slack: 20, supply: 20 }]
+
+  it('the sink takes its part of the passing supply first: B is not credited what the sink swallowed', () => {
+    // A: slack 20, supply 20, takes 10, so 30 passes through (10 of it supply). A's legs are the sink 25 and B 5.
+    const routes = pairItemRoutes(
+      'x', areas, outsideA, [], [rcv(0, 10), rcv(1, 5)],
+      [{ itemId: 'x', from: 0, rate: 25 }, { itemId: 'x', from: 0, to: 1, rate: 5 }],
+    )
+    const toB = routes.find(r => r.from === undefined && r.to === 'B')
+    expect(toB?.rate).toBeCloseTo(5, 6)
+    expect(toB?.supplied ?? 0, 'the sink took the supply that passes').toBeCloseTo(0, 6)
+    expect(routes.find(r => r.from === undefined && r.to === 'A')?.supplied).toBeCloseTo(10, 6)
+  })
+
+  it('what the sink leaves of the passing supply is credited to B', () => {
+    // Sink 5 of the 30, B 25: 5 of the 10 supply goes to the sink, 5 reaches B.
+    const routes = pairItemRoutes(
+      'x', areas, outsideA, [], [rcv(0, 10), rcv(1, 25)],
+      [{ itemId: 'x', from: 0, rate: 5 }, { itemId: 'x', from: 0, to: 1, rate: 25 }],
+    )
+    expect(routes.find(r => r.from === undefined && r.to === 'B')?.supplied).toBeCloseTo(5, 6)
+  })
+
+  it('pairDrawn counts the whole supply the areas drew, sink or not, capped by the item supply', () => {
+    const o = [{ itemId: 'x', area: 0, slack: 0, supply: 50 }, { itemId: 'x', area: 1, slack: 0, supply: 1e-9 }]
+    expect(pairDrawn(o, 50)).toBeCloseTo(50, 6)
+    expect(pairDrawn(o, 30)).toBe(30)
+    expect(pairDrawn([], 50)).toBeUndefined()
+    expect(pairDrawn(o, 0)).toBeUndefined()
   })
 })

@@ -427,6 +427,8 @@ export function blockDiagnostics(args: {
   totalCaps: Map<string, number>
   /** what each supplied key took from each connection (`LPResult.keySupplyUse`) */
   keySupplyUse?: { key: string; connectionId: string; offeredKey: string; value: number }[]
+  /** pair item → what its areas drew from the connections (area solve only, `pairDrawn`); replaces the block-net deficit cap, which counts production stranded in a switched-off area */
+  pairSupplied?: ReadonlyMap<string, number>
 }): BlockDiagnostics {
   const { goals, system, throughput: throughputMap, slack: slackMap, supply, nodes, totalCaps } = args
 
@@ -540,7 +542,7 @@ export function blockDiagnostics(args: {
     const deficit = Math.max(0, -(itemSurplus.get(itemId) ?? 0))
     // Charged whatever the LP used, even a deficit within the noise of the flow: the source's
     // bookkeeping must match the supply the block actually drew.
-    const fromSupply = Math.min(supply.get(itemId) ?? 0, deficit)
+    const fromSupply = args.pairSupplied?.get(itemId) ?? Math.min(supply.get(itemId) ?? 0, deficit)
     if (fromSupply > FLOW_TOLERANCE) addReceived(itemId, fromSupply)
     // A supplied key: each connection delivered its part of what the key took.
     if (isSuppliedKey(system, itemId) && fromSupply > FLOW_TOLERANCE) {
