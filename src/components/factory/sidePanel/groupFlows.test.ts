@@ -38,6 +38,16 @@ describe('flowLines', () => {
     { itemId: 'plastic', from: 'a', to: undefined, rate: 5 },
   ]
 
+  it('a relay area has no line of its own', () => {
+    const relay = [
+      { itemId: 'plate', from: 'c', to: 'a', rate: 12 },
+      { itemId: 'plate', from: 'a', to: 'b', rate: 12 },
+    ]
+    const nameTo = (id: string | undefined) => `${id}`
+    expect(flowLines([{ itemId: 'plate', rate: 12, boundary: false }], relay, 'c', 'sends', nameTo)[0].ends).toMatchObject([{ otherEnd: 'to a', rate: 12 }])
+    expect(flowLines([{ itemId: 'plate', rate: 12, boundary: false }], relay, 'b', 'receives', nameTo)[0].ends).toMatchObject([{ otherEnd: 'from a', rate: 12 }])
+  })
+
   it('names where a received item comes from', () => {
     const lines = flowLines([{ itemId: 'gas', rate: 40, boundary: false }], routes, 'a', 'receives', nameOf)
     expect(lines).toMatchObject([{ itemId: 'gas', rate: 40, otherEnd: 'from Oil, the rest of the block' }])
