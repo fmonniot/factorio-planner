@@ -1039,7 +1039,7 @@ Sections in order, each a `section` with a heading:
 
    **Empty states.** An item with no line reads a short line (`input-empty`, `data-state`): "Not solved yet." before a solve (`unsolved`), "Nothing needed." when the item's need is 0, as for a row that runs no machines (`idle`), "Nothing supplies it." when something is needed and nothing supplies it (`none`). The icons and the button stay.
 
-   **Text equivalent.** The Sources… button points (`aria-describedby`) at a visually hidden sentence (`input-reading`, `sr-only`; the entry itself does not, so it is read once): the model's reading on one line, "Made by more rows here: 120/m." or, for an area's own rule, "Line: Made by more rows here: 70/m, Imported: 10/m.". At an area's own rule the sentence names every connection that reaches the area with its share, in the same way.
+   **Text equivalent.** The Sources… button points (`aria-describedby`) at a visually hidden sentence (`input-reading`, `sr-only`; the entry itself does not, so it is read once): the model's reading on one line, "Made by more rows here: 120/m." or, for an area's own rule, "Line: Made by more rows here: 70/m, Imported: 10/m.". At an area's own rule the sentence names each connection that supplies the area with its share, "From Cheap: 22.5/m". A greyed connection, and one whose share is 0, has no part in the sentence.
 
 A chip shortcut (the filled module or beacon chips) selects the row and highlights one section of its panel: it scrolls into view and shows a teal ring (`data-highlighted="true"`) for about two seconds. The highlight (`uiStore.panelHighlight`) is transient, belongs to the row that asked for it, and ends when another row is selected.
 

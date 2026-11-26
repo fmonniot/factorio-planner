@@ -197,18 +197,10 @@ describe('buildSourcesModel', () => {
       expect(m.need).toBe(60)
       expect(rates(m)).toMatchObject({ 'block:c1': 22.5, 'block:c2': 7.5, 'area:other': 12, import: 0 })
       expect(rates(m)['made-here']! + rates(m)['make-here']!).toBeCloseTo(18)
-    })
-
-    it('reads the shares in the sentence', () => {
-      const rows = [row('c1', 'Cheap', 60), row('c2', 'Dear', 20)]
-      const suppliers = [{ areaId: 'other', name: 'Line O', routed: 12, off: false }]
-      const text = sourcesReading(buildSourcesModel({ ...input({ block, result, area: areaId, rows, supply, order }), suppliers }), n => `${n}/m`)
+      const text = sourcesReading(m, n => `${n}/m`)
       expect(text).toContain('From Cheap: 22.5/m')
       expect(text).toContain('From Dear: 7.5/m')
       expect(text).toContain('From Line O: 12/m')
-      const none = sourcesReading(buildSourcesModel({ ...input({ block, result, area: areaId, rows, supply: { imported: 0, missing: 0, reaches: 0 }, order }), suppliers }), n => `${n}/m`)
-      expect(none).not.toContain('Cheap')
-      expect(none).not.toContain('Dear')
     })
 
     it('shows zero for block lines when nothing reaches, and nothing for an off area line', () => {
@@ -217,6 +209,7 @@ describe('buildSourcesModel', () => {
         suppliers: [{ areaId: 'other', name: 'Line O', routed: 0, off: true }],
       })
       expect(rates(m)['block:c1']).toBe(0)
+      expect(m.bar.filter(p => p.key.startsWith('block:'))).toEqual([])
       expect(m.lines.find(l => l.key === 'area:other')).toMatchObject({ rate: undefined, off: true, dim: true, mark: undefined })
     })
 

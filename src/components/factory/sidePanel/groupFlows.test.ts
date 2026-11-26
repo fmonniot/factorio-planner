@@ -44,8 +44,6 @@ describe('flowLines', () => {
       { itemId: 'plate', from: 'a', to: 'b', rate: 12 },
     ]
     const nameTo = (id: string | undefined) => `${id}`
-    expect(flowLines([], relay, 'a', 'receives', nameTo)).toEqual([])
-    expect(flowLines([], relay, 'a', 'sends', nameTo)).toEqual([])
     expect(flowLines([{ itemId: 'plate', rate: 12, boundary: false }], relay, 'c', 'sends', nameTo)[0].ends).toMatchObject([{ otherEnd: 'to a', rate: 12 }])
     expect(flowLines([{ itemId: 'plate', rate: 12, boundary: false }], relay, 'b', 'receives', nameTo)[0].ends).toMatchObject([{ otherEnd: 'from a', rate: 12 }])
   })

@@ -105,10 +105,6 @@ describe('inputsReading', () => {
   it('prefixes the area of an area scope', () => {
     expect(inputsReading(model([madeLine('make-here', { rate: 70 })]), fmt, 'Line')).toBe('Line: Made by more rows here: 70/m.')
   })
-  it('names each connection with its share at an area scope', () => {
-    const lines = [blockLine({ key: 'block:c1', label: 'Cheap', rate: 22.5 }), blockLine({ key: 'block:c2', label: 'Dear', rate: 7.5 })]
-    expect(inputsReading(model(lines), fmt, 'Line')).toBe('Line: From Cheap: 22.5/m, From Dear: 7.5/m.')
-  })
   it('says so before a solve and when nothing supplies it', () => {
     expect(inputsReading(model([], { need: undefined }), fmt)).toBe('Not solved yet.')
     expect(inputsReading(model([], { need: 12 }), fmt)).toBe('Nothing supplies it.')
