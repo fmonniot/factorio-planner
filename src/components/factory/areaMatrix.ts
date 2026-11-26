@@ -1,7 +1,7 @@
 import type { Block, FluidTag, GameData, SolverResult, SubPlan } from '../../data/types'
 import { compareTags, fmtFluidTag, flowKey, parseFlowKey } from '../../data/flowKey'
 import { placingItemIds } from '../../data/horizon'
-import { outsideResidual } from '../../solver/index'
+import { outsideResidual, surplusTolerance } from '../../solver/index'
 import { findSubPlan } from '../../data/subPlanTree'
 import { areaName } from '../../data/subPlanTree'
 import { isEnergyItem } from '../../data/electricity'
@@ -53,12 +53,11 @@ export interface OutsideSplit {
   missing: number
 }
 
-const SPLIT_EPS = 1e-6
-
 /**
  * Splits `fromOutside` using the block's own unsatisfied import of the key (`unsatisfied`) and the part of it that Import off
- * leaves missing: the import is at most the figure, the rest comes from connections. A connected sliver below the
- * tolerance is folded into the import so no part is noise.
+ * leaves missing: the import is at most the figure, the rest comes from connections. A part below the solver's surplus
+ * tolerance for the figure (which grows with the flow) is noise: a connected sliver is folded into the import, an import sliver
+ * leaves the figure all connected.
  */
 export function splitOutside(fromOutside: number, unsatisfied: number, missing: number): OutsideSplit {
   const imp = Math.min(fromOutside, Math.max(0, unsatisfied))
@@ -66,10 +65,11 @@ export function splitOutside(fromOutside: number, unsatisfied: number, missing: 
   let connected = fromOutside - imp
   let imported = imp - m
   let miss = m
-  if (imported + miss < SPLIT_EPS) {
+  const eps = surplusTolerance(fromOutside)
+  if (imported + miss < eps) {
     return { connected: fromOutside, imported: 0, missing: 0 }
   }
-  if (connected < SPLIT_EPS) {
+  if (connected < eps) {
     if (imported > 0) imported += connected
     else miss += connected
     connected = 0
@@ -235,7 +235,13 @@ export function blockMatrix(block: Block, result: SolverResult, gameData: GameDa
     const k = flowKey(u.itemId, u.temp)
     unsat.set(k, (unsat.get(k) ?? 0) + u.rate)
   }
-  const missingOf = result.areaRoutes ? areaMissingOf(block.sourceRules, root, result.areaRoutes) : undefined
+  // Built on the first row that has an import to split: it walks the plan.
+  let missingOf: ReturnType<typeof areaMissingOf> | undefined
+  const missingFor = (itemId: string, u: number, tag: FluidTag | undefined): number | undefined => {
+    if (!result.areaRoutes) return undefined
+    missingOf ??= areaMissingOf(block.sourceRules, root, result.areaRoutes)
+    return missingOf(itemId, u, tag)
+  }
 
   const rows: MatrixRow[] = []
   for (const [key, cells] of cellsOf) {
@@ -249,8 +255,9 @@ export function blockMatrix(block: Block, result: SolverResult, gameData: GameDa
     const { fromOutside, toOutside } = outsideResidual(pos, neg)
     let fromSplit: OutsideSplit | undefined
     if (fromOutside > 0 && !isEnergyItem(itemId)) {
-      const u = unsat.get(key) ?? 0
-      const m = u > 0 ? Math.min(u, missingOf?.(itemId, u, tag) ?? (block.sourceRules?.[itemId]?.importOff ? u : 0)) : 0
+      // The import is at most the figure, so the missing part is asked of that much and both scale together.
+      const u = Math.min(unsat.get(key) ?? 0, fromOutside)
+      const m = u > 0 ? Math.min(u, missingFor(itemId, u, tag) ?? (block.sourceRules?.[itemId]?.importOff ? u : 0)) : 0
       fromSplit = splitOutside(fromOutside, u, m)
     }
     rows.push({

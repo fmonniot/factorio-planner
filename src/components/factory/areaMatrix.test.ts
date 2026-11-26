@@ -654,6 +654,19 @@ describe('splitOutside', () => {
     expect(splitOutside(5, 1e-9, 0)).toEqual({ connected: 5, imported: 0, missing: 0 })
   })
 
+  it('reads a pure import at a large rate as all imported', () => {
+    // the gap, 1e-4, is over the fixed 1e-6 but under the 5e-4 tolerance at 50000/min
+    const s = splitOutside(50000, 50000 - 1e-4, 0)
+    expect(s.connected).toBe(0)
+    expect(s.imported).toBeCloseTo(50000, 2)
+  })
+
+  it('scales missing with a figure smaller than the unsatisfied import', () => {
+    const s = splitOutside(4, 8, 6)
+    expect(s.connected).toBe(0)
+    expect(s.imported + s.missing).toBeCloseTo(4)
+  })
+
   it('never goes negative', () => {
     for (const [from, u, m] of [[5, -1, 3], [5, 2, 9], [0, 3, 1], [5, 9, 9]]) {
       const s = splitOutside(from, u, m)

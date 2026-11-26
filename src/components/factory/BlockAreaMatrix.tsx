@@ -188,11 +188,11 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
           {...(split
             ? { 'data-connected': split.connected, 'data-imported': split.imported, 'data-missing': split.missing, ...describedTip(outsideTip(split, rateUnit)) }
             : {})}
-          className={`${OUTSIDE_COL} px-1 py-0.5 text-center font-mono tabular-nums text-gray-300 border-b border-gray-800`}
+          className={`${OUTSIDE_COL} relative px-1 py-0.5 text-center font-mono tabular-nums text-gray-300 border-b border-gray-800`}
         >
           {fromV > 0 ? fmtAmount(fromV, rateUnit, energy) : ''}
           {split && (
-            <span aria-hidden data-testid="outside-split" className="mx-auto mt-0.5 flex h-0.5 w-12 overflow-hidden rounded">
+            <span aria-hidden data-testid="outside-split" className="absolute inset-x-0 bottom-px mx-auto flex h-0.5 w-12 overflow-hidden rounded">
               {(['connected', 'imported', 'missing'] as const).filter(part => split[part] > 0).map(part => (
                 <span key={part} data-part={part} className={OUTSIDE_SPLIT_COLORS[part]} style={{ width: `${(split[part] / fromV) * 100}%` }} />
               ))}

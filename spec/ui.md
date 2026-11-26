@@ -274,9 +274,9 @@ nothing. Each row carries `data-item-id`, each cell `data-col` (the area id, or
 Each **From outside** figure of an item or fluid key is split into what other blocks
 supply (connected), what is imported and what Import off leaves missing. The split reads the
 block's own unsatisfied import of the key, and the part of it Import off leaves missing, as the
-Sources list does, so it holds for every item and not only those with per-area slacks. A thin
+Sources list does. A part below the solver's surplus tolerance for the figure counts as noise and is folded into the import (or reads the figure as all connected). A thin
 bar under the figure shows the parts (green connected, grey imported, amber missing), and the
-tooltip says them in words ("120/m connected and 180/m imported."). The cell carries
+tooltip says them in words: "All 300/m connected.", "120/m connected and 180/m imported.", and for the third part "… missing because Import is off". The cell carries
 `data-connected`, `data-imported` and `data-missing` (items/min). Electricity and heat, the
 group totals, **To outside** and the focus (counterpart) mode show no split. The **From
 outside** heading has a tooltip that explains the bar.
@@ -348,7 +348,7 @@ the Trades with heading's tooltip), and the Flow
 order uses the same routes.
 
 **All blocks** (`AllBlocksMatrix.tsx`, built by `planAreaMatrix.ts`). Flow keys are rows and
-each block is a column group. This view has no outside column: **Not taken** and **Not supplied** are its split. Under **Only items that cross a block boundary** (on by
+each block is a column group. Under **Only items that cross a block boundary** (on by
 default) the columns are the ends of the active connections (rate above the flow
 tolerance, not `missing-source` or `self`) and the rows the items they carry; off, every
 block with a solve and every item with a boundary net or an area cell. A block's
@@ -358,7 +358,7 @@ block, `−` enters it). A block with areas has a header button (`aria-expanded`
 swaps its **Areas** column (the areas that move the item the way the net goes, the
 largest first, "+N" for the others, all listed with their rates in the title) for one
 column per area; the active block starts expanded, the others collapsed, and a block
-without areas reads "<block> · no areas" and has only **Net**. **Not taken** is what the
+without areas reads "<block> · no areas" and has only **Net**. This view has no outside column: **Not taken** and **Not supplied** are its split. **Not taken** is what the
 blocks leave beyond what the connections deliver: `max(0, Σ positive nets −
 delivered)`; **Not supplied** (shown only when a row needs it) is `max(0, Σ negative
 nets − delivered)`, what is imported. Both sums run over every block with a solve, shown
