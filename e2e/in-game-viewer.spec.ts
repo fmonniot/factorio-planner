@@ -414,6 +414,9 @@ test.describe('In-game viewer errors', () => {
     refuse()
     await bridge.restart(NO_GAME)
     await expect.poll(() => bridge.received.length, { timeout: 12_000 }).toBe(2)
+    expect(bridge.snapshots()).toHaveLength(1)
+    expect(bridge.announces()).toHaveLength(1)
+    expect(bridge.snapshots()[0].id).toBe(first.id)
     return first
   }
 
@@ -432,7 +435,7 @@ test.describe('In-game viewer errors', () => {
     expect(bridge.snapshots()[0].id).toBe(first.id)
   })
 
-  test('a refused restore snapshot is forgotten', async ({ page }) => {
+  test('a refused restore snapshot is forgotten (regression guard for the tagged-snapshot path)', async ({ page }) => {
     await reconnectWithRestoreAndAnnounce(page, () => {
       bridge.answerWithError = 'too-large'
       bridge.errorOnlyFor = 'snapshot'

@@ -408,7 +408,7 @@ impl Session {
         let now = Instant::now();
         let kind = FrameKind::of_websocket_frame(matches!(frame, Frame::Binary(_)));
         match frame {
-            Frame::Binary(frame) => self.on_snapshot(now, conn, frame),
+            Frame::Binary(frame) => self.on_snapshot(now, conn, kind, frame),
             Frame::Text(text) => match parse_text_frame(&text) {
                 Ok(PlannerText::Announce { id }) => {
                     let step = self.driver.announce(now, id);
@@ -419,17 +419,17 @@ impl Session {
         }
     }
 
-    fn on_snapshot(&mut self, now: Instant, conn: u64, mut frame: Vec<u8>) {
+    fn on_snapshot(&mut self, now: Instant, conn: u64, kind: FrameKind, mut frame: Vec<u8>) {
         let id = match parse_snapshot_frame(&frame) {
             Ok(parsed) => parsed.id,
-            Err(code) => return self.reply_error(conn, code, FrameKind::Snapshot),
+            Err(code) => return self.reply_error(conn, code, kind),
         };
         // The snapshot stays opaque: drop the envelope and keep the rest, in the same allocation.
         frame.drain(..WS_ENVELOPE);
         match self.driver.receive_snapshot(now, id, frame) {
             Ok(step) => self.publish(step),
-            Err(SnapshotError::Empty) => self.reply_error(conn, ErrorCode::BadEnvelope, FrameKind::Snapshot),
-            Err(SnapshotError::TooLarge) => self.reply_error(conn, ErrorCode::TooLarge, FrameKind::Snapshot),
+            Err(SnapshotError::Empty) => self.reply_error(conn, ErrorCode::BadEnvelope, kind),
+            Err(SnapshotError::TooLarge) => self.reply_error(conn, ErrorCode::TooLarge, kind),
         }
     }
 

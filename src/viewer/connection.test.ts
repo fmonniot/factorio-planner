@@ -266,8 +266,8 @@ describe('step 5: errors', () => {
       expect(state.lastSent?.id).toBe(A.id)
     })
 
-    it('forgets nothing and does not throw when a snapshot error comes though only an announce was sent', () => {
-      const { state } = run(connect(text(status()), text(error('too-large', 'snapshot'))))
+    it('forgets the sent bytes when a snapshot error arrives after a later announce, as the error names the snapshot', () => {
+      const { state } = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, { type: 'solved', plan: B }, text(error('too-large', 'snapshot'))))
       expect(state.lastSent).toBeUndefined()
       expect(state.error).toBe('too-large')
     })
