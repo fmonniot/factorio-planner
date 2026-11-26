@@ -37,9 +37,43 @@ interface Command {
   canUndo?: (blocks: Block[], block: Block) => boolean
 }
 
+/** A stack entry: the command and its place on the one timeline that spans every block. */
+interface HistoryEntry {
+  cmd: Command
+  seq: number
+}
+
+/** Within each stack `seq` increases from bottom to top. */
 interface BlockHistory {
-  undoStack: Command[]
-  redoStack: Command[]
+  undoStack: HistoryEntry[]
+  redoStack: HistoryEntry[]
+}
+
+/** Monotonic, never reset: orders history entries across blocks. */
+let historySeq = 0
+const stamp = (cmd: Command): HistoryEntry => ({ cmd, seq: ++historySeq })
+
+/** `history` with every redo stack emptied (stacks that are already empty keep their identity). */
+function clearedRedo(history: Record<string, BlockHistory>): Record<string, BlockHistory> {
+  const next: Record<string, BlockHistory> = {}
+  for (const [id, h] of Object.entries(history)) {
+    next[id] = h.redoStack.length === 0 ? h : { undoStack: h.undoStack, redoStack: [] }
+  }
+  return next
+}
+
+/** The newest entry of the given kind across the blocks that still exist, and the block that holds it. */
+function topEntry(
+  state: BlockStoreState,
+  which: 'undoStack' | 'redoStack',
+): { blockId: string; entry: HistoryEntry } | undefined {
+  let best: { blockId: string; entry: HistoryEntry } | undefined
+  for (const [blockId, h] of Object.entries(state.history)) {
+    const entry = h[which][h[which].length - 1]
+    if (!entry || !state.blocks.some(b => b.id === blockId)) continue
+    if (!best || entry.seq > best.entry.seq) best = { blockId, entry }
+  }
+  return best
 }
 
 // ---------------------------------------------------------------------------
@@ -626,7 +660,7 @@ export interface BlockStoreState {
   renameSubPlan: (subPlanId: string, name: string) => void
 
   // Products (block-level)
-  /** Add a product to the active block, or to block `toBlockId` (the history entry goes to that block, as the connection commands do). */
+  /** Add a product to the active block, or to block `toBlockId` (the history entry goes to that block, as the connection commands do; undo and redo act there, whichever block is active). */
   addProduct: (product: Product, toBlockId?: string) => void
   removeProduct: (productId: string) => void
   /** Move a product of the active block so it lands before index `toIndex` (counted in the current order, as moveBlock). Undoable; no-op when it would not move. */
@@ -735,7 +769,7 @@ export interface BlockStoreState {
   clearDefaultMachine: (category: string) => void
   resetDefaultMachines: () => void
 
-  // Undo/redo (per active block)
+  // Undo/redo (one timeline across blocks; acts on the block of the newest edit and makes it active)
   undo: () => void
   redo: () => void
 
@@ -808,9 +842,9 @@ function applyCommand(
   return {
     blocks: runCommand(state.blocks, block, cmd, 'apply'),
     history: {
-      ...state.history,
+      ...clearedRedo(state.history),
       [block.id]: {
-        undoStack: [...hist.undoStack, cmd],
+        undoStack: [...hist.undoStack, stamp(cmd)],
         redoStack: [],
       },
     },
@@ -2057,50 +2091,38 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
 
   undo: () =>
     set(state => {
-      const hist = state.history[state.activeBlockId]
-      if (!hist || hist.undoStack.length === 0) return state
-      const block = state.blocks.find(b => b.id === state.activeBlockId)
-      if (!block) return state
-
-      const stack = [...hist.undoStack]
-      const cmd = stack.pop()!
+      const top = topEntry(state, 'undoStack')
+      if (!top) return state
+      const hist = state.history[top.blockId]
+      const block = state.blocks.find(b => b.id === top.blockId)!
+      const undoStack = hist.undoStack.slice(0, -1)
+      const { cmd } = top.entry
       if (cmd.canUndo && !cmd.canUndo(state.blocks, block)) {
-        // The command can no longer be reverted: drop it and leave the block as is.
-        return { history: { ...state.history, [block.id]: { undoStack: stack, redoStack: hist.redoStack } } }
+        // The command can no longer be reverted: drop it, change nothing else (no switch of block).
+        return { history: { ...state.history, [block.id]: { undoStack, redoStack: hist.redoStack } } }
       }
       return {
         blocks: runCommand(state.blocks, block, cmd, 'undo'),
-        history: {
-          ...state.history,
-          [block.id]: {
-            undoStack: stack,
-            redoStack: [...hist.redoStack, cmd],
-          },
-        },
+        activeBlockId: block.id,
+        history: { ...state.history, [block.id]: { undoStack, redoStack: [...hist.redoStack, stamp(cmd)] } },
       }
     }),
 
   redo: () =>
     set(state => {
-      const hist = state.history[state.activeBlockId]
-      if (!hist || hist.redoStack.length === 0) return state
-      const block = state.blocks.find(b => b.id === state.activeBlockId)
-      if (!block) return state
-
-      const stack = [...hist.redoStack]
-      const cmd = stack.pop()!
+      const top = topEntry(state, 'redoStack')
+      if (!top) return state
+      const hist = state.history[top.blockId]
+      const block = state.blocks.find(b => b.id === top.blockId)!
+      const redoStack = hist.redoStack.slice(0, -1)
+      const { cmd } = top.entry
       if (cmd.canApply && !cmd.canApply(state.blocks, block)) {
-        return { history: { ...state.history, [block.id]: { undoStack: hist.undoStack, redoStack: stack } } }
+        return { history: { ...state.history, [block.id]: { undoStack: hist.undoStack, redoStack } } }
       }
       return {
         blocks: runCommand(state.blocks, block, cmd, 'apply'),
-        history: {
-          ...state.history,
-          [block.id]: {
-            undoStack: [...hist.undoStack, cmd],
-            redoStack: stack,
-          },
-        },
+        activeBlockId: block.id,
+        history: { ...state.history, [block.id]: { undoStack: [...hist.undoStack, stamp(cmd)], redoStack } },
       }
     }),
 
@@ -2152,6 +2174,38 @@ export function selectAppState(s: BlockStoreState): AppState {
     horizonTechnologyIds: s.horizonTechnologyIds,
     defaultMachineOverrides: s.defaultMachineOverrides,
   }
+}
+
+/** Whether `undo` has an entry to act on (a name is not `canUndo`: that is a `Command` property). */
+export function selectCanUndo(s: BlockStoreState): boolean {
+  return topEntry(s, 'undoStack') !== undefined
+}
+
+export function selectCanRedo(s: BlockStoreState): boolean {
+  return topEntry(s, 'redoStack') !== undefined
+}
+
+/** The block the next undo acts on. */
+export function selectUndoBlockId(s: BlockStoreState): string | undefined {
+  return topEntry(s, 'undoStack')?.blockId
+}
+
+export function selectRedoBlockId(s: BlockStoreState): string | undefined {
+  return topEntry(s, 'redoStack')?.blockId
+}
+
+function nameWhenNotActive(s: BlockStoreState, blockId: string | undefined): string | undefined {
+  if (blockId === undefined || blockId === s.activeBlockId) return undefined
+  return s.blocks.find(b => b.id === blockId)?.name
+}
+
+/** The name of the block the next undo acts on, only when it is not the active block. */
+export function selectUndoBlockName(s: BlockStoreState): string | undefined {
+  return nameWhenNotActive(s, selectUndoBlockId(s))
+}
+
+export function selectRedoBlockName(s: BlockStoreState): string | undefined {
+  return nameWhenNotActive(s, selectRedoBlockId(s))
 }
 
 export function selectActiveBlock(state: BlockStoreState): Block | undefined {

@@ -30,6 +30,20 @@ function SvgIcon({ className = 'w-4 h-4', title, testId, children }: IconProps &
 
 export const FlagIcon = (p: IconProps) => <SvgIcon {...p}><path d="M5 21V4M5 4h11l-2 4 2 4H5" /></SvgIcon>
 
+export const UndoIcon = (p: IconProps) => (
+  <SvgIcon {...p}>
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  </SvgIcon>
+)
+
+export const RedoIcon = (p: IconProps) => (
+  <SvgIcon {...p}>
+    <path d="m15 14 5-5-5-5" />
+    <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+  </SvgIcon>
+)
+
 export const GraphIcon = (p: IconProps) => (
   <SvgIcon {...p}>
     <rect x="3" y="3" width="6" height="6" rx="1" />

@@ -2,8 +2,10 @@ import { TopBar } from './TopBar'
 import { FactorySummary } from './FactorySummary'
 import { ProductionTable } from './ProductionTable'
 import { TooltipLayer } from '../TooltipLayer'
+import { useUndoShortcuts } from './useUndoShortcuts'
 
 export function FactoryShell() {
+  useUndoShortcuts()
   return (
     <div className="h-dvh flex flex-col bg-gray-950 text-gray-100 overflow-hidden">
       <TopBar />

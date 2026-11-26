@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Modal } from './Modal'
+import { isUndoBlockedByOverlay } from './factory/sidePanel/useDismiss'
 
 const panelClass = (className?: string) => {
   render(<Modal onClose={() => {}} className={className}>x</Modal>)
@@ -44,5 +45,17 @@ describe('Modal Escape', () => {
     fireEvent.keyDown(window, { key: 'Escape' })
     window.removeEventListener('keydown', take, true)
     expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+describe('Modal undoable', () => {
+  it('blocks the undo shortcuts by default', () => {
+    render(<Modal onClose={() => {}}>x</Modal>)
+    expect(isUndoBlockedByOverlay()).toBe(true)
+  })
+
+  it('leaves them working when undoable', () => {
+    render(<Modal onClose={() => {}} undoable>x</Modal>)
+    expect(isUndoBlockedByOverlay()).toBe(false)
   })
 })

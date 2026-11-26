@@ -44,7 +44,7 @@ export function IconButton({ label, onClick, children, expanded, hasPopup, butto
         aria-haspopup={hasPopup}
         onClick={onClick}
         disabled={disabled}
-        className={`relative ${wide ? 'h-8 px-2 gap-1 text-xs' : 'w-8 h-8'} rounded-md flex items-center justify-center ${iconClass} hover:bg-gray-800 hover:text-gray-100 focus-visible:bg-gray-800 focus-visible:text-gray-100 outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent`}
+        className={`relative ${wide ? 'h-8 px-2 gap-1 text-xs' : 'w-8 h-8'} rounded-md flex items-center justify-center ${iconClass} hover:bg-gray-800 hover:text-gray-100 focus-visible:bg-gray-800 focus-visible:text-gray-100 outline-none disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed disabled:hover:bg-transparent`}
       >
         {children}
       </button>

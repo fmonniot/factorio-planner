@@ -20,7 +20,7 @@ Exact versions live in [package.json](../package.json) and are kept current by D
 
 Zustand's minimal API handles both without boilerplate. Redux Toolkit is viable but heavier than needed.
 
-**Undo/redo:** The block store keeps a simple history stack with `undo` / `redo` actions. It is store-level only: no UI control or keyboard shortcut calls it. The solver result is not part of the history — it is recomputed after any change.
+**Undo/redo:** The block store keeps one history timeline across all blocks with `undo` / `redo` actions, driven by the top bar buttons and the shortcuts Ctrl/Cmd+Z (undo) and Ctrl+Shift+Z, Cmd+Shift+Z and Ctrl+Y (redo). The solver result is not part of the history — it is recomputed after any change.
 
 ---
 

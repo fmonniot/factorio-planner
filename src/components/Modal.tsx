@@ -6,12 +6,14 @@ interface ModalProps {
   onClose: () => void
   children: ReactNode
   className?: string
+  /** Leave the undo and redo shortcuts working while this modal is open (the factory overview edits and undoes plan data). */
+  undoable?: boolean
 }
 
-export function Modal({ onClose, children, className = '' }: ModalProps) {
+export function Modal({ onClose, children, className = '', undoable = false }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   // An open modal owns Escape: the side panel drawer underneath must not also close on it.
-  useOverlayOpen()
+  useOverlayOpen(true, undoable)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
