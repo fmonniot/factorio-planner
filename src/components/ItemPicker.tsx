@@ -15,7 +15,7 @@ import type { Item, Recipe, GameData } from '../data/types'
 import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 import { tipProps } from './tipProps'
 import { TipWrap } from './TipWrap'
-import { moveGridFocus, focusFirstSlot, firstEnabledSlot } from './gridNav'
+import { moveGridFocus, onPickerSearchKeyDown, pickFirstMatch, isPlainEnter, slotsOf } from './gridNav'
 
 // ---------------------------------------------------------------------------
 // Recipe detail panel — shown on hover/focus of a recipe slot
@@ -264,21 +264,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  /** Enter in the search field: picks the first enabled match, for a non-empty query only. */
-  function pickFirst() {
-    if (query.trim() === '') return
-    firstEnabledSlot(slotsRef.current, SLOT_SELECTOR)?.click()
-  }
-
-  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'ArrowDown' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-      e.preventDefault()
-      focusFirstSlot(slotsRef.current, SLOT_SELECTOR)
-    } else if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      pickFirst()
-    }
-  }
+  const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => onPickerSearchKeyDown(e, slotsRef.current, SLOT_SELECTOR, query)
 
   const horizon = useHorizon(gameData)
   const available = horizon.recipeIds
@@ -639,21 +625,9 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  /** Enter in the search or Amount field: picks the first enabled match, for a non-empty query only. */
-  function pickFirst() {
-    if (query.trim() === '') return
-    firstEnabledSlot(slotsRef.current, SLOT_SELECTOR)?.click()
-  }
+  const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => onPickerSearchKeyDown(e, slotsRef.current, SLOT_SELECTOR, query)
 
-  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'ArrowDown' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-      e.preventDefault()
-      focusFirstSlot(slotsRef.current, SLOT_SELECTOR)
-    } else if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      pickFirst()
-    }
-  }
+  const pickFirst = () => pickFirstMatch(slotsRef.current, SLOT_SELECTOR, query)
 
   // Items offered under the research horizon; null = no limit.
   const itemSet = useHorizon(gameData).itemIds
@@ -783,9 +757,12 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
             value={amountText}
             onChange={e => setAmountText(e.target.value)}
             onKeyDown={e => {
-              if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+              if (!isPlainEnter({ ...e, isComposing: e.nativeEvent.isComposing, keyCode: e.nativeEvent.keyCode })) return
               e.preventDefault()
-              if (selectedId) submit()
+              // The last clicked item counts only while it is still an enabled match on screen.
+              const onScreen = selectedId !== null && slotsOf(slotsRef.current ?? document.body, '[data-testid="item-slot"]')
+                .some(el => el.dataset.itemId === selectedId && el.getAttribute('aria-disabled') !== 'true')
+              if (onScreen) submit()
               else pickFirst()
             }}
             aria-label="Amount"

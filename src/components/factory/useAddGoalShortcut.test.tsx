@@ -67,6 +67,7 @@ describe('useAddGoalShortcut', () => {
     renderHook(() => useAddGoalShortcut(onAdd, true))
     press({ key: 'a', repeat: true })
     press({ key: 'a', isComposing: true })
+    press({ key: 'a', keyCode: 229 })
     const take = (e: Event) => e.preventDefault()
     document.body.addEventListener('keydown', take)
     press({ key: 'a' })

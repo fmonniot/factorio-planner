@@ -78,3 +78,25 @@ export function moveGridFocus(e: React.KeyboardEvent<HTMLElement>, selector: str
   if (target !== null) slots[target].focus()
   else if (e.key === 'ArrowUp') onTopEdge?.()
 }
+
+/** Whether a keydown is a plain Enter that is not confirming an IME composition (Safari reports that one after compositionend, as keyCode 229). */
+export function isPlainEnter(e: { key: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean; shiftKey: boolean; isComposing?: boolean; keyCode?: number }): boolean {
+  return e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229
+}
+
+/** Picks the first enabled slot for a non-empty query (what Enter in a picker's search field does). */
+export function pickFirstMatch(root: HTMLElement | null, selector: string, query: string): void {
+  if (query.trim() === '') return
+  firstEnabledSlot(root, selector)?.click()
+}
+
+/** Keydown handler of a picker's search field: ArrowDown enters the slot grid, a plain Enter picks the first enabled match. */
+export function onPickerSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>, root: HTMLElement | null, selector: string, query: string): void {
+  if (e.key === 'ArrowDown' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+    e.preventDefault()
+    focusFirstSlot(root, selector)
+  } else if (isPlainEnter({ ...e, isComposing: e.nativeEvent.isComposing, keyCode: e.nativeEvent.keyCode })) {
+    e.preventDefault()
+    pickFirstMatch(root, selector, query)
+  }
+}

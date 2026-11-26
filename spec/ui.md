@@ -1208,7 +1208,7 @@ backdrop and close on Escape (not when a popup inside has already handled it and
 - An item that is already a product of the block is dimmed with `aria-disabled="true"`, `data-present="true"` and the title "<name> (already a product of this block)"; clicking it does nothing.
 - Clicking an item adds it as a product immediately when the amount is valid or empty;
   **Submit** does the same for the last clicked item.
-- Keyboard: ArrowDown in the search field enters the slot grid (see [Pickers](#pickers)). Enter in the search field adds the first enabled match with the typed amount, only when the search is not empty. Enter in the Amount field submits the last clicked item when there is one (and the amount is valid), otherwise it acts as Enter in the search field. Slots dimmed as already a product are skipped by Enter but stay focusable. The picker opens with **A** (see [Add product shortcut](#add-product-shortcut)).
+- Keyboard: ArrowDown in the search field enters the slot grid (see [Pickers](#pickers)). Enter in the search field adds the first enabled match with the typed amount, only when the search is not empty. Enter in the Amount field submits the last clicked item when there is one that is still an enabled match on screen (and the amount is valid; an item the search has since filtered out is forgotten), otherwise it acts as Enter in the search field. Slots dimmed as already a product are skipped by Enter but stay focusable. Enter with Ctrl, Meta, Alt or Shift held, or one that confirms an IME composition (also keyCode 229, as Safari reports it), does nothing. The picker opens with **A** (see [Add product shortcut](#add-product-shortcut)).
 
 ### Recipe picker
 

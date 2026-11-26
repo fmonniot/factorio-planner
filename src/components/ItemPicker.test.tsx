@@ -1273,6 +1273,28 @@ describe('ItemPicker — keyboard', () => {
       expect(onSelect).toHaveBeenCalledWith('iron-plate', 50)
     })
 
+    it('Enter in the Amount ignores a clicked item the search has filtered out', () => {
+      const { onSelect } = open()
+      type('plate')
+      fireEvent.change(amount(), { target: { value: '-5' } })
+      fireEvent.click(screen.getAllByTestId('item-slot').find(s => s.getAttribute('data-item-id') === 'iron-plate')!)
+      type('copper')
+      fireEvent.change(amount(), { target: { value: '90' } })
+      key(amount(), 'Enter')
+      expect(onSelect).toHaveBeenCalledTimes(1)
+      expect(onSelect).toHaveBeenCalledWith('copper-plate', 90)
+    })
+
+    it('ignores Enter with a modifier and Enter that confirms an IME composition', () => {
+      const { onSelect } = open()
+      type('copper')
+      for (const init of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { keyCode: 229 }]) {
+        const notPrevented = fireEvent.keyDown(search(), { key: 'Enter', cancelable: true, ...init })
+        expect(notPrevented, JSON.stringify(init)).toBe(true)
+      }
+      expect(onSelect).not.toHaveBeenCalled()
+    })
+
     it('Enter in the Amount without a selection picks the first match with the typed amount', () => {
       const { onSelect } = open()
       type('copper')

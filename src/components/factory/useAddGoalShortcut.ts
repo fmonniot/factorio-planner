@@ -22,10 +22,11 @@ export function useAddGoalShortcut(onAdd: () => void, enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return
     function onKeyDown(e: KeyboardEvent) {
-      if (e.defaultPrevented || e.isComposing || e.repeat) return
+      if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || e.repeat) return
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
       if (e.key.toLowerCase() !== ADD_GOAL_KEY) return
       if (isTypingTarget(e.target)) return
+      // Also true for the undoable factory overview: the picker would open behind it, and the overview edits its goals itself.
       if (isDismissibleOpen()) return
       // Stops the letter from being typed into the search field the picker focuses.
       e.preventDefault()
