@@ -146,6 +146,7 @@ export const MachineSchema = z.object({
   energyUsageKw: z.number().nonnegative(),
   // 'fluid-burner': a crafting machine whose energy source burns fluid (`burns_fluid`); other fluid sources stay 'void'.
   energyType: z.enum(['electric', 'burner', 'heat', 'void', 'fluid-burner']),
+  // Idle drain: the explicit energy_source.drain, else energy_usage / 30 for an electric source; 0 for any other source.
   drainKw: z.number().nonnegative(),
   // Burner machines: fuel categories the energy source accepts; absent = no fuel data (the row keeps its
   // electricity-style power draw).
@@ -184,7 +185,7 @@ export const BeaconEntitySchema = z.object({
   allowedEffects: z.array(EffectNameSchema),
   // Module categories the entity accepts (`allowed_module_categories`); absent = every category, [] = none.
   allowedModuleCategories: z.array(z.string()).optional(),
-  // Power draw of an electric beacon (`energy_usage`, explicit drain), in kW. Absent = draws nothing: a void beacon,
+  // Power draw of an electric beacon (`energy_usage`, and the drain: explicit, else energy_usage / 30), in kW. Absent = draws nothing: a void beacon,
   // or a bundle exported before the fields existed.
   energyUsageKw: z.number().nonnegative().optional(),
   drainKw: z.number().nonnegative().optional(),

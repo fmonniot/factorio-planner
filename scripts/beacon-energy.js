@@ -1,11 +1,12 @@
 /**
- * Beacon power draw (`energy_usage` and the explicit `energy_source.drain`), shared by the full export and
+ * Beacon power draw (`energy_usage` and the drain), shared by the full export and
  * `--patch-beacon-energy` so the two paths cannot disagree. Only electric beacons carry the fields; absent = draws
- * nothing (void beacons, or a bundle exported before the fields existed). Drain mirrors machines: explicit only.
+ * nothing (void beacons, or a bundle exported before the fields existed). Drain mirrors machines: the explicit
+ * `energy_source.drain`, else `energy_usage / 30`.
  * Kept free of side effects so unit tests can import it.
  */
 
-import { parseEnergyKw, inferEnergyType } from './energy.js'
+import { parseEnergyKw, inferEnergyType, energyDrainKw } from './energy.js'
 
 const FIELDS = ['energyUsageKw', 'drainKw']
 
@@ -18,7 +19,7 @@ export function beaconEnergyField(proto) {
   if (inferEnergyType(proto) !== 'electric') return {}
   return {
     energyUsageKw: parseEnergyKw(proto.energy_usage),
-    drainKw: parseEnergyKw(proto.energy_source?.drain),
+    drainKw: energyDrainKw(proto),
   }
 }
 

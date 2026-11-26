@@ -193,7 +193,7 @@ interface Machine {
   craftingSpeed: number          // > 0; default 1 when absent; the mining or pumping speed for a drill or pump; 1 for a generation machine
   energyUsageKw: number          // kW at full load
   energyType: 'electric' | 'burner' | 'heat' | 'void'
-  drainKw: number                // idle drain in kW; 0 when absent
+  drainKw: number                // idle drain in kW: explicit drain, else energy_usage / 30 for electric; 0 for any other energy source
   moduleSlots: number            // int >= 0; dump absence means 0
   allowedEffects: EffectName[]   // sorted
   allowedModuleCategories?: string[]  // sorted; module categories the machine accepts; absent = every category, [] = none (see below)
@@ -250,7 +250,7 @@ interface BeaconEntity {
   allowedEffects: EffectName[]    // dump absence means "all five effects"
   allowedModuleCategories?: string[]  // sorted; absent = every category, [] = none
   energyUsageKw?: number          // >= 0; absent = draws nothing: void beacon, or a bundle exported before the field
-  drainKw?: number                // >= 0; the explicit drain only; only electric beacons carry the two fields, together
+  drainKw?: number                // >= 0; explicit drain, else energy_usage / 30; only electric beacons carry the two fields, together
 }
 ```
 

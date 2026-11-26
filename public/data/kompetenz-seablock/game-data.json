@@ -145796,7 +145796,7 @@
       "craftingSpeed": 0.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -145819,7 +145819,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 135,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -145854,7 +145854,7 @@
       "craftingSpeed": 1.25,
       "energyUsageKw": 210,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 7,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -145889,7 +145889,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 420,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 14,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -145918,7 +145918,7 @@
       "craftingSpeed": 1.75,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -145948,7 +145948,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 350,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 11.666666666666666,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -145978,7 +145978,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 420,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 14,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -146047,7 +146047,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 180,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -146118,7 +146118,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 180,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -146148,7 +146148,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 50,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 1.6666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -146176,7 +146176,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 90,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -146204,7 +146204,7 @@
       "craftingSpeed": 3.5,
       "energyUsageKw": 140,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.666666666666667,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -146232,7 +146232,7 @@
       "craftingSpeed": 5,
       "energyUsageKw": 175,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5.833333333333333,
       "moduleSlots": 6,
       "allowedEffects": [
         "consumption",
@@ -146260,7 +146260,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 50,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 1.6666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -146289,7 +146289,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 90,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -146318,7 +146318,7 @@
       "craftingSpeed": 3.5,
       "energyUsageKw": 140,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.666666666666667,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -146347,7 +146347,7 @@
       "craftingSpeed": 5,
       "energyUsageKw": 175,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5.833333333333333,
       "moduleSlots": 6,
       "allowedEffects": [
         "consumption",
@@ -146376,7 +146376,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -146410,7 +146410,7 @@
       "craftingSpeed": 2.75,
       "energyUsageKw": 390,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 13,
       "moduleSlots": 5,
       "allowedEffects": [
         "consumption",
@@ -146444,7 +146444,7 @@
       "craftingSpeed": 3.5,
       "energyUsageKw": 480,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 16,
       "moduleSlots": 6,
       "allowedEffects": [
         "consumption",
@@ -146478,7 +146478,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -146508,7 +146508,7 @@
       "craftingSpeed": 2.25,
       "energyUsageKw": 213.75,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 7.125,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -146538,7 +146538,7 @@
       "craftingSpeed": 4,
       "energyUsageKw": 360,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 12,
       "moduleSlots": 6,
       "allowedEffects": [
         "consumption",
@@ -146568,7 +146568,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -146599,7 +146599,7 @@
       "craftingSpeed": 4,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 6,
       "allowedEffects": [
         "consumption",
@@ -146665,7 +146665,7 @@
       "craftingSpeed": 2.25,
       "energyUsageKw": 750,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 25,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -146696,7 +146696,7 @@
       "craftingSpeed": 3.5,
       "energyUsageKw": 1050,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 35,
       "moduleSlots": 6,
       "allowedEffects": [
         "consumption",
@@ -146748,7 +146748,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -146777,7 +146777,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 125,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.166666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -146806,7 +146806,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -146835,7 +146835,7 @@
       "craftingSpeed": 0.5,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -146864,7 +146864,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -146894,7 +146894,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -146925,7 +146925,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -146957,7 +146957,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 350,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 11.666666666666666,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -146990,7 +146990,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147019,7 +147019,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147048,7 +147048,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -147077,7 +147077,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147106,7 +147106,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147136,7 +147136,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -147166,7 +147166,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147195,7 +147195,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 350,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 11.666666666666666,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147224,7 +147224,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147253,7 +147253,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 125,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.166666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147283,7 +147283,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -147314,7 +147314,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147343,7 +147343,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -147372,7 +147372,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -147393,7 +147393,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147423,7 +147423,7 @@
       "craftingSpeed": 2.5,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147454,7 +147454,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -147475,7 +147475,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147505,7 +147505,7 @@
       "craftingSpeed": 2.5,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147536,7 +147536,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 125,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.166666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147565,7 +147565,7 @@
       "craftingSpeed": 2.25,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147594,7 +147594,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -147623,7 +147623,7 @@
       "craftingSpeed": 3.75,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -147652,7 +147652,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147681,7 +147681,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147710,7 +147710,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147739,7 +147739,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147768,7 +147768,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147797,7 +147797,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -147826,7 +147826,7 @@
       "craftingSpeed": 2.25,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147855,7 +147855,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 60,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 2,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147883,7 +147883,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147912,7 +147912,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 350,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 11.666666666666666,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147941,7 +147941,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 400,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 13.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -147970,7 +147970,7 @@
       "craftingSpeed": 2.5,
       "energyUsageKw": 450,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 15,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148000,7 +148000,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -148021,7 +148021,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 175,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5.833333333333333,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -148050,7 +148050,7 @@
       "craftingSpeed": 2.25,
       "energyUsageKw": 225,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 7.5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148079,7 +148079,7 @@
       "craftingSpeed": 2.25,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148109,7 +148109,7 @@
       "craftingSpeed": 2.75,
       "energyUsageKw": 350,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 11.666666666666666,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -148139,7 +148139,7 @@
       "craftingSpeed": 3.25,
       "energyUsageKw": 400,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 13.333333333333334,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -148169,7 +148169,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148198,7 +148198,7 @@
       "craftingSpeed": 2.5,
       "energyUsageKw": 400,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 13.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148227,7 +148227,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148256,7 +148256,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 350,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 11.666666666666666,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148285,7 +148285,7 @@
       "craftingSpeed": 2.5,
       "energyUsageKw": 400,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 13.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148314,7 +148314,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 425,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 14.166666666666666,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148343,7 +148343,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 400,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 13.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148372,7 +148372,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 450,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 15,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148401,7 +148401,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 500,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 16.666666666666668,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148430,7 +148430,7 @@
       "craftingSpeed": 2.5,
       "energyUsageKw": 600,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 20,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148459,7 +148459,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148488,7 +148488,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148517,7 +148517,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148546,7 +148546,7 @@
       "craftingSpeed": 2.5,
       "energyUsageKw": 325,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10.833333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148575,7 +148575,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 500,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 16.666666666666668,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148604,7 +148604,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 600,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 20,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148633,7 +148633,7 @@
       "craftingSpeed": 2.5,
       "energyUsageKw": 700,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 23.333333333333332,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148662,7 +148662,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148691,7 +148691,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 225,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 7.5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148720,7 +148720,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148749,7 +148749,7 @@
       "craftingSpeed": 2.5,
       "energyUsageKw": 275,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 9.166666666666666,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148854,7 +148854,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -148875,7 +148875,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -148905,7 +148905,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -148936,7 +148936,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -149098,7 +149098,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -149119,7 +149119,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -149149,7 +149149,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149180,7 +149180,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -149212,7 +149212,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -149233,7 +149233,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -149263,7 +149263,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149294,7 +149294,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -149326,7 +149326,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -149347,7 +149347,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 125,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.166666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -149377,7 +149377,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149408,7 +149408,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 175,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5.833333333333333,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -149440,7 +149440,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -149461,7 +149461,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -149491,7 +149491,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149522,7 +149522,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -149554,7 +149554,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -149575,7 +149575,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -149605,7 +149605,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149636,7 +149636,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 350,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 11.666666666666666,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -149668,7 +149668,7 @@
       "craftingSpeed": 0.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -149689,7 +149689,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -149711,7 +149711,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -149742,7 +149742,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149774,7 +149774,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -149807,7 +149807,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -149828,7 +149828,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 200,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6.666666666666667,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -149858,7 +149858,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149889,7 +149889,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 3,
       "allowedEffects": [
         "consumption",
@@ -149921,7 +149921,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 30,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 1,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149949,7 +149949,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149970,7 +149970,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 125,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.166666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -149992,7 +149992,7 @@
       "craftingSpeed": 1.5,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150015,7 +150015,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 175,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5.833333333333333,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150039,7 +150039,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150063,7 +150063,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 125,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.166666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150085,7 +150085,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 125,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.166666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150107,7 +150107,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 125,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4.166666666666667,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150129,7 +150129,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150158,7 +150158,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150187,7 +150187,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150216,7 +150216,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150245,7 +150245,7 @@
       "craftingSpeed": 0.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150275,7 +150275,7 @@
       "craftingSpeed": 0.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150305,7 +150305,7 @@
       "craftingSpeed": 0.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150335,7 +150335,7 @@
       "craftingSpeed": 0.5,
       "energyUsageKw": 100,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3.3333333333333335,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150356,7 +150356,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150377,7 +150377,7 @@
       "craftingSpeed": 0.75,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150398,7 +150398,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150419,7 +150419,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 90,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150448,7 +150448,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 90,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150501,7 +150501,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 180,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 6,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150555,7 +150555,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 120,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 4,
       "moduleSlots": 1,
       "allowedEffects": [
         "consumption",
@@ -150583,7 +150583,7 @@
       "craftingSpeed": 5,
       "energyUsageKw": 30,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 1,
       "moduleSlots": 0,
       "allowedEffects": [
         "consumption",
@@ -150603,7 +150603,7 @@
       "craftingSpeed": 3,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -150632,7 +150632,7 @@
       "craftingSpeed": 4,
       "energyUsageKw": 300,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 10,
       "moduleSlots": 6,
       "allowedEffects": [
         "consumption",
@@ -150682,7 +150682,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 30,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 1,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150710,7 +150710,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 30,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 1,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150738,7 +150738,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 30,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 1,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150766,7 +150766,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150794,7 +150794,7 @@
       "craftingSpeed": 2,
       "energyUsageKw": 150,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 5,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150822,7 +150822,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 4,
       "allowedEffects": [
         "consumption",
@@ -150851,7 +150851,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 90,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 3,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -150882,7 +150882,7 @@
       "craftingSpeed": 1,
       "energyUsageKw": 250,
       "energyType": "electric",
-      "drainKw": 0,
+      "drainKw": 8.333333333333334,
       "moduleSlots": 2,
       "allowedEffects": [
         "consumption",
@@ -152063,7 +152063,7 @@
         "speed"
       ],
       "energyUsageKw": 480,
-      "drainKw": 0
+      "drainKw": 16
     },
     "ee-super-beacon": {
       "id": "ee-super-beacon",
@@ -152092,7 +152092,7 @@
         "speed"
       ],
       "energyUsageKw": 960,
-      "drainKw": 0
+      "drainKw": 32
     },
     "bob-beacon-3": {
       "id": "bob-beacon-3",
@@ -152107,7 +152107,7 @@
         "speed"
       ],
       "energyUsageKw": 1920,
-      "drainKw": 0
+      "drainKw": 64
     }
   },
   "defaultMachines": {

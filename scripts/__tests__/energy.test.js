@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseEnergyKj, parsePowerKw, inferEnergyType } from '../energy.js'
+import { parseEnergyKj, parsePowerKw, inferEnergyType, energyDrainKw } from '../energy.js'
 
 describe('parseEnergyKj', () => {
   it('reads joule strings with SI prefixes', () => {
@@ -49,5 +49,29 @@ describe('inferEnergyType', () => {
     expect(inferEnergyType({ energy_source: { type: 'fluid', burns_fluid: false } })).toBe('void')
     expect(inferEnergyType({ energy_source: { type: 'fluid' } })).toBe('void')
     expect(inferEnergyType({})).toBe('void')
+  })
+})
+
+describe('energyDrainKw', () => {
+  it('defaults an electric source without drain to energy_usage / 30', () => {
+    expect(energyDrainKw({ energy_usage: '90kW', energy_source: { type: 'electric' } })).toBeCloseTo(3, 12)
+    expect(energyDrainKw({ energy_usage: '1.5MW', energy_source: { type: 'electric' } })).toBeCloseTo(50, 12)
+  })
+
+  it('keeps an explicit drain, an explicit 0kW included', () => {
+    expect(energyDrainKw({ energy_usage: '90kW', energy_source: { type: 'electric', drain: '0kW' } })).toBe(0)
+    expect(energyDrainKw({ energy_usage: '90kW', energy_source: { type: 'electric', drain: '5kW' } })).toBe(5)
+  })
+
+  it('is 0 for an electric source without energy_usage', () => {
+    expect(energyDrainKw({ energy_source: { type: 'electric' } })).toBe(0)
+  })
+
+  it('is 0 for any other source, whatever the usage', () => {
+    expect(energyDrainKw({ energy_usage: '90kW', energy_source: { type: 'burner' } })).toBe(0)
+    expect(energyDrainKw({ energy_usage: '90kW', energy_source: { type: 'heat' } })).toBe(0)
+    expect(energyDrainKw({ energy_usage: '90kW', energy_source: { type: 'fluid', burns_fluid: true } })).toBe(0)
+    expect(energyDrainKw({ energy_usage: '90kW', energy_source: { type: 'void' } })).toBe(0)
+    expect(energyDrainKw({ energy_usage: '90kW' })).toBe(0)
   })
 })

@@ -10,7 +10,7 @@
 
 import { luaList } from './technologies.js'
 import { moduleCategoriesField } from './module-categories.js'
-import { parseEnergyKw, inferEnergyType } from './energy.js'
+import { parseEnergyKw, inferEnergyType, energyDrainKw } from './energy.js'
 import { burnerFuel } from './fuel.js'
 
 export const ALL_EFFECTS = ['consumption', 'pollution', 'productivity', 'quality', 'speed']
@@ -81,7 +81,7 @@ function machineEnergy(proto) {
   return {
     energyUsageKw: energyType === 'void' ? 0 : parseEnergyKw(proto.energy_usage),
     energyType,
-    drainKw:       parseEnergyKw(proto.energy_source?.drain),
+    drainKw:       energyDrainKw(proto),
     ...burnerFuel(proto),
   }
 }

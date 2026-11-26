@@ -218,7 +218,15 @@ node scripts/build-game-data.js --patch-module-categories \
   --output public/data/kompetenz-seablock/game-data.json
 ```
 
-`--patch-beacon-energy` writes `energyUsageKw` and `drainKw` (the prototype's `energy_usage` and explicit `energy_source.drain`) on the bundle's electric beacons; void beacons carry neither, and a bundle with no `beacons` key is left alone (same mod-set check, which refuses a dump from a different mod set; safe to re-run; it touches nothing else). It refuses a dump that lacks more than 1 % of the beacons (a single one when there are fewer than 100). The planner adds a beacon's power to its rows' power with it. The Seablock bundle has it; the Nullius bundle does not until its re-dump, so there beacons draw nothing.
+`--patch-machine-drain` writes `drainKw` on the bundle's crafting machines, drills and pumps from the dump: the explicit `energy_source.drain`, else `energy_usage / 30` for an electric source (the game's default), 0 for any other source. It uses the same mod-set check, refuses a dump that lacks more than 1 % of those machines or lists a different `energy_usage` for them (a dump of another mod set), and is safe to re-run; it touches nothing else. Run it together with `--patch-beacon-energy`. A full export records the default drain too. The Seablock bundle has it; the Nullius bundle does not until its re-dump, so there only the 8 machines without an explicit drain are under-reported.
+
+```sh
+node scripts/build-game-data.js --patch-machine-drain \
+  --dump ... --factorio-dir ... --mods-dir ... \
+  --output public/data/kompetenz-seablock/game-data.json
+```
+
+`--patch-beacon-energy` writes `energyUsageKw` and `drainKw` (the prototype's `energy_usage` and its drain, the explicit `energy_source.drain` or else `energy_usage / 30`) on the bundle's electric beacons; void beacons carry neither, and a bundle with no `beacons` key is left alone (same mod-set check, which refuses a dump from a different mod set; safe to re-run; it touches nothing else). It refuses a dump that lacks more than 1 % of the beacons (a single one when there are fewer than 100). The planner adds a beacon's power to its rows' power with it. The Seablock bundle has it; the Nullius bundle does not until its re-dump, so there all 19 beacons draw nothing.
 
 ```sh
 node scripts/build-game-data.js --patch-beacon-energy \
@@ -261,6 +269,7 @@ After re-exporting the Seablock bundle, run `npm run contract`: the in-game view
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/icon-url.js` | Derives the public-relative `iconPath` prefix from the icons output directory |
 | `scripts/locale.js` | Locale parsing, name resolution and the game's resolved-name lookup (used by the build script) |
+| `scripts/machine-drain.js` | Machine idle drain (used by `--patch-machine-drain`) |
 | `scripts/beacon-energy.js` | Beacon power draw (used by the build script and `--patch-beacon-energy`) |
 | `scripts/module-categories.js` | Module categories machines and beacons accept (used by the build script and `--patch-module-categories`) |
 | `scripts/modset.js` | Compares the bundle's mod set with the dump's, ignoring `base` and the viewer mod (used by the patch modes) |

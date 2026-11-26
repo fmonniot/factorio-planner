@@ -7,13 +7,13 @@ import { selectRow } from './support/sidePanel'
 /**
  * One Seablock row: gear wheels in assembling machines 2 (0.75 speed, 135 kW) with 2 beacons of 2 speed modules 3
  * (+80 % speed and +140 % energy per beacon pair: speed 0.75 x 2.6 = 1.95, energy x 3.8). Pinned at 936 runs/min, that
- * is exactly 4 machines. The beacon entity draws 480 kW (read from the bundle).
+ * is exactly 4 machines. The beacon entity draws 480 kW plus its 16 kW drain (energy_usage / 30), read from the bundle; each machine adds its 4.5 kW drain, which the energy effect does not scale.
  */
 const FIXTURE = path.resolve('e2e/fixtures/not-in-golden/beacon-power-seablock.json')
 const SOURCE = 'kompetenz-seablock'
 const MACHINES = 4
-const MACHINE_KW = MACHINES * 135 * 3.8
-const BEACON_KW = 480
+const MACHINE_KW = MACHINES * (135 * 3.8 + 4.5)
+const BEACON_KW = 480 + 16
 
 const SCALE = { W: 0.001, kW: 1, MW: 1000, GW: 1_000_000 } as const
 
@@ -41,27 +41,27 @@ test('a row pays for its beacons, shared beacons cost less, and the effects stay
   const power = row.getByTestId('row-power')
   await expect(power).toBeVisible({ timeout: 20000 })
 
-  // Machine part + 4 machines x 2 beacons x 480 kW.
+  // Machine part + 4 machines x 2 beacons x 496 kW (480 kW usage, 16 kW drain).
   const expected = MACHINE_KW + MACHINES * 2 * BEACON_KW
   const full = await powerOf(power)
   expect(Math.abs(full.kw - expected)).toBeLessThanOrEqual(full.err + 1e-9)
   const total = await powerOf(page.getByTestId('block-power-total'))
   expect(Math.abs(total.kw - full.kw)).toBeLessThanOrEqual(total.err + full.err + 1e-9)
 
-  // The tooltip splits the row's power: 4 machines 2.1MW (2052 kW), 8 beacons 3.8MW (3840 kW).
-  await expect(power).toHaveAttribute('data-tip', 'Machines 2.1MW · Beacons 3.8MW')
+  // The tooltip splits the row's power: 4 machines 2.1MW (2070 kW), 8 beacons 4.0MW (3968 kW).
+  await expect(power).toHaveAttribute('data-tip', 'Machines 2.1MW · Beacons 4.0MW')
 
   const panel = await selectRow(page, row)
   await expect(panel.getByTestId('beacon-sharing')).toHaveValue('1')
-  await expect(panel.getByTestId('beacon-power')).toContainText(/^≈ 8 beacons · 3\.8MW$/)
+  await expect(panel.getByTestId('beacon-power')).toContainText(/^≈ 8 beacons · 4\.0MW$/)
 
-  // Two machines per beacon halves the beacon part: machines x 1 x 480 kW less.
+  // Two machines per beacon halves the beacon part: machines x 1 x 496 kW less.
   await panel.getByLabel('Machines per beacon').fill('2')
   const shared = expected - MACHINES * 1 * BEACON_KW
   // The figure is rounded to 0.1 MW, so compare within that rounding.
   await expect.poll(async () => { const p = await powerOf(power); return Math.abs(p.kw - shared) <= p.err + 1e-9 }).toBe(true)
   await expect.poll(async () => (await savedConfig(page)).machinesPerBeacon).toBe(2)
-  await expect(panel.getByTestId('beacon-power')).toContainText(/^≈ 4 beacons · 1\.9MW$/)
+  await expect(panel.getByTestId('beacon-power')).toContainText(/^≈ 4 beacons · 2\.0MW$/)
   // The effects did not change: still 4 machines.
   await expect(row).toContainText('4')
 
