@@ -100,7 +100,7 @@ export function SidePanel({ blockId, rootPlan, result, gameData }: {
         role={drawer ? 'dialog' : undefined}
         aria-modal={drawer ? true : undefined}
         tabIndex={drawer ? -1 : undefined}
-        className="fixed inset-y-0 right-0 z-40 w-[min(300px,max(200px,calc(100vw_-_140px)))] xl:w-[380px] shadow-2xl xl:static xl:z-auto xl:shadow-none shrink-0 focus:outline-none border-l border-gray-700 bg-gray-900 overflow-y-auto"
+        className="fixed inset-y-0 right-0 z-40 w-[min(300px,max(200px,calc(100vw_-_140px)))] xl:w-[380px] shadow-2xl xl:relative xl:z-auto xl:shadow-none shrink-0 focus:outline-none border-l border-gray-700 bg-gray-900 overflow-y-auto"
       >
         {node.kind === 'subplan' ? (
           <GroupPanel
