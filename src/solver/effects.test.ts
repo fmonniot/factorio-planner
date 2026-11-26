@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
+import { loadGameDataFromJson } from '../data/loader'
 import { rowProductAmount } from './build'
 import type { BeaconConfig, GameData, GameRecipeNode, Machine } from '../data/types'
 
@@ -471,6 +472,93 @@ describe('computeMachineMetrics', () => {
     // 2.5 machines needed
     const metrics = computeMachineMetrics(2.5, 60, m, fx)
     expect(metrics.machineCountCeil).toBe(3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Beacon power
+// ---------------------------------------------------------------------------
+
+describe('beacon power', () => {
+  const beaconEntity = (over: Partial<GameData['beacons'][string]> = {}): GameData['beacons'][string] => ({
+    id: 'beacon', name: 'beacon', iconPath: '', hidden: false, moduleSlots: 2, distributionEfficiency: 1,
+    allowedEffects: ['speed', 'consumption', 'productivity'], energyUsageKw: 480, drainKw: 0, ...over,
+  })
+  function data(beacon: GameData['beacons'][string] | undefined = beaconEntity()): GameData {
+    const gd = makeGameData({ r1: recipe(false) }, { 'speed-module-3': structuredClone(SPEED3_MODULE) })
+    gd.machines = { assembler: machine({ energyUsageKw: 135, drainKw: 0 }) }
+    gd.beacons = beacon ? { beacon } : {}
+    return gd
+  }
+  const config = (over: Partial<BeaconConfig> = {}): BeaconConfig => ({
+    beaconId: 'beacon', modules: [{ moduleId: 'speed-module-3', count: 2 }], beaconCount: 2, modulesPerBeacon: 2,
+    distributionEfficiency: 1, ...over,
+  })
+  const perMachine = (cfg: BeaconConfig, gd = data()) =>
+    computeNodeEffects(node('n', 'r1', [], [cfg]), gd).beaconPowerPerMachineKw
+  // Worked example: speed +2.0, consumption x3.8; 6 machines at 135 kW.
+  function row(cfg: BeaconConfig, gd = data()) {
+    const fx = computeNodeEffects(node('n', 'r1', [], [cfg]), gd)
+    return { fx, metrics: computeMachineMetrics(18, 60, gd.machines.assembler, fx) }
+  }
+
+  it('charges the beacons per machine, divided by the machines sharing one', () => {
+    expect(perMachine(config())).toBe(960)
+    expect(perMachine(config({ machinesPerBeacon: 2 }))).toBe(480)
+    expect(perMachine(config({ machinesPerBeacon: 2.5 }))).toBeCloseTo(384)
+  })
+
+  it('adds the beacon power to the row power for the worked example, leaving the effects alone', () => {
+    const base = row(config())
+    expect(base.metrics.machineCountExact).toBeCloseTo(6)
+    expect(base.metrics.powerKw).toBeCloseTo(8838)
+    const two = row(config({ machinesPerBeacon: 2 }))
+    expect(two.metrics.powerKw).toBeCloseTo(5958)
+    const frac = row(config({ machinesPerBeacon: 2.5 }))
+    expect(frac.metrics.powerKw).toBeCloseTo(5382)
+    expect(frac.metrics.beaconPowerKw).toBeCloseTo(2304)
+    expect(frac.metrics.machineCountExact).toBe(base.metrics.machineCountExact)
+    expect(frac.fx.speedBonus).toBe(base.fx.speedBonus)
+    expect(frac.fx.consumptionBonus).toBe(base.fx.consumptionBonus)
+  })
+
+  it('adds the drain of each beacon', () => {
+    expect(perMachine(config(), data(beaconEntity({ drainKw: 16 })))).toBe(2 * 496)
+  })
+
+  it('keeps the draw fixed whatever the modules in the beacon', () => {
+    const gd = data()
+    gd.modules['eff-1'] = { ...structuredClone(SPEED3_MODULE), id: 'eff-1', effects: { consumption: -0.3 } }
+    expect(perMachine(config({ modules: [{ moduleId: 'eff-1', count: 2 }] }), gd)).toBe(960)
+  })
+
+  it('draws nothing without energy data, an unknown or missing beacon type, or a beacon count of 0', () => {
+    const machineOnly = 3078  // 6 machines x 135 kW x 3.8
+    expect(row(config({ beaconCount: 0 })).fx.beaconPowerPerMachineKw).toBeUndefined()
+    const noFields = beaconEntity()
+    delete noFields.energyUsageKw
+    delete noFields.drainKw
+    expect(row(config(), data(noFields)).metrics.powerKw).toBeCloseTo(machineOnly)
+    expect(row(config({ beaconId: 'gone' })).metrics.powerKw).toBeCloseTo(machineOnly)
+    expect(row(config({ beaconId: undefined })).metrics.powerKw).toBeCloseTo(machineOnly)
+    expect(row(config({ beaconCount: 0 })).metrics.beaconPowerKw).toBe(0)
+  })
+
+  it('draws without a module, and sums the configurations', () => {
+    expect(perMachine(config({ modules: [] }))).toBe(960)
+    const fx = computeNodeEffects(node('n', 'r1', [], [config(), config({ beaconCount: 1, machinesPerBeacon: 2 })]), data())
+    expect(fx.beaconPowerPerMachineKw).toBe(960 + 240)
+  })
+
+  it('reads a user-uploaded bundle without the energy fields as machine power only', () => {
+    const json = {
+      factorioVersion: '2.0.0', modSet: {}, items: {}, recipes: {}, machines: {}, modules: {},
+      beacons: { beacon: { id: 'beacon', name: 'B', iconPath: '', moduleSlots: 2, distributionEfficiency: 1, allowedEffects: ['speed'] } },
+      defaultMachines: {},
+    }
+    const gd = loadGameDataFromJson(JSON.stringify(json))
+    expect(gd.beacons.beacon.energyUsageKw).toBeUndefined()
+    expect(perMachine(config(), gd)).toBeUndefined()
   })
 })
 

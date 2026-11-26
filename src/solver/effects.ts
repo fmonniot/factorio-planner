@@ -1,4 +1,4 @@
-import type { GameData, GameRecipeNode, Ingredient, Machine } from '../data/types'
+import type { BeaconConfig, GameData, GameRecipeNode, Ingredient, Machine } from '../data/types'
 import { resolveRowFuel } from '../data/fuel'
 import { defaultMachineIdOf } from '../data/horizon'
 
@@ -41,6 +41,19 @@ export interface NodeEffects {
   heatBonus: number          // reactor neighbours: heat product × (1 + heatBonus)
   /** Burner rows with fuel data: the fuel burnt per recipe execution (an ingredient of the row). */
   fuel?: Ingredient
+  /** Power of the row's beacons per machine, in kW; set only when above 0. */
+  beaconPowerPerMachineKw?: number
+}
+
+/** Beacons one machine is charged for: the configured count over the machines sharing a beacon (absent = 1). */
+export function beaconsPerMachine(config: BeaconConfig): number {
+  return config.beaconCount / (config.machinesPerBeacon ?? 1)
+}
+
+/** Power one beacon of the configuration draws, in kW: fixed, whatever modules it holds. 0 for an unknown beacon or one without energy data. */
+export function beaconUnitKw(config: BeaconConfig, gameData: GameData): number {
+  const entity = config.beaconId ? gameData.beacons[config.beaconId] : undefined
+  return (entity?.energyUsageKw ?? 0) + (entity?.drainKw ?? 0)
 }
 
 /**
@@ -116,8 +129,14 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
     }
   }
 
+  let beaconPowerPerMachineKw = 0
+  for (const beacon of node.beaconConfigs ?? []) {
+    beaconPowerPerMachineKw += beaconsPerMachine(beacon) * beaconUnitKw(beacon, gameData)
+  }
+
   const effects: NodeEffects = {
     productivityBonus, speedBonus, consumptionBonus, heatBonus: neighbourHeatBonus(node, gameData),
+    ...(beaconPowerPerMachineKw > 0 ? { beaconPowerPerMachineKw } : {}),
   }
   const fuel = nodeFuel(node, gameData, effects)
   return fuel ? { ...effects, fuel } : effects
@@ -163,7 +182,7 @@ export function computeMachineMetrics(
   craftingTime: number,
   machine: Machine,
   effects: NodeEffects,
-): { machineCountExact: number; machineCountCeil: number; powerKw: number } {
+): { machineCountExact: number; machineCountCeil: number; powerKw: number; beaconPowerKw: number } {
   // Effective speed accounts for speed modules/beacons.
   const effectiveCraftingSpeed = machine.craftingSpeed * (1 + effects.speedBonus)
 
@@ -175,9 +194,12 @@ export function computeMachineMetrics(
 
   // Power: energy usage scaled by the consumption bonus (clamped at -80 %), plus drain.
   // Drain is a constant idle draw not affected by consumption modules.
+  // Beacons are counted fractionally like machines and draw a fixed power.
+  const beaconPowerKw = machineCountExact * (effects.beaconPowerPerMachineKw ?? 0)
   const powerKw =
     machineCountExact *
       (machine.energyUsageKw * consumptionMultiplier(effects.consumptionBonus) + machine.drainKw)
+    + beaconPowerKw
 
-  return { machineCountExact, machineCountCeil, powerKw }
+  return { machineCountExact, machineCountCeil, powerKw, beaconPowerKw }
 }

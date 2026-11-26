@@ -240,8 +240,9 @@ export function solvedNodeOf(
     const m = computeMachineMetrics(throughput, recipe.craftingTime, machine, effects)
     machineCountExact = m.machineCountExact
     machineCountCeil = m.machineCountCeil
-    // A burner row with fuel data draws no electricity: its energy is the fuel ingredient.
-    powerKw = effects.fuel ? 0 : m.powerKw
+    // A burner row with fuel data draws no electricity for the machine (its energy is the fuel ingredient) but still
+    // pays for its beacons.
+    powerKw = effects.fuel ? m.beaconPowerKw : m.powerKw
   }
 
   const inputRates: Record<string, number> = {}

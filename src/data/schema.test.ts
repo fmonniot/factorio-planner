@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ItemSchema, RecipeSchema, MachineSchema, BeaconEntitySchema, GameRecipeNodeSchema, GameDataSchema } from './schema'
+import { BeaconConfigSchema, ItemSchema, RecipeSchema, MachineSchema, BeaconEntitySchema, GameRecipeNodeSchema, GameDataSchema } from './schema'
 
 const base = { id: 'x', name: 'X', type: 'item', iconPath: '/i/x.png' }
 
@@ -73,5 +73,25 @@ describe('GameDataSchema item ids', () => {
 
   it('accepts ordinary ids', () => {
     expect(GameDataSchema.safeParse(gameData(['iron-plate', 'power:heat', 'nullius-iron_gear'])).success).toBe(true)
+  })
+})
+
+describe('beacon power fields', () => {
+  const beacon = { id: 'b', name: 'B', iconPath: '', moduleSlots: 2, distributionEfficiency: 1.5, allowedEffects: ['speed'] }
+  const config = { modules: [], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 1 }
+
+  it('BeaconEntitySchema accepts entries without the fields and rejects a negative draw', () => {
+    expect(BeaconEntitySchema.safeParse(beacon).success).toBe(true)
+    expect(BeaconEntitySchema.parse({ ...beacon, energyUsageKw: 480, drainKw: 0 })).toMatchObject({ energyUsageKw: 480, drainKw: 0 })
+    expect(BeaconEntitySchema.safeParse({ ...beacon, energyUsageKw: -1 }).success).toBe(false)
+    expect(BeaconEntitySchema.safeParse({ ...beacon, drainKw: -1 }).success).toBe(false)
+  })
+
+  it('BeaconConfigSchema.machinesPerBeacon is optional and at least 1', () => {
+    expect(BeaconConfigSchema.parse(config).machinesPerBeacon).toBeUndefined()
+    expect(BeaconConfigSchema.parse({ ...config, machinesPerBeacon: 2.5 }).machinesPerBeacon).toBe(2.5)
+    for (const bad of [0.5, 0, -2]) {
+      expect(BeaconConfigSchema.safeParse({ ...config, machinesPerBeacon: bad }).success, String(bad)).toBe(false)
+    }
   })
 })

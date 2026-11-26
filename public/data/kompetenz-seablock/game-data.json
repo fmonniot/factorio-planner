@@ -152061,7 +152061,9 @@
         "consumption",
         "pollution",
         "speed"
-      ]
+      ],
+      "energyUsageKw": 480,
+      "drainKw": 0
     },
     "ee-super-beacon": {
       "id": "ee-super-beacon",
@@ -152088,7 +152090,9 @@
         "consumption",
         "pollution",
         "speed"
-      ]
+      ],
+      "energyUsageKw": 960,
+      "drainKw": 0
     },
     "bob-beacon-3": {
       "id": "bob-beacon-3",
@@ -152101,7 +152105,9 @@
         "consumption",
         "pollution",
         "speed"
-      ]
+      ],
+      "energyUsageKw": 1920,
+      "drainKw": 0
     }
   },
   "defaultMachines": {

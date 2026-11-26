@@ -6,7 +6,7 @@ import { fitModules } from './moduleSlots'
 import { expectTip } from '../../../test/byTip'
 import { EFFECTS_HELP, EffectsSection } from './EffectsSection'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
-import type { BeaconConfig, GameData, GameRecipeNode } from '../../../data/types'
+import type { BeaconConfig, GameData, GameRecipeNode, SolvedNode } from '../../../data/types'
 
 const speedModule = {
   id: 'speed-3', name: 'Speed 3', iconPath: '', category: 'speed', effects: { speed: 0.5, consumption: 0.7 },
@@ -71,21 +71,22 @@ const storedConfigs = () => nodes()[0].beaconConfigs
 const storedBeacon = () => storedConfigs()?.[0]
 
 /** The section as the panel wires it: reading the first row from the store and writing its list back. */
-function StoreBeacons({ gameData }: { gameData: GameData }) {
+function StoreBeacons({ gameData, solved }: { gameData: GameData; solved?: SolvedNode }) {
   const node = useBlockStore(s => s.blocks[0].rootPlan.nodes[0]) as GameRecipeNode
   return (
     <BeaconsSection
       node={node}
       configs={node.beaconConfigs ?? []}
+      solved={solved}
       gameData={gameData}
       onChange={configs => useBlockStore.getState().updateNodeBeacons(node.id, configs)}
     />
   )
 }
 
-function renderBeacons(gameData: GameData, node: GameRecipeNode = rowNode({ beaconConfigs: [beacon()] })) {
+function renderBeacons(gameData: GameData, node: GameRecipeNode = rowNode({ beaconConfigs: [beacon()] }), solved?: SolvedNode) {
   setRows(node)
-  render(<StoreBeacons gameData={gameData} />)
+  render(<StoreBeacons gameData={gameData} solved={solved} />)
 }
 
 beforeEach(() => {
@@ -130,6 +131,54 @@ describe('BeaconsSection — the card', () => {
     renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ beaconId: undefined })] }))
     expect(screen.getByText('Slots/beacon')).toBeInTheDocument()
     expect(screen.queryByText('Modules/beacon')).not.toBeInTheDocument()
+  })
+})
+
+describe('BeaconsSection — machines per beacon and beacon power', () => {
+  const sharing = () => screen.getByTestId('beacon-sharing')
+  const solvedRow = { machineCountExact: 6 } as SolvedNode
+  const powered = () => {
+    const gd = makeGameData()
+    gd.beacons.beacon = { ...gd.beacons.beacon, energyUsageKw: 480, drainKw: 0 }
+    return gd
+  }
+
+  it('defaults to 1 and stores a value above 1', () => {
+    renderBeacons(makeGameData())
+    expect(sharing()).toHaveValue(1)
+    fireEvent.change(sharing(), { target: { value: '2.5' } })
+    expect(storedBeacon()?.machinesPerBeacon).toBe(2.5)
+  })
+
+  it('removes the key when set back to 1', () => {
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon({ machinesPerBeacon: 2 })] }))
+    expect(sharing()).toHaveValue(2)
+    fireEvent.change(sharing(), { target: { value: '1' } })
+    expect(storedBeacon()).not.toHaveProperty('machinesPerBeacon')
+  })
+
+  it('ignores a value below 1 and an empty one', () => {
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon({ machinesPerBeacon: 2 })] }))
+    fireEvent.change(sharing(), { target: { value: '0.5' } })
+    fireEvent.change(sharing(), { target: { value: '' } })
+    expect(storedBeacon()?.machinesPerBeacon).toBe(2)
+  })
+
+  it('is there without beacon data too', () => {
+    const gd = makeGameData()
+    gd.beacons = {}
+    renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ beaconId: undefined })] }))
+    expect(sharing()).toBeInTheDocument()
+  })
+
+  it('shows the fractional beacon count and its power', () => {
+    renderBeacons(powered(), rowNode({ beaconConfigs: [beacon({ beaconCount: 2, machinesPerBeacon: 2.5 })] }), solvedRow)
+    expect(screen.getByTestId('beacon-power')).toHaveTextContent('≈ 4.8 beacons · 2.3MW')
+  })
+
+  it('shows no beacon power for a beacon without energy data, or without a solved row', () => {
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon()] }), solvedRow)
+    expect(screen.queryByTestId('beacon-power')).not.toBeInTheDocument()
   })
 })
 

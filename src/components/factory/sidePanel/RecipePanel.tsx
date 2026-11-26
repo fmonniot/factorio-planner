@@ -41,6 +41,7 @@ export function RecipePanel({ node, solved, gameData, onClose }: {
       <BeaconsSection
         node={node}
         configs={beacons}
+        solved={solved}
         gameData={gameData}
         onChange={configs => updateNodeBeacons(node.id, configs)}
       />

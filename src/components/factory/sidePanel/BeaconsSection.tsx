@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { BeaconConfig, GameData, GameRecipeNode } from '../../../data/types'
+import type { BeaconConfig, GameData, GameRecipeNode, SolvedNode } from '../../../data/types'
 import { useBlockStore, selectActiveBlock, deepEqual } from '../../../store/blockStore'
 import { useHorizon } from '../../../store/horizon'
 import { withinHorizon } from '../../../data/horizon'
@@ -15,7 +15,8 @@ import { fitModules, setSlot, slotsOf } from './moduleSlots'
 import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig } from './beaconDefaults'
 import { beaconEffects, applyRecipeConstraints, fmtEffect } from './effects'
 import { resolveRowMachine } from '../../../data/horizon'
-import { rowMachine } from '../../../solver/effects'
+import { rowMachine, beaconsPerMachine, beaconUnitKw } from '../../../solver/effects'
+import { fmtPower } from '../ItemTile'
 import { describedTip } from '../../tipProps'
 import { TipWrap } from '../../TipWrap'
 
@@ -28,10 +29,11 @@ function contribution(applied: ReturnType<typeof beaconEffects>): string {
   return parts.length > 0 ? parts.join(', ') : 'no effect'
 }
 
-function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
+function BeaconCard({ index, beacon, node, solved, gameData, onChange, onRemove }: {
   index: number
   beacon: BeaconConfig
   node: GameRecipeNode
+  solved: SolvedNode | undefined
   gameData: GameData
   onChange: (next: BeaconConfig) => void
   onRemove: () => void
@@ -58,6 +60,11 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
   const efficiency = Math.round(beacon.distributionEfficiency * 100)
 
   const update = (patch: Partial<BeaconConfig>) => onChange({ ...beacon, ...patch })
+
+  // Fractional like the machine count; the unit draw is fixed, whatever modules the beacon holds.
+  const unitKw = beaconUnitKw(beacon, gameData)
+  const beaconTotal = solved ? solved.machineCountExact * beaconsPerMachine(beacon) : 0
+  const totalPower = fmtPower(beaconTotal * unitKw)
 
   function selectBeacon(beaconId: string) {
     const e = gameData.beacons[beaconId]
@@ -159,6 +166,30 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
         misfit={misfit}
       />
 
+      <label className="flex items-center gap-2 text-xs text-gray-400">
+        <span className="min-w-0 flex-1">Machines per beacon</span>
+        <input
+          type="number"
+          min={1}
+          step="any"
+          aria-label="Machines per beacon"
+          data-testid="beacon-sharing"
+          value={beacon.machinesPerBeacon ?? 1}
+          onChange={e => {
+            const v = parseFloat(e.target.value)
+            if (!isFinite(v) || v < 1) return
+            if (v === 1) {
+              const rest = { ...beacon }
+              delete rest.machinesPerBeacon
+              onChange(rest)
+            } else {
+              update({ machinesPerBeacon: v })
+            }
+          }}
+          className="w-16 shrink-0 bg-gray-700 text-gray-200 text-xs rounded px-1.5 py-1 border border-gray-600 outline-none text-right tabular-nums"
+        />
+      </label>
+
       {!hasBeaconData && (
         <div className="space-y-1.5 pt-1 border-t border-gray-700">
           <label className="flex items-center gap-2 text-xs text-gray-400">
@@ -189,6 +220,15 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
       <div data-testid="beacon-summary" className="text-[11px] text-gray-400">
         {efficiency}% efficiency · {beacon.modules.length > 0 ? contribution(applied) : 'no module, so no effect'}
       </div>
+      {solved && unitKw > 0 && (
+        <div
+          data-testid="beacon-power"
+          {...describedTip('Beacons are counted fractionally, like machines. Sharing a beacon changes its power, not its effects.')}
+          className="text-[11px] text-gray-400"
+        >
+          ≈ {+beaconTotal.toFixed(1)} beacons · {totalPower.value}{totalPower.unit}
+        </div>
+      )}
     </div>
   )
 }
@@ -196,9 +236,10 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
 /**
  * The Beacons section: one card per configuration, and "+ Add beacon configuration".
  */
-export function BeaconsSection({ node, configs, gameData, onChange }: {
+export function BeaconsSection({ node, configs, solved, gameData, onChange }: {
   node: GameRecipeNode
   configs: readonly BeaconConfig[]
+  solved?: SolvedNode
   gameData: GameData
   onChange: (configs: BeaconConfig[]) => void
 }) {
@@ -241,6 +282,7 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
             index={i}
             beacon={c}
             node={node}
+            solved={solved}
             gameData={gameData}
             onChange={next => emit(configs.map((x, j) => (j === i ? next : x)))}
             onRemove={() => emit(configs.filter((_, j) => j !== i), true)}

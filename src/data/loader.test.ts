@@ -730,6 +730,17 @@ describe('beacon configuration migration', () => {
     expect(node.beaconConfigs?.[0].modules).toEqual([{ moduleId: 'speed-module-2', count: 2 }])
   })
 
+  it('loads a stored plan without machinesPerBeacon with no key, and keeps the field when present', () => {
+    const cfg = { modules: [], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 1 }
+    const load = (c: object) => {
+      const block = { id: 'b1', name: 'Block', products: [], noImportItems: [], rootPlan: planJson([nodeJson({ beaconConfigs: [c] })]) }
+      const node = parseAppState({ blocks: [block], activeBlockId: 'b1' }).blocks[0].rootPlan.nodes[0] as GameRecipeNode
+      return node.beaconConfigs?.[0] as object
+    }
+    expect(load(cfg)).not.toHaveProperty('machinesPerBeacon')
+    expect(load({ ...cfg, machinesPerBeacon: 2.5 })).toHaveProperty('machinesPerBeacon', 2.5)
+  })
+
   it('still rejects an invalid legacy beaconConfig, null included', () => {
     const block = (beaconConfig: unknown) => ({
       id: 'b1', name: 'Block', products: [], noImportItems: [], rootPlan: planJson([nodeJson({ beaconConfig })]),

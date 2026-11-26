@@ -184,6 +184,10 @@ export const BeaconEntitySchema = z.object({
   allowedEffects: z.array(EffectNameSchema),
   // Module categories the entity accepts (`allowed_module_categories`); absent = every category, [] = none.
   allowedModuleCategories: z.array(z.string()).optional(),
+  // Power draw of an electric beacon (`energy_usage`, explicit drain), in kW. Absent = draws nothing: a void beacon,
+  // or a bundle exported before the fields existed.
+  energyUsageKw: z.number().nonnegative().optional(),
+  drainKw: z.number().nonnegative().optional(),
 })
 
 export const TechnologyIngredientSchema = z.object({
@@ -302,6 +306,8 @@ export const BeaconConfigSchema = z.object({
   // Module slots per beacon, read when the beacon type is unknown.
   modulesPerBeacon: z.number().int().positive(),
   distributionEfficiency: z.number().min(0),
+  // Machines sharing one beacon; absent = 1. Only the beacon power count uses it, the effects stay per machine.
+  machinesPerBeacon: z.number().min(1).optional(),
 })
 
 /**

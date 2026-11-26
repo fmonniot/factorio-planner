@@ -249,6 +249,8 @@ interface BeaconEntity {
   distributionEfficiency: number  // >= 0 (dump: distribution_effectivity, default 0)
   allowedEffects: EffectName[]    // dump absence means "all five effects"
   allowedModuleCategories?: string[]  // sorted; absent = every category, [] = none
+  energyUsageKw?: number          // >= 0; absent = draws nothing: void beacon, or a bundle exported before the field
+  drainKw?: number                // >= 0; the explicit drain only; only electric beacons carry the two fields, together
 }
 ```
 
@@ -800,8 +802,11 @@ interface BeaconConfig {
   beaconCount: number             // int >= 0
   modulesPerBeacon: number        // int > 0; the slots per beacon, read when beaconId is unknown
   distributionEfficiency: number  // >= 0
+  machinesPerBeacon?: number      // >= 1, fractions allowed; machines sharing one beacon; absent = 1
 }
 ```
+
+`machinesPerBeacon` only divides the beacon count the row's power is charged for (`beaconCount / machinesPerBeacon` beacons per machine); the effects stay per machine. The side panel removes the key when it is set back to 1. There is no migration: a build older than the field drops it silently when it loads a plan.
 
 A `BeaconConfig` with an empty `modules` list is valid: the beacon is placed but holds no module, so the solver
 ignores it and the snapshot does not send it. `modules` works like `GameRecipeNode.modules`: slots fill in list order
@@ -810,8 +815,8 @@ each module is edited on its own. A node holds a list of configurations (`beacon
 
 The total module count on a node is kept within the machine's `moduleSlots` by the
 UI, not by the schema. When `beaconId` is set, the beacon modal copies the
-entity's `moduleSlots` and `distributionEfficiency` into the config; the solver
-reads only the config fields.
+entity's `moduleSlots` and `distributionEfficiency` into the config; the effects
+read only the config fields, and the beacon power reads the entity's `energyUsageKw` and `drainKw` by `beaconId`.
 
 ---
 
@@ -872,7 +877,7 @@ interface SolvedNode {
   throughput: number                   // recipe executions/min
   machineCountExact: number
   machineCountCeil: number
-  powerKw: number
+  powerKw: number                      // machines plus beacons; a burner row with fuel data: its beacons only
   fuelItemId?: string                  // burner rows: the fuel burnt (already in inputRates)
   feedsAbsorber?: true                 // a row that only runs to feed an absorbing row, while it runs; never `false`
   outputTags?: Record<string, FluidTag>  // split fluids only, present when the row makes one: the temperature it is made at (one per fluid)

@@ -2649,6 +2649,23 @@ describe('solve — burner fuel', () => {
     expect(rate(r.unsatisfied, 'coal')).toBeCloseTo(2.7, 4)
   })
 
+  it('charges a fuel-burning row for its beacons only', () => {
+    const data = fuelGameData()
+    data.beacons = {
+      beacon: { id: 'beacon', name: 'beacon', iconPath: '', hidden: false, moduleSlots: 0, distributionEfficiency: 1, allowedEffects: [], energyUsageKw: 480, drainKw: 0 },
+    }
+    const node: RecipeNode = {
+      ...planNode('s', 'smelt'),
+      beaconConfigs: [{ beaconId: 'beacon', modules: [], beaconCount: 1, modulesPerBeacon: 0, distributionEfficiency: 1 }],
+    }
+    const n = nodeOf(solve({ goals: plateGoal, nodes: [node] }, data), 's')
+    expect(n.fuelItemId).toBe('coal')
+    expect(n.powerKw).toBeCloseTo(n.machineCountExact * 480, 4)
+    // No machine in the category: nothing to charge.
+    data.defaultMachines = {}
+    expect(nodeOf(solve({ goals: plateGoal, nodes: [node] }, data), 's').powerKw).toBe(0)
+  })
+
   it('keeps the power draw when the machine has no fuel data', () => {
     const r = solve({ goals: plateGoal, nodes: [planNode('s', 'smelt')] }, fuelGameData({ fuelCategories: undefined }))
     const n = nodeOf(r, 's')
