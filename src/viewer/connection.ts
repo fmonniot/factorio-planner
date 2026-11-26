@@ -430,12 +430,14 @@ export function badgeFor(state: ConnectionState): Badge {
         return { kind: 'game-quiet', tone: 'warn', label: 'Game quiet', short: 'Quiet', detail: `The bridge has not heard the game lately: it is paused, saving, at the title screen or closed. ${transferText(status)}`.trim() }
       }
       if ((mod?.unknownIds ?? 0) > 0) {
+        // The count describes the plan the mod stores, which may not be the one the planner holds.
+        const otherPlan = !!mod?.stored && !!state.plan && mod.stored !== state.plan.id
         return {
           kind: 'data-set-mismatch',
           tone: 'warn',
           label: 'Data set mismatch',
           short: 'Data set',
-          detail: `The game does not know ${mod?.unknownIds} item, fluid, recipe or machine ids of the plan it holds. The planner's game data and the running game's mods differ. ${transferText(status)}`.trim(),
+          detail: `The game does not know ${mod?.unknownIds} item, fluid, recipe or machine ids of the plan it holds${otherPlan ? ` (${mod?.stored}, not the planner's current plan ${state.plan?.id}; the count may change once the current plan arrives)` : ''}. The planner's game data and the running game's mods differ. ${transferText(status)}`.trim(),
         }
       }
       return { kind: 'connected', tone: 'ok', label: 'Connected', short: 'Connected', detail: transferText(status) || 'The game is connected. Nothing has been sent yet.' }
