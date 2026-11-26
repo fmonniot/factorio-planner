@@ -1700,6 +1700,23 @@ describe('solver synthetic cases', () => {
         expect(lines.map(c => c.got)[0]).toBeCloseTo(5.625, 6)
         expect(lines.map(c => c.got)[1]).toBeCloseTo(9.375, 6)
       })
+      it('h4: an area of K1 and K2 share, the other area of K1 is credited alone below: [K1/A2, K2 tied, K1/A1]', () => {
+        // K1 needs 16 (A1 10, A2 6), K2 10, T leaves 15. The first pass credits K1 15 at its first entry; the settle walk reads
+        // waterFill(15, [6, 10]) = 6, 9 for the group and min(15 - 15, 10) = 0 for A1 alone, and the next pass is seeded with those.
+        const list: ServedEntry[] = [{ kind: 'block', blockId: 'K1', areaId: 'A2' }, { kind: 'block', blockId: 'K2', tied: true }, { kind: 'block', blockId: 'K1', areaId: 'A1' }]
+        const all = solveAll([T(list), V(), K1(), K2()], makeGameData())
+        expect(all.requestLoops[0]).toMatchObject({ rounds: 2, converged: true })
+        expect(flowIn(all, 'c-K1T').rate, 'c-K1T').toBeCloseTo(6, 6)
+        expect(flowIn(all, 'c-K1V').requested, 'c-K1V').toBeCloseTo(10, 6)
+        expect(flowIn(all, 'c-K2T').rate, 'c-K2T').toBeCloseTo(9, 6)
+        expect(flowIn(all, 'c-K2V').requested, 'c-K2V').toBeCloseTo(1, 6)
+        expect(nodeOf(all.results.V, 'case11-make-x').throughput, 'make-x').toBeCloseTo(5.5, 6)
+        const lines = all.served.T[X].consumers
+        expect(lines.map(c => [c.blockId, c.areaId])).toEqual([['K1', 'A2'], ['K2', undefined], ['K1', 'A1']])
+        expect(lines.map(c => c.share)).toEqual([expect.closeTo(6, 6), expect.closeTo(9, 6), expect.closeTo(0, 6)])
+        expect(lines.map(c => c.need)).toEqual([expect.closeTo(6, 6), expect.closeTo(10, 6), expect.closeTo(10, 6)])
+        for (const c of lines) expect(c, `${c.blockId}/${c.areaId} groupInListOrder`).not.toHaveProperty('groupInListOrder')
+      })
       it('a warm solve of the ranked areas reads the memo of the cycle and reports the same lists', () => {
         const list: ServedEntry[] = [{ kind: 'block', blockId: 'K1', areaId: 'A2' }, { kind: 'block', blockId: 'K1', areaId: 'A1' }, { kind: 'block', blockId: 'K2' }]
         const gd = makeGameData()
@@ -2163,11 +2180,11 @@ describe('solver synthetic cases', () => {
       }
     })
 
-    describe('h: a member with entries below its group: the group is served in list order', () => {
+    describe('h: a member with entries below its group: each entry is credited on its own', () => {
       // a7's fixture with the list [J, H3/L tied], [H3/B]: J needs 25, H3 20 (areas L 12, B 8), T leaves 30. H3 has an entry below the
-      // group, so its demand (the whole 20) would be credited inside the group for B too: the group is served in list order instead.
-      // Hand values: J is credited min(30, 25) = 25; H3, at its first entry, min(30 - 25, 20) = 5, split by area need 12:8 into L 3 and B 2.
-      // Grants in list order: J 25, L 3, B 2. J imports 0, H3 imports 15. Every line of J and H3 carries groupInListOrder.
+      // group, so its connection is credited entry by entry: the first pass serves the group in list order (J 25, H3 5), the settle walk reads
+      // waterFill(30, [25, 12]) = 18, 12 for the group and min(30 - 30, 8) = 0 for B alone; the second pass is seeded with those, and its
+      // walk gives the same: settled.
       const J = (): Block => mk('J', [['case11-other', 25]], [planNode('case11-use-x')], [{ id: 'c-J', itemId: X, fromBlockId: 'T' }])
       const pinnedUse = (where: string, rate: number): GameRecipeNode => ({ ...rowIn('case11-use-x', where), pinnedRate: rate })
       const H3 = (): Block => ({
@@ -2178,16 +2195,61 @@ describe('solver synthetic cases', () => {
         it(`tabs ${tabs.join(' ')}`, () => {
           const list: ServedEntry[] = [ent('J'), ent('H3', { tied: true, areaId: 'L' }), ent('H3', { areaId: 'B' })]
           const all = solveAll(tabsOf(tabs, { T: T(list), J: J(), H3: H3() }), makeGameData())
-          expect(flowIn(all, 'c-J').rate, 'c-J').toBeCloseTo(25, 6)
-          expect(unsatisfiedRate(all.results.J, X) ?? 0, 'J imports').toBeCloseTo(0, 6)
-          expect(flowIn(all, 'c-H3').rate, 'c-H3').toBeCloseTo(5, 6)
-          expect(unsatisfiedRate(all.results.H3, X) ?? 0, 'H3 imports').toBeCloseTo(15, 6)
-          expectLine(all, 'J', 25, 25)
-          expectLine(all, 'H3', 3, undefined, 'L')
-          expectLine(all, 'H3', 2, undefined, 'B')
-          for (const c of linesOf(all)) expect(c.groupInListOrder, `${c.blockId}/${c.areaId} flag`).toBe(true)
+          expectFlow(all, 'J', [18, 'limited', 7])
+          expectFlow(all, 'H3', [12, 'limited', 8])
+          expectLine(all, 'J', 18, 25)
+          expectLine(all, 'H3', 12, undefined, 'L')
+          expectLine(all, 'H3', 0, undefined, 'B')
+          noFlags(all)
         })
       }
+    })
+
+    describe('h2 to h3: entries of one connection in several groups', () => {
+      const pinnedUse = (where: string, rate: number): GameRecipeNode => ({ ...rowIn('case11-use-x', where), pinnedRate: rate })
+      const J = (): Block => mk('J', [['case11-other', 25]], [planNode('case11-use-x')], [{ id: 'c-J', itemId: X, fromBlockId: 'T' }])
+      const H3 = (): Block => ({
+        ...mk('H3', [['case11-other', 20]], [], [{ id: 'c-H3', itemId: X, fromBlockId: 'T' }]),
+        rootPlan: subPlan('root-H3', [], [subPlan('L', [pinnedUse('L', 12)], [], true), subPlan('B', [pinnedUse('B', 8)], [], true)]),
+      })
+      it('h2: [J, H3/L tied, K, H3/B tied]: each group shares what the one above left', () => {
+        // T makes 40. The first group {J, H3/L}: waterFill(40, [25, 12]) = 25, 12, leaving 3. The second {K, H3/B}: waterFill(3, [10, 8]) = 1.5, 1.5.
+        // H3 is credited 12 + 1.5 = 13.5 in all. (A single credit of H3 at its first entry gave H3 15 and K 0.)
+        const t = mk('T', [['case11-goal', 40]], [planNode('case11-make-goal')], [], [ent('J'), ent('H3', { tied: true, areaId: 'L' }), ent('K'), ent('H3', { tied: true, areaId: 'B' })], X)
+        for (const tabs of [['T', 'J', 'H3', 'K'], ['T', 'K', 'H3', 'J']]) {
+          const all = solveAll(tabsOf(tabs, { T: t, J: J(), H3: H3(), K: H('K', 10) }), makeGameData())
+          expectFlow(all, 'J', [25, 'ok', 0])
+          expectFlow(all, 'H3', [13.5, 'limited', 6.5])
+          expectFlow(all, 'K', [1.5, 'limited', 8.5])
+          expect(linesOf(all).map(c => [c.blockId, c.areaId])).toEqual([['J', undefined], ['H3', 'L'], ['K', undefined], ['H3', 'B']])
+          expectLine(all, 'J', 25, 25)
+          expectLine(all, 'H3', 12, undefined, 'L')
+          expectLine(all, 'K', 1.5, 10)
+          expectLine(all, 'H3', 1.5, undefined, 'B')
+          noFlags(all)
+        }
+      })
+      it('h3: a group made only of later entries of a block, settled in three passes', () => {
+        // H5 makes 25 other in areas L (12), B (8) and M (5); list [H5/L, J, H5/B, H5/M tied]; T leaves 30 and J needs 25. Pass 1 (as before): H5 is
+        // credited 25 at its first entry, J 5. The walk reads L min(30, 12) = 12 (rest 18), J's credit 5 (rest 13), waterFill(13, [8, 5]) = 8, 5.
+        // Pass 2, seeded: J is credited 18; the walk now leaves nothing for {B, M}: 0, 0. Pass 3, seeded with those, is settled.
+        const H5: Block = {
+          ...mk('H5', [['case11-other', 25]], [], [{ id: 'c-H5', itemId: X, fromBlockId: 'T' }]),
+          rootPlan: subPlan('root-H5', [], [subPlan('L', [pinnedUse('L', 12)], [], true), subPlan('B', [pinnedUse('B', 8)], [], true), subPlan('M', [pinnedUse('M', 5)], [], true)]),
+        }
+        const list: ServedEntry[] = [ent('H5', { areaId: 'L' }), ent('J'), ent('H5', { areaId: 'B' }), ent('H5', { tied: true, areaId: 'M' })]
+        for (const tabs of [['T', 'J', 'H5'], ['T', 'H5', 'J']]) {
+          const all = solveAll(tabsOf(tabs, { T: T(list), J: J(), H5 }), makeGameData())
+          expectFlow(all, 'H5', [12, 'limited', 13])
+          expectFlow(all, 'J', [18, 'limited', 7])
+          expect(linesOf(all).map(c => [c.blockId, c.areaId])).toEqual([['H5', 'L'], ['J', undefined], ['H5', 'B'], ['H5', 'M']])
+          expectLine(all, 'H5', 12, undefined, 'L')
+          expectLine(all, 'J', 18, 25)
+          expectLine(all, 'H5', 0, undefined, 'B')
+          expectLine(all, 'H5', 0, undefined, 'M')
+          noFlags(all)
+        }
+      })
     })
 
     describe('i: a member that takes the item from another source first (F2)', () => {
