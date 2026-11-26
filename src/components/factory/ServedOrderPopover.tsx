@@ -18,7 +18,7 @@ import { TIPPED_LABEL_CLASS, describedTip, tippedLabel } from '../tipProps'
 
 /** The drag type of a line. */
 const DRAG_TYPE = 'application/x-served-line'
-export const NOT_CREDITED_HINT = 'No credit\nIt is served from what the others leave over, not by its rank.'
+export const NOT_CREDITED_HINT = 'No credit\nIt is served from what the others leave over.'
 
 /** The title of the `list order` badge. */
 export const LIST_ORDER_HINT =

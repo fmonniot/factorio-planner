@@ -131,6 +131,8 @@ export type SolverWarning =
   | { type: 'area-cut-off'; cutOffs: { areaId: string; itemId: string; temp?: FluidTag }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
+  /** Takes of the block the credit passes did not settle: each counts as 0 here, and its source's leftover may stay unused. One entry per item and source. */
+  | { type: 'take-credits-not-settled'; takes: { itemId: string; fromBlockId: string }[] }
   /**
    * A connection of a split fluid offers it only at temperatures that fit none of the ranges the block still imports. One entry per
    * counting connection; `offered` are its temperatures (known ones only), `needed` the ranges still imported.
@@ -261,7 +263,7 @@ export interface ServedConsumer {
   areaId?: string
   /** items/min of the consumer's need of the item still uncovered when the request pass reached this take (the need less what the takes before it covered); absent for a take the pass never reached (the need was already covered) or never probed. */
   need?: number
-  /** A ranked take the request pass flushed while it was blocked (the consumer takes the item first and a block it requests the item from comes first) and the credit passes did not settle (or a split fluid's), or, inside a cycle of requests, a take below an outside take not credited yet, or one that reads a back estimate in the final round of a cycle that does not settle, or one of takes that wait on each other: `share` is 0 whatever the list says. */
+  /** A take the request pass flushed while it was blocked (the consumer takes the item first and a block it requests the item from comes first) and the credit passes did not settle (or a split fluid's), or, inside a cycle of requests, a take below an outside take not credited yet, or one that reads a back estimate in the final round of a cycle that does not settle, or one of takes that wait on each other: `share` is 0 whatever the list says. */
   notCredited?: true
   /** A member of a group of takes the request pass could not share by need (a member's need, its source or the ranks above were not known when the group was reached, a member's group take is not its first take of the item, or the source's item also feeds a member of a cycle of requests): the group was credited and served in list order, not by its weights. */
   groupInListOrder?: true

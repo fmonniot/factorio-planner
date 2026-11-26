@@ -900,6 +900,8 @@ interface RequestPlan {
   needs: Map<string, number>
   /** take connection ids the request pass reached before it could credit them and the credit passes did not settle (see `ServedConsumer.notCredited`). */
   uncredited: Set<string>
+  /** take connection ids (ranked or not) the credit passes left credited 0 though they would have been credited more had they waited; empty when the passes settled. */
+  unsettled: ReadonlySet<string>
   /** take connection id -> a plain item's take flushed while blocked whose blockers were done by the end (see `FlushedCredit`); the credit passes settle these. */
   flushed: Map<string, FlushedCredit>
   /** take connection ids of the groups of takes the pass served in list order, not by need (see `ServedConsumer.groupInListOrder`). */
@@ -1129,6 +1131,13 @@ export function creditsSettled(flushed: ReadonlyMap<string, FlushedCredit>): boo
   return true
 }
 
+/** The ids of the flushed takes whose credit differs from what they would have been credited had they waited. */
+export function unsettledCredits(flushed: ReadonlyMap<string, FlushedCredit>): string[] {
+  const ids: string[] = []
+  for (const [id, f] of flushed) if (!sameRate(f.credit, f.settled)) ids.push(id)
+  return ids
+}
+
 /**
  * The credit each take of `ids` is seeded with in the next pass, from its credits and settled credits in the earlier passes (`history`, oldest first).
  * The first seed is the settled credit; after that a secant step on the residual `settled - credit` (the plain step when the residuals or the credits
@@ -1155,13 +1164,17 @@ export function nextCreditSeeds(history: ReadonlyMap<string, readonly FlushedCre
   return seeds
 }
 
-/** Run the request pass again, seeding the takes it flushed while blocked, until their credits equal what they would have had; the first pass if that does not happen in `limit` runs. */
+/** Run the request pass again, seeding the takes it flushed while blocked, until their credits equal what they would have had; the first pass if that does not happen in `limit` runs, with its unsettled takes flagged (`unsettled`, and `uncredited`). */
 function settleCredits(run: (seeds: ReadonlyMap<string, number>) => RequestPlan, limit: number): RequestPlan {
   const first = run(new Map())
   let plan = first
   const history = new Map<string, FlushedCredit[]>()
   for (let pass = 1; !creditsSettled(plan.flushed); pass++) {
-    if (pass >= limit) return first
+    if (pass >= limit) {
+      // Every flushed take of the first pass is credited 0: the ones that would have been credited more are flagged, ranked or not.
+      const ids = unsettledCredits(first.flushed)
+      return { ...first, uncredited: new Set([...first.uncredited, ...ids]), unsettled: new Set(ids) }
+    }
     for (const id of [...history.keys()]) if (!plan.flushed.has(id)) history.delete(id) // a take the pass did not flush breaks its run of consecutive passes
     for (const [id, f] of plan.flushed) history.set(id, [...(history.get(id) ?? []), f])
     plan = run(nextCreditSeeds(history, plan.flushed.keys()))
@@ -1260,7 +1273,7 @@ function computeRequests(
       else applicable.push({ consumer, connection: c })
     }
   }
-  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), flushed: new Map(), inListOrder: new Set(), areaNeeds: new Map(), creditParts, splitAlloc, probes }
+  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops, needs: new Map(), uncredited: new Set(), unsettled: new Set(), flushed: new Map(), inListOrder: new Set(), areaNeeds: new Map(), creditParts, splitAlloc, probes }
 
   const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
   for (const { consumer, connection } of applicable) {
@@ -1753,7 +1766,7 @@ function computeRequests(
   }
   const outerCreditOf: CreditOf = (blockId, id) => (processed.has(blockId) && !deferredTakes.has(id) ? (credits.get(id) ?? 0) : undefined)
   // An unranked takes-first take whose source is not processed yet (the request order reached the consumer first) is blocked like a ranked one,
-  // so it can wait; it is not added to `uncredited` (that flag is for ranked takes).
+  // so it can wait; it is not added to `uncredited` here (the credit passes flag it if they do not settle).
   const waitsForSource = (t: BlockConnection): boolean => waitTakes.has(t.id) && !rankedTake.has(t.id) && !processed.has(t.fromBlockId)
   const rankedRest = (t: BlockConnection, itemId: string) => {
     const r = restOf(t, itemId, estimates, outerCreditOf, uncredited)
@@ -2455,7 +2468,7 @@ function computeRequests(
     if (credit > 0) flushed.set(t.id, { credit, settled: 0 })
   }
   for (const [id, f] of flushed) if (sameRate(f.credit, f.settled)) uncredited.delete(id)
-  return { goals, info, credits, loops, needs, uncredited, flushed, inListOrder, areaNeeds, creditParts, splitAlloc, probes }
+  return { goals, info, credits, loops, needs, uncredited, unsettled: new Set(), flushed, inListOrder, areaNeeds, creditParts, splitAlloc, probes }
 }
 
 function solvePass(
@@ -2679,6 +2692,19 @@ function solvePass(
     if (loop.converged) continue
     for (const id of loop.blockIds) {
       results[id] = withExtraWarnings(results[id], [{ type: 'request-loop-not-converged', blockIds: loop.blockIds, rounds: loop.rounds }])
+    }
+  }
+
+  // A take the credit passes left credited 0 though it would have had more: one warning per consumer, one entry per item and source.
+  if (requestPlan.unsettled.size > 0) {
+    for (const b of blocks) {
+      const takes: { itemId: string; fromBlockId: string }[] = []
+      for (const c of b.inputConnections) {
+        if (!requestPlan.unsettled.has(c.id)) continue
+        if (takes.some(t => t.itemId === c.itemId && t.fromBlockId === c.fromBlockId)) continue
+        takes.push({ itemId: c.itemId, fromBlockId: c.fromBlockId })
+      }
+      if (takes.length > 0 && results[b.id]) results[b.id] = withExtraWarnings(results[b.id], [{ type: 'take-credits-not-settled', takes }])
     }
   }
 
