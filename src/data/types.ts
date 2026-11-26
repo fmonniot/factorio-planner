@@ -263,7 +263,7 @@ export interface ServedConsumer {
   need?: number
   /** A ranked take the request pass flushed while it was blocked (the consumer takes the item first and a block it requests the item from comes first) and the credit passes did not settle (or a split fluid's), or, inside a cycle of requests, a take below an outside take not credited yet, or one that reads a back estimate in the final round of a cycle that does not settle, or one of takes that wait on each other: `share` is 0 whatever the list says. */
   notCredited?: true
-  /** A member of a group of takes whose shares the credit passes could not settle (they did not settle in `CREDIT_PASS_LIMIT` runs, or the source's leftover was not known when the pass ended), or of a split fluid's list the request pass could not allocate at once: the group was credited and served in list order, not by its weights. */
+  /** A member of a group of takes the request pass could not share by need (a member's need, its source or the ranks above were not known when the group was reached, a member's group take is not its first take of the item, or the source's item also feeds a member of a cycle of requests): the group was credited and served in list order, not by its weights. */
   groupInListOrder?: true
   /** A split fluid, block lines only: the line's part of `share` and `got` per key (the same order as `ConnectionFlow.parts`). */
   parts?: { temp: FluidTag; share: number; got: number }[]

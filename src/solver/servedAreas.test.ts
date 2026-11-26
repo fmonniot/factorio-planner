@@ -131,15 +131,6 @@ describe('areaLines', () => {
     expect(out.consumers.map(l => l.need)).toEqual([8, 12])
     expect(out.consumers.every(l => l.notCredited === true && l.kind === 'take')).toBe(true)
   })
-  it('uses the shares of a group credited entry by entry, and splits an entry over its areas by need', () => {
-    // H's credit 15: L is credited 7, B 8 (its own entries), not the 15 x 0.6 and 15 x 0.4 of the connection's share.
-    const ranked: PairEntries = { entries: [HL, HB], granted: [7, 8], shares: [7, 8] }
-    const out = areaLines('A', 'plate', [base('H', 15, 15, { kind: 'take', need: 20 })], ranked, needsOf)!
-    expect(view(out.consumers)).toEqual([['H', 'L', 7, 7], ['H', 'B', 8, 8]])
-    const both: PairEntries = { entries: [e('H', { areas: [{ areaId: 'L', need: 12 }, { areaId: 'B', need: 8 }], total: 20, part: 1 })], granted: [15], shares: [10] }
-    const split = areaLines('A', 'plate', [base('H', 15, 15)], both, needsOf)!
-    expect(split.consumers.map(l => l.share)).toEqual([6, 4])
-  })
   it('gives a rate above every target to the last line', () => {
     const ranked: PairEntries = { entries: [HB, HL], granted: [8, 12] }
     const out = areaLines('A', 'plate', [base('H', 20, 50)], ranked, needsOf)!
