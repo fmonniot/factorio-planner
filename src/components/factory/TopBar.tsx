@@ -2,6 +2,7 @@ import { BlockTabs, AddBlockButton } from '../BlockTabs'
 import { HorizonButton } from '../HorizonPicker'
 import { BlockGraphButton } from './BlockGraph'
 import { TechTreeButton } from '../TechTree'
+import { UndoRedoButtons } from './UndoRedoButtons'
 import { WorkspaceMenu } from '../WorkspaceMenu'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 
@@ -20,6 +21,7 @@ export function TopBar() {
           <BlockGraphButton />
           <HorizonButton />
           <TechTreeButton />
+          <UndoRedoButtons />
           {hasGameData && <div aria-hidden className="w-px h-5 bg-gray-700 mx-1.5" />}
           <WorkspaceMenu />
         </div>

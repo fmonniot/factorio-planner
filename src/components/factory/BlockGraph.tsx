@@ -584,7 +584,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const onSetLimit = (id: string, to: string, max: number | undefined) => setConnectionMaxRate(id, max, to)
 
   return (
-    <Modal onClose={onClose} className="w-[96vw] h-[92vh] flex flex-col overflow-hidden">
+    <Modal onClose={onClose} undoable className="w-[96vw] h-[92vh] flex flex-col overflow-hidden">
       <div className="p-3 border-b border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 className="text-lg font-semibold text-amber-200">Factory overview</h2>
         <Segmented label="View" size="sm">

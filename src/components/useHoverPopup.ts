@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import type { CSSProperties, FocusEvent as ReactFocusEvent, MouseEvent as ReactMouseEvent } from 'react'
 import { anchoredBelow, anchoredPosition } from '../utils/anchoredPosition'
 import type { Box } from '../utils/anchoredPosition'
+import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 
 // ---------------------------------------------------------------------------
 // useHoverPopup — timing, placement and dismissal of a popup that follows one
@@ -30,6 +31,7 @@ export function useHoverPopup<T extends HTMLElement>({ placement = 'right', mode
   const [anchor, setAnchor] = useState<Box | null>(null)
   const [pos, setPos] = useState({ left: 0, top: 0 })
   const open = anchor !== null
+  useOverlayOpen(open) // an open popup blocks the undo shortcut like any overlay
 
   const triggerRef = useRef<T>(null)
   const popupRef = useRef<HTMLDivElement>(null)

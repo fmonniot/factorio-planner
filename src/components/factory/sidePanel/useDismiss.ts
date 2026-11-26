@@ -6,21 +6,29 @@ type Inside = RefObject<HTMLElement | null>
 const open: { escapeOnly?: true }[] = []
 
 /** Overlays that close themselves on an outside press but are not Esc-stacked dismissibles (menus, popovers). */
-const guards: object[] = []
+const guards: { undoable?: true }[] = []
 
 /** Whether a dismissible or a registered overlay is open right now. */
 export function isDismissibleOpen(): boolean {
   return open.some(t => !t.escapeOnly) || guards.length > 0
 }
 
-/** Registers an open overlay that handles its own dismissal, so a press that closes it is known (see `pressStartedOverCloseableOverlay`). */
-export function useOverlayOpen(active = true): void {
+/** Whether an overlay that does not allow undo and redo is open: every dismissible, and every guard that is not `undoable`. */
+export function isUndoBlockedByOverlay(): boolean {
+  return open.some(t => !t.escapeOnly) || guards.some(g => !g.undoable)
+}
+
+/**
+ * Registers an open overlay that handles its own dismissal, so a press that closes it is known (see `pressStartedOverCloseableOverlay`).
+ * An `undoable` overlay (the factory overview) leaves the undo and redo shortcuts working.
+ */
+export function useOverlayOpen(active = true, undoable = false): void {
   useEffect(() => {
     if (!active) return
-    const token = {}
+    const token: { undoable?: true } = undoable ? { undoable: true } : {}
     guards.push(token)
     return () => { guards.splice(guards.indexOf(token), 1) }
-  }, [active])
+  }, [active, undoable])
 }
 
 // Whether an overlay was open when the current press began. Taken in a window capture listener installed at module load,

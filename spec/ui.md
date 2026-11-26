@@ -66,7 +66,7 @@ The side panel appears to the right of the table only while a row is selected. T
 
 `TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block list button and the block tabs (a scrolling strip; see [Block tabs](#block-tabs)). On the right
 are, in order, the icon-only tool buttons (**Add block**, a 32px `+` with the same gray-300 icon, tooltip and spacing as the others, disabled until game data is loaded; the [factory overview](#block-graph) (the block graph, the matrix, the power view and the areas, all in one modal), the [horizon](#research-horizon)
-flag and the [tech tree](#technology-tree), the last two side by side as both are about research), a divider
+flag and the [tech tree](#technology-tree), the last two side by side as both are about research; then **Undo** and **Redo**, see [Undo and redo](#undo-and-redo)), a divider
 (shown only
 when game data is loaded, like the tools) and the [workspace menu](#workspace-menu), which also carries the
 [in-game viewer](#in-game-viewer) connection. The root
@@ -77,7 +77,15 @@ The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /se
 The tool buttons are `IconButton` (`IconButton.tsx`): 32px, borderless, `text-gray-300` icons (3:1 on the top bar), with a CSS-only tooltip
 (shown on hover and keyboard focus, `aria-hidden`, equal to the button's accessible name). The
 glyphs come from `icons.tsx`, a set of small stroke SVG icons for the UI chrome (the game images
-are `Icon.tsx` / `TechIcon.tsx`).
+are `Icon.tsx` / `TechIcon.tsx`). A disabled `IconButton` shows the not-allowed cursor; with `disabledPassesPointer` (the undo and redo buttons) it takes no pointer events instead, so the pointer is over its wrapper and the tooltip still shows.
+
+### Undo and redo
+
+`UndoRedoButtons.tsx` (`factory/`) puts **Undo** and **Redo** after the tech tree and before the divider; they render with or without game data. The store keeps one history timeline across every block (see [data-model.md](data-model.md)): Undo reverts the newest edit of any block and makes that block the active one, Redo re-applies the most recently undone edit the same way. A button is disabled while there is nothing to undo or redo. Its label (accessible name and tooltip) is `Undo (Ctrl+Z)` and `Redo (Ctrl+Y)`, or `Undo (Cmd+Z)` and `Redo (Cmd+Shift+Z)` on Apple platforms, and `Undo in Gears (Ctrl+Z)` when the entry belongs to a block that is not the active one (the name only then).
+
+`useUndoShortcuts.ts` binds the keys on the document, once, from `FactoryShell`: Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z and Ctrl+Y redo (Cmd+Y is not bound). A key press is ignored when it was already handled (`defaultPrevented`) or is part of an IME composition, when the target is a text field with its own undo (a `TEXTAREA`, a `contentEditable` element or an `INPUT` of type text, search, number, email, url, tel, password or none; checkboxes, radios, sliders, buttons, colour inputs and `SELECT`s do not block it), and while an overlay is open: any dismissible or `useOverlayOpen` guard blocks it (`isUndoBlockedByOverlay`), except the factory overview, a `Modal` marked `undoable`, so Ctrl/Cmd+Z works inside the graph (a menu, popover, hover popup or limit editor opened over the graph still blocks it: each registers with `useOverlayOpen`). When there is nothing to undo or redo the key is left alone, otherwise it is prevented and the action runs. Auto-repeat (`e.repeat`) is ignored, so holding the keys runs one step.
+
+Switching the active block has the effects of a tab click: the summary's open detail and served popover close, and the Comes from popover closes. The factory overview stays open and highlights the new active block.
 
 ### Plans
 
@@ -165,7 +173,7 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
   **Move left** / **Move right** (the keyboard-free alternative to dragging; disabled on the first / last tab) and **Delete**,
   plus a **Colour** grid of 18 cells: the **Default colour** swatch first, then the 17 palette swatches (the store accepts any `#rrggbb`, the UI offers the palette).
   Picking a swatch sets the block's colour and closes the menu; several blocks may
-  share a colour. Picking a swatch and choosing **Default colour** are undoable (steps in the history of the block whose menu it is, even when that tab is not active, so the undo reaches them once the block is active, as for connection edits; the planner has no undo control yet, so the store's `undo` and `redo` are what reach them): blue → default → purple → blue undoes back through each. The colour a default block takes because its first goal changed is not a step of its own; it comes and goes with the goal's own undo and redo, and undoing a pick back to the default recomputes it from the current first goal. The **Default colour** swatch
+  share a colour. Picking a swatch and choosing **Default colour** are undoable (steps in the history of the block whose menu it is, even when that tab is not active; undo and redo go to that block, whichever tab is active): blue → default → purple → blue undoes back through each. The colour a default block takes because its first goal changed is not a step of its own; it comes and goes with the goal's own undo and redo, and undoing a pick back to the default recomputes it from the current first goal. The **Default colour** swatch
   is drawn as the first goal's icon on that item's own colour (`Item.iconColor`); with no goal it is an empty dashed cell. Choosing it hands the block back to the default: its colour follows the icon of its first goal
   as it is, not the nearest palette colour (so it may land on teal, amber, grey or a dark colour; the fixed swatches are the way out), the least-used palette colour (the first on a tie) when the item has no icon colour; with no goal the colour stays as it is until there is one. It changes when the first goal does. The menu shows which applies: the swatch is a radio item, ringed while
   the block follows its first goal (then no palette swatch is ringed); otherwise the current palette swatch is ringed.
@@ -209,8 +217,8 @@ near-full-screen modal titled "Factory overview" that shows every block and the 
   connection's limit of N". A connection of a split fluid whose flow has two or more parts (or one part with a label) ends its tooltip with ` — carries 20/m at 165°C (of 30/m offered), 10/m at ≥465°C` (`fmtPartTemp`; "(of N offered)" only when the source had more at that key). There is no pull toggle: whether a connection is a [request](solver.md#requests) follows from the source's products. A chip carries `data-kind="request"` or `"take"` (absent before the first solve); a take chip, including an ignored request, also shows a small `existing` tag after the item name (`graph-edge-existing`; none before the first solve). A chip also carries, when the source has the item as a product but the request is not applied, `data-request-ignored` with the reason. A request chip's tooltip ends " — requested: <source> makes N/m for <target>"; an ignored request ends " — taken as existing: " and the reason: the requests around this loop do not settle, the source receives the item itself, or an earlier connection already takes the item from the same source (the connection then takes existing output). A chip whose source has a stored [served list](#served-order-popover) for the item and names the chip's block in it carries a small `#N` tag (`graph-edge-rank`) right after the item's icon or name, N being the block's place in the list as the popover numbers it (the source's own extra-output line, when listed, takes a place; the lines of a group share one place, so its members show the same N), and ends its tooltip with " — served Nth in <source>'s list" (" — served Nth (shared) in <source>'s list" for a member of a group) (after the request or existing text); a block the list does not name has no tag, as it sits under the popover's divider, and a source with no stored list tags nothing. A block drawn as areas shows the best (lowest) place among its ranked lines, and its tooltip lists each ranked line (" — served 1st (Hub / Logistics), 2nd shared (Hub / Building) in <source>'s list"); a block with no area line keeps the format above. The tag follows the last solve's served report, like the popover's figures. The summary chip carries no rank, but the chips in the strip do. A chip whose item has a source rule with an effect in the *target* block shows the [source rule marker](#source-rule-marker) on the corner of its item icon: the rule is the receiving block's, so a connection of the item out of that block, or into another block, shows none.
 - **Detail strip.** Under the graph (`graph-detail`, a fixed-height strip that scrolls) the text of what is lit or pinned, so nothing floats over the graph. For a lit block: its name, **pinned** when it is, a **Go to <block>** button (`graph-detail-open`), and two columns, **Receives from** and **Supplies**, one row per neighbouring block (colour dot, name, item count, `↻` for a loop), the most items first, then plan order; a block with no edge reads "Not connected to any other block." For a lit edge: **Items on this edge** with `A → B · N connections` and the connection chips described above, laid out in a grid of columns at least 17rem wide (`graph-detail-items`) that fills the strip's full width left to right before it grows downward, so a busy edge shows most of its items without scrolling (the strip keeps its fixed height and scrolls only past that). The two columns of a block's view flow the same way, in columns at least 14rem wide. Nothing lit leaves the strip empty.
   A graph edit is recorded
-  in the *consumer* block's history, while undo and redo act on the *active* block, so undoing
-  after editing another block's connections does not revert that edit. Titles match the
+  in the *consumer* block's history; Ctrl/Cmd+Z works inside the graph, and undoing switches the
+  active block to the consumer while the graph stays open (see [Undo and redo](#undo-and-redo)). Titles match the
   [Ingredients pane's segment titles](#ingredients-pane). Connections whose source was deleted and
   self-connections are not drawn; they stay visible and removable in the Ingredients pane.
 - **Loops.** Blocks that supply each other form a loop. Edges and chips that belong to a loop
@@ -1125,7 +1133,7 @@ the table scrolls. Timing, placement and dismissal live in the `useHoverPopup.ts
 sub-factory shows no chips (the Products and Ingredients cells stay empty, as does a side with no flows).
 
 **Right-click menu.** **Rename subfactory…**, the checkbox **Separate area**, **Duplicate to…** (blocks with areas only) and **Remove subfactory**.
-**Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and, while collapsed, its row shows what it receives and sends. It is undoable at store level, like removal. The group panel's **Make it a separate area** button turns it on too.
+**Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and, while collapsed, its row shows what it receives and sends. It is undoable, like removal. The group panel's **Make it a separate area** button turns it on too.
 Rename opens the name dialog ("Subfactory name") prefilled with the current name; **Cancel** or Escape
 closes it unchanged, and a blank name cannot be submitted. Adding, renaming, wrapping a row in and removing a sub-factory are
 undoable (undoing a wrap is dropped once the new sub-factory holds more than the wrapped row).
@@ -1133,9 +1141,8 @@ Remove deletes it **with all
 its contents**. When it has contents a confirmation names the sub-factory and
 counts its recipes and nested sub-factories (a `ConfirmDialog` with a **Remove** button, `role="alertdialog"`, focus on **Cancel**); an empty one is removed at once.
 **Duplicate to…** opens a second menu listing every area of the block in table order (the root as "Top level"). Picking one deep-copies the sub-factory into it (`duplicateSubPlanTo`): a new handle and sub-plan with fresh ids, named "<name> (copy)", with everything copied (pins, byproduct-consumer flags, `area` flags, nested names). The new handle goes right after the source's handle when the target area holds it, else at the end of the target's rows; the table then reveals and flashes the new row (collapsed). An area that cannot take the copy is shown disabled with a tooltip: the sub-factory itself or an area inside it ("Cannot copy a subfactory into itself"), an area where the copy would nest past the limit ("Cannot nest deeper than 4 levels"), or an area that already has a row of one of the recipes the copy would add ("Already has a row of X", "Already has rows of X and Y", "… X, Y and Z", "… X, Y, Z and N more"), since the solver builds each recipe once per area. The rows that would join the area are the sub-factory's own and those of its nested sub-factories that are not areas; rows in nested areas, and every row when the source is itself an area, keep their own area and never conflict. When every area is disabled the entry is disabled too, with the tooltip "Every area already has a row of one of its recipes" when each area is disabled for a recipe conflict, else "No area can take a copy of this subfactory". The entry is hidden in a block without areas. The copy is one undoable command.
-Removal, with all its contents, is undoable at store level: undo restores the
-sub-factory at its original position. The undo history is session-only and per
-block.
+Removal, with all its contents, is undoable: undo restores the
+sub-factory at its original position. The undo history is session-only, one timeline across blocks.
 
 A sub-factory only organises the table unless it is a separate area; then the solver builds each recipe once per area.
 
@@ -1280,6 +1287,7 @@ The same component in recipes mode (`source="recipes"`).
   Escape, handled in the capture phase and prevented so it does not also clear a summary selection.
 - `SegmentedControl.tsx` — the [segmented control](#segmented-control) (`Segmented` and `Segment`).
 - `icons.tsx`, `IconButton.tsx` — the stroke SVG icons and the tooltip icon button of the top bar.
+- `factory/UndoRedoButtons.tsx`, `factory/useUndoShortcuts.ts` — the top bar's Undo and Redo buttons and the keyboard shortcuts, see [Undo and redo](#undo-and-redo).
 - `src/utils/viewTransform.ts` — pure pan/zoom maths (zoom around a point, pan, fit,
   centre) used by the technology tree.
 - `src/utils/blockGraphLayout.ts` — layered layout of the blocks and their
@@ -1300,7 +1308,6 @@ items. Other props (`title`, `tabIndex`, …) go to the button.
 
 ## Not in the UI
 
-Some store capabilities have no UI: undo/redo (`blockStore` keeps a per-block
-history). There is no URL sharing, settings panel, totals bar,
+There is no URL sharing, settings panel, totals bar,
 or responsive layout. Planned work lives in
 [initiatives/backlog.md](../initiatives/backlog.md).
