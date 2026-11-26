@@ -1592,11 +1592,11 @@ function computeRequests(
       const below = (m: TakeGroup['members'][number]): boolean =>
         g.pair.listed.some((e, i) => e.kind === 'block' && e.connection.id === m.connection.id && (i < g.start || i >= g.end))
       const notFirst = g.members.some(m => takesOf(m.blockId)?.get(g.pair.itemId)?.[0]?.id !== m.connection.id)
-      if (consumers.some(id => inCycle.has(id)) || g.members.some(below)) {
+      if (g.members.some(below)) {
         toListOrder(g)
         g.orderEdges = false
-      } else if (notFirst) {
-        // F2 is fixed: list order in the first pass, credited from the entries' seeds in the next ones (below).
+      } else if (consumers.some(id => inCycle.has(id)) || notFirst) {
+        // F1 and F2 are fixed: list order in the first pass, credited from the entries' seeds in the next ones (below).
         g.fixed = g.participant = true
         g.orderEdges = false
       } else for (const m of g.members) groupsOfBlock.set(m.blockId, [...(groupsOfBlock.get(m.blockId) ?? []), g])
@@ -2346,6 +2346,8 @@ function computeRequests(
               ? ['extra', e.tied ?? false, e.weight ?? null]
               : [e.blockId, e.connection.id, rankedTake.has(e.connection.id), e.areaId ?? null, e.tied ?? false, e.weight ?? null])),
             pair.unlisted.map(u => [u.blockId, u.connection.id, rankedTake.has(u.connection.id), u.areaNamed ?? false]),
+            // A group seeded from the credit passes: what it holds changes what the takes below it read.
+            [...(sharedAt.get(pair)?.values() ?? [])].map(g => [g.start, g.status, g.held ?? null, [...(g.entryCredit ?? [])]]),
             // Only the credits a member's take reads: the listed takes above it, and the unlisted ones for a takes-first take.
             [...pair.listed.slice(0, read.listedEnd).flatMap(e => (e.kind === 'block' ? [e] : [])), ...(read.unlisted ? pair.unlisted : [])]
               .filter(e => rankedTake.has(e.connection.id) && !memberSet.has(e.blockId))

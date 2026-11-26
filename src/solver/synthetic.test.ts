@@ -1238,7 +1238,7 @@ describe('solver synthetic cases', () => {
         expect(lookup.mock.results[0].value, 'the cycle is solved again').toBeUndefined()
         expect(warm.flows).toEqual(cold.flows)
         expect(warm.served).toEqual(cold.served)
-        expect(warm.served.T[X].consumers.every(c => c.groupInListOrder === true), 'the group is served in list order').toBe(true)
+        expect(warm.served.T[X].consumers.some(c => c.groupInListOrder !== undefined), 'the credit passes settle the group').toBe(false)
       })
       it('M2: the weights of a group are part of the key', () => {
         const { lookup, warm, cold } = lists(
@@ -2018,28 +2018,29 @@ describe('solver synthetic cases', () => {
         ])
       for (const tabs of [['T', 'V', 'K1', 'K2'], ['T', 'V', 'K2', 'K1']]) {
         it(`c2: a group whose source feeds a cycle of requests, tabs ${tabs.join(' ')}`, () => {
-          // Case 17 b: K2 is served first (10), K1 gets the other 5 and asks V for 5; the phase 3 computation, and the lines say so.
+          // Case 17 b's fixture with the group {K2, K1}: the demand rounds read the list in order in the first pass (K2 10, K1 5); the credit
+          // passes settle it: waterFill(15, [10, 10]) = 7.5, 7.5, so each K asks V for the other 2.5.
           const all = solveAll(tabsOf(tabs, { T: T17([ent('K2'), tied('K1')]), V: V(), K1: K1(), K2: K2() }), makeGameData())
           expect(all.requestLoops[0]).toMatchObject({ rounds: 2, converged: true })
-          expect(flowIn(all, 'c-K1T').rate, 'c-K1T').toBeCloseTo(5, 6)
-          expect(flowIn(all, 'c-K1V').requested, 'c-K1V').toBeCloseTo(5, 6)
-          expect(flowIn(all, 'c-K1V').rate).toBeCloseTo(5, 6)
-          expect(flowIn(all, 'c-K2T').rate, 'c-K2T').toBeCloseTo(10, 6)
-          expect(flowIn(all, 'c-K2V')).toMatchObject({ rate: 0, status: 'unused' })
-          expect(linesOf(all).map(c => c.blockId)).toEqual(['K2', 'K1'])
-          expectLine(all, 'K2', 10, undefined)
-          expectLine(all, 'K1', 5, undefined)
-          for (const id of ['K1', 'K2']) {
-            expect(flagged(all, id).groupInListOrder, `${id} flag`).toBe(true)
-            expect(flagged(all, id)).not.toHaveProperty('notCredited')
-          }
+          expect(flowIn(all, 'c-K1T').rate, 'c-K1T').toBeCloseTo(7.5, 6)
+          expect(flowIn(all, 'c-K1V').requested, 'c-K1V').toBeCloseTo(2.5, 6)
+          expect(flowIn(all, 'c-K1V').rate).toBeCloseTo(2.5, 6)
+          expect(flowIn(all, 'c-K2T').rate, 'c-K2T').toBeCloseTo(7.5, 6)
+          expect(flowIn(all, 'c-K2V').requested, 'c-K2V').toBeCloseTo(2.5, 6)
+          expect(flowIn(all, 'c-K2V').rate).toBeCloseTo(2.5, 6)
+          expect(nodeOf(all.results.V, 'case11-make-x').throughput, 'make-x').toBeCloseTo(2.5, 6)
+          expect(linesOf(all, 'T').map(c => c.blockId)).toEqual(['K2', 'K1'])
+          expectLine(all, 'K2', 7.5, undefined)
+          expectLine(all, 'K1', 7.5, undefined)
+          noFlags(all)
         })
         it(`c3: the group is on the pair, not on its members: H and G, K2 and K1 below, tabs ${tabs.join(' ')}`, () => {
-          // The consumers of the pair include K1 and K2 (members of a cycle of requests), so {H, G} is served in list order too.
+          // The consumers of the pair include K1 and K2 (members of a cycle of requests), so {H, G} is credited by the credit passes too:
+          // waterFill(15, [10, 10]) = 7.5, 7.5, and K2 and K1 below see nothing left.
           const list: ServedEntry[] = [ent('H'), tied('G'), ent('K2'), ent('K1')]
           const all = solveAll([...tabsOf(tabs, { T: T17(list), V: V(), K1: K1(), K2: K2() }), H('H', 10), H('G', 10)], makeGameData())
-          expectFlow(all, 'H', [10, 'ok', 0])
-          expectFlow(all, 'G', [5, 'limited', 5])
+          expectFlow(all, 'H', [7.5, 'limited', 2.5])
+          expectFlow(all, 'G', [7.5, 'limited', 2.5])
           expect(flowIn(all, 'c-K1T').rate, 'c-K1T').toBeCloseTo(0, 6)
           expect(flowIn(all, 'c-K2T').rate, 'c-K2T').toBeCloseTo(0, 6)
           expect(flowIn(all, 'c-K1V').requested, 'c-K1V').toBeCloseTo(10, 6)
@@ -2048,13 +2049,36 @@ describe('solver synthetic cases', () => {
           expect(flowIn(all, 'c-K2V').rate).toBeCloseTo(10, 6)
           expect(nodeOf(all.results.V, 'case11-make-x').throughput, 'make-x').toBeCloseTo(10, 6)
           expect(all.requestLoops[0]).toMatchObject({ rounds: 2, converged: true })
-          for (const id of ['H', 'G']) expect(flagged(all, id).groupInListOrder, `${id} flag`).toBe(true)
-          for (const id of ['K1', 'K2']) {
-            expect(flagged(all, id)).not.toHaveProperty('groupInListOrder')
-            expect(flagged(all, id)).not.toHaveProperty('notCredited')
-          }
+          noFlags(all)
+          for (const id of ['K1', 'K2']) expect(linesOf(all).find(c => c.blockId === id)).not.toHaveProperty('notCredited')
+        })
+        it(`c4: a group of a member of the cycle and a block outside it, [H, K2 tied, K1], tabs ${tabs.join(' ')}`, () => {
+          // The first pass credits H 10 and K2 5; the settle walk reads waterFill(15, [10, 10]) = 7.5, 7.5. K1, below the group, is credited 0.
+          const list: ServedEntry[] = [ent('H'), tied('K2'), ent('K1')]
+          const all = solveAll([...tabsOf(tabs, { T: T17(list), V: V(), K1: K1(), K2: K2() }), H('H', 10)], makeGameData())
+          expectFlow(all, 'H', [7.5, 'limited', 2.5])
+          expect(flowIn(all, 'c-K2T').rate, 'c-K2T').toBeCloseTo(7.5, 6)
+          expect(flowIn(all, 'c-K2V').requested, 'c-K2V').toBeCloseTo(2.5, 6)
+          expect(flowIn(all, 'c-K1T').rate, 'c-K1T').toBeCloseTo(0, 6)
+          expect(flowIn(all, 'c-K1V').requested, 'c-K1V').toBeCloseTo(10, 6)
+          expect(nodeOf(all.results.V, 'case11-make-x').throughput, 'make-x').toBeCloseTo(6.25, 6)
+          expect(all.requestLoops[0]).toMatchObject({ rounds: 2, converged: true })
+          noFlags(all)
         })
       }
+      it('M5: c2 solved warm through one cache reads the memo of the cycle in every pass and reports what a cold solve reports', () => {
+        const gd = makeGameData()
+        const blocks = (): Block[] => [T17([ent('K2'), tied('K1')]), V(), K1(), K2()]
+        const cold = solveAll(blocks(), gd)
+        const cache = createSolveCache()
+        solveAll(blocks(), gd, cache)
+        const lookup = vi.spyOn(cache, 'getRequestLoop')
+        const warm = solveAll(blocks(), gd, cache)
+        expect(lookup.mock.calls.length, 'the passes ask the memo').toBeGreaterThan(1)
+        for (const r of lookup.mock.results) expect(r.value, 'the cycle is not solved again').toBeDefined()
+        expect(warm.served).toEqual(cold.served)
+        expect(warm.flows).toEqual(cold.flows)
+      })
     })
 
     it('d: a list with no tied entry is unchanged: case 14 b, no line carries the flag', () => {
