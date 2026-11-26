@@ -51,6 +51,8 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
         type="button"
         onClick={onAddRecipe}
         aria-label="Add recipe"
+        aria-keyshortcuts="R"
+        data-tip="Add recipe (R)"
         className="h-[26px] max-md:shrink-0 max-md:whitespace-nowrap px-2.5 rounded-md bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold"
       >
         + Recipe

@@ -164,6 +164,19 @@ describe('ModuleCell shortcuts', () => {
     expect(screen.queryByTestId('picker')).toBeNull()
   })
 
+  it('opens the fill-all picker focused, ArrowDown moves, and Esc returns focus to the chip', () => {
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={machine} modules={[]} machineSlots={4} gameData={data()} onOpenEdit={() => {}} />)
+    const chip = screen.getByTestId('module-chip')
+    fireEvent.click(chip)
+    const options = screen.getAllByTestId('module-fill-option')
+    expect(options[0]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(options[0], 'one option: wraps onto itself').toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByTestId('picker')).toBeNull()
+    expect(chip).toHaveFocus()
+  })
+
   it('leaves a module out of the fill-all picker when the machine does not list its category', () => {
     const gd = data()
     gd.modules['agri'] = { ...makeSpeedModule(), id: 'agri', name: 'Agriculture module', category: 'angels-bio-yield', iconPath: '' }

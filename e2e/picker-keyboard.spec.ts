@@ -9,6 +9,15 @@ async function loadGameData(page: import('@playwright/test').Page) {
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 }
 
+/** Presses `key` until the focused element is `target` (the tab strip wraps onto several rows, each press moves one row). */
+async function pressUntilFocused(page: import('@playwright/test').Page, key: string, target: import('@playwright/test').Locator) {
+  for (let i = 0; i < 12; i++) {
+    if (await target.evaluate(el => el === document.activeElement).catch(() => false)) return
+    await page.keyboard.press(key)
+  }
+  await expect(target).toBeFocused()
+}
+
 test.describe('Picker keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('./')
@@ -62,6 +71,9 @@ test.describe('Picker keyboard navigation', () => {
     expect(Math.abs(below.cx - (first.x + first.width / 2))).toBeLessThan(first.width)
     await page.keyboard.press('ArrowUp')
     await expect(slots.nth(0)).toBeFocused()
+    // The group tabs sit between the grid and the search field.
+    await page.keyboard.press('ArrowUp')
+    await expect(overlay.locator('[data-testid="item-group-tab"][data-active]')).toBeFocused()
     await page.keyboard.press('ArrowUp')
     await expect(overlay.getByPlaceholder('Search…')).toBeFocused()
 
@@ -107,5 +119,69 @@ test.describe('Picker keyboard navigation', () => {
     await overlay.getByPlaceholder('Search…').press('Enter')
     await expect(overlay).not.toBeVisible()
     await expect(names).toHaveCount(before + 1)
+  })
+
+  test('R opens Add recipe without typing the letter, and not from a field', async ({ page }) => {
+    const overlay = page.locator('.fixed.inset-0')
+    await page.keyboard.press('r')
+    await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
+    const search = overlay.getByPlaceholder('Search…')
+    await expect(search).toBeFocused()
+    await expect(search).toHaveValue('')
+
+    await page.keyboard.type('r')
+    await expect(search).toHaveValue('r')
+    await expect(page.getByRole('heading', { name: 'Add recipe' })).toHaveCount(1)
+    await page.keyboard.press('Escape')
+    await expect(overlay).not.toBeVisible()
+  })
+
+  test('the item group tabs: arrows move focus, Enter switches, Down enters the grid, Up goes back to the tab and the search', async ({ page }) => {
+    const overlay = page.locator('.fixed.inset-0')
+    await page.keyboard.press('a')
+    const tabs = overlay.getByTestId('item-group-tab')
+    expect(await tabs.count()).toBeGreaterThan(1)
+    await expect(tabs.first()).toBeVisible()
+
+    // From the search, Up from the grid reaches the active tab; Right moves focus without switching.
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('ArrowUp')
+    const active = overlay.locator('[data-testid="item-group-tab"][data-active]')
+    await expect(active).toBeFocused()
+    const activeId = await active.getAttribute('data-group-id')
+    await page.keyboard.press('ArrowRight')
+    const next = await page.evaluate(() => (document.activeElement as HTMLElement).dataset.groupId)
+    expect(next).not.toBe(activeId)
+    await expect(overlay.locator('[data-testid="item-group-tab"][data-active]')).toHaveAttribute('data-group-id', activeId!)
+    await page.keyboard.press('Enter')
+    await expect(overlay.locator('[data-testid="item-group-tab"][data-active]')).toHaveAttribute('data-group-id', next!)
+    await expect(overlay).toBeVisible()
+
+    // The strip wraps onto rows: Down leaves it from its last row.
+    await pressUntilFocused(page, 'ArrowDown', overlay.locator('[data-testid="item-slot"]').first())
+    await page.keyboard.press('ArrowUp')
+    await expect(overlay.locator('[data-testid="item-group-tab"][data-active]')).toBeFocused()
+    await pressUntilFocused(page, 'ArrowUp', overlay.getByPlaceholder('Search…'))
+  })
+
+  test('the recipe group tabs work the same, from the Add recipe picker', async ({ page }) => {
+    const overlay = page.locator('.fixed.inset-0')
+    await page.keyboard.press('r')
+    const tabs = overlay.getByTestId('recipe-group-tab')
+    expect(await tabs.count()).toBeGreaterThan(1)
+
+    await page.keyboard.press('ArrowDown')
+    await expect(overlay.locator('[data-testid="recipe-slot"]').first()).toBeFocused()
+    await page.keyboard.press('ArrowUp')
+    const active = overlay.locator('[data-testid="recipe-group-tab"][data-active]')
+    await expect(active).toBeFocused()
+    const activeId = await active.getAttribute('data-group-id')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('Space')
+    await expect(active).not.toHaveAttribute('data-group-id', activeId!)
+    await pressUntilFocused(page, 'ArrowDown', overlay.locator('[data-testid="recipe-slot"]').first())
+    await page.keyboard.press('ArrowUp')
+    await expect(active).toBeFocused()
+    await pressUntilFocused(page, 'ArrowUp', overlay.getByPlaceholder('Search…'))
   })
 })

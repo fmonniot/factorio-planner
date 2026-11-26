@@ -2,6 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useOverlayOpen } from './sidePanel/useDismiss'
 import { createPortal } from 'react-dom'
 import { TipWrap } from '../TipWrap'
+import { useMenuKeyboard } from './useMenuKeyboard'
 
 // ---------------------------------------------------------------------------
 // RowActionsMenu — right-click context menu (recipe rows, byproduct tiles)
@@ -43,6 +44,7 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
   useEffect(() => {
     onCloseRef.current = onClose
   })
+  useMenuKeyboard(ref, onClose)
 
   // Shift the menu back into the viewport when it would overflow the right or bottom edge.
   useLayoutEffect(() => {
@@ -101,7 +103,7 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
             aria-checked={action.checked}
             disabled={action.disabled}
             data-tip={action.disabled ? undefined : action.title}
-            className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent ${
+            className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 focus:bg-gray-700 outline-none disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent ${
               action.danger ? 'text-red-400' : 'text-gray-200'
             }`}
             onClick={() => {

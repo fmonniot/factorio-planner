@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { useDismiss, useOverlayOpen } from './sidePanel/useDismiss'
+import { focusFirstSlot } from '../gridNav'
+import { closeOnTab, moveListFocus } from '../listNav'
 
 export interface BlockPickerOption {
   id: string
@@ -28,6 +30,7 @@ export function BlockPicker({ label, options, extra, value, onChange }: {
   const [query, setQuery] = useState('')
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
   useOverlayOpen(open)
   // Esc closes the list and nothing else (the modal under it keeps its own Esc); the focus goes back to the button.
   useDismiss([panelRef, triggerRef], open, () => {
@@ -82,9 +85,11 @@ export function BlockPicker({ label, options, extra, value, onChange }: {
         <div
           ref={panelRef}
           data-testid="block-picker-panel"
+          onKeyDown={e => closeOnTab(e, triggerRef.current, () => { setOpen(false); setQuery('') })}
           className="absolute left-9 top-full z-50 mt-1 w-80 rounded-lg bg-gray-900 border border-gray-700 shadow-2xl p-2"
         >
           <input
+            ref={searchRef}
             type="text"
             autoFocus
             aria-label="Find a block"
@@ -92,14 +97,22 @@ export function BlockPicker({ label, options, extra, value, onChange }: {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && shown.length > 0) {
+              if (e.key === 'ArrowDown' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+                e.preventDefault()
+                focusFirstSlot(panelRef.current, '[role="option"]')
+              } else if (e.key === 'Enter' && shown.length > 0) {
                 e.preventDefault()
                 pick(shown[0].id)
               }
             }}
             className="w-full h-7 box-border rounded-md bg-gray-950 border border-gray-700 text-gray-100 text-[13px] px-2.5 placeholder:text-gray-400"
           />
-          <ul role="listbox" aria-label={label} className="mt-2 max-h-80 overflow-y-auto">
+          <ul
+            role="listbox"
+            aria-label={label}
+            onKeyDown={e => moveListFocus(e, '[role="option"]', { onTopEdge: () => searchRef.current?.focus() })}
+            className="mt-2 max-h-80 overflow-y-auto"
+          >
             {shown.map(o => (
               <li key={o.id} role="presentation">
                 <button

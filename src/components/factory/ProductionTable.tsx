@@ -4,6 +4,7 @@ import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { RecipeRow } from './RecipeRow'
 import { useNarrowTable } from './useNarrowTable'
+import { useAddRecipeShortcut } from './useAddRecipeShortcut'
 import { SidePanel } from './sidePanel/SidePanel'
 import { TableToolbar } from './TableToolbar'
 import { useUiStore } from '../../store/uiStore'
@@ -130,6 +131,8 @@ export function ProductionTable() {
     // A filter could hide the new row; clear it so the row shows.
     if (query !== '') setQuery('')
   }
+
+  useAddRecipeShortcut(() => setPicker({}), gameData != null && activeBlock !== undefined)
 
   if (!gameData) {
     return (

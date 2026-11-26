@@ -3,10 +3,15 @@ import { createPortal } from 'react-dom'
 import { Icon } from '../Icon'
 import { useDismiss } from './sidePanel/useDismiss'
 import { usePickerAnchor } from './pickerAnchor'
+import { slotsOf } from '../gridNav'
+import { closeOnTab, entryItem, giveFocusBack, moveListFocus } from '../listNav'
 
 const MAX_HEIGHT = 288
 const MARGIN = 8
 const GAP = 4
+
+/** The stops of a picker's keyboard walk: every enabled button, in DOM order. */
+export const PICKER_STOP = 'button:not(:disabled)'
 
 /**
  * The frame of every picker: a popover list opened under its trigger. Rows are `PickerRow`s (icon, name, an optional detail
@@ -16,8 +21,11 @@ const GAP = 4
  * Render it inside a `PickerTrigger`, which provides the anchor. The popover is portalled to `document.body` and fixed
  * to the viewport: it lines up with the trigger's left edge, opens upward when there is more room above, and is clamped
  * to the viewport, so a table's scroll container never clips it.
+ *
+ * It opens with focus on the selected row (else the first button); Up, Down, Home and End walk the buttons, wrapping at the
+ * ends. Tab closes it and carries on from the trigger; closing gives focus back to the trigger.
  */
-export function Picker({ heading, onClose, children, className = '', style, ...rest }: {
+export function Picker({ heading, onClose, children, className = '', style, onKeyDown, ...rest }: {
   heading?: ReactNode
   onClose: () => void
   children: ReactNode
@@ -27,6 +35,14 @@ export function Picker({ heading, onClose, children, className = '', style, ...r
   const self = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<CSSProperties | null>(null)
   useDismiss(anchor ? [self, anchor] : self, true, onClose)
+
+  // The layout cleanup runs before the portal leaves the DOM, so focus is still inside when Esc, a choice or a press outside closes it.
+  useLayoutEffect(() => {
+    const el = self.current
+    const trigger = anchor?.current?.querySelector('button') ?? null
+    return () => giveFocusBack(el, trigger)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on mount and unmount only; the anchor does not change while open
+  }, [])
 
   useLayoutEffect(() => {
     function place() {
@@ -56,6 +72,12 @@ export function Picker({ heading, onClose, children, className = '', style, ...r
     }
   }, [anchor])
 
+  // Focus goes in once the picker is placed: until then it is `visibility: hidden`, which cannot take focus (a picker with no anchor is never placed).
+  const placed = pos !== null || anchor === null
+  useLayoutEffect(() => {
+    if (placed && self.current) entryItem(slotsOf(self.current, PICKER_STOP))?.focus()
+  }, [placed])
+
   return createPortal(
     <div
       ref={self}
@@ -65,6 +87,11 @@ export function Picker({ heading, onClose, children, className = '', style, ...r
       style={{ position: 'fixed', ...(pos ?? { top: 0, left: 0, visibility: 'hidden' }), ...style }}
       className={`z-50 w-60 max-h-72 overflow-y-auto bg-gray-800 border border-gray-600 rounded shadow-lg p-1 space-y-0.5 text-left ${className}`}
       {...rest}
+      onKeyDown={e => {
+        onKeyDown?.(e)
+        closeOnTab(e, anchor?.current?.querySelector('button'), onClose)
+        moveListFocus(e, PICKER_STOP, { wrap: true })
+      }}
     >
       {heading && <div data-testid="picker-heading" className="text-[10px] uppercase tracking-wide text-gray-400 px-2 pt-0.5 pb-1">{heading}</div>}
       {children}
@@ -86,7 +113,8 @@ export function PickerRow({ name, iconPath, detail, selected = false, onClick, c
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${selected ? 'text-teal-400' : 'text-gray-300'} ${className}`}
+      aria-current={selected ? 'true' : undefined}
+      className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 focus-visible:bg-gray-700 outline-none flex items-center gap-1.5 ${selected ? 'text-teal-400' : 'text-gray-300'} ${className}`}
       {...rest}
     >
       {iconPath && <Icon iconPath={iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />}

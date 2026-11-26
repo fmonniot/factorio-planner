@@ -318,3 +318,24 @@ test.describe('Block tab reorder', () => {
     await expect(page.locator('[aria-label="Block colour"]')).toBeInViewport()
   })
 })
+
+test('Move right from the tab menu with the keyboard reorders the tabs, and Tab closes the menu', async ({ page }) => {
+  await openFixture(page)
+  const first = tabButton(page, 'Red science')
+  await first.click({ button: 'right' })
+  const menu = page.getByRole('menu')
+  // Move left is disabled on the first tab, so the third item is Move right.
+  for (const name of ['Rename', 'Duplicate', 'Move right']) {
+    await page.keyboard.press('ArrowDown')
+    await expect(menu.getByRole('menuitem', { name, exact: true })).toBeFocused()
+  }
+  await page.keyboard.press('Enter')
+  await expect(menu).toHaveCount(0)
+  await expect.poll(() => tabOrder(page)).toEqual(['Green science', 'Red science', 'Processing units', 'Advanced circuits', 'Iron coils'])
+  expect(await savedOrder(page)).toEqual(['Green science', 'Red science', 'Processing units', 'Advanced circuits', 'Iron coils'])
+
+  await tabButton(page, 'Iron coils').click({ button: 'right' })
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Tab')
+  await expect(menu).toHaveCount(0)
+})

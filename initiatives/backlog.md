@@ -40,10 +40,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Implicit default drain.** A machine or beacon without an explicit `energy_source.drain` drains `energy_usage / 30` in the game; the export reads 0, so the reported power is about 3.3 % low. Fix for machines and beacons together.
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective. Two real plans show the objective matters more than the unit: the solver leaves rows at zero and lets an unwanted output pile up. The options (machines, priced surplus, required rows) and the measurements are in [surplus-aware-objective/](surplus-aware-objective/plan.md).
 
-## UI / UX
-
-- [~] **Keyboard navigation.** Arrow keys in the other pickers (machine, module, beacon, fuel, fill-all and block pickers), in the item-group tabs of the item and recipe pickers, in the Comes from control (its connection menu and Sources list; only Alt+Arrow reorders lines), and in the row actions menu; a shortcut for add recipe. Done: Escape closes modals, popovers and pickers; the `MenuButton` menus take arrow keys; the item and recipe pickers take arrow keys and Enter; A adds a goal; undo and redo shortcuts (Ctrl/Cmd+Z, Ctrl+Shift+Z, Ctrl+Y).
-
 ## Data sets
 
 - [ ] **Icon layers with 0 < `tint` alpha < 1 are composited as opaque.** `compositeIconLayers` ignores a fractional tint alpha, so such layers are drawn too strongly (565 items, 588 recipes, 119 fluids and 24 technologies in the Seablock dump). Fixing it changes the `nullius-ethylene` golden (layer 0 has alpha 0.7) and needs a re-export of the affected icons.

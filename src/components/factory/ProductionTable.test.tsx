@@ -110,6 +110,29 @@ describe('ProductionTable', () => {
     })
   })
 
+  it('R opens the Add recipe picker, which is not opened again while it is open', async () => {
+    render(<ProductionTable />)
+    expect(fireEvent.keyDown(document.body, { key: 'r', cancelable: true }), 'handled').toBe(false)
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Add recipe' })).toBeInTheDocument()
+    })
+    expect(fireEvent.keyDown(document.body, { key: 'r', cancelable: true }), 'ignored while the picker is open').toBe(true)
+  })
+
+  it('names the shortcut on the toolbar button', () => {
+    render(<ProductionTable />)
+    const button = within(screen.getByTestId('table-toolbar')).getByRole('button', { name: 'Add recipe' })
+    expect(button).toHaveAttribute('aria-keyshortcuts', 'R')
+    expect(button).toHaveAttribute('data-tip', 'Add recipe (R)')
+  })
+
+  it('ignores R without game data', () => {
+    useGameDataStore.setState({ status: { type: 'empty' } })
+    render(<ProductionTable />)
+    expect(fireEvent.keyDown(document.body, { key: 'r', cancelable: true })).toBe(true)
+    expect(screen.queryByRole('heading', { name: 'Add recipe' })).not.toBeInTheDocument()
+  })
+
   it('shows the Add recipe button in the toolbar instead of a footer when nodes exist', async () => {
     const block = useBlockStore.getState().blocks[0]
     const rootPlan = { ...block.rootPlan, nodes: [existingNode] }

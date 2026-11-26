@@ -11,6 +11,7 @@ import { hasProduct } from '../../solver/blockGraph'
 import { fmtItemRateText } from './ItemTile'
 import { TipWrap } from '../TipWrap'
 import { describedTip } from '../tipProps'
+import { useMenuKeyboard } from './useMenuKeyboard'
 
 // ---------------------------------------------------------------------------
 // ConnectionMenu — pick the block that supplies an item to the active block
@@ -43,6 +44,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
   // A press outside, or Escape, closes the menu and nothing else: Escape goes to the most recently opened dismissible only
   // (a popover this menu was opened from stays), and is marked as handled so it does not also clear a selection.
   useDismiss(ref, true, onClose)
+  useMenuKeyboard(ref, onClose)
 
   // Keep the latest onClose in a ref so the scroll listener binds once.
   const onCloseRef = useRef(onClose)
@@ -105,7 +107,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
               disabled={!!blocker}
               data-tip={blocker ? undefined : tip}
               aria-description={tip}
-              className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:pointer-events-none disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
+              className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 focus:bg-gray-700 outline-none disabled:pointer-events-none disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
               onClick={() => {
                 addInputConnection(itemId, block.id)
                 onClose()
@@ -138,7 +140,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
           {...describedTip(closesLoop
             ? `Closes a loop with ${block.name}`
             : undefined)}
-          className="w-full flex items-center justify-between gap-3 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+          className="w-full flex items-center justify-between gap-3 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 focus:bg-gray-700 outline-none"
           onClick={() => {
             addInputConnection(itemId, block.id)
             onClose()
@@ -158,7 +160,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
           type="button"
           role="menuitem"
           {...describedTip(`Create a block that makes ${itemName} and request it from there`)}
-          className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+          className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 focus:bg-gray-700 outline-none"
           onClick={() => {
             onMakeInNewBlock(itemId)
             onClose()

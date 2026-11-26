@@ -398,6 +398,19 @@ describe('BeaconCell — chips over a list of configurations', () => {
     expect(undone.kind === 'game-recipe' && undone.beaconConfigs).toBeUndefined()
   })
 
+  it('opens the plus picker focused on a module and walks it with ArrowDown', () => {
+    useBlockStore.getState().updateNodeBeacons('n1', [])
+    render(
+      <BeaconCell nodeId="n1" beacons={[]} gameData={mockGameData} recipeId="iron-plate"
+        machineId={undefined} recipeCategory="crafting" onOpenEdit={() => {}} />,
+    )
+    fireEvent.click(screen.getByLabelText('Add beacon'))
+    const options = screen.getAllByTestId('module-fill-option')
+    expect(options[0]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(options[1 % options.length]).toHaveFocus()
+  })
+
   it('closes the plus picker on Esc and on a press outside, without creating anything', () => {
     useBlockStore.getState().updateNodeBeacons('n1', [])
     render(

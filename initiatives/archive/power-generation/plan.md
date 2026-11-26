@@ -123,4 +123,4 @@ Deviations from the design above:
 - **D8 exception:** a hidden generator with no `minable` result is script-placed (Nullius' turbine generators) and is exported not hidden, so the pickers and the horizon defaults use it.
 - **D14: electricity always shows in W / kW / MW / GW** whatever the rate-unit toggle, and its inputs are typed in MW. The areas matrices and the summary overview totals keep MJ per minute or second.
 
-The deferred items above are now backlog items, under [Planning features](../../backlog.md#planning-features), [UI / UX](../../backlog.md#ui--ux) and [Data sets](../../backlog.md#data-sets).
+The deferred items above are now backlog items, under [Planning features](../../backlog.md#planning-features) and [Data sets](../../backlog.md#data-sets).

@@ -339,6 +339,25 @@ describe('BeaconsSection — module picker and productivity', () => {
     expect(openSlots(true)).toEqual(['speed-3', 'eff-1'])
   })
 
+  it('opens the module picker focused on a module and ArrowDown moves to the next', () => {
+    openSlots(true)
+    const options = screen.getAllByTestId('beacon-module-option')
+    expect(options[0]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(options[1]).toHaveFocus()
+  })
+
+  it('opens the beacon type picker focused, and Esc returns focus to its button', () => {
+    renderBeacons(makeGameData())
+    useBlockStore.setState({ horizonTechnologyIds: ['base', 'mods'] })
+    const button = screen.getByTestId('beacon-type-button')
+    fireEvent.click(button)
+    expect(screen.getByTestId('beacon-option')).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByTestId('picker')).toBeNull()
+    expect(button).toHaveFocus()
+  })
+
   it('hides productivity modules when the recipe disallows productivity', () => {
     expect(openSlots(false, ['speed', 'consumption', 'productivity'])).toEqual(['speed-3', 'eff-1'])
   })

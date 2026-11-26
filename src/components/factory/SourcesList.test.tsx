@@ -515,6 +515,59 @@ describe('Alt+Arrow', () => {
   })
 })
 
+describe('Arrow keys', () => {
+  const names = () => Array.from(screen.getByTestId('sources-list').querySelectorAll<HTMLElement>('[data-line-name]'))
+  const press = (key: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement!, { key, ...init })
+
+  it('move between the line names, and Home and End jump to the ends', () => {
+    openList()
+    const all = names()
+    expect(all.length, 'a line name for each line').toBeGreaterThanOrEqual(3)
+    act(() => all[0].focus())
+    press('ArrowDown')
+    expect(all[1]).toHaveFocus()
+    press('ArrowDown')
+    expect(all[2]).toHaveFocus()
+    press('ArrowUp')
+    expect(all[1]).toHaveFocus()
+    press('End')
+    expect(all[all.length - 1]).toHaveFocus()
+    press('Home')
+    expect(all[0]).toHaveFocus()
+  })
+
+  it('stop at the first and the last name', () => {
+    openList()
+    const all = names()
+    act(() => all[0].focus())
+    press('ArrowUp')
+    expect(all[0]).toHaveFocus()
+    act(() => all[all.length - 1].focus())
+    press('ArrowDown')
+    expect(all[all.length - 1]).toHaveFocus()
+  })
+
+  it('leave Alt+Arrow to the reorder, which keeps the focus on the moved line', () => {
+    openList()
+    const toggle = within(line('make-here')).getByTestId('sources-line-toggle')
+    act(() => toggle.focus())
+    press('ArrowDown', { altKey: true })
+    expect(ruleOf()).toEqual({ makeHere: 'after-blocks' })
+    expect(document.activeElement).toBe(within(line('make-here')).getByTestId('sources-line-toggle'))
+  })
+
+  it('do not take the buttons of an open detail as stops, and do nothing from inside one', () => {
+    openList()
+    openLine('make-here')
+    const before = screen.getByTestId('sources-make-before')
+    expect(names()).not.toContain(before)
+    act(() => before.focus())
+    const prevented = !fireEvent.keyDown(before, { key: 'ArrowDown', cancelable: true })
+    expect(prevented, 'the key is left alone').toBe(false)
+    expect(before).toHaveFocus()
+  })
+})
+
 describe('the description of a switch', () => {
   it('is a hidden help text beside the switch, and the tooltip says the state', () => {
     openList()

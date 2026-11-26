@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ComesFromPopover } from './ComesFromPopover'
 import { FactorySummary } from './FactorySummary'
 import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
@@ -276,6 +277,48 @@ describe('Receive from… in the popover', () => {
     expect(popover()).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByTestId('comes-from-popover')).not.toBeInTheDocument()
+  })
+
+  it('ArrowDown and ArrowUp move between the line names of the list', () => {
+    render(<ComesFromPopover hasSlot={() => false} />)
+    open('ore')
+    const names = Array.from(within(popover()).getByTestId('comes-from').querySelectorAll<HTMLElement>('[data-line-name]'))
+    expect(names[0]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(names[1]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' })
+    expect(names[0]).toHaveFocus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByTestId('comes-from-popover')).not.toBeInTheDocument()
+  })
+
+  it('walks the connection menu with the arrows, Enter connects, and the focus returns to Receive from…', async () => {
+    const user = userEvent.setup()
+    const line = openWithNoConnection()
+    const receive = within(line).getByTestId('receive-from')
+    receive.focus()
+    fireEvent.click(receive)
+    const first = within(menu()!).getAllByRole('menuitem')[0]
+    expect(first, 'the menu does not take focus when it opens').not.toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    expect(first).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(mainBlock().inputConnections).toEqual([expect.objectContaining({ itemId: 'ore', fromBlockId: 'source' })])
+    expect(menu()).not.toBeInTheDocument()
+    expect(popover()).toBeInTheDocument()
+  })
+
+  it('Escape closes the connection menu and gives the focus back to Receive from…', () => {
+    const line = openWithNoConnection()
+    const receive = within(line).getByTestId('receive-from')
+    receive.focus()
+    fireEvent.click(receive)
+    fireEvent.keyDown(document, { key: 'ArrowDown' })
+    expect(within(menu()!).getAllByRole('menuitem')[0]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(menu()).not.toBeInTheDocument()
+    expect(within(popover()).getByTestId('receive-from')).toHaveFocus()
+    expect(popover()).toBeInTheDocument()
   })
 
   it('a press outside both closes the menu and leaves the popover; a press on the menu closes neither', () => {

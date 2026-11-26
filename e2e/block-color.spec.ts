@@ -152,4 +152,59 @@ test.describe('block colours', () => {
     expect((await exportColors(page))['Block 3']).toBe(iconColor)
 
   })
+
+  test('the tab menu is driven from the keyboard: End and an arrow pick a swatch, Enter sets it, the tab gets the focus back', async ({ page }) => {
+    await loadPlanFixture(page, PLAN)
+    await ready(page)
+    const tab = page.locator('[data-testid="block-tab"] button[aria-label="Gears"]')
+    await tab.click({ button: 'right' })
+    await expect(page.getByRole('menu')).toBeVisible()
+    // The menu does not take the focus when it opens; the first key enters it.
+    await expect(tab).toBeFocused()
+    await page.keyboard.press('End')
+    await expect(page.getByLabel('Colour #d9f99d')).toBeFocused()
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.getByLabel('Colour #f9a8d4')).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    await expect(tab).toBeFocused()
+    expect(await exportColors(page)).toEqual({ Plates: '#60a5fa', Gears: '#f9a8d4' })
+  })
+
+  test('the keyboard goes from Delete into the colour grid and back, row by row, and Escape returns the focus to the tab', async ({ page }) => {
+    await loadPlanFixture(page, PLAN)
+    await ready(page)
+    const tab = page.locator('[data-testid="block-tab"] button[aria-label="Gears"]')
+    const menu = page.getByRole('menu')
+    await tab.click({ button: 'right' })
+    // Gears is the last block: Rename, Duplicate, Move left, Delete (Move right is disabled).
+    for (const name of ['Rename', 'Duplicate', 'Move left', 'Delete']) {
+      await page.keyboard.press('ArrowDown')
+      await expect(menu.getByRole('menuitem', { name, exact: true })).toBeFocused()
+    }
+    // The grid is entered at the checked swatch (Gears: #7dd3fc, the second cell of the first row).
+    await page.keyboard.press('ArrowDown')
+    await expect(page.getByLabel('Colour #7dd3fc')).toBeFocused()
+    const centre = () => page.evaluate(() => {
+      const r = document.activeElement!.getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+    })
+    const first = await centre()
+    await page.keyboard.press('ArrowDown')
+    const second = await centre()
+    expect(second.y, 'the next row').toBeGreaterThan(first.y)
+    expect(Math.abs(second.x - first.x), 'the same column').toBeLessThan(2)
+    await page.keyboard.press('ArrowUp')
+    await expect(page.getByLabel('Colour #7dd3fc')).toBeFocused()
+    await page.keyboard.press('ArrowUp')
+    await expect(menu.getByRole('menuitem', { name: 'Delete', exact: true })).toBeFocused()
+    // Down from the last grid row wraps to Rename.
+    await page.keyboard.press('End')
+    await page.keyboard.press('ArrowDown')
+    await expect(menu.getByRole('menuitem', { name: 'Rename', exact: true })).toBeFocused()
+
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+    await expect(tab).toBeFocused()
+  })
 })

@@ -817,6 +817,18 @@ describe('MachineSection — fuel', () => {
   const openFuel = () => fireEvent.click(screen.getByTestId('fuel-button'))
   const storedFuel = () => (useBlockStore.getState().blocks[0].rootPlan.nodes[0] as GameRecipeNode).fuelItemId
 
+  it('Tab and Shift+Tab close the fuel list and put focus on the fuel button, without cancelling the key', () => {
+    renderBurner()
+    for (const shiftKey of [false, true]) {
+      openFuel()
+      const option = screen.getAllByTestId('fuel-option')[0]
+      option.focus()
+      expect(fireEvent.keyDown(option, { key: 'Tab', shiftKey, bubbles: true, cancelable: true }), 'the browser carries on').toBe(true)
+      expect(screen.queryAllByTestId('fuel-option')).toHaveLength(0)
+      expect(screen.getByTestId('fuel-button')).toHaveFocus()
+    }
+  })
+
   it('has no Fuel section for an electric machine', () => {
     renderModal(makeGameData())
     expect(screen.queryByTestId('fuel-button')).not.toBeInTheDocument()
@@ -830,6 +842,30 @@ describe('MachineSection — fuel', () => {
     openFuel()
     expect(fuelOptionIds()).toEqual(['wood', 'coal', 'solid-fuel'])
     expect(screen.getByTestId('fuel-default')).toHaveTextContent('Default (wood)')
+  })
+
+  it('opens the fuel list on the selected fuel, ArrowDown and ArrowUp wrap, and Esc returns focus to the fuel button', () => {
+    renderBurner('coal')
+    openFuel()
+    const [wood, coal, solid] = screen.getAllByTestId('fuel-option')
+    expect(coal, 'the selected fuel').toHaveFocus()
+    expect(coal).toHaveAttribute('aria-current', 'true')
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(solid).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(screen.getByTestId('fuel-default'), 'wraps to the first button').toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' })
+    expect(solid).toHaveFocus()
+    expect(wood).not.toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(fuelOptionIds()).toEqual([])
+    expect(screen.getByTestId('fuel-button')).toHaveFocus()
+  })
+
+  it('opens the fuel list on Default when no fuel is chosen', () => {
+    renderBurner()
+    openFuel()
+    expect(screen.getByTestId('fuel-default')).toHaveFocus()
   })
 
   it('lists only fuels within the horizon and flags an effective fuel beyond it', () => {
