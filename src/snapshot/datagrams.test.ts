@@ -19,7 +19,7 @@ const ID = /^[0-9a-f]{16}$/
 const hexBytes = (hex: string): Buffer => Buffer.from(hex, 'hex')
 
 interface Message { name: string; link: string; from: string; to: string; frame?: string; type: string; doc: string; hex: string; fields: Record<string, unknown> }
-interface Malformed { reader: string; frame?: string; why: string; hex: string; error?: string }
+interface Malformed { reader: string; frame?: string; why: string; hex: string; error?: string; errorFrame?: string }
 
 interface BridgeWindow { round: number; indices: number[]; upto: number }
 
@@ -120,8 +120,13 @@ function parseBridgeInput(d: Buffer): Record<string, unknown> | null {
   }
 }
 
-/** The error code the bridge answers a WebSocket frame with; null when the frame is valid. */
-function wsError(frame: string, d: Buffer): string | null {
+/** The `error` the bridge answers a WebSocket frame with (the frame kind is the transport's); null when the frame is valid. */
+function wsError(frame: string, d: Buffer): { code: string; frame: string } | null {
+  const code = wsErrorCode(frame, d)
+  return code === null ? null : { code, frame: frame === 'binary' ? 'snapshot' : 'announce' }
+}
+
+function wsErrorCode(frame: string, d: Buffer): string | null {
   if (frame === 'binary') {
     const envelope = d.subarray(0, WIRE.WS_ENVELOPE).toString('latin1')
     if (/^FP\d\d S /.test(envelope) && !envelope.startsWith('FP01')) return 'protocol-mismatch'
@@ -455,6 +460,8 @@ describe('contract/datagrams/messages.json', () => {
     expect(new Set(messages.filter(m => m.type === 'error').map(m => m.fields.code))).toEqual(
       new Set(['bad-envelope', 'bad-message', 'too-large', 'protocol-mismatch']),
     )
+    const errorFrames = messages.filter(m => m.type === 'error').map(m => m.fields.frame)
+    expect(new Set(errorFrames)).toEqual(new Set(['snapshot', 'announce']))
     expect(new Set(messages.filter(m => m.type === 'nack').map(m => m.fields.reason))).toEqual(new Set(['length', 'json', 'version', 'invalid']))
     for (const s of statuses) expect(JSON.stringify(s)).not.toMatch(/null/)
   })
@@ -510,7 +517,7 @@ describe('contract/datagrams/malformed.json', () => {
   })
 
   it.each(inputs.filter(i => i.reader === 'bridge-ws').map(i => [i.why, i] as const))('the bridge answers an error to: %s', (_, i) => {
-    expect(wsError(i.frame as string, hexBytes(i.hex))).toBe(i.error)
+    expect(wsError(i.frame as string, hexBytes(i.hex))).toEqual({ code: i.error, frame: i.errorFrame })
   })
 })
 

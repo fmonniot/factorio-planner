@@ -143,6 +143,16 @@ impl Rig {
         }
     }
 
+    /// The next `error` message, whole (statuses in between are skipped).
+    fn error_message(&mut self, client: &mut Client) -> Value {
+        loop {
+            let message = self.next(client);
+            if message["type"] == "error" {
+                return message;
+            }
+        }
+    }
+
     /// True if `client` receives no `error` within `quiet`.
     fn no_error(&mut self, client: &mut Client, quiet: Duration) -> bool {
         let until = Instant::now() + quiet;
@@ -327,6 +337,57 @@ fn errors_go_to_the_sender_only_and_the_connection_stays_open() {
             "an announce starts no transfer: {status}"
         );
     }
+}
+
+#[test]
+fn an_error_names_the_frame_it_answers() {
+    let mut rig = Rig::start();
+    let (mut planner, mut watcher) = (rig.planner(), rig.planner());
+    rig.next(&mut planner);
+    rig.next(&mut watcher);
+
+    let check = |rig: &mut Rig, planner: &mut Client, code: &str, frame: &str| {
+        let error = rig.error_message(planner);
+        assert_eq!(
+            (error["code"].as_str(), error["frame"].as_str()),
+            (Some(code), Some(frame))
+        );
+    };
+
+    planner.send_binary(b"not an envelope".to_vec());
+    check(&mut rig, &mut planner, "bad-envelope", "snapshot");
+
+    let mut frame = format!("FP01 S {A} {:07} ", MAX_SNAPSHOT_BYTES + 1).into_bytes();
+    frame.resize(32 + MAX_SNAPSHOT_BYTES + 1, b'x');
+    planner.send_binary(frame);
+    check(&mut rig, &mut planner, "too-large", "snapshot");
+
+    planner.send_text("nonsense");
+    check(&mut rig, &mut planner, "bad-message", "announce");
+
+    planner.send_text(r#"{"type":"announce","protocol":2,"id":"9b3b078dbd018b94"}"#);
+    check(&mut rig, &mut planner, "protocol-mismatch", "announce");
+
+    // Back to back, each refusal names its own frame and the valid one still takes effect.
+    planner.send_snapshot(A, &snapshot_bytes(2_000, 3));
+    planner.send_text("nonsense");
+    let error = rig.error_message(&mut planner);
+    assert_eq!(error["frame"], "announce");
+    rig.delivered(&mut watcher, A);
+    assert!(
+        rig.no_error(&mut planner, Duration::from_millis(300)),
+        "exactly one error"
+    );
+
+    planner.send_binary(b"not an envelope".to_vec());
+    planner.send_text(&encode_announce(&id(B)));
+    let error = rig.error_message(&mut planner);
+    assert_eq!(error["frame"], "snapshot");
+    rig.status_where(&mut watcher, "newest is set", |s| s["newest"] == B);
+    assert!(
+        rig.no_error(&mut planner, Duration::from_millis(300)),
+        "exactly one error"
+    );
 }
 
 #[test]

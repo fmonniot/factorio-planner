@@ -553,25 +553,12 @@
       "to": "planner",
       "frame": "text",
       "type": "error",
-      "doc": "{\"type\":\"error\",\"code\":\"bad-envelope\"}",
-      "hex": "7b2274797065223a226572726f72222c22636f6465223a226261642d656e76656c6f7065227d",
+      "doc": "{\"type\":\"error\",\"code\":\"bad-envelope\",\"frame\":\"snapshot\"}",
+      "hex": "7b2274797065223a226572726f72222c22636f6465223a226261642d656e76656c6f7065222c226672616d65223a22736e617073686f74227d",
       "fields": {
         "type": "error",
-        "code": "bad-envelope"
-      }
-    },
-    {
-      "name": "error-bad-message",
-      "link": "ws",
-      "from": "bridge",
-      "to": "planner",
-      "frame": "text",
-      "type": "error",
-      "doc": "{\"type\":\"error\",\"code\":\"bad-message\"}",
-      "hex": "7b2274797065223a226572726f72222c22636f6465223a226261642d6d657373616765227d",
-      "fields": {
-        "type": "error",
-        "code": "bad-message"
+        "code": "bad-envelope",
+        "frame": "snapshot"
       }
     },
     {
@@ -581,11 +568,12 @@
       "to": "planner",
       "frame": "text",
       "type": "error",
-      "doc": "{\"type\":\"error\",\"code\":\"too-large\"}",
-      "hex": "7b2274797065223a226572726f72222c22636f6465223a22746f6f2d6c61726765227d",
+      "doc": "{\"type\":\"error\",\"code\":\"too-large\",\"frame\":\"snapshot\"}",
+      "hex": "7b2274797065223a226572726f72222c22636f6465223a22746f6f2d6c61726765222c226672616d65223a22736e617073686f74227d",
       "fields": {
         "type": "error",
-        "code": "too-large"
+        "code": "too-large",
+        "frame": "snapshot"
       }
     },
     {
@@ -595,11 +583,42 @@
       "to": "planner",
       "frame": "text",
       "type": "error",
-      "doc": "{\"type\":\"error\",\"code\":\"protocol-mismatch\"}",
-      "hex": "7b2274797065223a226572726f72222c22636f6465223a2270726f746f636f6c2d6d69736d61746368227d",
+      "doc": "{\"type\":\"error\",\"code\":\"protocol-mismatch\",\"frame\":\"snapshot\"}",
+      "hex": "7b2274797065223a226572726f72222c22636f6465223a2270726f746f636f6c2d6d69736d61746368222c226672616d65223a22736e617073686f74227d",
       "fields": {
         "type": "error",
-        "code": "protocol-mismatch"
+        "code": "protocol-mismatch",
+        "frame": "snapshot"
+      }
+    },
+    {
+      "name": "error-protocol-mismatch-announce",
+      "link": "ws",
+      "from": "bridge",
+      "to": "planner",
+      "frame": "text",
+      "type": "error",
+      "doc": "{\"type\":\"error\",\"code\":\"protocol-mismatch\",\"frame\":\"announce\"}",
+      "hex": "7b2274797065223a226572726f72222c22636f6465223a2270726f746f636f6c2d6d69736d61746368222c226672616d65223a22616e6e6f756e6365227d",
+      "fields": {
+        "type": "error",
+        "code": "protocol-mismatch",
+        "frame": "announce"
+      }
+    },
+    {
+      "name": "error-bad-message",
+      "link": "ws",
+      "from": "bridge",
+      "to": "planner",
+      "frame": "text",
+      "type": "error",
+      "doc": "{\"type\":\"error\",\"code\":\"bad-message\",\"frame\":\"announce\"}",
+      "hex": "7b2274797065223a226572726f72222c22636f6465223a226261642d6d657373616765222c226672616d65223a22616e6e6f756e6365227d",
+      "fields": {
+        "type": "error",
+        "code": "bad-message",
+        "frame": "announce"
       }
     }
   ]

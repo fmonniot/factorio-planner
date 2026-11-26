@@ -1019,9 +1019,16 @@ function buildMessages(snapshots: Record<string, Snapshot>): { protocol: number;
     transfer: { id: newer, state: 'failed', sent: 24, count: 29, reason: 'no-progress' },
   })
   status('status-mismatch', { mod: { link: 'mismatch', protocol: 2 } })
-  for (const code of ['bad-envelope', 'bad-message', 'too-large', 'protocol-mismatch']) {
-    const value = { type: 'error', code }
-    json(`error-${code}`, 'bridge', 'error', value, value)
+  const errors: { name: string; code: string; frame: 'snapshot' | 'announce' }[] = [
+    { name: 'error-bad-envelope', code: 'bad-envelope', frame: 'snapshot' },
+    { name: 'error-too-large', code: 'too-large', frame: 'snapshot' },
+    { name: 'error-protocol-mismatch', code: 'protocol-mismatch', frame: 'snapshot' },
+    { name: 'error-protocol-mismatch-announce', code: 'protocol-mismatch', frame: 'announce' },
+    { name: 'error-bad-message', code: 'bad-message', frame: 'announce' },
+  ]
+  for (const { name, code, frame } of errors) {
+    const value = { type: 'error', code, frame }
+    json(name, 'bridge', 'error', value, value)
   }
   return { protocol: PROTOCOL_VERSION, messages }
 }
@@ -1033,6 +1040,8 @@ interface Malformed {
   hex: string
   /** For `bridge-ws` only: the code of the `error` message the bridge answers with. */
   error?: string
+  /** For `bridge-ws` only: the `frame` of that `error`; a binary frame is a snapshot, a text frame an announce. */
+  errorFrame?: 'snapshot' | 'announce'
 }
 
 function buildMalformed(): { protocol: number; inputs: Malformed[] } {
@@ -1041,8 +1050,8 @@ function buildMalformed(): { protocol: number; inputs: Malformed[] } {
   const hexOf = (b: Buffer | string): string => (typeof b === 'string' ? Buffer.from(b, 'latin1') : b).toString('hex')
   const mod = (why: string, b: Buffer | string): void => void inputs.push({ reader: 'mod', why, hex: hexOf(b) })
   const bridge = (why: string, text: string): void => void inputs.push({ reader: 'bridge-udp', why, hex: hexOf(text) })
-  const ws = (why: string, frame: 'text' | 'binary', b: Buffer | string, error: string): void =>
-    void inputs.push({ reader: 'bridge-ws', frame, why, hex: hexOf(b), error })
+  const ws = (why: string, frame: 'text' | 'binary', b: Buffer | string, error: string, errorFrame: 'snapshot' | 'announce'): void =>
+    void inputs.push({ reader: 'bridge-ws', frame, why, hex: hexOf(b), error, errorFrame })
 
   const body = 'x'
   const header = (over: { id?: string; index?: string; count?: string; bytes?: string } = {}): string =>
@@ -1121,20 +1130,20 @@ function buildMalformed(): { protocol: number; inputs: Malformed[] } {
   bridge('nack reason not a word', `FP01 N ${id} Bad-Reason`)
 
   const envelope = (over: { id?: string; bytes?: string } = {}): string => `FP01 S ${over.id ?? id} ${over.bytes ?? '0000002'} `
-  ws('envelope cut short', 'binary', envelope().slice(0, 20), 'bad-envelope')
-  ws('wrong type letter', 'binary', envelope().replace(' S ', ' C ') + '{}', 'bad-envelope')
-  ws('id in upper case', 'binary', envelope({ id: '0123456789ABCDEF' }) + '{}', 'bad-envelope')
-  ws('byte length not digits', 'binary', envelope({ bytes: '00000x2' }) + '{}', 'bad-envelope')
-  ws('byte length of zero', 'binary', envelope({ bytes: '0000000' }), 'bad-envelope')
-  ws('frame shorter than the byte length', 'binary', envelope({ bytes: '0000003' }) + '{}', 'bad-envelope')
-  ws('frame longer than the byte length', 'binary', envelope({ bytes: '0000001' }) + '{}', 'bad-envelope')
-  ws('byte length over MAX_SNAPSHOT_BYTES', 'binary', envelope({ bytes: '8000001' }) + '{}', 'too-large')
-  ws('byte length at the largest the field can state', 'binary', envelope({ bytes: '9999999' }) + '{}', 'too-large')
-  ws('other protocol version', 'binary', envelope().replace('FP01', 'FP02') + '{}', 'protocol-mismatch')
-  ws('text frame that is not JSON', 'text', 'not json', 'bad-message')
-  ws('text frame of an unknown type', 'text', '{"type":"reset","protocol":1}', 'bad-message')
-  ws('announce with a bad id', 'text', '{"type":"announce","protocol":1,"id":"XYZ"}', 'bad-message')
-  ws('announce of another protocol version', 'text', `{"type":"announce","protocol":2,"id":"${id}"}`, 'protocol-mismatch')
+  ws('envelope cut short', 'binary', envelope().slice(0, 20), 'bad-envelope', 'snapshot')
+  ws('wrong type letter', 'binary', envelope().replace(' S ', ' C ') + '{}', 'bad-envelope', 'snapshot')
+  ws('id in upper case', 'binary', envelope({ id: '0123456789ABCDEF' }) + '{}', 'bad-envelope', 'snapshot')
+  ws('byte length not digits', 'binary', envelope({ bytes: '00000x2' }) + '{}', 'bad-envelope', 'snapshot')
+  ws('byte length of zero', 'binary', envelope({ bytes: '0000000' }), 'bad-envelope', 'snapshot')
+  ws('frame shorter than the byte length', 'binary', envelope({ bytes: '0000003' }) + '{}', 'bad-envelope', 'snapshot')
+  ws('frame longer than the byte length', 'binary', envelope({ bytes: '0000001' }) + '{}', 'bad-envelope', 'snapshot')
+  ws('byte length over MAX_SNAPSHOT_BYTES', 'binary', envelope({ bytes: '8000001' }) + '{}', 'too-large', 'snapshot')
+  ws('byte length at the largest the field can state', 'binary', envelope({ bytes: '9999999' }) + '{}', 'too-large', 'snapshot')
+  ws('other protocol version', 'binary', envelope().replace('FP01', 'FP02') + '{}', 'protocol-mismatch', 'snapshot')
+  ws('text frame that is not JSON', 'text', 'not json', 'bad-message', 'announce')
+  ws('text frame of an unknown type', 'text', '{"type":"reset","protocol":1}', 'bad-message', 'announce')
+  ws('announce with a bad id', 'text', '{"type":"announce","protocol":1,"id":"XYZ"}', 'bad-message', 'announce')
+  ws('announce of another protocol version', 'text', `{"type":"announce","protocol":2,"id":"${id}"}`, 'protocol-mismatch', 'announce')
   return { protocol: PROTOCOL_VERSION, inputs }
 }
 

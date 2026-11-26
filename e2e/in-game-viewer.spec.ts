@@ -399,6 +399,74 @@ test.describe('In-game viewer errors', () => {
     await expect(viewerDialog(page).getByTestId('viewer-notice')).toContainText('too large for the in-game viewer')
   })
 
+  /** A restore snapshot and an announce go out back to back after a reconnect; `refuse` sets what the bridge refuses. */
+  async function reconnectWithRestoreAndAnnounce(page: Page, refuse: () => void) {
+    await openApp(page)
+    await switchOn(page, bridge)
+    await expect.poll(() => bridge.announces().length).toBe(1)
+    await viewerDialog(page).getByRole('button', { name: 'Send to Factorio' }).click()
+    await expect.poll(() => bridge.snapshots().length).toBe(1)
+    const first = bridge.snapshots()[0]
+
+    await bridge.stop()
+    await addGoal(page)
+    bridge.clear()
+    refuse()
+    await bridge.restart(NO_GAME)
+    await expect.poll(() => bridge.received.length, { timeout: 12_000 }).toBe(2)
+    expect(bridge.snapshots()).toHaveLength(1)
+    expect(bridge.announces()).toHaveLength(1)
+    expect(bridge.snapshots()[0].id).toBe(first.id)
+    return first
+  }
+
+  test('a refused announce after a restore keeps the restore bytes', async ({ page }) => {
+    const first = await reconnectWithRestoreAndAnnounce(page, () => {
+      bridge.answerWithError = 'bad-message'
+      bridge.errorOnlyFor = 'announce'
+    })
+    await expect((await openViewer(page)).getByTestId('viewer-notice')).toContainText('could not understand a message')
+
+    bridge.answerWithError = null
+    bridge.clear()
+    await bridge.stop()
+    await bridge.restart(NO_GAME)
+    await expect.poll(() => bridge.snapshots().length, { timeout: 12_000 }).toBe(1)
+    expect(bridge.snapshots()[0].id).toBe(first.id)
+  })
+
+  test('a refused restore snapshot is forgotten (regression guard for the tagged-snapshot path)', async ({ page }) => {
+    await reconnectWithRestoreAndAnnounce(page, () => {
+      bridge.answerWithError = 'too-large'
+      bridge.errorOnlyFor = 'snapshot'
+    })
+    await expect((await openViewer(page)).getByTestId('viewer-notice')).toContainText('too large')
+
+    bridge.answerWithError = null
+    bridge.clear()
+    await bridge.stop()
+    await bridge.restart(NO_GAME)
+    await expect.poll(() => bridge.announces().length, { timeout: 12_000 }).toBeGreaterThan(0)
+    await page.waitForTimeout(300)
+    expect(bridge.snapshots()).toHaveLength(0)
+  })
+
+  test('with a bridge that does not name the frame, it stays conservative and forgets the bytes', async ({ page }) => {
+    await reconnectWithRestoreAndAnnounce(page, () => {
+      bridge.tagErrors = false
+      bridge.answerWithError = 'bad-message'
+    })
+    await expect((await openViewer(page)).getByTestId('viewer-notice')).toContainText('could not understand a message')
+
+    bridge.answerWithError = null
+    bridge.clear()
+    await bridge.stop()
+    await bridge.restart(NO_GAME)
+    await expect.poll(() => bridge.announces().length, { timeout: 12_000 }).toBeGreaterThan(0)
+    await page.waitForTimeout(300)
+    expect(bridge.snapshots()).toHaveLength(0)
+  })
+
   test('a plan above the size limit is announced, not sent, and the player is told', async ({ page }) => {
     // Block names go into the snapshot, so two long names make a snapshot above 8,000,000 bytes.
     const plan = JSON.parse(readFileSync(FIXTURE, 'utf8')) as { blocks: { name: string }[] }

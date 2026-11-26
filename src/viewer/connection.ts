@@ -5,6 +5,7 @@ import {
   describeBridgeError,
   parseBridgeMessage,
   type BridgeStatus,
+  type FrameName,
 } from './protocol'
 
 // ---------------------------------------------------------------------------
@@ -67,9 +68,9 @@ export interface ConnectionState {
   plan?: PlanSnapshot
   /** The last bytes sent, kept for a restore; forgotten when the bridge refuses them. */
   lastSent?: SentSnapshot
-  /** The most recent frame this socket sent; a bridge `error` answers it. */
-  lastFrame?: 'snapshot' | 'announce'
-  /** The last two frames were a restore and its announce, so an error may be about either. */
+  /** The most recent frame this socket sent. Only an `error` without a `frame` (a bridge older than the field) is attributed to it. */
+  lastFrame?: FrameName
+  /** The last two frames were a restore and its announce, so an error without a `frame` may be about either. */
   lastFramePaired: boolean
   /** The bridge's latest `status` claims our protocol version but could not be read. */
   statusUnreadable?: boolean
@@ -104,7 +105,7 @@ export type ConnectionEvent =
   /** The player pressed Send. */
   | { type: 'send' }
   /** A frame could not be written to the socket (not open, or `send` threw): it did not go out. */
-  | { type: 'sendFailed'; frame: 'snapshot' | 'announce'; id: string }
+  | { type: 'sendFailed'; frame: FrameName; id: string }
 
 export type ConnectionAction =
   | { type: 'connect' }
@@ -149,6 +150,12 @@ function lose(state: ConnectionState, failure: Failure): Transition {
     },
     actions: [{ type: 'scheduleRetry' }],
   }
+}
+
+/** Whether an `error` is about a snapshot: the frame the bridge names, else the most recent one (a restore pair counts). */
+function refusedSnapshot(state: ConnectionState, frame: FrameName | undefined): boolean {
+  if (frame !== undefined) return frame === 'snapshot'
+  return state.lastFrame === 'snapshot' || state.lastFramePaired
 }
 
 /** Sends a snapshot frame and remembers its bytes. */
@@ -266,10 +273,10 @@ export function reduce(state: ConnectionState, event: ConnectionEvent): Transiti
         if (!state.firstStatusSeen) return firstStatus(state, message.status)
         return { state: { ...state, status: message.status, gamePort: validPort(message.status.gamePort) ?? state.gamePort, statusUnreadable: false }, actions: [] }
       }
-      // Step 5: show the code; an error answers the most recent frame, so forget refused snapshot bytes.
-      const aboutSnapshot = state.lastFrame === 'snapshot' || state.lastFramePaired
+      // Step 5: show the code and forget the bytes if the error is about a snapshot. The bridge names the frame it
+      // answers; one older than that field does not, and then the most recent frame is blamed, conservatively.
       return {
-        state: { ...state, error: message.code, lastSent: aboutSnapshot ? undefined : state.lastSent },
+        state: { ...state, error: message.code, lastSent: refusedSnapshot(state, message.frame) ? undefined : state.lastSent },
         actions: [],
       }
     }

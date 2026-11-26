@@ -59,6 +59,10 @@ export interface FakeBridge {
   sendError: (code: string) => void
   /** If set, every frame received is answered with this error code. */
   answerWithError: string | null
+  /** If set, `answerWithError` applies only to frames of this kind (the other kind is not answered). */
+  errorOnlyFor: 'snapshot' | 'announce' | null
+  /** Whether every `error` names the kind of frame it answers; false mimics a bridge older than that field. */
+  tagErrors: boolean
   clear: () => void
   /** Closes the server and its connections. */
   stop: () => Promise<void>
@@ -79,6 +83,8 @@ export async function startFakeBridge(initialStatus: Record<string, unknown> = f
     connections: 0,
     initialStatus,
     answerWithError: null,
+    errorOnlyFor: null,
+    tagErrors: true,
     broadcast: message => { for (const c of clients) c.send(JSON.stringify(message)) },
     sendError: code => { for (const c of clients) c.send(JSON.stringify({ type: 'error', code })) },
     clear: () => { bridge.received.length = 0 },
@@ -93,6 +99,11 @@ export async function startFakeBridge(initialStatus: Record<string, unknown> = f
     },
     snapshots: () => bridge.received.filter(r => r.kind === 'snapshot'),
     announces: () => bridge.received.filter(r => r.kind === 'announce'),
+  }
+
+  /** An `error` for a frame of the given kind, tagged with it unless the fake plays an older bridge. */
+  function errorFor(code: string, isBinary: boolean): string {
+    return JSON.stringify(bridge.tagErrors ? { type: 'error', code, frame: isBinary ? 'snapshot' : 'announce' } : { type: 'error', code })
   }
 
   function listen(wantedPort: number): Promise<void> {
@@ -114,11 +125,12 @@ export async function startFakeBridge(initialStatus: Record<string, unknown> = f
         ws.on('message', (data: RawData, isBinary: boolean) => {
           const frame = parseFrame(Buffer.isBuffer(data) ? data : Buffer.concat(data as Buffer[]), isBinary)
           if (frame.kind === 'bad') {
-            ws.send(JSON.stringify({ type: 'error', code: frame.reason }))
+            ws.send(errorFor(frame.reason, isBinary))
             return
           }
           bridge.received.push(frame)
-          if (bridge.answerWithError) ws.send(JSON.stringify({ type: 'error', code: bridge.answerWithError }))
+          const kind = isBinary ? 'snapshot' : 'announce'
+          if (bridge.answerWithError && (bridge.errorOnlyFor === null || bridge.errorOnlyFor === kind)) ws.send(errorFor(bridge.answerWithError, isBinary))
         })
       })
     })

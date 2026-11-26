@@ -24,7 +24,7 @@ const status = (extra: object = {}, protocol = 1) =>
   JSON.stringify({ type: 'status', protocol, bridge: '0.1.0', mod: { link: 'none' }, ...extra })
 const held = (id: string, extra: object = {}) =>
   status({ newest: id, transfer: { id, state: 'waiting', sent: 0, count: 1 }, ...extra })
-const error = (code: string) => JSON.stringify({ type: 'error', code })
+const error = (code: string, frame?: 'snapshot' | 'announce') => JSON.stringify({ type: 'error', code, frame })
 
 /** Runs events in order, returning the final state and every action performed. */
 function run(events: ConnectionEvent[], from: ConnectionState = initialConnectionState()) {
@@ -237,10 +237,40 @@ describe('step 5: errors', () => {
     expect(state.lastSent?.id).toBe(A.id)
   })
 
-  it('forgets the bytes when a restore and its announce went out together', () => {
+  it('forgets the bytes when a restore and its announce went out together and an older bridge does not say which was refused', () => {
     const sent = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, { type: 'solved', plan: B })).state
     const { state } = run([{ type: 'closed' }, { type: 'retry' }, { type: 'opened' }, text(status()), text(error('protocol-mismatch'))], sent)
     expect(state.lastSent).toBeUndefined()
+  })
+
+  describe('when the bridge names the frame', () => {
+    const paired = () => run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, { type: 'solved', plan: B })).state
+    const reconnect = [{ type: 'closed' }, { type: 'retry' }, { type: 'opened' }, text(status())] as const
+
+    it('keeps the restore bytes when the announce after a restore was refused', () => {
+      const { state } = run([...reconnect, text(error('bad-message', 'announce'))], paired())
+      expect(state.lastSent?.id).toBe(A.id)
+      const again = run([{ type: 'closed' }, { type: 'retry' }, { type: 'opened' }, text(status())], state)
+      expect(kinds(again.actions).filter(k => k.startsWith('sendSnapshot'))).toEqual([`sendSnapshot:${A.id}`])
+    })
+
+    it('forgets the bytes when the restore itself was refused', () => {
+      const { state } = run([...reconnect, text(error('too-large', 'snapshot'))], paired())
+      expect(state.lastSent).toBeUndefined()
+      const again = run([{ type: 'closed' }, { type: 'retry' }, { type: 'opened' }, text(status())], state)
+      expect(kinds(again.actions).filter(k => k.startsWith('sendSnapshot'))).toEqual([])
+    })
+
+    it('keeps the bytes when a single announce was refused', () => {
+      const { state } = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, text(error('bad-message', 'announce'))))
+      expect(state.lastSent?.id).toBe(A.id)
+    })
+
+    it('forgets the sent bytes when a snapshot error arrives after a later announce, as the error names the snapshot', () => {
+      const { state } = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, { type: 'solved', plan: B }, text(error('too-large', 'snapshot'))))
+      expect(state.lastSent).toBeUndefined()
+      expect(state.error).toBe('too-large')
+    })
   })
 
   it('clears the error on the next Send', () => {

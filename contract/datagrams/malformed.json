@@ -356,98 +356,112 @@
       "frame": "binary",
       "why": "envelope cut short",
       "hex": "4650303120532030313233343536373839616263",
-      "error": "bad-envelope"
+      "error": "bad-envelope",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "binary",
       "why": "wrong type letter",
       "hex": "46503031204320303132333435363738396162636465662030303030303032207b7d",
-      "error": "bad-envelope"
+      "error": "bad-envelope",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "binary",
       "why": "id in upper case",
       "hex": "46503031205320303132333435363738394142434445462030303030303032207b7d",
-      "error": "bad-envelope"
+      "error": "bad-envelope",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "binary",
       "why": "byte length not digits",
       "hex": "46503031205320303132333435363738396162636465662030303030307832207b7d",
-      "error": "bad-envelope"
+      "error": "bad-envelope",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "binary",
       "why": "byte length of zero",
       "hex": "4650303120532030313233343536373839616263646566203030303030303020",
-      "error": "bad-envelope"
+      "error": "bad-envelope",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "binary",
       "why": "frame shorter than the byte length",
       "hex": "46503031205320303132333435363738396162636465662030303030303033207b7d",
-      "error": "bad-envelope"
+      "error": "bad-envelope",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "binary",
       "why": "frame longer than the byte length",
       "hex": "46503031205320303132333435363738396162636465662030303030303031207b7d",
-      "error": "bad-envelope"
+      "error": "bad-envelope",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "binary",
       "why": "byte length over MAX_SNAPSHOT_BYTES",
       "hex": "46503031205320303132333435363738396162636465662038303030303031207b7d",
-      "error": "too-large"
+      "error": "too-large",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "binary",
       "why": "byte length at the largest the field can state",
       "hex": "46503031205320303132333435363738396162636465662039393939393939207b7d",
-      "error": "too-large"
+      "error": "too-large",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "binary",
       "why": "other protocol version",
       "hex": "46503032205320303132333435363738396162636465662030303030303032207b7d",
-      "error": "protocol-mismatch"
+      "error": "protocol-mismatch",
+      "errorFrame": "snapshot"
     },
     {
       "reader": "bridge-ws",
       "frame": "text",
       "why": "text frame that is not JSON",
       "hex": "6e6f74206a736f6e",
-      "error": "bad-message"
+      "error": "bad-message",
+      "errorFrame": "announce"
     },
     {
       "reader": "bridge-ws",
       "frame": "text",
       "why": "text frame of an unknown type",
       "hex": "7b2274797065223a227265736574222c2270726f746f636f6c223a317d",
-      "error": "bad-message"
+      "error": "bad-message",
+      "errorFrame": "announce"
     },
     {
       "reader": "bridge-ws",
       "frame": "text",
       "why": "announce with a bad id",
       "hex": "7b2274797065223a22616e6e6f756e6365222c2270726f746f636f6c223a312c226964223a2258595a227d",
-      "error": "bad-message"
+      "error": "bad-message",
+      "errorFrame": "announce"
     },
     {
       "reader": "bridge-ws",
       "frame": "text",
       "why": "announce of another protocol version",
       "hex": "7b2274797065223a22616e6e6f756e6365222c2270726f746f636f6c223a322c226964223a2230313233343536373839616263646566227d",
-      "error": "protocol-mismatch"
+      "error": "protocol-mismatch",
+      "errorFrame": "announce"
     }
   ]
 }
