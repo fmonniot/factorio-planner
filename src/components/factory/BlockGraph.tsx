@@ -19,7 +19,7 @@ import { useSourceRuleItems } from './useSourceRuleItems'
 import { CHIP_TONE, connectionStatus, edgeKey, edgeSummaryTitle, pairStatus } from './graphConnection'
 import type { EdgeStatus } from './graphConnection'
 import { BlockGraphDetail } from './BlockGraphDetail'
-import { BlockMatrix } from './BlockMatrix'
+import { BlockMatrix, MatrixHelp } from './BlockMatrix'
 import { BlockPower, PowerFigures } from './BlockPower'
 import { buildPowerOverview } from './powerOverview'
 import { PlanAreasView } from './PlanAreas'
@@ -596,7 +596,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           <Segment pressed={view === 'power'} onClick={() => setBlockGraphView('power')} data-tip="Electric power by block, against what the power plant makes">Power</Segment>
         </Segmented>
         {power && <PowerFigures model={power} />}
-        <button type="button" onClick={onClose} className={`${btn} ${view !== 'power' ? 'ml-auto' : ''}`}>Close</button>
+        {view === 'matrix' && <MatrixHelp className="ml-auto" />}
+        <button type="button" onClick={onClose} className={`${btn} ${view !== 'power' && view !== 'matrix' ? 'ml-auto' : ''}`}>Close</button>
       </div>
 
       {view === 'graph' && (

@@ -92,4 +92,6 @@ export const UploadIcon = (p: IconProps) => <SvgIcon {...p}><path d="M12 20V9M7 
 
 export const CheckIcon = (p: IconProps) => <SvgIcon {...p}><path d="m5 12 5 5 9-10" /></SvgIcon>
 
+export const InfoIcon = (p: IconProps) => <SvgIcon {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></SvgIcon>
+
 export const XIcon = (p: IconProps) => <SvgIcon {...p}><path d="M6 6l12 12M18 6 6 18" /></SvgIcon>

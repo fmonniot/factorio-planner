@@ -1,8 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useUiStore } from '../../store/uiStore'
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { Segmented, Segment } from '../SegmentedControl'
+import { InfoIcon } from '../icons'
+import { useHoverPopup } from '../useHoverPopup'
 import { EdgeChips } from './BlockGraphDetail'
 import { buildBlockMatrix, cellTintPercent, matrixOrderOf } from './matrixCells'
 import type { MatrixCell, MatrixPair } from './matrixCells'
@@ -88,7 +91,7 @@ const MatrixSlot = memo(function MatrixSlot({
           backgroundImage: cell.back ? HATCH_BACK : undefined,
           borderColor: cell.limited > 0 || cell.allUnused ? undefined : cell.status === 'pending' ? '#4b5563' : color,
         }}
-        className={`w-full h-6 flex items-center justify-center gap-0.5 rounded-sm text-[11px] font-mono tabular-nums text-gray-100 hover:brightness-125 focus-visible:outline-2 focus-visible:outline-teal-300 ${ring} ${selected ? 'ring-2 ring-white' : ''}`}
+        className={`scroll-mt-28 scroll-ml-48 w-full h-6 flex items-center justify-center gap-0.5 rounded-sm text-[11px] font-mono tabular-nums text-gray-100 hover:brightness-125 focus-visible:outline-2 focus-visible:outline-teal-300 ${ring} ${selected ? 'ring-2 ring-white' : ''}`}
       >
         {cell.loop && <span aria-hidden className="text-[10px] leading-none">↻</span>}
         {cell.count}
@@ -153,11 +156,17 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
     panelRef.current?.querySelector<HTMLElement>('button, input, [tabindex]')?.focus()
   }, [selectedKey])
 
+  // The strip takes room from the grid: a cell it now covers is brought back into view (the margins clear the sticky headers).
+  useEffect(() => {
+    if (selectedKey === null) return
+    scrollRef.current?.querySelector<HTMLElement>('[data-selected="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [selectedKey])
+
   // Escape deselects first and closes the modal only when nothing is selected. A limit being typed handles its own Escape.
   useEffect(() => {
     if (selectedKey === null) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || (e.target instanceof HTMLElement && e.target.tagName === 'INPUT')) return
+      if (e.key !== 'Escape' || e.defaultPrevented || (e.target instanceof HTMLElement && e.target.tagName === 'INPUT')) return
       e.stopPropagation()
       if (panelRef.current?.contains(document.activeElement)) {
         const [from, to] = [selected?.from, selected?.to]
@@ -182,24 +191,19 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
   const colorOf = (id: string) => byId.get(id)?.color ?? MISSING_BLOCK_COLOR
   const headTone = (on: boolean) => (on ? 'text-teal-300 font-bold' : 'text-gray-300')
   const crossStyle = (on: boolean) => (on ? { backgroundImage: CROSS_TINT } : undefined)
-  const orderName = orderKind === 'dependency' ? 'dependency' : 'plan'
 
   const sourceName = selected ? byId.get(selected.from)?.name ?? selected.from : ''
   const targetName = selected ? byId.get(selected.to)?.name ?? selected.to : ''
 
   return (
-    <div className="flex flex-1 min-h-0">
-      <div className="flex-1 min-w-0 flex flex-col">
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 min-h-0 flex flex-col">
         <div className="p-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <Segmented label="Order" size="sm">
             <Segment pressed={orderKind === 'dependency'} onClick={() => setOrderKind('dependency')} data-tip="Suppliers first: connections run above the diagonal where they can">Dependency order</Segment>
             <Segment pressed={orderKind === 'plan'} onClick={() => setOrderKind('plan')} data-tip="The order of the block tabs">Plan order</Segment>
           </Segmented>
-          <span data-testid="matrix-summary" className="text-xs text-gray-400">
-            {n < 2
-              ? 'No connections between blocks yet.'
-              : `${n} × ${n} blocks, ${model.filled} filled, ${model.backCount} below the diagonal, in ${orderName} order`}
-          </span>
+          {n < 2 && <span data-testid="matrix-empty" className="text-xs text-gray-400">No connections between blocks yet.</span>}
         </div>
         <div ref={scrollRef} data-testid="matrix-scroll" className="flex-1 min-h-0 overflow-auto px-3 pb-3">
           {n >= 2 && (
@@ -293,39 +297,61 @@ export function BlockMatrix({ blocks, dependencyOrder, edges, flowsById, gameDat
         </div>
       </div>
 
-      <aside ref={panelRef} data-testid="matrix-panel" className="w-[22rem] shrink-0 border-l border-gray-700 overflow-y-auto p-3">
-        {selected ? (
-          <div>
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-100">
-              <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colorOf(selected.from) }} />
-              <span className="truncate">{sourceName} → {targetName}</span>
-            </div>
-            <div data-testid="matrix-panel-summary" className="text-xs text-gray-400 mt-1 mb-3">
-              {[
-                plural(selected.count, 'connection', 'connections'),
-                selected.limited > 0 ? `${selected.limited} limited` : null,
-                selected.unused > 0 ? `${selected.unused} not used` : null,
-                selected.loop ? 'part of a loop' : null,
-                selected.back ? 'runs against this order' : null,
-              ].filter(Boolean).join(' · ')}
-            </div>
-            <EdgeChips
-              key={selected.key}
-              edge={selected}
-              blocks={blocks}
-              flowsById={flowsById}
-              items={gameData.items}
-              gameData={gameData}
-              arrange="column"
-              onRemove={onRemove}
-              onSetLimit={onSetLimit}
-            />
+      {selected && (
+        <aside ref={panelRef} data-testid="matrix-panel" aria-label={`${sourceName} to ${targetName}`} className="shrink-0 h-40 border-t border-gray-700 overflow-y-auto p-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-100">
+            <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colorOf(selected.from) }} />
+            <span className="truncate">{sourceName} → {targetName}</span>
           </div>
-        ) : (
-          <Legend />
-        )}
-      </aside>
+          <div data-testid="matrix-panel-summary" className="text-xs text-gray-400 mt-1 mb-2">
+            {[
+              plural(selected.count, 'connection', 'connections'),
+              selected.limited > 0 ? `${selected.limited} limited` : null,
+              selected.unused > 0 ? `${selected.unused} not used` : null,
+              selected.loop ? 'part of a loop' : null,
+              selected.back ? 'runs against this order' : null,
+            ].filter(Boolean).join(' · ')}
+          </div>
+          <EdgeChips
+            key={selected.key}
+            edge={selected}
+            blocks={blocks}
+            flowsById={flowsById}
+            items={gameData.items}
+            gameData={gameData}
+            onRemove={onRemove}
+            onSetLimit={onSetLimit}
+          />
+        </aside>
+      )}
     </div>
+  )
+}
+
+/**
+ * The matrix's help: an info button for the modal's header, and under it, on hover, focus or a click, the legend of the marks.
+ * Rendered in a portal: the modal clips what overflows it.
+ */
+export function MatrixHelp({ className = '' }: { className?: string }) {
+  const { open, triggerProps, popupProps } = useHoverPopup<HTMLButtonElement>({ placement: 'below' })
+  return (
+    <>
+      <button
+        type="button"
+        data-testid="matrix-help"
+        aria-label="Reading the matrix"
+        className={`w-8 h-8 rounded-md flex items-center justify-center text-gray-300 hover:bg-gray-800 hover:text-gray-100 focus-visible:bg-gray-800 focus-visible:text-gray-100 outline-none ${className}`}
+        {...triggerProps}
+      >
+        <InfoIcon className="w-[17px] h-[17px]" />
+      </button>
+      {open && createPortal(
+        <div {...popupProps} className="z-[60] w-80 max-w-[calc(100vw-1rem)] p-3 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl">
+          <Legend />
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 
