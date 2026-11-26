@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import solver from 'javascript-lp-solver'
 import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveAll, solveBlock, flattenBlock, netBalance, shortFirstSupply } from './index'
 import { splitFluids } from '../data/flowKey'
@@ -3694,23 +3695,126 @@ describe('solver synthetic cases', () => {
       const solveWith = (rules: Record<string, SourceRule>) =>
         solveBlock(flattenBlock(case28Block({ nodes: cartNodes(), rules, connections: [CART] })), makeGameData(), new Map([[CART, 100]]))
 
-      it('e: a cart on the default rule: the loop stays open, nothing is received', () => {
-        const { result, received } = solveWith(LOOP)
-        expect(nodeOf(result, 'case28-use').throughput).toBeCloseTo(10, 3)
-        expect(nodeOf(result, 'case28-brew').throughput).toBeCloseTo(10, 3)
-        expect(nodeOf(result, 'case28-filter-cart').throughput).toBeCloseTo(0, 3)
-        expect(received.get(CART) ?? 0, 'cart received').toBeCloseTo(0, 3)
-        expect(net(result, HOT)).toBeCloseTo(1000, 3)
-      })
-
-      it('f: the cart on Receive it first: the loop closes on the received carts', () => {
-        const { result, received } = solveWith({ ...LOOP, [CART]: { makeHere: 'after-blocks' } })
+      const expectClosedOnCarts = (result: SolverResult, received: Map<string, number>, carts = 5) => {
         expect(nodeOf(result, 'case28-use').throughput).toBeCloseTo(10, 3)
         expect(nodeOf(result, 'case28-cool-a').throughput).toBeCloseTo(5, 3)
         expect(nodeOf(result, 'case28-cool-b').throughput).toBeCloseTo(5, 3)
         expect(nodeOf(result, 'case28-filter-cart').throughput).toBeCloseTo(5, 3)
         expect(nodeOf(result, 'case28-brew').throughput).toBeCloseTo(2, 3)
-        expect(received.get(CART) ?? 0, 'cart received').toBeCloseTo(5, 3)
+        expect(received.get(CART) ?? 0, 'cart received').toBeCloseTo(carts, 3)
+        for (const id of [HOT, WARM, COLD]) expect(net(result, id), id).toBeCloseTo(0, 3)
+        expect(overItems(result)).not.toContain(HOT)
+        expect(JSON.stringify(result.warnings).includes(CART)).toBe(false)
+      }
+      const lpCalls = (run: () => unknown) => {
+        const spy = vi.spyOn(solver, 'Solve')
+        try {
+          run()
+          return spy.mock.calls.length
+        } finally {
+          spy.mockRestore()
+        }
+      }
+
+      it('e: a cart on the default rule: the connection feeds the loop', () => {
+        let out!: ReturnType<typeof solveWith>
+        const calls = lpCalls(() => { out = solveWith(LOOP) })
+        expectClosedOnCarts(out.result, out.received)
+        expect(calls, 'LP calls: one pass, then the three steps').toBe(1 + 3)
+      })
+
+      it('f: the cart on Receive it first: the loop closes on the received carts', () => {
+        let out!: ReturnType<typeof solveWith>
+        const calls = lpCalls(() => { out = solveWith({ ...LOOP, [CART]: { makeHere: 'after-blocks' } }) })
+        expectClosedOnCarts(out.result, out.received)
+        expect(calls, 'the gate stays shut').toBe(1)
+      })
+
+      it('i: no connection for the cart: the loop stays open (limit)', () => {
+        const nodes = cartNodes()
+        const r = solve(flattenBlock(case28Block({ nodes, rules: LOOP })), makeGameData())
+        const t = Object.fromEntries(['use', 'brew', 'filter-cart'].map(id => [id, nodeOf(r, `case28-${id}`).throughput]))
+        expect(t.use).toBeCloseTo(10, 3)
+        expect(t.brew).toBeCloseTo(10, 3)
+        expect(t['filter-cart']).toBeCloseTo(0, 3)
+        expect(net(r, HOT)).toBeCloseTo(1000, 3)
+        expect(overItems(r)).toContain(HOT)
+        expect(JSON.stringify(r.warnings).includes(CART)).toBe(false)
+      })
+
+      it('j: 3 carts offered on the default rule: the loop closes in part (derived by hand)', () => {
+        // x runs of filter-cart need cool-a = cool-b = x; the left-over is 1000 - 200x; at x = 3 the cost is 24.2 runs + 4000 against 20 + 10000 open.
+        const { result, received } = solveBlock(
+          flattenBlock(case28Block({ nodes: cartNodes(), rules: LOOP, connections: [CART] })), makeGameData(), new Map([[CART, 3]]),
+        )
+        expect(received.get(CART) ?? 0, 'cart received').toBeCloseTo(3, 3)
+        expect(nodeOf(result, 'case28-use').throughput).toBeCloseTo(10, 3)
+        expect(nodeOf(result, 'case28-cool-a').throughput).toBeCloseTo(3, 3)
+        expect(nodeOf(result, 'case28-cool-b').throughput).toBeCloseTo(3, 3)
+        expect(nodeOf(result, 'case28-filter-cart').throughput).toBeCloseTo(3, 3)
+        expect(nodeOf(result, 'case28-brew').throughput).toBeCloseTo(5.2, 3)
+        expect(net(result, HOT)).toBeCloseTo(400, 3)
+        expect(net(result, WARM)).toBeCloseTo(0, 3)
+        expect(net(result, COLD)).toBeCloseTo(0, 3)
+      })
+
+      it('k: e with use in an area of its own: the connection feeds the loop through the area path', () => {
+        const rootPlan = subPlan('root', [
+          ...rowsOf('cool-a', 'cool-b', 'filter-cart', 'brew'),
+          planNode('case28-make-cart', [], { pinnedRate: 0 }),
+        ], [subPlan('S', [planNode('case28-use')], [], true)])
+        let out!: ReturnType<typeof solveBlock>
+        const calls = lpCalls(() => {
+          out = solveBlock(flattenBlock(case28Block({ rules: LOOP, rootPlan, connections: [CART] })), makeGameData(), new Map([[CART, 100]]))
+        })
+        expectClosedOnCarts(out.result, out.received)
+        expect(calls, 'the area path runs more LPs').toBeGreaterThan(4)
+      })
+
+      it('m: a source that offers 3 of the 5 carts the loop wants (solveAll): the take is served 3 and nothing is left stale', () => {
+        // The request pass probes with an unlimited offer, so the left-over-driven take of 5 carts may go upstream as a request; the source can serve 3.
+        const source: Block = {
+          id: 'upstream',
+          name: 'Source',
+          color: '#60a5fa',
+          products: [{ id: 'ps', itemId: CART, extraRate: 3 }],
+          sourceRules: {},
+          inputConnections: [],
+          rootPlan: subPlan('root-up', [planNode('case28-make-cart', [], { pinnedRate: 3 })]),
+        }
+        const consumer: Block = { ...case28Block({ nodes: cartNodes(), rules: LOOP, connections: [CART] }), id: 'consumer' }
+        const all = solveAll([source, consumer], makeGameData())
+        const flow = all.flows.find(f => f.connectionId === 'c0')!
+        expect(flow.rate, 'received').toBeCloseTo(3, 3)
+        expect(nodeOf(all.results.upstream, 'case28-make-cart').throughput, 'source makes 3').toBeCloseTo(3, 3)
+        expect(nodeOf(all.results.consumer, 'case28-filter-cart').throughput).toBeCloseTo(3, 3)
+        expect(nodeOf(all.results.consumer, 'case28-brew').throughput).toBeCloseTo(5.2, 3)
+        expect(net(all.results.consumer, HOT)).toBeCloseTo(400, 3)
+        // The probe's take goes upstream as a request of 5 (kind 'request'), as the take of a hard need of 5 would: the pinned source is short by what
+        // it cannot make (5 requested + 3 extra - 3 made), the pin warns, and the consumer still gets the 3 the source serves.
+        expect(flow.kind).toBe('request')
+        expect(flow.requested).toBeCloseTo(5, 3)
+        expect(flow.status).toBe('ok')
+        const unsat = (r: SolverResult) => r.unsatisfied.find(u => u.itemId === CART)?.rate ?? 0
+        expect(unsat(all.results.consumer), 'no cart import').toBeCloseTo(0, 3)
+        expect(unsat(all.results.upstream), 'source short of what it was asked').toBeCloseTo(5, 3)
+        expect(all.results.upstream.warnings.map(w => w.type)).toEqual(['infeasible-pins'])
+        expect(JSON.stringify(all.results.consumer.warnings).includes(CART)).toBe(false)
+      })
+
+      it("l: a left-over no connection can lower: the result is today's", () => {
+        // As i, plus a coolant connection on the default rule: coolant only replaces brew, so the hot left-over stays and the steps stop after step 3.
+        const COOLANT = 'case28-coolant'
+        let out!: ReturnType<typeof solveBlock>
+        const calls = lpCalls(() => {
+          out = solveBlock(flattenBlock(case28Block({ nodes: cartNodes(), rules: LOOP, connections: [COOLANT] })), makeGameData(), new Map([[COOLANT, 100]]))
+        })
+        expect(nodeOf(out.result, 'case28-use').throughput).toBeCloseTo(10, 3)
+        expect(nodeOf(out.result, 'case28-brew').throughput).toBeCloseTo(10, 3)
+        expect(nodeOf(out.result, 'case28-filter-cart').throughput).toBeCloseTo(0, 3)
+        expect(out.received.get(COOLANT) ?? 0, 'coolant received').toBeCloseTo(0, 3)
+        expect(net(out.result, HOT)).toBeCloseTo(1000, 3)
+        expect(calls).toBe(3)
       })
     })
 

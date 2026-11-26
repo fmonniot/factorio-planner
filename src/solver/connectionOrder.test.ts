@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import solver from 'javascript-lp-solver'
 import { solveAll, solveBlock } from './index'
-import { boundOf, boundedStep, improvesImport, needsConnectionOrder } from './connectionOrder'
+import { boundOf, boundedStep, improvesImport, improvesLeftover, needsConnectionOrder } from './connectionOrder'
 import type { ConnectionOrderInput } from './connectionOrder'
 import type { Block, GameData, GameRecipeNode, RecipeNode, SolverGoal, SolverResult, SourceRule } from '../data/types'
 
@@ -214,6 +214,13 @@ describe('connectionOrder: the retry of a bounded step', () => {
     expect(improvesImport(10, 10)).toBe(false)
     expect(improvesImport(0, 15)).toBe(true)
   })
+
+  it('counts a least left-over as a gain only above the noise', () => {
+    expect(improvesLeftover(1000, 1000)).toBe(false)
+    expect(improvesLeftover(1000 - 1e-9, 1000)).toBe(false)
+    expect(improvesLeftover(400, 1000)).toBe(true)
+    expect(improvesLeftover(0, 15)).toBe(true)
+  })
   // Not exercised through a solve on the plain path: no block of the suite makes the tight bound infeasible, so its retry
   // of steps 3 and 4 is tested only through `boundedStep` itself. The area path's is (areas.test.ts, "the retry of a bounded
   // step, through a solve", with `Solve` mocked).
@@ -302,5 +309,40 @@ describe('connectionOrder: the gate on a warning', () => {
   it('stays closed when the solve was unbounded: its rates are arbitrary', () => {
     const today = { feasible: true, shortfall: new Map(), warnings: [{ type: 'unbounded-absorber', recipeIds: [] }] }
     expect(needsConnectionOrder({ today } as unknown as ConnectionOrderInput)).toBe(false)
+  })
+})
+
+describe('connectionOrder: the gate on a leftover', () => {
+  const input = (over: {
+    leftover?: Array<[string, number]>; slack?: Array<[string, number]>; supply?: Array<[string, number]>
+    firstItems?: string[]; byproductsFirst?: string[]
+  } = {}) => ({
+    today: {
+      feasible: true, shortfall: new Map(), warnings: [], slack: new Map(over.slack ?? []), leftover: new Map(over.leftover ?? [['hot', 1000]]),
+      throughput: new Map(), supply: new Map(over.supply ?? []),
+    },
+    system: { S: new Map(), classification: { intermediates: new Set(['cart']) } },
+    totalCaps: new Map([['cart', 100]]),
+    firstItems: new Set(over.firstItems ?? []),
+    byproductsFirst: new Set(over.byproductsFirst ?? []),
+  }) as unknown as ConnectionOrderInput
+
+  it('opens for a left-over and a spare default-rule connection', () => {
+    expect(needsConnectionOrder(input())).toBe(true)
+  })
+  it('stays closed for a left-over at noise level', () => {
+    expect(needsConnectionOrder(input({ leftover: [['hot', 1e-9]] }))).toBe(false)
+  })
+  it('stays closed when the connected item is on Receive it first', () => {
+    expect(needsConnectionOrder(input({ firstItems: ['cart'] }))).toBe(false)
+  })
+  it("stays closed when the connected item is on Don't make more here", () => {
+    expect(needsConnectionOrder(input({ byproductsFirst: ['cart'] }))).toBe(false)
+  })
+  it('stays closed when the offer is fully taken', () => {
+    expect(needsConnectionOrder(input({ supply: [['cart', 100]] }))).toBe(false)
+  })
+  it('stays closed with neither a left-over nor an import', () => {
+    expect(needsConnectionOrder(input({ leftover: [] }))).toBe(false)
   })
 })
