@@ -32,7 +32,7 @@ const solvedNode: SolvedNode = {
   throughput: 30,
   machineCountExact: 2,
   machineCountCeil: 2,
-  powerKw: 180,
+  powerKw: 180, beaconPowerKw: 0,
 }
 
 // ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ const electrolysisSolved: SolvedNode = {
   throughput: 10,
   machineCountExact: 1,
   machineCountCeil: 1,
-  powerKw: 50,
+  powerKw: 50, beaconPowerKw: 0,
 }
 
 const steamCrackingPlanNode: RecipeNode = {
@@ -73,7 +73,7 @@ const steamCrackingSolved: SolvedNode = {
   throughput: 1,
   machineCountExact: 1,
   machineCountCeil: 1,
-  powerKw: 0,
+  powerKw: 0, beaconPowerKw: 0,
 }
 
 // ---------------------------------------------------------------------------
@@ -491,7 +491,7 @@ describe('RecipeRow — v2 surplus intermediate renders as byproduct', () => {
       throughput: 10,
       machineCountExact: 1,
       machineCountCeil: 1,
-      powerKw: 50,
+      powerKw: 50, beaconPowerKw: 0,
     }
     const planNode: RecipeNode = {
       kind: 'game-recipe',
@@ -999,7 +999,7 @@ describe('RecipeRow source rule marker', () => {
     throughput: 10,
     machineCountExact: 1,
     machineCountCeil: 1,
-    powerKw: 0,
+    powerKw: 0, beaconPowerKw: 0,
   }
   const gameData = {
     ...mockGameData,
@@ -1533,7 +1533,7 @@ describe('RecipeRow sub-factory actions', () => {
     }) as unknown as GameData
     const node = (id: string, recipeId: string): RecipeNode => ({ kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {} })
     const solved = (id: string, outputRates: SolvedNode['outputRates']): SolvedNode => ({
-      recipeNodeId: id, inputRates: {}, outputRates, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      recipeNodeId: id, inputRates: {}, outputRates, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
     })
 
     it('shows the explicit temperature on the product tile', () => {
@@ -2030,6 +2030,21 @@ describe('RecipeRow — burner fuel', () => {
     expect(fuel).toHaveAttribute('aria-label', expect.stringMatching(/^Fuel: coal — Find producer recipe — \S+$/))
     expect(document.querySelectorAll('[data-fuel]')).toHaveLength(1)
     expect(screen.queryByTestId('row-power')).toBeNull()
+  })
+
+  it('splits the Power tooltip from the solver\'s beacon power, and shows only the beacons for a burner row', () => {
+    renderRow({ planNode: smeltNode, solvedNode: { ...solvedNode, powerKw: 180, beaconPowerKw: 60 } })
+    expect(screen.getByTestId('row-power')).toHaveAttribute('data-tip', 'Machines 120.0kW · Beacons 60.0kW')
+  })
+
+  it('shows only the beacon figure when the machine part is zero', () => {
+    renderRow({ planNode: smeltNode, solvedNode: { ...solvedNode, powerKw: 60, beaconPowerKw: 60 } })
+    expect(screen.getByTestId('row-power')).toHaveAttribute('data-tip', 'Beacons 60.0kW')
+  })
+
+  it('has no Power tooltip without beacon power', () => {
+    renderRow({ planNode: smeltNode, solvedNode })
+    expect(screen.getByTestId('row-power')).not.toHaveAttribute('data-tip')
   })
 
   it('has no fuel marker for a row without fuel', () => {

@@ -878,6 +878,7 @@ interface SolvedNode {
   machineCountExact: number
   machineCountCeil: number
   powerKw: number                      // machines plus beacons; a burner row with fuel data: its beacons only
+  beaconPowerKw: number                // the beacons' part of powerKw (0 without beacons); not in the snapshot
   fuelItemId?: string                  // burner rows: the fuel burnt (already in inputRates)
   feedsAbsorber?: true                 // a row that only runs to feed an absorbing row, while it runs; never `false`
   outputTags?: Record<string, FluidTag>  // split fluids only, present when the row makes one: the temperature it is made at (one per fluid)

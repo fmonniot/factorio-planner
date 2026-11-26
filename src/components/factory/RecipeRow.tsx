@@ -6,7 +6,6 @@ import { useUiStore, type PopoverAnchor, type RateUnit } from '../../store/uiSto
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
 import { fmtPower, fmtItemRateText } from './ItemTile'
-import { beaconsPerMachine, beaconUnitKw } from '../../solver/effects'
 import { ItemChip } from './ItemChip'
 import { ItemSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
@@ -973,11 +972,13 @@ export function RecipeRow({
       <td className="px-2 py-0.5 text-right whitespace-nowrap">
         {powerKw > 0 && (() => {
           const power = fmtPower(powerKw)
-          // Same helpers as the solver's beacon term; the machine part is what is left of the row's power.
-          const beaconKw = (solvedNode?.machineCountExact ?? 0) *
-            (planNode.beaconConfigs ?? []).reduce((sum, c) => sum + beaconsPerMachine(c) * beaconUnitKw(c, gameData), 0)
+          // The solver's own split: the machine part is what is left of the row's power.
+          const beaconKw = solvedNode?.beaconPowerKw ?? 0
+          const machineKw = Math.max(0, powerKw - beaconKw)
           const text = (kw: number) => { const f = fmtPower(kw); return `${f.value}${f.unit}` }
-          const split = beaconKw > 0 ? `Machines ${text(Math.max(0, powerKw - beaconKw))} · Beacons ${text(beaconKw)}` : undefined
+          const split = beaconKw > 0
+            ? (machineKw > 0 ? `Machines ${text(machineKw)} · Beacons ${text(beaconKw)}` : `Beacons ${text(beaconKw)}`)
+            : undefined
           return (
             <span data-testid="row-power" {...describedTip(split)} className="font-mono tabular-nums text-[11px] text-cyan-300">
               {power.value}<span className="opacity-60">{power.unit}</span>

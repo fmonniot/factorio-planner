@@ -54,7 +54,7 @@ describe('itemMakers', () => {
     const block = makeEmptyBlock('B')
     block.rootPlan.nodes = [node]
     const result: SolverResult = {
-      nodes: [{ recipeNodeId: 'n1', inputRates: {}, outputRates: { x: 60, y: 30 }, throughput: 60, machineCountExact: 1.5, machineCountCeil: 2, powerKw: 0 }],
+      nodes: [{ recipeNodeId: 'n1', inputRates: {}, outputRates: { x: 60, y: 30 }, throughput: 60, machineCountExact: 1.5, machineCountCeil: 2, powerKw: 0, beaconPowerKw: 0 }],
       unsatisfied: [], warnings: [],
     }
     expect(itemMakers(block, gameData(), result, 'x')).toEqual([

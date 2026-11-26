@@ -87,7 +87,7 @@ function stateOf(blocks: Block[]): AppState {
 }
 
 function solved(recipeNodeId: string, over: Partial<SolvedNode> = {}): SolvedNode {
-  return { recipeNodeId, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 90, ...over }
+  return { recipeNodeId, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 90, beaconPowerKw: 0, ...over }
 }
 
 function result(over: Partial<SolverResult> = {}): SolverResult {

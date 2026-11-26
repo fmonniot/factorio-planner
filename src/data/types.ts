@@ -75,7 +75,10 @@ export interface SolvedNode {
   throughput: number // recipe executions/min
   machineCountExact: number
   machineCountCeil: number
+  /** Includes `beaconPowerKw`. */
   powerKw: number
+  /** The part of `powerKw` the row's beacons draw (0 without beacons). Not part of the snapshot. */
+  beaconPowerKw: number
   /** Burner rows: the fuel item burnt (already counted in `inputRates`; `powerKw` is then 0). */
   fuelItemId?: string
   /** Set (never `false`) on a row that only runs to feed a row absorbing a byproduct, while it runs. Not part of the snapshot. */

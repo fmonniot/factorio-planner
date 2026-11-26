@@ -41,7 +41,7 @@ const mockSolverResult: SolverResult = {
       throughput: 30,
       machineCountExact: 2,
       machineCountCeil: 2,
-      powerKw: 180,
+      powerKw: 180, beaconPowerKw: 0,
     },
   ],
   unsatisfied: [{ itemId: 'iron-ore', rate: 120 }],
@@ -417,7 +417,7 @@ describe('FactorySummary — electricity', () => {
   const generated: SolverResult = {
     nodes: [{
       recipeNodeId: 'n1', inputRates: { 'iron-ore': 120 }, outputRates: { 'power:electricity': 600 },
-      throughput: 666.667, machineCountExact: 11.111, machineCountCeil: 12, powerKw: 0,
+      throughput: 666.667, machineCountExact: 11.111, machineCountCeil: 12, powerKw: 0, beaconPowerKw: 0,
     }],
     unsatisfied: [{ itemId: 'iron-ore', rate: 120 }],
     warnings: [],
@@ -514,7 +514,7 @@ describe('FactorySummary — heat', () => {
       lastResult: {
         nodes: [{
           recipeNodeId: 'n1', inputRates: {}, outputRates: { 'power:heat': 1296 },
-          throughput: 1, machineCountExact: 2, machineCountCeil: 2, powerKw: 0,
+          throughput: 1, machineCountExact: 2, machineCountCeil: 2, powerKw: 0, beaconPowerKw: 0,
         }],
         unsatisfied: [],
         warnings: [],
@@ -558,7 +558,7 @@ describe('FactorySummary — extra output and actual', () => {
     const overResult: SolverResult = {
       nodes: [{
         recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 850 },
-        throughput: 850, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        throughput: 850, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
       }],
       unsatisfied: [],
       warnings: [],
@@ -672,11 +672,11 @@ describe('FactorySummary — v2 surplus renders as byproduct', () => {
       nodes: [
         {
           recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 65, 'steam': 20 },
-          throughput: 65, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+          throughput: 65, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
         },
         {
           recipeNodeId: 'n2', inputRates: { steam: 5 }, outputRates: {},
-          throughput: 5, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+          throughput: 5, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
         },
       ],
       unsatisfied: [],
@@ -695,7 +695,7 @@ describe('FactorySummary — v2 surplus renders as byproduct', () => {
 describe('FactorySummary — split fluids', () => {
   const steamData = () => ({ ...mockGameData, items: { ...mockGameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false } } }) as unknown as GameData
   const node = (id: string, extra: Partial<SolverResult['nodes'][number]>): SolverResult['nodes'][number] =>
-    ({ recipeNodeId: id, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, ...extra })
+    ({ recipeNodeId: id, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0, ...extra })
 
   it('shows one byproduct slot per temperature, each with its label', () => {
     setupStore([ironGoal])
@@ -762,11 +762,11 @@ describe('FactorySummary — byproduct noise', () => {
       nodes: [
         {
           recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 65, steam: 20, slag: 2000 },
-          throughput: 65, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+          throughput: 65, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
         },
         {
           recipeNodeId: 'n2', inputRates: { steam: 5, slag: 1999.9999988 }, outputRates: {},
-          throughput: 5, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+          throughput: 5, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
         },
       ],
       unsatisfied: [],
@@ -787,11 +787,11 @@ describe('FactorySummary — byproduct relative tolerance', () => {
     nodes: [
       {
         recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 65, slag: made },
-        throughput: 65, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        throughput: 65, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
       },
       {
         recipeNodeId: 'n2', inputRates: { slag: used }, outputRates: {},
-        throughput: 5, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        throughput: 5, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
       },
     ],
     unsatisfied: [],
@@ -869,7 +869,7 @@ describe('FactorySummary — connections', () => {
   const minerResult = (): SolverResult => ({
     nodes: [{
       recipeNodeId: 'm', inputRates: {}, outputRates: { 'iron-ore': 200 },
-      throughput: 200, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      throughput: 200, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
     }],
     unsatisfied: [],
     warnings: [],
@@ -1405,7 +1405,7 @@ describe('FactorySummary — connections', () => {
     const makerResult = (): SolverResult => ({
       nodes: [{
         recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 58, slag: 10 },
-        throughput: 30, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        throughput: 30, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
       }],
       unsatisfied: [],
       warnings: [],
@@ -1443,7 +1443,7 @@ describe('FactorySummary — connections', () => {
       const result: SolverResult = {
         nodes: [{
           recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 60, slag: 4 },
-          throughput: 30, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+          throughput: 30, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
         }],
         unsatisfied: [],
         warnings: [],
@@ -1462,7 +1462,7 @@ describe('FactorySummary — connections', () => {
       const result: SolverResult = {
         nodes: [{
           recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 60, 'iron-ore': 10 },
-          throughput: 30, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+          throughput: 30, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
         }],
         unsatisfied: [],
         warnings: [],
@@ -1507,7 +1507,7 @@ describe('FactorySummary — requests', () => {
   const makerResult = (plate = 90): SolverResult => ({
     nodes: [{
       recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-ore': 30, 'iron-plate': plate },
-      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
     }],
     unsatisfied: [],
     warnings: [],
@@ -1567,7 +1567,7 @@ describe('FactorySummary — requests', () => {
     const result: SolverResult = {
       nodes: [{
         recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-ore': 20 },
-        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
       }],
       unsatisfied: [], warnings: [],
     }
@@ -1612,7 +1612,7 @@ describe('FactorySummary — requests', () => {
       const smelterResult: SolverResult = {
         nodes: [{
           recipeNodeId: 's', inputRates: {}, outputRates: { 'iron-ore': 40 },
-          throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+          throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
         }],
         unsatisfied: [], warnings: [],
       }
@@ -1739,7 +1739,7 @@ describe('FactorySummary — products pane', () => {
   const makerResult = (plate: number): SolverResult => ({
     nodes: [{
       recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-ore': 30, 'iron-plate': plate },
-      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
     }],
     unsatisfied: [],
     warnings: [],
@@ -1872,7 +1872,7 @@ describe('FactorySummary — products pane', () => {
     const slagResult: SolverResult = {
       nodes: [{
         recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 60, 'slag': 10 },
-        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
       }],
       unsatisfied: [], warnings: [],
     }
@@ -1960,7 +1960,7 @@ describe('FactorySummary — short product', () => {
     const met: SolverResult = {
       nodes: [{
         recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 60 },
-        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
       }],
       unsatisfied: [],
       warnings: [],
@@ -1998,7 +1998,7 @@ describe('FactorySummary — short product', () => {
     const almost: SolverResult = {
       nodes: [{
         recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 59.9999 },
-        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
       }],
       unsatisfied: [],
       warnings: [],
@@ -2881,7 +2881,7 @@ describe('FactorySummary — Served order', () => {
   const result: SolverResult = {
     nodes: [{
       recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 58, 'slag': 10 },
-      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
     }],
     unsatisfied: [], warnings: [],
   }
@@ -3090,7 +3090,7 @@ describe('FactorySummary — Served order', () => {
 describe('FactorySummary — a split fluid per temperature and range', () => {
   const steamData = () => ({ ...mockGameData, items: { ...mockGameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false } } }) as unknown as GameData
   const node = (id: string, extra: Partial<SolverResult['nodes'][number]>): SolverResult['nodes'][number] =>
-    ({ recipeNodeId: id, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, ...extra })
+    ({ recipeNodeId: id, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0, ...extra })
   const steamFlow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
     connectionId: 'c1', fromBlockId: 'boilers', toBlockId: 'me', itemId: 'steam',
     available: 50, capped: false, rate: 30, status: 'ok', kind: 'take', ...over,

@@ -164,6 +164,29 @@ describe('BeaconsSection — machines per beacon and beacon power', () => {
     expect(storedBeacon()?.machinesPerBeacon).toBe(2)
   })
 
+  it('keeps what is typed: clearing the field does not snap back, and retyping commits the new value', () => {
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon({ machinesPerBeacon: 3 })] }))
+    fireEvent.change(sharing(), { target: { value: '' } })
+    expect(sharing()).toHaveValue(null)
+    expect(storedBeacon()?.machinesPerBeacon).toBe(3)
+    fireEvent.change(sharing(), { target: { value: '2.5' } })
+    expect(sharing()).toHaveValue(2.5)
+    expect(storedBeacon()?.machinesPerBeacon).toBe(2.5)
+  })
+
+  it('restores the stored value on blur after an empty or too small draft', () => {
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon({ machinesPerBeacon: 2 })] }))
+    fireEvent.change(sharing(), { target: { value: '0.5' } })
+    expect(sharing()).toHaveValue(0.5)
+    expect(storedBeacon()?.machinesPerBeacon).toBe(2)
+    fireEvent.blur(sharing())
+    expect(sharing()).toHaveValue(2)
+    fireEvent.change(sharing(), { target: { value: '' } })
+    fireEvent.blur(sharing())
+    expect(sharing()).toHaveValue(2)
+    expect(storedBeacon()?.machinesPerBeacon).toBe(2)
+  })
+
   it('is there without beacon data too', () => {
     const gd = makeGameData()
     gd.beacons = {}
@@ -174,6 +197,11 @@ describe('BeaconsSection — machines per beacon and beacon power', () => {
   it('shows the fractional beacon count and its power', () => {
     renderBeacons(powered(), rowNode({ beaconConfigs: [beacon({ beaconCount: 2, machinesPerBeacon: 2.5 })] }), solvedRow)
     expect(screen.getByTestId('beacon-power')).toHaveTextContent('≈ 4.8 beacons · 2.3MW')
+  })
+
+  it('shows two decimals for a count below 1, so a small share does not read as 0', () => {
+    renderBeacons(powered(), rowNode({ beaconConfigs: [beacon({ beaconCount: 1, machinesPerBeacon: 4 })] }), { machineCountExact: 0.2 } as SolvedNode)
+    expect(screen.getByTestId('beacon-power')).toHaveTextContent(/^≈ 0\.05 beacons/)
   })
 
   it('shows no beacon power for a beacon without energy data, or without a solved row', () => {

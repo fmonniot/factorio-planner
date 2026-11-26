@@ -19,7 +19,7 @@ function result(produces: Record<string, number> = {}, needs: Record<string, num
   return {
     nodes: [{
       recipeNodeId: 'n', inputRates: {}, outputRates: produces,
-      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0,
     }],
     unsatisfied: Object.entries(needs).map(([itemId, rate]) => ({ itemId, rate })),
     warnings: [],

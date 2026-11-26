@@ -275,7 +275,7 @@ describe('PlanAreasModal', () => {
 
   it('says why All blocks is empty, by filter and by query', () => {
     const quiet = (id: string): SolverResult => ({
-      nodes: [{ recipeNodeId: 'n', inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0 }],
+      nodes: [{ recipeNodeId: 'n', inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0 }],
       unsatisfied: [], warnings: [],
       areas: [{ areaId: `${id}-root`, receives: [], sends: [] }, { areaId: `${id}-p`, receives: [], sends: [] }],
     })
@@ -294,13 +294,13 @@ describe('PlanAreasModal', () => {
       lastResults: {
         ...useSolverStore.getState().lastResults,
         C: {
-          nodes: [{ recipeNodeId: 'n', inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0 }],
+          nodes: [{ recipeNodeId: 'n', inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0 }],
           unsatisfied: [], warnings: [],
           areas: [{ areaId: 'C-root', receives: [], sends: [] }, { areaId: 'C-p', receives: [], sends: [] }],
         },
         A: {
           ...useSolverStore.getState().lastResults.A,
-          nodes: [{ recipeNodeId: 'n', inputRates: {}, outputRates: { h2: 60 }, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0 }],
+          nodes: [{ recipeNodeId: 'n', inputRates: {}, outputRates: { h2: 60 }, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0, beaconPowerKw: 0 }],
         },
       },
     })

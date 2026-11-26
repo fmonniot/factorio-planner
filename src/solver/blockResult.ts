@@ -212,6 +212,7 @@ export function zeroNode(recipeNodeId: string): SolvedNode {
     machineCountExact: 0,
     machineCountCeil: 0,
     powerKw: 0,
+    beaconPowerKw: 0,
   }
 }
 
@@ -236,12 +237,14 @@ export function solvedNodeOf(
   let machineCountExact = 0
   let machineCountCeil = 0
   let powerKw = 0
+  let beaconPowerKw = 0
   if (machine) {
     const m = computeMachineMetrics(throughput, recipe.craftingTime, machine, effects)
     machineCountExact = m.machineCountExact
     machineCountCeil = m.machineCountCeil
     // A burner row with fuel data draws no electricity for the machine (its energy is the fuel ingredient) but still
     // pays for its beacons.
+    beaconPowerKw = m.beaconPowerKw
     powerKw = effects.fuel ? m.beaconPowerKw : m.powerKw
   }
 
@@ -275,6 +278,7 @@ export function solvedNodeOf(
     machineCountExact,
     machineCountCeil,
     powerKw,
+    beaconPowerKw,
     ...(effects.fuel ? { fuelItemId: effects.fuel.itemId } : {}),
     ...(feeder && throughput > FLOW_TOLERANCE ? { feedsAbsorber: true as const } : {}),
     ...(Object.keys(outputTags).length > 0 ? { outputTags } : {}),

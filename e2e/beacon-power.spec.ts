@@ -65,6 +65,15 @@ test('a row pays for its beacons, shared beacons cost less, and the effects stay
   // The effects did not change: still 4 machines.
   await expect(row).toContainText('4')
 
+  // Typing is not cut off: clearing the field leaves it empty, and typing 2.5 over it commits 2.5.
+  const sharing = panel.getByLabel('Machines per beacon')
+  await sharing.fill('')
+  await expect(sharing).toHaveValue('')
+  await sharing.pressSequentially('2.5')
+  await expect(sharing).toHaveValue('2.5')
+  await expect.poll(async () => (await savedConfig(page)).machinesPerBeacon).toBe(2.5)
+  await sharing.fill('2')
+
   // Back to 1 removes the key.
   await panel.getByLabel('Machines per beacon').fill('1')
   await expect.poll(async () => 'machinesPerBeacon' in (await savedConfig(page))).toBe(false)

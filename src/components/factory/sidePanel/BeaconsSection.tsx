@@ -61,6 +61,12 @@ function BeaconCard({ index, beacon, node, solved, gameData, onChange, onRemove 
 
   const update = (patch: Partial<BeaconConfig>) => onChange({ ...beacon, ...patch })
 
+  // The sharing field keeps what is typed; only a valid value (a number of at least 1) is committed, and a blur
+  // puts the stored value back.
+  const stored = String(beacon.machinesPerBeacon ?? 1)
+  const [sharingDraft, setSharingDraft] = useState<string | null>(null)
+  const sharingText = sharingDraft ?? stored
+
   // Fractional like the machine count; the unit draw is fixed, whatever modules the beacon holds.
   const unitKw = beaconUnitKw(beacon, gameData)
   const beaconTotal = solved ? solved.machineCountExact * beaconsPerMachine(beacon) : 0
@@ -174,9 +180,12 @@ function BeaconCard({ index, beacon, node, solved, gameData, onChange, onRemove 
           step="any"
           aria-label="Machines per beacon"
           data-testid="beacon-sharing"
-          value={beacon.machinesPerBeacon ?? 1}
+          value={sharingText}
+          onBlur={() => setSharingDraft(null)}
           onChange={e => {
-            const v = parseFloat(e.target.value)
+            const text = e.target.value
+            setSharingDraft(text)
+            const v = parseFloat(text)
             if (!isFinite(v) || v < 1) return
             if (v === 1) {
               const rest = { ...beacon }
@@ -226,7 +235,7 @@ function BeaconCard({ index, beacon, node, solved, gameData, onChange, onRemove 
           {...describedTip('Beacons are counted fractionally, like machines. Sharing a beacon changes its power, not its effects.')}
           className="text-[11px] text-gray-400"
         >
-          ≈ {+beaconTotal.toFixed(1)} beacons · {totalPower.value}{totalPower.unit}
+          ≈ {+beaconTotal.toFixed(beaconTotal > 0 && beaconTotal < 1 ? 2 : 1)} beacons · {totalPower.value}{totalPower.unit}
         </div>
       )}
     </div>
