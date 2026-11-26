@@ -34,11 +34,21 @@ export function PowerFigures({ model }: { model: PowerOverview }) {
 }
 
 function PowerCell({ kw }: { kw: number }) {
-  if (kw <= 0) return <span className="text-right font-mono text-xs text-gray-400">–</span>
+  if (kw <= 0) return <span role="cell" className="text-right font-mono text-xs text-gray-400">–</span>
   const p = fmtPower(kw)
   return (
-    <span className="text-right font-mono text-xs text-cyan-300 tabular-nums">
+    <span role="cell" className="text-right font-mono text-xs text-cyan-300 tabular-nums">
       {p.value}<span className="opacity-60">{p.unit}</span>
+    </span>
+  )
+}
+
+const UNRELIABLE_TIP = "This block's solve is not reliable: its figures may be off"
+
+function UnreliableMark() {
+  return (
+    <span data-testid="power-unreliable" data-tip={UNRELIABLE_TIP} className="text-amber-400 font-bold shrink-0">
+      !
     </span>
   )
 }
@@ -70,15 +80,15 @@ function Cells({ machines, kw, maxKw, demandKw, color, faded }: {
 }) {
   return (
     <>
-      <span className="text-right font-mono text-xs text-gray-300 tabular-nums">{machines > 0 ? machines : '–'}</span>
-      <span className="h-2 rounded bg-gray-800">
+      <span role="cell" className="text-right font-mono text-xs text-gray-300 tabular-nums">{machines > 0 ? machines : '–'}</span>
+      <span role="cell" className="h-2 rounded bg-gray-800">
         <span
           className={`block h-full rounded ${faded ? 'opacity-55' : ''}`}
           style={{ width: `${barPercent(kw, maxKw)}%`, background: color }}
         />
       </span>
       <PowerCell kw={kw} />
-      <span className="text-right font-mono text-xs text-gray-400">{sharePercentText(kw, demandKw)}</span>
+      <span role="cell" className="text-right font-mono text-xs text-gray-400">{sharePercentText(kw, demandKw)}</span>
     </>
   )
 }
@@ -117,15 +127,7 @@ function BlockRows({ row, maxKw, demandKw, onToggle }: {
             <RowName row={row} />
           </>
         )}
-        {entry.kind === 'block' && entry.unreliable && (
-          <span
-            data-testid="power-unreliable"
-            data-tip="This block's solve is not reliable: its figures may be off"
-            className="text-amber-400 font-bold shrink-0"
-          >
-            !
-          </span>
-        )}
+        {entry.kind === 'block' && entry.unreliable && <UnreliableMark />}
       </div>
       <Cells
         machines={entry.machines}
@@ -180,6 +182,7 @@ function LineRow({ line, maxKw, demandKw }: { line: PowerLine; maxKw: number; de
           <Dot color={line.blockColor} />
           <span className="truncate">{line.blockName}</span>
         </span>
+        {line.unreliable && <UnreliableMark />}
       </div>
       <Cells machines={line.machines} kw={line.powerKw} maxKw={maxKw} demandKw={demandKw} color={line.blockColor} faded={false} />
     </div>
@@ -189,12 +192,13 @@ function LineRow({ line, maxKw, demandKw }: { line: PowerLine; maxKw: number; de
 function Gauge({ model }: { model: PowerOverview }) {
   const g = useMemo(() => gaugeGeometry(model), [model])
   const pct = (f: number) => `${f * 100}%`
+  const balanceText = model.status === 'short' ? `${text(-model.balanceKw)} short` : model.status === 'spare' ? `+${text(model.balanceKw)} spare` : 'balanced'
   const generationColor = model.status === 'short' ? 'text-amber-400' : model.status === 'spare' ? 'text-teal-400' : 'text-gray-200'
   return (
     <div
       data-testid="power-gauge"
       role="img"
-      aria-label={`Demand ${text(model.demandKw)}, generation ${text(model.generationKw)}`}
+      aria-label={`Demand ${text(model.demandKw)}, generation ${text(model.generationKw)}, ${balanceText}`}
       className="relative w-[190px] shrink-0 flex flex-col max-md:w-full max-md:h-56"
     >
       <div className="relative flex-1 min-h-[16rem] max-md:min-h-0">
@@ -204,9 +208,9 @@ function Gauge({ model }: { model: PowerOverview }) {
               key={s.blockId}
               data-testid="power-gauge-segment"
               data-block-id={s.blockId}
-              data-tip={`${s.name} ${text(s.powerKw)}`}
-              className="border-t border-gray-900"
-              style={{ height: pct(s.height), background: s.color }}
+              data-tip={`${s.name} ${text(s.powerKw)}${s.unreliable ? ' (solve not reliable: figures may be off)' : ''}`}
+              // A separator that adds no height, so the stack keeps its exact size.
+              style={{ height: pct(s.height), background: s.color, boxShadow: 'inset 0 1px 0 var(--color-gray-900)' }}
             />
           ))}
         </div>
@@ -311,7 +315,7 @@ export function BlockPower({ model }: { model: PowerOverview }) {
                     setQuery('')
                   }
                 }}
-                className="w-[230px] h-[26px] box-border rounded-md bg-gray-950 border border-gray-700 text-gray-100 text-xs px-2.5 placeholder:text-gray-400 [&::-webkit-search-cancel-button]:appearance-none"
+                className="w-[230px] h-[26px] box-border rounded-md bg-gray-950 border border-gray-700 text-gray-100 text-xs px-2.5 placeholder:text-gray-400"
               />
             </label>
           )}

@@ -119,7 +119,7 @@ test('the view is remembered, and a plant making more than the factory draws rea
   await expect(page.getByRole('button', { name: 'Power', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await closeGraph(page)
 
-  // 9 MW is 540 executions/min of the 0.9 MJ recipe.
+  // 9 MW is 540 units/min of electricity, which is 600 executions/min of the 0.9-unit recipe.
   await page.locator('[data-testid="block-tab"] button[aria-label="Power plant"]').click()
   const panel = await selectRow(page, page.locator('main table tbody tr').first())
   const pinned = panel.getByLabel('Pinned rate')

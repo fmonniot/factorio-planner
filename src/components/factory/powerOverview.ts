@@ -57,6 +57,8 @@ export interface PowerLine {
   blockId: string
   blockName: string
   blockColor: string
+  /** The block's solve is arbitrary, as `PowerBlock.unreliable`. */
+  unreliable: boolean
   machines: number
   powerKw: number
 }
@@ -147,7 +149,9 @@ function leaves(entries: readonly PowerEntry[]): PowerRecipe[] {
 
 function isUnreliable(result: SolverResult): boolean {
   return result.warnings.some(w =>
-    (w.type === 'infeasible-pins' && w.conflict === true) || w.type === 'unbounded-absorber' || w.type === 'unbounded-source')
+    (w.type === 'infeasible-pins' && w.conflict === true) || w.type === 'unbounded-absorber' || w.type === 'unbounded-source' ||
+    // The solver puts this warning on the result of each block of the loop, so the block's own result carries it.
+    w.type === 'loop-not-converged')
 }
 
 export function buildPowerOverview(
@@ -202,6 +206,7 @@ export function buildPowerOverview(
         blockId: b.id,
         blockName: b.name,
         blockColor: b.color,
+        unreliable: b.unreliable,
         machines: r.machines,
         powerKw: r.powerKw,
       })))
@@ -266,7 +271,7 @@ export interface GaugeGeometry {
   scaleMax: number
   demand: number
   generation: number
-  segments: { blockId: string; name: string; color: string; powerKw: number; height: number }[]
+  segments: { blockId: string; name: string; color: string; powerKw: number; height: number; unreliable: boolean }[]
   short?: { bottom: number; height: number }
   spare?: { bottom: number; height: number }
   generationLabelBottom: number
@@ -284,7 +289,7 @@ export function gaugeGeometry(model: PowerOverview): GaugeGeometry {
     generation,
     segments: model.blocks
       .filter(b => b.powerKw > 0)
-      .map(b => ({ blockId: b.id, name: b.name, color: b.color, powerKw: b.powerKw, height: frac(b.powerKw) })),
+      .map(b => ({ blockId: b.id, name: b.name, color: b.color, powerKw: b.powerKw, height: frac(b.powerKw), unreliable: b.unreliable })),
     short: model.status === 'short' ? { bottom: generation, height: demand - generation } : undefined,
     spare: model.status === 'spare' ? { bottom: demand, height: generation - demand } : undefined,
     generationLabelBottom: Math.max(demand, generation),

@@ -187,12 +187,31 @@ describe('BlockPower', () => {
     expect(within(row('block', 'Chem')).queryByTestId('power-unreliable')).toBeNull()
   })
 
+  it('marks an unreliable block on its By recipe rows and its gauge segment', () => {
+    setup({ warn: true })
+    render(<BlockGraphButton />)
+    openPower()
+    expect(within(screen.getByTestId('power-gauge')).getAllByTestId('power-gauge-segment')[0].getAttribute('data-tip')).toContain('not reliable')
+    expect(within(screen.getByTestId('power-gauge')).getAllByTestId('power-gauge-segment')[1].getAttribute('data-tip')).not.toContain('not reliable')
+    toLines()
+    const lines = rows()
+    expect(lines.filter(r => within(r).queryByTestId('power-unreliable') !== null).map(r => r.getAttribute('data-block-id'))).toEqual(['gears', 'gears', 'gears'])
+    expect(lines.filter(r => r.getAttribute('data-block-id') === 'chem')).toHaveLength(1)
+  })
+
+  it('gives every cell of a row the cell role', () => {
+    setup()
+    render(<BlockGraphButton />)
+    openPower()
+    expect(within(rows()[0]).getAllByRole('cell')).toHaveLength(5)
+  })
+
   it('draws the gauge: a segment per block that draws power, and the shortfall', () => {
     setup()
     render(<BlockGraphButton />)
     openPower()
     const gauge = screen.getByTestId('power-gauge')
-    expect(gauge).toHaveAttribute('aria-label', 'Demand 7.6MW, generation 5.2MW')
+    expect(gauge).toHaveAttribute('aria-label', 'Demand 7.6MW, generation 5.2MW, 2.4MW short')
     expect(within(gauge).getAllByTestId('power-gauge-segment').map(s => s.getAttribute('data-block-id'))).toEqual(['gears', 'chem'])
     expect(screen.getByTestId('power-gauge-short')).toBeTruthy()
     expect(screen.queryByTestId('power-gauge-spare')).toBeNull()

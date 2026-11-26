@@ -121,6 +121,8 @@ describe('buildPowerOverview', () => {
     expect(flag({ type: 'infeasible-pins', recipeIds: [] })).toBe(false)
     expect(flag({ type: 'unbounded-absorber', recipeIds: [] })).toBe(true)
     expect(flag({ type: 'unbounded-source', blockIds: [] })).toBe(true)
+    expect(flag({ type: 'loop-not-converged', blockIds: ['B'], rounds: 8 })).toBe(true)
+    expect(flag({ type: 'request-loop-not-converged', blockIds: ['B'], rounds: 8 })).toBe(false)
   })
 
   it('reads balanced inside the 50 W tolerance', () => {
