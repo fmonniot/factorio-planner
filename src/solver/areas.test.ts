@@ -1207,6 +1207,10 @@ describe('area rules: supplier switches', () => {
     const b = plateBlock(['c', 'a', 'b'], rows, { b: { plate: { areasOff: ['c'] } } }, {}, [['pgear', 24]])
     const { result } = solvePlate(b)
     expectLegs(result, 'plate', [['c', 'a', 12], ['a', 'b', 12]])
+    expect(flow(area(result, 'a').receives, 'plate')).toBeUndefined()
+    expect(flow(area(result, 'a').sends, 'plate')).toBeUndefined()
+    expect(flow(area(result, 'c').sends, 'plate')!.rate).toBeCloseTo(12, 6)
+    expect(flow(area(result, 'b').receives, 'plate')!.rate).toBeCloseTo(12, 6)
   })
 
   it('a goal touched by two areas where one switches the other off takes the pair path with valid routes', () => {

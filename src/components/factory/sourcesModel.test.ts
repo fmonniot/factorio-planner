@@ -199,6 +199,18 @@ describe('buildSourcesModel', () => {
       expect(rates(m)['made-here']! + rates(m)['make-here']!).toBeCloseTo(18)
     })
 
+    it('reads the shares in the sentence', () => {
+      const rows = [row('c1', 'Cheap', 60), row('c2', 'Dear', 20)]
+      const suppliers = [{ areaId: 'other', name: 'Line O', routed: 12, off: false }]
+      const text = sourcesReading(buildSourcesModel({ ...input({ block, result, area: areaId, rows, supply, order }), suppliers }), n => `${n}/m`)
+      expect(text).toContain('From Cheap: 22.5/m')
+      expect(text).toContain('From Dear: 7.5/m')
+      expect(text).toContain('From Line O: 12/m')
+      const none = sourcesReading(buildSourcesModel({ ...input({ block, result, area: areaId, rows, supply: { imported: 0, missing: 0, reaches: 0 }, order }), suppliers }), n => `${n}/m`)
+      expect(none).not.toContain('Cheap')
+      expect(none).not.toContain('Dear')
+    })
+
     it('shows zero for block lines when nothing reaches, and nothing for an off area line', () => {
       const m = buildSourcesModel({
         ...input({ block, result, area: areaId, rows: [row('c1', 'Cheap', 0)], supply: { imported: 0, missing: 0, reaches: 0 }, order }),
