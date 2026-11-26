@@ -1,5 +1,6 @@
 import type { RateUnit } from '../../store/uiStore'
 import { fmtEnergyText, fmtRate } from './ItemTile'
+import type { OutsideSplit } from './areaMatrix'
 
 // Electricity and heat (`energy`) are shown in power units whatever the rate unit, unit included in
 // the text; every other item is a unit-less number that follows the rate unit.
@@ -39,4 +40,18 @@ export function tradeRateText(items: number, energy: number, unit: RateUnit): st
   if (items > 0) parts.push(fmtAmountUnit(items, unit, false))
   if (energy > 0) parts.push(fmtAmountUnit(energy, unit, true))
   return parts.join(' + ')
+}
+
+/** The tooltip of a From outside figure: what is connected, imported and missing, in the Sources list's words. */
+export function outsideTip(split: OutsideSplit, unit: RateUnit): string {
+  const amt = (v: number) => fmtAmountUnit(v, unit, false)
+  const clauses: string[] = []
+  if (split.connected > 0) clauses.push(`${amt(split.connected)} connected`)
+  if (split.imported > 0) clauses.push(`${amt(split.imported)} imported`)
+  if (split.missing > 0) clauses.push(`${amt(split.missing)} missing because Import is off`)
+  if (clauses.length === 1) {
+    const only = split.connected > 0 ? 'connected' : split.imported > 0 ? 'imported' : undefined
+    return only ? `All ${amt(split[only])} ${only}.` : `${clauses[0]}.`
+  }
+  return `${clauses.slice(0, -1).join(', ')} and ${clauses[clauses.length - 1]}.`
 }

@@ -8,7 +8,7 @@ import {
   type BlockMatrix, type ColumnMode, type FocusView, type MatrixArea, type MatrixRow, type RowMode,
 } from './areaMatrix'
 import { fmtFluidTag } from '../../data/flowKey'
-import { fmtAmount, fmtAmountUnit, fmtSigned, tradeRateText } from './matrixFormat'
+import { fmtAmount, fmtAmountUnit, fmtSigned, outsideTip, tradeRateText } from './matrixFormat'
 import { isEnergyItem } from '../../data/electricity'
 import { FoldedList } from './FoldedList'
 import { TIPPED_LABEL_CLASS, describedTip, tippedLabel } from '../tipProps'
@@ -161,6 +161,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     const item = items[row.itemId]
     const energy = isEnergyItem(row.itemId)
     const marker = sourceRuleMarker?.(row.itemId)
+    const split = counterpartMode ? undefined : row.fromSplit
     return (
       <tr key={row.key} data-item-id={row.itemId} data-flow-key={row.key} className="hover:bg-gray-800/40">
         <th scope="row" className="sticky left-0 z-10 bg-gray-900 px-2 py-0.5 text-left font-normal text-gray-200 border-b border-gray-800">
@@ -181,8 +182,22 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
             </span>
           </span>
         </th>
-        <td data-col="from-outside" data-rate={fromV} className={`${OUTSIDE_COL} px-1 py-0.5 text-center font-mono tabular-nums text-gray-300 border-b border-gray-800`}>
+        <td
+          data-col="from-outside"
+          data-rate={fromV}
+          {...(split
+            ? { 'data-connected': split.connected, 'data-imported': split.imported, 'data-missing': split.missing, ...describedTip(outsideTip(split, rateUnit)) }
+            : {})}
+          className={`${OUTSIDE_COL} relative px-1 py-0.5 text-center font-mono tabular-nums text-gray-300 border-b border-gray-800`}
+        >
           {fromV > 0 ? fmtAmount(fromV, rateUnit, energy) : ''}
+          {split && (
+            <span aria-hidden data-testid="outside-split" className="absolute inset-x-0 bottom-px mx-auto flex h-0.5 w-12 overflow-hidden rounded">
+              {(['connected', 'imported', 'missing'] as const).filter(part => split[part] > 0).map(part => (
+                <span key={part} data-part={part} className={OUTSIDE_SPLIT_COLORS[part]} style={{ width: `${(split[part] / fromV) * 100}%` }} />
+              ))}
+            </span>
+          )}
         </td>
         {columns.map(a => {
           const c = cellValue(row, a.areaId)
@@ -330,7 +345,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
                     </span>
                   </th>
                   <th scope="col" className={`${OUTSIDE_COL} w-24 px-1 py-2 border-b border-gray-700`}>
-                    <span className="text-[11px] uppercase tracking-wide text-gray-400 font-normal">From outside</span>
+                    <span {...tippedLabel(FROM_OUTSIDE_TIP)} className={`text-[11px] uppercase tracking-wide text-gray-400 font-normal ${TIPPED_LABEL_CLASS}`}>From outside</span>
                   </th>
                   {columns.map(a => {
                     const focused = a.areaId === focusedAreaId
@@ -386,6 +401,12 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     </div>
   )
 }
+
+/** The tooltip of the From outside heading. */
+export const FROM_OUTSIDE_TIP = 'What the block takes from outside. The bar under a figure shows how much other blocks supply and how much is imported.'
+
+/** Bar colors of a From outside figure's parts. */
+const OUTSIDE_SPLIT_COLORS = { connected: 'bg-emerald-400', imported: 'bg-gray-400', missing: 'bg-amber-400' } as const
 
 /** The tooltip of the Trades with heading: how a short supply is shared among the areas. */
 export const TRADES_ORDER_TIP = 'Areas higher in the table supply first; an area with its own row for the item is served before the others.'

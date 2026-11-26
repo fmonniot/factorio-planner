@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   areaContents, blockMatrix, rowDisplayName, cancels, groupTotal, totalRows, flowOrder, focusArea, groupRows, itemGroupOf, matchQuery,
-  MACHINES_GROUP, OTHER_GROUP, OUTSIDE, type BlockMatrix, type ItemGroupInfo, type MatrixRow, type PairFlow,
+  MACHINES_GROUP, OTHER_GROUP, OUTSIDE, splitOutside, type BlockMatrix, type ItemGroupInfo, type MatrixRow, type PairFlow,
 } from './areaMatrix'
 import { makeEmptyBlock } from '../../store/blockStore'
 import type { Block, FluidTag, GameData, SolvedArea, SolverResult, SubPlan } from '../../data/types'
@@ -547,5 +547,131 @@ describe('groupTotal with energy', () => {
   it('flags pair totals of an energy group', () => {
     const f = { areaId: 'B', rows: [], counterpart: { 'power:electricity': { A: 600 } }, tradingAreaIds: [], trades: [] }
     expect(groupTotal([row('power:electricity', { A: 600, B: -600 })], 'A', f)).toEqual({ kind: 'pair', out: 600, in: 0, energy: true })
+  })
+})
+
+describe('blockMatrix outside split', () => {
+  const withUnsat = (areas: SolvedArea[], unsatisfied: SolverResult['unsatisfied'], extra: Partial<SolverResult> = {}): SolverResult =>
+    ({ ...result(areas), unsatisfied, ...extra })
+  const unsat = (itemId: string, rate: number, temp?: FluidTag) => ({ itemId, rate, ...(temp ? { temp } : {}) })
+  const plateIn = (rate: number): SolvedArea[] => [
+    { areaId: 'root', receives: [], sends: [] },
+    { areaId: 'A', receives: [f('plate', rate)], sends: [] },
+  ]
+  const splitOf = (m: BlockMatrix, key = 'plate') => m.rows.find(r => r.key === key)?.fromSplit
+
+  it('reads supply from other blocks as connected when nothing is unsatisfied', () => {
+    const m = blockMatrix(makeBlock(), withUnsat(plateIn(5), []), makeGameData(), machines)!
+    expect(splitOf(m)).toEqual({ connected: 5, imported: 0, missing: 0 })
+  })
+
+  it('reads the unsatisfied import as imported and the rest as connected', () => {
+    const m = blockMatrix(makeBlock(), withUnsat(plateIn(5), [unsat('plate', 2)]), makeGameData(), machines)!
+    expect(splitOf(m)).toEqual({ connected: 3, imported: 2, missing: 0 })
+  })
+
+  it('reads everything as imported, clamping an import larger than the figure', () => {
+    const m = blockMatrix(makeBlock(), withUnsat(plateIn(5), [unsat('plate', 9)]), makeGameData(), machines)!
+    expect(splitOf(m)).toEqual({ connected: 0, imported: 5, missing: 0 })
+  })
+
+  it('reads the unsatisfied import as missing when the block rule has Import off', () => {
+    const block = { ...makeBlock(), sourceRules: { plate: { importOff: true as const } } }
+    const m = blockMatrix(block, withUnsat(plateIn(5), [unsat('plate', 2)]), makeGameData(), machines)!
+    expect(splitOf(m)).toEqual({ connected: 3, imported: 0, missing: 2 })
+  })
+
+  it('reads the missing part from the rule of an area with Import off', () => {
+    const b = makeBlock()
+    const block: Block = {
+      ...b,
+      rootPlan: { ...b.rootPlan, subPlans: b.rootPlan.subPlans.map(p => (p.id === 'A' ? { ...p, sourceRules: { plate: { importOff: true as const } } } : p)) },
+    }
+    const areaRoutes = [{ itemId: 'plate', to: 'A', rate: 5, supplied: 3 }]
+    const m = blockMatrix(block, withUnsat(plateIn(5), [unsat('plate', 2)], { areaRoutes }), makeGameData(), machines)!
+    const s = splitOf(m)!
+    expect(s.missing).toBeCloseTo(2)
+    expect(s.imported).toBeCloseTo(0)
+    expect(s.connected).toBeCloseTo(3)
+    expect(s.connected).toBeCloseTo(areaRoutes.reduce((t, r) => t + r.supplied, 0))
+  })
+
+  it('splits a fluid by its own key: a made temperature is connected, a range reads its own import', () => {
+    const areas: SolvedArea[] = [
+      { areaId: 'root', receives: [], sends: [] },
+      {
+        areaId: 'A',
+        receives: [{ itemId: 'steam', rate: 4, boundary: false, temp: { at: 165 } }, { itemId: 'steam', rate: 6, boundary: false, temp: { min: 465 } }],
+        sends: [],
+      },
+    ]
+    const m = blockMatrix(makeBlock(), withUnsat(areas, [unsat('steam', 2, { min: 465 })]), makeGameData(), machines)!
+    expect(splitOf(m, 'steam@165')).toEqual({ connected: 4, imported: 0, missing: 0 })
+    expect(splitOf(m, 'steam[465,]')).toEqual({ connected: 4, imported: 2, missing: 0 })
+  })
+
+  it('gives no split to electricity or to a row with no outside supply', () => {
+    const gd = makeGameData()
+    gd.items['power:electricity'] = { id: 'power:electricity', name: 'Electricity', type: 'item', iconPath: '', hidden: false, subgroup: 'fluids', order: '' } as never
+    const areas: SolvedArea[] = [
+      { areaId: 'root', receives: [f('power:electricity', 3), f('h2', 5)], sends: [] },
+      { areaId: 'A', receives: [], sends: [f('h2', 5)] },
+    ]
+    const m = blockMatrix(makeBlock(), withUnsat(areas, []), gd, machines)!
+    expect(m.rows.find(r => r.itemId === 'power:electricity')!.fromOutside).toBeGreaterThan(0)
+    expect(splitOf(m, 'power:electricity')).toBeUndefined()
+    expect(splitOf(m, 'h2')).toBeUndefined()
+  })
+
+  it('keeps the parts adding up to the figure on every row', () => {
+    const areas: SolvedArea[] = [
+      { areaId: 'root', receives: [f('plate', 5), f('h2', 7)], sends: [f('drill', 1)] },
+      { areaId: 'A', receives: [f('plate', 2), f('drill', 3)], sends: [] },
+    ]
+    const m = blockMatrix(makeBlock(), withUnsat(areas, [unsat('plate', 4), unsat('drill', 0.5)]), makeGameData(), machines)!
+    for (const r of m.rows) {
+      if (r.fromOutside <= 0) continue
+      const s = r.fromSplit!
+      expect(s.connected + s.imported + s.missing).toBeCloseTo(r.fromOutside)
+      expect(Math.min(s.connected, s.imported, s.missing)).toBeGreaterThanOrEqual(0)
+    }
+  })
+})
+
+describe('splitOutside', () => {
+  it('folds a connected sliver into the import', () => {
+    const s = splitOutside(5, 5 - 1e-9, 0)
+    expect(s.connected).toBe(0)
+    expect(s.imported).toBeCloseTo(5)
+  })
+
+  it('folds a connected sliver into missing when nothing is imported', () => {
+    const s = splitOutside(5, 5 - 1e-9, 5 - 1e-9)
+    expect(s).toEqual({ connected: 0, imported: 0, missing: 5 })
+  })
+
+  it('reads an import within tolerance as all connected', () => {
+    expect(splitOutside(5, 1e-9, 0)).toEqual({ connected: 5, imported: 0, missing: 0 })
+  })
+
+  it('reads a pure import at a large rate as all imported', () => {
+    // the gap, 1e-4, is over the fixed 1e-6 but under the 5e-4 tolerance at 50000/min
+    const s = splitOutside(50000, 50000 - 1e-4, 0)
+    expect(s.connected).toBe(0)
+    expect(s.imported).toBeCloseTo(50000, 2)
+  })
+
+  it('scales missing with a figure smaller than the unsatisfied import', () => {
+    const s = splitOutside(4, 8, 6)
+    expect(s.connected).toBe(0)
+    expect(s.imported + s.missing).toBeCloseTo(4)
+  })
+
+  it('never goes negative', () => {
+    for (const [from, u, m] of [[5, -1, 3], [5, 2, 9], [0, 3, 1], [5, 9, 9]]) {
+      const s = splitOutside(from, u, m)
+      expect(Math.min(s.connected, s.imported, s.missing)).toBeGreaterThanOrEqual(0)
+      expect(s.connected + s.imported + s.missing).toBeCloseTo(from)
+    }
   })
 })

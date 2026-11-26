@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
-import { BlockAreaMatrix, TRADES_ORDER_TIP, type BlockAreaMatrixProps } from './BlockAreaMatrix'
+import { BlockAreaMatrix, FROM_OUTSIDE_TIP, TRADES_ORDER_TIP, type BlockAreaMatrixProps } from './BlockAreaMatrix'
+import { outsideTip } from './matrixFormat'
 import { expectTip } from '../../test/byTip'
 import { OUTSIDE, type BlockMatrix, type MatrixRow } from './areaMatrix'
 import type { GameData } from '../../data/types'
@@ -222,5 +223,66 @@ describe('BlockAreaMatrix rows of a split fluid', () => {
     expect(lines).toHaveLength(2)
     expect(lines.every(l => l.getAttribute('data-item-id') === 'steam')).toBe(true)
     expect(lines.map(l => l.textContent)).toEqual([expect.stringContaining('Steam 165°C'), expect.stringContaining('Steam ≥465°C')])
+  })
+})
+
+describe('BlockAreaMatrix outside split', () => {
+  const splitRow: MatrixRow = {
+    key: 'plate', itemId: 'plate', name: 'Plate', groupId: 'other-items', cells: { A: -5 },
+    fromOutside: 5, toOutside: 0, total: 0, fromSplit: { connected: 3, imported: 2, missing: 0 }, pairs: [],
+  }
+  const withRows = (...rows: MatrixRow[]): BlockMatrix => ({ ...matrix, rows })
+  const fromCell = (itemId = 'plate') => document.querySelector<HTMLElement>(`tr[data-item-id="${itemId}"] td[data-col="from-outside"]`)!
+  const bar = (td: HTMLElement) => td.querySelector<HTMLElement>('[data-testid="outside-split"]')
+
+  it('keeps the figure and adds the parts as attributes, a bar and a tooltip', () => {
+    renderMatrix({ matrix: withRows(splitRow) })
+    const td = fromCell()
+    expect(td.textContent).toBe('5.00')
+    expect(td).toHaveAttribute('data-rate', '5')
+    expect(td).toHaveAttribute('data-connected', '3')
+    expect(td).toHaveAttribute('data-imported', '2')
+    expect(td).toHaveAttribute('data-missing', '0')
+    expectTip(td, '3.00/m connected and 2.00/m imported.')
+    const parts = [...bar(td)!.children] as HTMLElement[]
+    expect(parts.map(p => p.getAttribute('data-part'))).toEqual(['connected', 'imported'])
+    expect(parts.map(p => p.style.width)).toEqual(['60%', '40%'])
+  })
+
+  it('words the tooltip in the rate unit and with every clause', () => {
+    expect(outsideTip({ connected: 60, imported: 120, missing: 0 }, 'sec')).toBe('1.00/s connected and 2.00/s imported.')
+    expect(outsideTip({ connected: 3, imported: 2, missing: 1 }, 'min')).toBe('3.00/m connected, 2.00/m imported and 1.00/m missing because Import is off.')
+    expect(outsideTip({ connected: 5, imported: 0, missing: 0 }, 'min')).toBe('All 5.00/m connected.')
+    expect(outsideTip({ connected: 0, imported: 5, missing: 0 }, 'min')).toBe('All 5.00/m imported.')
+  })
+
+  it('draws a missing part in the bar', () => {
+    renderMatrix({ matrix: withRows({ ...splitRow, fromSplit: { connected: 2, imported: 1, missing: 2 } }) })
+    expect([...bar(fromCell())!.children].map(p => p.getAttribute('data-part'))).toEqual(['connected', 'imported', 'missing'])
+  })
+
+  it('leaves a row with no split plain', () => {
+    renderMatrix({ matrix: withRows({ ...splitRow, fromSplit: undefined }) })
+    expect(fromCell()).not.toHaveAttribute('data-connected')
+    expect(bar(fromCell())).toBeNull()
+  })
+
+  it('shows no split in focus mode', () => {
+    renderMatrix({ matrix: withRows(splitRow), focusedAreaId: 'A' })
+    const td = fromCell()
+    expect(td).not.toHaveAttribute('data-connected')
+    expect(td).not.toHaveAttribute('data-tip')
+    expect(bar(td)).toBeNull()
+  })
+
+  it('shows no bar on electricity', () => {
+    renderMatrix({ matrix: withRows({ ...elecRow, fromOutside: 0 }) })
+    expect(bar(fromCell(ELEC))).toBeNull()
+    expect(fromCell(ELEC).textContent).toBe('')
+  })
+
+  it('explains the column in the tooltip of its heading', () => {
+    renderMatrix()
+    expectTip(screen.getByText('From outside'), FROM_OUTSIDE_TIP)
   })
 })
