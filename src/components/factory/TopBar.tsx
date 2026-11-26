@@ -1,7 +1,6 @@
 import { BlockTabs, AddBlockButton } from '../BlockTabs'
 import { HorizonButton } from '../HorizonPicker'
 import { BlockGraphButton } from './BlockGraph'
-import { PlanAreasButton } from './PlanAreas'
 import { TechTreeButton } from '../TechTree'
 import { WorkspaceMenu } from '../WorkspaceMenu'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
@@ -20,7 +19,6 @@ export function TopBar() {
           <AddBlockButton />
           <HorizonButton />
           <BlockGraphButton />
-          <PlanAreasButton />
           <TechTreeButton />
           {hasGameData && <div aria-hidden className="w-px h-5 bg-gray-700 mx-1.5" />}
           <WorkspaceMenu />

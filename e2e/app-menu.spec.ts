@@ -19,7 +19,7 @@ test.describe('workspace menu', () => {
     await expect(page.getByRole('button', { name: 'Export plan' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Import plan' })).toHaveCount(0)
     await expect(page.getByRole('combobox')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Block graph' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Factory overview' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0)
   })
 

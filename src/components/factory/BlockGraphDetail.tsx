@@ -19,6 +19,9 @@ interface BlockGraphDetailProps {
   /** The lit block or edge is the pinned one. */
   pinned?: boolean
   onGoTo?: (blockId: string) => void
+  /** The blocks that have areas, and the way to open one's areas: the block strip links to them. */
+  areaBlockIds?: ReadonlySet<string>
+  onOpenAreas?: (blockId: string) => void
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
 }
@@ -116,7 +119,7 @@ function EdgeItems({ edge, blocks, flowsById, items, gameData, pinned, onRemove,
 }
 
 /** The strip under the graph: what the lit block receives and supplies, or what the lit edge carries. */
-export function BlockGraphDetail({ lit, edges, blocks, flowsById, items, gameData, pinned, onGoTo, onRemove, onSetLimit }: BlockGraphDetailProps) {
+export function BlockGraphDetail({ lit, edges, blocks, flowsById, items, gameData, pinned, onGoTo, areaBlockIds, onOpenAreas, onRemove, onSetLimit }: BlockGraphDetailProps) {
   const byId = new Map(blocks.map(b => [b.id, b]))
   const planIndex = new Map(blocks.map((b, i) => [b.id, i]))
 
@@ -136,11 +139,21 @@ export function BlockGraphDetail({ lit, edges, blocks, flowsById, items, gameDat
           <div className="flex items-center gap-2 mb-2 text-xs text-gray-200">
             <span className="font-medium truncate">{block.name}</span>
             {pinned && <span className="text-[10px] text-blue-300">pinned</span>}
+            {onOpenAreas && areaBlockIds?.has(block.id) && (
+              <button
+                type="button"
+                data-testid="graph-detail-areas"
+                onClick={() => onOpenAreas(block.id)}
+                className="ml-auto text-xs bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-2 py-0.5"
+              >
+                Areas of {block.name}
+              </button>
+            )}
             <button
               type="button"
               data-testid="graph-detail-open"
               onClick={() => onGoTo(block.id)}
-              className="ml-auto text-xs bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-2 py-0.5"
+              className={`${onOpenAreas && areaBlockIds?.has(block.id) ? '' : 'ml-auto '}text-xs bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-2 py-0.5`}
             >
               Go to {block.name}
             </button>

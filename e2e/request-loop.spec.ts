@@ -25,7 +25,7 @@ test.describe('cycles of requests', () => {
     await expect(page.getByText('Requests around a loop do not settle')).toBeVisible()
     await page.keyboard.press('Escape')
 
-    await page.getByRole('button', { name: 'Block graph' }).click()
+    await page.getByRole('button', { name: 'Factory overview' }).click()
     const status = page.getByTestId('graph-loop-status')
     await expect(status).toHaveAttribute('data-converged', 'false')
     await expect(status).toContainText('Requests around')

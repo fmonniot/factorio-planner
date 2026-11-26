@@ -110,7 +110,7 @@ test('a connection delivering 465°C steam shows no import and its tooltip lists
   await expect(detail(page, 'Ingredients').locator('[data-kind="import"]')).toHaveCount(0)
   await expect(page.locator('[data-tip="Show solver warnings"]')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Block graph' }).click()
+  await page.getByRole('button', { name: 'Factory overview' }).click()
   await pinEdge(page, { connectionId: HOT_STEAM_TO_TURBINES })
   const chip = page.locator(`[data-testid="graph-edge-label"][data-connection-id="${HOT_STEAM_TO_TURBINES}"]`)
   await expect(chip).toHaveAttribute('data-tip', /carries .* at ≥465°C/)

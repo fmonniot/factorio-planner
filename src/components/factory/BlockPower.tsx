@@ -8,7 +8,7 @@ import {
 import type { PowerLine, PowerListRow, PowerOverview } from './powerOverview'
 
 // ---------------------------------------------------------------------------
-// Power view — the third view of the Block graph modal: what each block draws, against what the power plant makes.
+// Power view — the last view of the Factory overview modal: what each block draws, against what the power plant makes.
 // ---------------------------------------------------------------------------
 
 const text = (kw: number): string => {
@@ -93,8 +93,10 @@ function Cells({ machines, kw, maxKw, demandKw, color, faded }: {
   )
 }
 
-function BlockRows({ row, maxKw, demandKw, onToggle }: {
+function BlockRows({ row, maxKw, demandKw, onToggle, onOpenAreas }: {
   row: PowerListRow; maxKw: number; demandKw: number; onToggle: (key: string) => void
+  /** Set for a block row of a block that has areas. */
+  onOpenAreas?: () => void
 }) {
   const { entry } = row
   const isBlock = entry.kind === 'block'
@@ -128,6 +130,17 @@ function BlockRows({ row, maxKw, demandKw, onToggle }: {
           </>
         )}
         {entry.kind === 'block' && entry.unreliable && <UnreliableMark />}
+        {isBlock && onOpenAreas && (
+          <button
+            type="button"
+            data-testid="power-row-areas"
+            aria-label={`Areas of ${entry.name}`}
+            onClick={onOpenAreas}
+            className="ml-auto shrink-0 text-[11px] text-gray-300 hover:text-white border border-gray-600 rounded px-1.5 leading-4"
+          >
+            Areas
+          </button>
+        )}
       </div>
       <Cells
         machines={entry.machines}
@@ -265,10 +278,13 @@ function Gauge({ model }: { model: PowerOverview }) {
 type Mode = 'block' | 'recipe'
 
 /** `expanded` (the keys of the open rows) is owned by the modal, so it survives a switch to another view; closing the modal resets it. */
-export function BlockPower({ model, expanded, onExpandedChange }: {
+export function BlockPower({ model, expanded, onExpandedChange, areaBlockIds, onOpenAreas }: {
   model: PowerOverview
   expanded: ReadonlySet<string>
   onExpandedChange: (next: Set<string>) => void
+  /** The blocks that have areas, and the way to open one's areas: those block rows link to them. */
+  areaBlockIds?: ReadonlySet<string>
+  onOpenAreas?: (blockId: string) => void
 }) {
   const [mode, setMode] = useState<Mode>('block')
   const [query, setQuery] = useState('')
@@ -296,11 +312,6 @@ export function BlockPower({ model, expanded, onExpandedChange }: {
             <Segment pressed={mode === 'block'} onClick={() => setMode('block')}>By block</Segment>
             <Segment pressed={mode === 'recipe'} onClick={() => setMode('recipe')}>By recipe</Segment>
           </Segmented>
-          <span className="text-xs text-gray-400">
-            {mode === 'block'
-              ? 'Sorted by power. Expand a block to see its groups and recipes.'
-              : 'Every recipe that draws power, biggest first.'}
-          </span>
           {mode === 'recipe' && (
             <label className="ml-auto">
               <span className="sr-only">Filter by recipe or block</span>
@@ -342,7 +353,16 @@ export function BlockPower({ model, expanded, onExpandedChange }: {
               <span role="columnheader" className="text-right">Share</span>
             </div>
             {mode === 'block'
-              ? rows.map(r => <BlockRows key={r.entry.key} row={r} maxKw={maxKw} demandKw={model.demandKw} onToggle={toggle} />)
+              ? rows.map(r => (
+                <BlockRows
+                  key={r.entry.key}
+                  row={r}
+                  maxKw={maxKw}
+                  demandKw={model.demandKw}
+                  onToggle={toggle}
+                  onOpenAreas={onOpenAreas && areaBlockIds?.has(r.blockId) ? () => onOpenAreas(r.blockId) : undefined}
+                />
+              ))
               : lines.map(l => <LineRow key={l.key} line={l} maxKw={maxKw} demandKw={model.demandKw} />)}
             {mode === 'recipe' && lines.length === 0 && (
               <div role="row" className="px-3 py-4 text-[13px] text-gray-400">

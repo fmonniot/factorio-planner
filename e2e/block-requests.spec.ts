@@ -218,7 +218,7 @@ test.describe('requests between blocks', () => {
     await confirm(page, 'Make it a product').click()
 
     // Both connections now request and the cycle is solved, not ignored.
-    await page.getByRole('button', { name: 'Block graph' }).click()
+    await page.getByRole('button', { name: 'Factory overview' }).click()
     await expect(page.locator('[data-request-ignored]')).toHaveCount(0)
     await expect.poll(() => countRows(page, '[data-testid="graph-edge-label"][data-kind="request"]')).toBe(2)
     await expect(page.getByTestId('graph-loop-status')).toHaveText('↻ 1 loop')

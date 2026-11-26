@@ -10,7 +10,7 @@ import { connectionStatus, edgeSummaryTitle } from './graphConnection'
 import type { Block, ConnectionFlow, GameData } from '../../data/types'
 
 // ---------------------------------------------------------------------------
-// Block matrix — the second view of the Block graph modal: rows supply, columns receive.
+// Block matrix — the second view of the Factory overview modal: rows supply, columns receive.
 // ---------------------------------------------------------------------------
 
 /** Width of the row-header column; the grid's own columns share the rest, between COL_MIN and COL_MAX px each. */

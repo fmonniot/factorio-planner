@@ -3,7 +3,7 @@ import { closeGraph, matrixCell, openGraph, pinEdge, selectCell, setView } from 
 import { openScalePlan, type LayoutBlock } from './support/scalePlan'
 
 /**
- * The matrix view of the Block graph modal on the 15-block "middle ring" plan (see support/scalePlan.ts): 15 x 15 blocks,
+ * The matrix view of the Factory overview modal on the 15-block "middle ring" plan (see support/scalePlan.ts): 15 x 15 blocks,
  * 46 filled cells carrying 140 connections. The plan is unsolved, so no cell is limited or unused here; the amber ring
  * is covered by the DOM test.
  */
@@ -170,9 +170,9 @@ test.describe('block graph matrix, 15 blocks', () => {
     await page.keyboard.press('Escape')
     await expect(cell).toHaveAttribute('aria-pressed', 'false')
     await expect(cell).toBeFocused()
-    await expect(page.getByRole('heading', { name: 'Block graph' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Factory overview' })).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('heading', { name: 'Block graph' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Factory overview' })).toHaveCount(0)
   })
 
   test('shows an instant tooltip on a cell and no native title', async ({ page }, testInfo) => {

@@ -156,7 +156,7 @@ test('Served order: the graph chips carry the rank of the stored list', async ({
   }
 
   // No stored list yet: no chip is ranked.
-  await page.getByRole('button', { name: 'Block graph' }).click()
+  await page.getByRole('button', { name: 'Factory overview' }).click()
   await expect(page.getByTestId('graph-edge-summary')).toHaveCount(2)
   await expect.poll(() => countRows(page, '[data-testid="graph-edge-label"]')).toBe(2)
   await expect.poll(() => countRows(page, '[data-testid="graph-edge-rank"]')).toBe(0)
@@ -167,7 +167,7 @@ test('Served order: the graph chips carry the rank of the stored list', async ({
   await lineOf(page, 'Belts').getByTestId('served-move-up').click()
   await expect.poll(() => rankedNames(page)).toEqual(['Belts', 'Gears'])
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Block graph' }).click()
+  await page.getByRole('button', { name: 'Factory overview' }).click()
   await expect((await chipTo('Belts')).getByTestId('graph-edge-rank')).toHaveText('#1')
   const gears = await chipTo('Gears')
   await expect(gears.getByTestId('graph-edge-rank')).toHaveText('#2')

@@ -53,7 +53,7 @@ test.describe('block loops', () => {
     await expect(sourceEntry(page)).toContainText('↻')
 
     // The graph draws the closing connection as a back edge and counts the loop.
-    await page.getByRole('button', { name: 'Block graph' }).click()
+    await page.getByRole('button', { name: 'Factory overview' }).click()
     const edges = page.getByTestId('graph-edge')
     await expect(edges).toHaveCount(2)
     await expect(edges.nth(0)).toHaveAttribute('data-loop', 'true')

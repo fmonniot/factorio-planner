@@ -3,7 +3,7 @@ import { dedicatedProduct } from '../../solver/areas'
 import type { Block, GameData, SolvedNode, SolverResult, SubPlan } from '../../data/types'
 
 // ---------------------------------------------------------------------------
-// Power overview — the model behind the third view of the Block graph modal: what every block draws,
+// Power overview — the model behind the last view of the Factory overview modal: what every block draws,
 // split by group and recipe, against what the power plant makes. Pure; the component only draws it.
 // ---------------------------------------------------------------------------
 

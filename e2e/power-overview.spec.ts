@@ -5,7 +5,7 @@ import { closeGraph, openGraph, powerRow, setView } from './support/blockGraph'
 import { selectRow } from './support/sidePanel'
 
 /**
- * The Power view of the Block graph modal on a small Seablock plan. Gears: group "Beaconed" (gear wheels in 4 machines with
+ * The Power view of the Factory overview modal on a small Seablock plan. Gears: group "Beaconed" (gear wheels in 4 machines with
  * beacons, 5892 kW) and a loose iron rod row (5 machines, 675 kW). Fabrication: an iron rod row (9 machines, 1215 kW). Power
  * plant: 6 steam engines making 324 units/min, 5400 kW. Demand 7782 kW, so the plant is 2382 kW short; with the engines
  * pinned at 9 MW it has 1218 kW to spare.
@@ -88,7 +88,7 @@ test('the Power view reads demand against generation, by block and by recipe', a
   await expect(page.getByText('No recipe or block matches what you typed.')).toBeVisible()
   await filter.press('Escape')
   await expect(filter).toHaveValue('')
-  await expect(page.getByRole('heading', { name: 'Block graph' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Factory overview' })).toBeVisible()
   await expect(lines).toHaveCount(3)
 })
 

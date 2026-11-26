@@ -1,13 +1,27 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
 export async function openGraph(page: Page) {
-  await page.getByRole('button', { name: 'Block graph' }).click()
-  await expect(page.getByRole('heading', { name: 'Block graph' })).toBeVisible()
+  await page.getByRole('button', { name: 'Factory overview' }).click()
+  await expect(page.getByRole('heading', { name: 'Factory overview' })).toBeVisible()
+}
+
+/** Opens the Factory overview on its Areas view (the view is remembered, so it is chosen explicitly). */
+export async function openAreas(page: Page) {
+  await page.getByRole('button', { name: 'Factory overview' }).click()
+  await expect(page.getByRole('heading', { name: 'Factory overview' })).toBeVisible()
+  await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Areas' }).click()
+  await expect(page.getByTestId('areas-view')).toBeVisible()
+}
+
+/** Chooses a block (or "All blocks") in the Areas view's block picker. */
+export async function pickAreasBlock(page: Page, name: string | RegExp) {
+  await page.getByTestId('block-picker').click()
+  await page.getByRole('listbox', { name: 'Block' }).getByRole('option', { name }).click()
 }
 
 export async function closeGraph(page: Page) {
   await page.getByRole('button', { name: 'Close' }).click()
-  await expect(page.getByRole('heading', { name: 'Block graph' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Factory overview' })).toHaveCount(0)
 }
 
 /** An edge's summary chip: by one of its connections, by the consumer's block name, or by both block names. */

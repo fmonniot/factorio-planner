@@ -250,7 +250,7 @@ test('Served order groups: the graph chips carry the rank of a group', async ({ 
   await storedList(page).toHaveLength(4)
   await page.keyboard.press('Escape')
   await expect(popover(page)).toHaveCount(0)
-  await page.getByRole('button', { name: 'Block graph' }).click()
+  await page.getByRole('button', { name: 'Factory overview' }).click()
   const gears = await chipTo('Gears')
   await expect(gears.getByTestId('graph-edge-rank')).toHaveText('#1')
   await expect(gears).toHaveAttribute('data-tip', /served 1st in Plates's list/)
