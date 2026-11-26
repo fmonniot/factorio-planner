@@ -41,7 +41,7 @@ const TEXT_INPUT_TYPES = new Set(['text', 'search', 'number', 'email', 'url', 't
  * Whether the key press belongs to a field with its own text undo: a textarea, a contentEditable element or a text-like input.
  * Checkboxes, radios, range sliders, buttons, colour pickers and selects have no text undo, so the shortcut works from them.
  */
-function isTextTarget(target: EventTarget | null): boolean {
+export function isTextTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable || target.tagName === 'TEXTAREA') return true
   if (target.tagName !== 'INPUT') return false

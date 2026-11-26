@@ -15,6 +15,7 @@ import type { Item, Recipe, GameData } from '../data/types'
 import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 import { tipProps } from './tipProps'
 import { TipWrap } from './TipWrap'
+import { moveGridFocus, focusFirstSlot, firstEnabledSlot } from './gridNav'
 
 // ---------------------------------------------------------------------------
 // Recipe detail panel — shown on hover/focus of a recipe slot
@@ -190,6 +191,9 @@ function RecipeDetailPanel({ recipeId, gameData, inside, machineIds }: {
 /** The slot grid of the pickers: fewer columns on narrow viewports. */
 const PICKER_GRID = 'grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1'
 
+/** Every slot the arrow keys move between, in both pickers. */
+const SLOT_SELECTOR = '[data-testid="recipe-slot"], [data-testid="recipe-group-slot"], [data-testid="item-slot"]'
+
 function PickerFrame({
   onClose, onEscape, sidePanel, children, width = 'w-[32rem]',
 }: {
@@ -256,8 +260,25 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
   const [openMachineId, setOpenMachineId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const backRef = useRef<HTMLButtonElement>(null)
+  const slotsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
+
+  /** Enter in the search field: picks the first enabled match, for a non-empty query only. */
+  function pickFirst() {
+    if (query.trim() === '') return
+    firstEnabledSlot(slotsRef.current, SLOT_SELECTOR)?.click()
+  }
+
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault()
+      focusFirstSlot(slotsRef.current, SLOT_SELECTOR)
+    } else if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      pickFirst()
+    }
+  }
 
   const horizon = useHorizon(gameData)
   const available = horizon.recipeIds
@@ -506,6 +527,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
           placeholder="Search…"
           value={query}
           onChange={e => setQuery(e.target.value)}
+          onKeyDown={onSearchKeyDown}
           className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
@@ -571,7 +593,11 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
       )}
 
       {/* Body: subgroup grids, flowing within the selected group */}
-      <div className="overflow-y-auto flex-1 p-2 space-y-1">
+      <div
+        ref={slotsRef}
+        onKeyDown={e => moveGridFocus(e, SLOT_SELECTOR, () => inputRef.current?.focus())}
+        className="overflow-y-auto flex-1 p-2 space-y-1"
+      >
         {subgroupRows.length === 0 && (
           <div className="px-2 py-3 text-gray-400 text-sm">
             {emptyMessage}
@@ -609,8 +635,25 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
   const [amountText, setAmountText] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const slotsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
+
+  /** Enter in the search or Amount field: picks the first enabled match, for a non-empty query only. */
+  function pickFirst() {
+    if (query.trim() === '') return
+    firstEnabledSlot(slotsRef.current, SLOT_SELECTOR)?.click()
+  }
+
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault()
+      focusFirstSlot(slotsRef.current, SLOT_SELECTOR)
+    } else if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      pickFirst()
+    }
+  }
 
   // Items offered under the research horizon; null = no limit.
   const itemSet = useHorizon(gameData).itemIds
@@ -718,6 +761,7 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
           placeholder="Search…"
           value={query}
           onChange={e => setQuery(e.target.value)}
+          onKeyDown={onSearchKeyDown}
           className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
@@ -738,6 +782,12 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
             step="any"
             value={amountText}
             onChange={e => setAmountText(e.target.value)}
+            onKeyDown={e => {
+              if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+              e.preventDefault()
+              if (selectedId) submit()
+              else pickFirst()
+            }}
             aria-label="Amount"
             placeholder="—"
             className="ml-2 w-24 bg-gray-800 text-gray-100 px-2 py-1 rounded outline-none focus:ring-1 focus:ring-blue-500"
@@ -773,7 +823,11 @@ function ItemPickerBody({ gameData, initialQuery, presentItems, onSelect, onClos
       )}
 
       {/* Slot grid */}
-      <div className="overflow-y-auto flex-1 p-2 space-y-2">
+      <div
+        ref={slotsRef}
+        onKeyDown={e => moveGridFocus(e, SLOT_SELECTOR, () => inputRef.current?.focus())}
+        className="overflow-y-auto flex-1 p-2 space-y-2"
+      >
         {subgroupRows.length === 0 && (
           <div className="px-2 py-3 text-gray-400 text-sm">
             {outsideHorizonCount > 0

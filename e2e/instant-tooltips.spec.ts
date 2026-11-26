@@ -32,7 +32,7 @@ test('Add product opens its tooltip instantly and keeps its accessible name', as
   const add = page.getByRole('button', { name: 'Add product', exact: true })
   await add.hover()
   await expect(tooltip(page)).toBeVisible({ timeout: 250 })
-  await expect(tooltip(page)).toHaveText('Add product')
+  await expect(tooltip(page)).toHaveText('Add product (A)')
 })
 
 test('the machine button of the side panel names the machine', async ({ page }) => {

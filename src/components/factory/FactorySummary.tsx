@@ -37,6 +37,7 @@ import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
 import type { ProductInfo } from './summarySegments'
 import { netBalance as computeNetBalance, grossFlow, FLOW_TOLERANCE } from '../../solver/index'
 import { useSourceRuleItems } from './useSourceRuleItems'
+import { useAddGoalShortcut } from './useAddGoalShortcut'
 
 // ---------------------------------------------------------------------------
 // ProductRates — a product's extra → actual in the detail strip, with inline edit for the extra
@@ -150,6 +151,7 @@ export function FactorySummary() {
   const moveProductBy = useBlockStore(s => s.moveProductBy)
   const updateProductExtra = useBlockStore(s => s.updateProductExtra)
   const [showProductPicker, setShowProductPicker] = useState(false)
+  useAddGoalShortcut(() => setShowProductPicker(true), gameData != null && activeBlock !== undefined)
 
   // The handle tab is one element in both states, so it keeps its focus across a toggle.
   const toggle = (next: boolean) => {
@@ -422,7 +424,8 @@ export function FactorySummary() {
               onClick={() => setShowProductPicker(true)}
               className="w-[22px] h-5 inline-flex items-center justify-center text-gray-400 hover:text-gray-200 rounded border border-gray-700 hover:border-gray-500"
               aria-label="Add product"
-              data-tip=""
+              aria-keyshortcuts="A"
+              data-tip="Add product (A)"
             >
               {/* An SVG rather than a "+" glyph, whose font metrics sit it off-centre. */}
               <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
