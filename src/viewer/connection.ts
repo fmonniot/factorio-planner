@@ -437,7 +437,7 @@ export function badgeFor(state: ConnectionState): Badge {
           tone: 'warn',
           label: 'Data set mismatch',
           short: 'Data set',
-          detail: `The game does not know ${mod?.unknownIds} item, fluid, recipe or machine ids of the plan it holds${otherPlan ? ` (${mod?.stored}, not the planner's current plan ${state.plan?.id}; the count may change once the current plan arrives)` : ''}. The planner's game data and the running game's mods differ. ${transferText(status)}`.trim(),
+          detail: `The game does not know ${mod?.unknownIds} item, fluid, recipe or machine ids of the plan it holds${otherPlan ? ` (${mod?.stored}), which is not the planner's current plan (${state.plan?.id}); the count may change when the game receives that one` : ''}. The planner's game data and the running game's mods differ. ${transferText(status)}`.trim(),
         }
       }
       return { kind: 'connected', tone: 'ok', label: 'Connected', short: 'Connected', detail: transferText(status) || 'The game is connected. Nothing has been sent yet.' }

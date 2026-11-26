@@ -100,8 +100,11 @@ export function wireViewer(): () => void {
 
   const unsubSolver = useSolverStore.subscribe((state, prev) => {
     if (state.lastResults === prev.lastResults && state.status.type === prev.status.type) return
-    // Editing a big plan solves again and again: build the snapshot once the solves have stopped.
+    // A build in flight was made from a result that is already out of date.
+    generation++
     clearTimeout(timer)
+    if (viewer.getState().phase === 'off') return
+    // Editing a big plan solves again and again: build the snapshot once the solves have stopped.
     timer = setTimeout(rebuild, REBUILD_DEBOUNCE_MS)
   })
   // Switching the connection on builds the plan once, whatever the solver last did.

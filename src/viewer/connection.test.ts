@@ -447,7 +447,7 @@ describe('the badge', () => {
     const { state } = run(connect(text(status({ mod: { link: 'connected', protocol: 1, stored: 'ffffffffffffffff', unknownIds: 3 } })), { type: 'solved', plan: A }))
     const b = badgeFor(state)
     expect(b.kind).toBe('data-set-mismatch')
-    expect(b.detail).toMatch(/ffffffffffffffff, not the planner's current plan/)
+    expect(b.detail).toMatch(/ffffffffffffffff\), which is not the planner's current plan/)
     const same = badgeFor(run(connect(text(status({ mod: { link: 'connected', protocol: 1, stored: A.id, unknownIds: 3 } })), { type: 'solved', plan: A })).state)
     expect(same.detail).not.toMatch(/current plan/)
   })
