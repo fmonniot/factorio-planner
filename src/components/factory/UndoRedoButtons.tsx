@@ -11,10 +11,10 @@ export function UndoRedoButtons() {
   const redoName = useBlockStore(selectRedoBlockName)
   return (
     <>
-      <IconButton label={undoLabel('Undo', undoName, undoHint())} onClick={() => useBlockStore.getState().undo()} disabled={!canUndo}>
+      <IconButton label={undoLabel('Undo', undoName, undoHint())} onClick={() => useBlockStore.getState().undo()} disabled={!canUndo} disabledPassesPointer>
         <UndoIcon className="w-[17px] h-[17px]" />
       </IconButton>
-      <IconButton label={undoLabel('Redo', redoName, redoHint())} onClick={() => useBlockStore.getState().redo()} disabled={!canRedo}>
+      <IconButton label={undoLabel('Redo', redoName, redoHint())} onClick={() => useBlockStore.getState().redo()} disabled={!canRedo} disabledPassesPointer>
         <RedoIcon className="w-[17px] h-[17px]" />
       </IconButton>
     </>

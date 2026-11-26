@@ -34,16 +34,26 @@ export function undoShortcutOf(e: KeyboardEvent): 'undo' | 'redo' | null {
   return null
 }
 
+/** Input types that edit text, and so keep their own undo. */
+const TEXT_INPUT_TYPES = new Set(['text', 'search', 'number', 'email', 'url', 'tel', 'password'])
+
+/**
+ * Whether the key press belongs to a field with its own text undo: a textarea, a contentEditable element or a text-like input.
+ * Checkboxes, radios, range sliders, buttons, colour pickers and selects have no text undo, so the shortcut works from them.
+ */
 function isTextTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
-  return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable
+  if (target.isContentEditable || target.tagName === 'TEXTAREA') return true
+  if (target.tagName !== 'INPUT') return false
+  const type = (target as HTMLInputElement).type
+  return type === '' || TEXT_INPUT_TYPES.has(type)
 }
 
 /** Binds the undo and redo shortcuts on the document; call once, at the top of the shell. */
 export function useUndoShortcuts(): void {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.defaultPrevented || e.isComposing) return
+      if (e.defaultPrevented || e.isComposing || e.repeat) return
       if (isTextTarget(e.target)) return
       if (isUndoBlockedByOverlay()) return
       const action = undoShortcutOf(e)

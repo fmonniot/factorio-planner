@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, renderHook, fireEvent } from '@testing-library/react'
 import { useUndoShortcuts, undoShortcutOf } from './useUndoShortcuts'
 import { Modal } from '../Modal'
+import { ConnectionLimitEditor } from './ConnectionLimitEditor'
 import { useOverlayOpen } from './sidePanel/useDismiss'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 
@@ -73,9 +74,9 @@ describe('useUndoShortcuts', () => {
     expect(press({ key: 'z', ctrlKey: true }), 'nothing to undo').toBe(false)
   })
 
-  it('ignores text fields, selects and contentEditable', () => {
+  it('ignores text fields, textareas and contentEditable', () => {
     renderHook(() => useUndoShortcuts())
-    for (const tag of ['input', 'textarea', 'select']) {
+    for (const tag of ['input', 'textarea']) {
       const el = document.body.appendChild(document.createElement(tag))
       expect(press({ key: 'z', ctrlKey: true, bubbles: true }, el), tag).toBe(false)
       el.remove()
@@ -124,6 +125,38 @@ describe('useUndoShortcuts', () => {
     render(<><Modal onClose={() => {}} undoable>x</Modal><Overlay /></>)
     press({ key: 'z', ctrlKey: true })
     expect(products()).toHaveLength(1)
+  })
+
+  it('works from a focused checkbox, radio, range, button input or select, not from text fields or a textarea', () => {
+    renderHook(() => useUndoShortcuts())
+    const handled = (tag: string, type?: string) => {
+      const el = document.createElement(tag)
+      if (type) (el as HTMLInputElement).type = type
+      document.body.appendChild(el)
+      const result = press({ key: 'z', ctrlKey: true }, el)
+      el.remove()
+      if (result) store().redo() // back to one product for the next probe
+      return result
+    }
+    for (const type of ['checkbox', 'radio', 'range', 'button', 'color']) expect(handled('input', type), type).toBe(true)
+    expect(handled('select'), 'select').toBe(true)
+    for (const type of ['text', 'number', 'search', 'password']) expect(handled('input', type), type).toBe(false)
+    expect(handled('input'), 'no type').toBe(false)
+    expect(handled('textarea'), 'textarea').toBe(false)
+  })
+
+  it('ignores auto-repeat', () => {
+    renderHook(() => useUndoShortcuts())
+    expect(press({ key: 'z', ctrlKey: true, repeat: true })).toBe(false)
+    expect(products()).toHaveLength(1)
+  })
+
+  it('is blocked while the connection limit editor is open', () => {
+    renderHook(() => useUndoShortcuts())
+    const { unmount } = render(<ConnectionLimitEditor x={0} y={0} initial="" rateUnit="min" onCommit={() => {}} onClose={() => {}} />)
+    expect(press({ key: 'z', ctrlKey: true })).toBe(false)
+    unmount()
+    expect(press({ key: 'z', ctrlKey: true })).toBe(true)
   })
 
   it('removes its listener on unmount', () => {

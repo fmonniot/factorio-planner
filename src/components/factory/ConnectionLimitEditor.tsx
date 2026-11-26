@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { RateInput } from './RateInput'
 import { isEnergyItem } from '../../data/electricity'
 import type { RateUnit } from '../../store/uiStore'
+import { useOverlayOpen } from './sidePanel/useDismiss'
 
 // ---------------------------------------------------------------------------
 // ConnectionLimitEditor — floating rate input that caps a connection (opened from the connection menu)
@@ -23,6 +24,7 @@ interface ConnectionLimitEditorProps {
 }
 
 export function ConnectionLimitEditor({ x, y, initial, itemId, rateUnit, onCommit, onClose }: ConnectionLimitEditorProps) {
+  useOverlayOpen()
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x, y })
 

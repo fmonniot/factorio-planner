@@ -1224,7 +1224,10 @@ describe('input connections', () => {
     expect(active().inputConnections.map(c => c.id)).toEqual([first.id, second.id, last.id])
   })
 
-  /** The source receives from the active block, with no history entry (an edit by hand would be the newest on the timeline). */
+  /**
+   * The source receives from the active block, with no history entry (an edit by hand would be the newest on the timeline).
+   * No user action reaches this state: these tests exercise the defensive `canApply` guard only.
+   */
   function receiveFromActive() {
     useBlockStore.setState(st => ({
       blocks: st.blocks.map(b => (b.id === sourceId ? { ...b, inputConnections: [...b.inputConnections, { id: 'src-from-active', itemId: 'gear', fromBlockId: activeId }] } : b)),
@@ -1254,13 +1257,25 @@ describe('input connections', () => {
     expect(store().history[activeId].redoStack).toHaveLength(0)
   })
 
-  it('redo of an add is dropped when the source was deleted', () => {
+  it('redo of an add is dropped when the source was removed (a non-undoable mutation)', () => {
     const store = () => useBlockStore.getState()
     store().addInputConnection('plate', sourceId)
     store().undo()
-    useBlockStore.setState(s => ({ blocks: s.blocks.filter(b => b.id !== sourceId) }))
+    store().removeBlock(sourceId)
     store().redo()
     expect(active().inputConnections).toEqual([])
+    expect(store().history[activeId].redoStack).toHaveLength(0)
+    expect(store().history[activeId].undoStack).toHaveLength(0)
+  })
+
+  it('undo of a removal is dropped when the source was removed (a non-undoable mutation)', () => {
+    const store = () => useBlockStore.getState()
+    store().addInputConnection('plate', sourceId)
+    store().removeInputConnection(active().inputConnections[0].id)
+    store().removeBlock(sourceId)
+    store().undo()
+    expect(active().inputConnections).toEqual([])
+    expect(store().history[activeId].redoStack).toHaveLength(0)
   })
 
   it('addInputConnection can target a block that is not active', () => {
@@ -2225,6 +2240,15 @@ describe('served order', () => {
       forget('A')
       undoOn('S')
       expect(listOf('S')).toEqual([blk('B'), blk('C'), extra])
+    })
+
+    it('undoing in timeline order puts the removed consumer back at its served position, then drops the list', () => {
+      store().moveServed('S', 'plate', blk('B'), 0, shown)
+      store().removeInputConnection('c-A', 'A')
+      undoOn('A')
+      expect(listOf('S')).toEqual([blk('B'), blk('A'), blk('C'), extra])
+      undoOn('S')
+      expect('servedOrder' in get('S')).toBe(false)
     })
 
     it('undo of a first move with no other change still drops the list', () => {
