@@ -98,20 +98,27 @@ describe("snapshot.validate", function()
   invalid("modules that are not a list", function(s)
     s.blocks[1].rows[1].modules = "speed-module"
   end)
+  invalid("beacons that are not a list", function(s)
+    s.blocks[1].rows[1].beacons = "beacon"
+  end)
   invalid("a beacon that is not an object", function(s)
-    s.blocks[1].rows[1].beacon = "beacon"
+    s.blocks[1].rows[1].beacons = { "beacon" }
   end)
   invalid("a beacon without an id", function(s)
-    s.blocks[1].rows[1].beacon = { count = 8, module = "speed-module", modules = 2 }
+    s.blocks[1].rows[1].beacons = { { count = 8, modules = { { id = "speed-module", count = 2 } } } }
   end)
   invalid("a beacon with a negative count", function(s)
-    s.blocks[1].rows[1].beacon = { id = "beacon", count = -1, module = "speed-module", modules = 2 }
+    s.blocks[1].rows[1].beacons = { { id = "beacon", count = -1, modules = { { id = "speed-module", count = 2 } } } }
   end)
-  invalid("a beacon without a module", function(s)
-    s.blocks[1].rows[1].beacon = { id = "beacon", count = 1, modules = 2 }
+  invalid("a beacon without modules", function(s)
+    s.blocks[1].rows[1].beacons = { { id = "beacon", count = 1 } }
   end)
-  invalid("a beacon with a fractional module count", function(s)
-    s.blocks[1].rows[1].beacon = { id = "beacon", count = 1, module = "speed-module", modules = 0.5 }
+  invalid("a beacon with a module with a fractional count", function(s)
+    s.blocks[1].rows[1].beacons = { { id = "beacon", count = 1, modules = { { id = "speed-module", count = 0.5 } } } }
+  end)
+  invalid("the second of two beacons being invalid", function(s)
+    local ok = { id = "beacon", count = 1, modules = { { id = "speed-module", count = 1 } } }
+    s.blocks[1].rows[1].beacons = { ok, { id = "", count = 1, modules = {} } }
   end)
   invalid("a group index that is not an integer", function(s)
     s.blocks[1].rows[1].group = 0.5
@@ -156,7 +163,10 @@ describe("snapshot.validate", function()
     s.blocks[1].groups = { { name = "A" }, { name = "B", parent = 0, area = true } }
     s.blocks[1].rows[1].group = 1
     s.blocks[1].rows[1].modules = { { id = "speed-module", count = 2 } }
-    s.blocks[1].rows[1].beacon = { id = "beacon", count = 8, module = "speed-module", modules = 2 }
+    s.blocks[1].rows[1].beacons = {
+      { id = "beacon", count = 8, modules = { { id = "speed-module", count = 2 } } },
+      { id = "beacon", count = 4, modules = { { id = "speed-module", count = 1 }, { id = "efficiency-module", count = 1 } } },
+    }
     assert.is_true(snapshot.validate(s))
   end)
 
@@ -257,7 +267,7 @@ describe("snapshot ids", function()
     end
   end)
 
-  it("takes ids from a row's inputs and outputs, modules (as items) and beacon (a machine and a module)", function()
+  it("takes ids from a row's inputs and outputs, modules (as items) and every beacon (a machine and its modules, deduplicated)", function()
     local s = fixture("small")
     s.blocks[1].rows = {
       {
@@ -265,7 +275,10 @@ describe("snapshot ids", function()
         inputs = { { id = "steam", type = "fluid", rate = 1 } },
         outputs = { { id = "copper-cable", type = "item", rate = 1 } },
         modules = { { id = "speed-module", count = 2 }, { id = "productivity-module", count = 1 } },
-        beacon = { id = "beacon", count = 8, module = "speed-module-2", modules = 2 },
+        beacons = {
+          { id = "beacon", count = 8, modules = { { id = "speed-module-2", count = 2 } } },
+          { id = "beacon-2", count = 4, modules = { { id = "speed-module", count = 1 }, { id = "efficiency-module", count = 1 } } },
+        },
       },
     }
     s.blocks[1].products = {}
@@ -278,6 +291,8 @@ describe("snapshot ids", function()
       "item:productivity-module",
       "machine:beacon",
       "item:speed-module-2",
+      "machine:beacon-2",
+      "item:efficiency-module",
     }, ids(s))
   end)
 
@@ -287,6 +302,13 @@ describe("snapshot ids", function()
     assert.are.equal(2, count)
     assert.is_true(missing["item:speed-module"])
     assert.is_true(missing["machine:beacon"])
+  end)
+
+  it("lists a module that only a later beacon configuration holds as missing", function()
+    local s = fixture("seablock-groups")
+    local count, missing = snapshot.find_missing(s, support.exists_except({ ["efficiency-module"] = true }))
+    assert.are.equal(1, count)
+    assert.is_true(missing["item:efficiency-module"])
   end)
 
   it("counts the ids the game lacks, and returns them as a set", function()

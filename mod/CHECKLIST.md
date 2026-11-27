@@ -82,12 +82,13 @@ Send `contract/fixtures/seablock-groups.json`. Its ids are Seablock's: with the 
 
 ### A building into the cursor
 
-Same fixture and setup as above. Each click is a plain left click on the icon; a right or middle click does nothing (`mouse_button_filter`). The window stays open throughout.
+Same fixture and setup as above. Each click is a plain left click on the icon; a right or middle click does nothing (`mouse_button_filter`), except a right click on a beacon slot of a row with several beacon configurations (step 4). The window stays open throughout.
 
 1. A crafter: click the gears row's machine. The cursor holds a one-building blueprint in paste mode (`add_to_clipboard`, `activate_paste`), with the recipe set; place it, and the ghost has the gears recipe. Nothing is left in the inventory (no blueprint item), and `factorio-current.log` has no error.
 2. A crafter with modules: on a copy, give the gears row `"modules": [{"id": "speed-module", "count": 2}]`. The pasted ghost has the recipe and asks for two speed modules (`crafter_modules` inventory).
 3. A furnace with modules: click the plates row's machine. The pasted ghost has no recipe and two speed modules. Check that the building sits on the grid where the cursor shows it (the blueprint centres odd-sized buildings on a tile, `tile_width` and `tile_height`).
 4. A beacon: click the cables row's beacon. The pasted ghost is a beacon holding two speed modules (`beacon_modules`).
+   The cables row has three beacon configurations (8 beacons with two speed modules, 4 with a speed and an efficiency module, 2 with two speed modules): its beacon slot carries a lavender `+2` label over its top-right corner. Right click the slot: two more slots appear under it, numbered `4` and `2`, and the first tooltip now offers to hide them. The second slot's tooltip lists `1 × Speed module` and `1 × Efficiency module`; click it and the pasted ghost is a beacon holding both (`beacon_modules`). Right click a slot again to hide the others; a row with a single configuration has no label and takes no right click.
 5. A plain building: click a solar row's machine. The cursor holds a ghost of the solar panel item (`cursor_ghost`), not a blueprint.
 6. A building that cannot be placed: with the base game, click the `bob-solar-panel-large` row's machine: a short flying text at the cursor, "Cannot put this building in the cursor: this game does not have it", and the cursor is unchanged.
 7. Hold a stack of items in the cursor with a full inventory, click a machine: the flying text says the cursor cannot be emptied, and the stack stays in the cursor.

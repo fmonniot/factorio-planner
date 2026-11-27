@@ -273,7 +273,11 @@ function M.install(lacking)
 
   -- Inventory numbers as in 2.0 (only the module ones are read).
   local inventories = { crafter_modules = 4, mining_drill_modules = 2, beacon_modules = 1 }
-  _G.defines = { events = events, inventory = inventories }
+  _G.defines = {
+    events = events,
+    inventory = inventories,
+    mouse_button_type = { left = 1, right = 2, middle = 4 },
+  }
   _G.storage = {}
   _G.log = function(message)
     fake.logged[#fake.logged + 1] = message

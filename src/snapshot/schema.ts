@@ -63,12 +63,11 @@ export const SnapshotModuleSchema = z.strictObject({
   count: z.number().int().positive(),
 })
 
-/** The beacons of a row: the beacon entity, how many per machine, and the module most of each beacon's slots hold and how many of its slots hold it (a beacon with mixed modules is sent as that one module). */
+/** One beacon configuration of a row: the beacon entity, how many per machine, and the modules in its slots (at least one). */
 export const SnapshotBeaconSchema = z.strictObject({
   id: z.string().min(1),
   count: z.number().int().positive(),
-  module: z.string().min(1),
-  modules: z.number().int().positive(),
+  modules: z.array(SnapshotModuleSchema).min(1),
 })
 
 /**
@@ -93,8 +92,8 @@ const rowShape = {
   outputs: z.array(SnapshotOutputRateSchema).optional(),
   /** The machine's own modules (slots with an empty module id are skipped); omitted when it holds none. */
   modules: z.array(SnapshotModuleSchema).optional(),
-  /** The row's first beacon configuration with a beacon entity, a module and a beacon (its most-used module); omitted when none has. */
-  beacon: SnapshotBeaconSchema.optional(),
+  /** The row's beacon configurations that have a beacon entity, a beacon count and a module, in plan order; omitted when none has. */
+  beacons: z.array(SnapshotBeaconSchema).optional(),
 }
 
 /** A row of a game recipe. The id is sent as it is in the plan, even when the data set lacks it. */

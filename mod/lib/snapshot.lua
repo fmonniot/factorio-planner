@@ -118,13 +118,7 @@ local function check_beacon(x, path)
   if not is_index(x.count) then
     return path .. ".count is not a non-negative integer"
   end
-  if not is_text(x.module) then
-    return path .. ".module is not a non-empty string"
-  end
-  if not is_index(x.modules) then
-    return path .. ".modules is not a non-negative integer"
-  end
-  return nil
+  return check_list(x.modules, path .. ".modules", check_module)
 end
 
 local function check_row(row, path)
@@ -164,8 +158,8 @@ local function check_row(row, path)
       return problem
     end
   end
-  if row.beacon ~= nil then
-    local problem = check_beacon(row.beacon, path .. ".beacon")
+  if row.beacons ~= nil then
+    local problem = check_list(row.beacons, path .. ".beacons", check_beacon)
     if problem then
       return problem
     end
@@ -296,9 +290,11 @@ function M.collect_ids(snapshot)
       for _, module in ipairs(row.modules or {}) do
         add(seen, list, "item", module.id)
       end
-      if row.beacon then
-        add(seen, list, "machine", row.beacon.id)
-        add(seen, list, "item", row.beacon.module)
+      for _, beacon in ipairs(row.beacons or {}) do
+        add(seen, list, "machine", beacon.id)
+        for _, module in ipairs(beacon.modules) do
+          add(seen, list, "item", module.id)
+        end
       end
     end
   end

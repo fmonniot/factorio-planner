@@ -80,16 +80,27 @@ M.TAG_CHECK = "check"
 M.TAG_MACHINE = "machine"
 M.TAG_BEACON = "beacon"
 M.TAG_OPEN = "open"
-local TAG_KINDS = { [M.TAG_CHECK] = true, [M.TAG_MACHINE] = true, [M.TAG_BEACON] = true, [M.TAG_OPEN] = true }
+local TAG_KINDS = {
+  [M.TAG_CHECK] = true,
+  [M.TAG_MACHINE] = true,
+  [M.TAG_BEACON] = true,
+  [M.TAG_OPEN] = true,
+}
 
 -- The tags of a checkbox, a machine button, a beacon button or a sub-factory's
 -- icon (the button that opens it).
-function M.tags(block_key, entry_key, what)
-  return { block = block_key, entry = entry_key, what = what }
+--
+-- `config` (optional) is which of the row's beacon configurations a beacon
+-- button stands for (1-based, an index into row.beacons). A row has one beacon slot
+-- per configuration, and the click handler cannot tell them apart from block and
+-- entry alone. Left out (nil) it means the first.
+function M.tags(block_key, entry_key, what, config)
+  return { block = block_key, entry = entry_key, what = what, config = config }
 end
 
--- block_key, entry_key, what of an element's tags, or nil when they are not ours
--- (no tags, wrong types, an unknown `what`, or a missing entry key).
+-- block_key, entry_key, what, config of an element's tags, or nil when they are not
+-- ours (no tags, wrong types, an unknown `what`, or a missing entry key). `config`
+-- is nil unless the tags carry a number (see M.tags).
 function M.parse_tags(tags)
   if
     type(tags) ~= "table"
@@ -99,7 +110,8 @@ function M.parse_tags(tags)
   then
     return nil
   end
-  return tags.block, tags.entry, tags.what
+  local config = type(tags.config) == "number" and tags.config or nil
+  return tags.block, tags.entry, tags.what, config
 end
 
 -- ---------------------------------------------------------------------------

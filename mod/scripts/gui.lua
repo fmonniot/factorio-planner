@@ -539,12 +539,29 @@ local function machine_cell(t, block, entry, gray)
   })
 end
 
-local function beacon_cell(t, block, entry, gray)
-  local beacon = entry.row.beacon
-  if beacon == nil then
-    t.add({ type = "empty-widget" })
-    return
-  end
+-- Beacon configurations. What and why, for whoever picks this up cold:
+--
+-- A row can hold several beacon configurations (the web planner shows a lavender
+-- "+N" chip), but the beacon column is one slot wide, and a horizontal run of
+-- slots would widen the whole table in a window that is only 26 % of the screen.
+-- A vertical stack of every configuration makes rows tall for everyone. So:
+--   * the first configuration keeps the slot it always had, and a click on it
+--     still puts that beacon in the cursor (single-configuration rows are
+--     unchanged);
+--   * when the row has more, a small "+N" label sits over the slot's top-right
+--     corner (the count goes bottom-right, so the two read together). The label
+--     is not a button: it ignores interaction, so every click falls through to the
+--     slot, and its backdrop is only the game's text shadow, so it hides little of
+--     the icon. A right click on any beacon slot of the row shows or hides the
+--     other configurations, which are drawn as more slots under the first, in the
+--     same cell (the row grows only while they are shown, and no table row is
+--     added, so the stripes stay in step). The tooltips say so;
+--   * which rows are open is per player and lives in `storage` (control.lua), so
+--     it survives the redraws a new snapshot causes.
+
+-- The tooltip lines of one beacon configuration: its name, how many per machine
+-- and in all, its modules.
+local function beacon_parts(beacon)
   local parts = {
     beacon.missing and { key("missing-id"), beacon.id } or named("entity", beacon.id, beacon.rich),
     { "", "\n", { key("tt-beacons-per-machine"), format.tooltip_number(beacon.per_machine) } },
@@ -553,16 +570,94 @@ local function beacon_cell(t, block, entry, gray)
     parts[#parts + 1] = { "", "\n", { key("tt-beacons-total"), format.tooltip_number(beacon.total) } }
   end
   module_lines(parts, beacon.modules)
+  return parts
+end
+
+-- One beacon slot, for configuration number `config` of the row; a left click puts
+-- it in the cursor. `toggle` ({ more = N, open = bool }) is given when the row has
+-- several configurations: the slot then also answers a right click (which shows or
+-- hides them) and its tooltip says so.
+local function beacon_slot(parent, block, entry, beacon, config, gray, toggle)
+  local parts = beacon_parts(beacon)
+  if toggle then
+    parts[#parts + 1] = { "", "\n", { key("tt-beacon-more"), tostring(toggle.more) } }
+  end
   parts[#parts + 1] = { "", "\n", { key("tt-click") } }
-  slot(t, {
+  if toggle then
+    parts[#parts + 1] = { "", "\n", { key(toggle.open and "tt-beacon-more-hide" or "tt-beacon-more-show") } }
+  end
+  local b = slot(parent, {
     sprite = sprite_of(beacon.sprite, beacon.missing),
     number = beacon.per_machine,
     tooltip = concat(parts),
     missing = beacon.missing,
     gray = gray,
-    tags = format.tags(block.key, entry.key, format.TAG_BEACON),
+    tags = format.tags(block.key, entry.key, format.TAG_BEACON, config),
     clickable = true,
   })
+  if toggle then
+    b.mouse_button_filter = { "left", "right" }
+  end
+  return b
+end
+
+-- The "+N" label over the top-right corner of the first beacon slot. It lies in a
+-- holder fixed to the slot's size and is pulled up over the slot by a negative top
+-- margin, so the cell is no taller than the slot (a flow sums its children's
+-- heights, margins included). It is not interactive (`ignored_by_interaction`), so
+-- clicks reach the slot under it. Everything about its look is in pcall: a style
+-- field the running game lacks must not cost the row its beacon slot.
+local BADGE_COLOR = { 0.8, 0.72, 1 }
+
+local function badge(holder, more)
+  local l = holder.add({ type = "label", caption = "+" .. tostring(more) })
+  try_style(l, "count_label", "label")
+  pcall(function()
+    l.ignored_by_interaction = true
+  end)
+  pcall(function()
+    l.style.font_color = BADGE_COLOR
+    l.style.minimal_width = layout.BUTTON_SIZE
+    l.style.maximal_width = layout.BUTTON_SIZE
+    l.style.horizontal_align = "right"
+    l.style.right_padding = 3
+    l.style.top_margin = -layout.BUTTON_SIZE
+  end)
+  return l
+end
+
+local function beacon_cell(t, block, entry, gray, expanded)
+  local beacons = entry.row.beacons or {}
+  if #beacons == 0 then
+    t.add({ type = "empty-widget" })
+    return
+  end
+  local more = #beacons - 1
+  if more == 0 then
+    beacon_slot(t, block, entry, beacons[1], 1, gray)
+    return
+  end
+  local open = expanded[block.key .. "\31" .. entry.key] == true
+  local toggle = { more = more, open = open }
+  local cell = t.add({ type = "flow", direction = "vertical" })
+  pcall(function()
+    cell.style.vertical_spacing = 2
+  end)
+  local holder = cell.add({ type = "flow", direction = "vertical" })
+  pcall(function()
+    holder.style.width = layout.BUTTON_SIZE
+    holder.style.height = layout.BUTTON_SIZE
+    -- A flow puts 4 px between its children by default, which would leave the
+    -- label (pulled up by exactly one slot height) 4 px under the slot's top edge.
+    holder.style.vertical_spacing = 0
+  end)
+  beacon_slot(holder, block, entry, beacons[1], 1, gray, toggle)
+  badge(holder, more)
+  if open then
+    for i = 2, #beacons do
+      beacon_slot(cell, block, entry, beacons[i], i, gray, toggle)
+    end
+  end
 end
 
 local function checkbox(cell, state, tags, tooltip)
@@ -623,7 +718,7 @@ local function add_group(t, block, entry, done, columns, unit)
   add_pusher(t)
 end
 
-local function add_row(t, block, entry, done, columns, unit)
+local function add_row(t, block, entry, done, columns, unit, expanded)
   local row = entry.row
   local built = progress.is_done(done, block.key, entry.key)
   local cell = first_cell(t)
@@ -631,7 +726,7 @@ local function add_row(t, block, entry, done, columns, unit)
   recipe_cell(cell, row, built)
   machine_cell(t, block, entry, built)
   if block.has_beacon then
-    beacon_cell(t, block, entry, built)
+    beacon_cell(t, block, entry, built, expanded)
   end
   add_items(t, row.outputs, SLOT, built, columns.products, unit)
   add_items(t, row.inputs, SLOT_GREEN, built, columns.ingredients, unit)
@@ -680,7 +775,9 @@ end
 
 -- `entries` are the lines of the level shown: the block's top level or a
 -- sub-factory's own lines.
-local function fill_table(scroll, block, entries, done, window_width, unit)
+-- `expanded` (see beacon_cell) is the set of the rows whose extra beacon
+-- configurations are shown: [block key .. "\31" .. entry key] = true.
+local function fill_table(scroll, block, entries, done, window_width, unit, expanded)
   scroll.clear()
   if #entries == 0 then
     label(scroll, { key("none") }, GREY)
@@ -700,7 +797,7 @@ local function fill_table(scroll, block, entries, done, window_width, unit)
     if entry.type == "group" then
       add_group(t, block, entry, done, item_cols, unit)
     else
-      add_row(t, block, entry, done, item_cols, unit)
+      add_row(t, block, entry, done, item_cols, unit, expanded)
     end
   end
 end
@@ -916,7 +1013,8 @@ function M.update(player, ctx)
     level and level.entries or block.entries,
     ctx.done or {},
     layout.window_width(screen_size(player).width),
-    unit
+    unit,
+    ctx.expanded or {}
   )
   if ctx.reset_scroll then
     scroll.scroll_to_top()

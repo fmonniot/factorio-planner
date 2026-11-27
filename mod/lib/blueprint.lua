@@ -4,7 +4,7 @@
 -- carries out the result.
 --
 --   blueprint.for_machine(row, info)   the row's machine
---   blueprint.for_beacon(row, info)    the row's beacon (row.beacon from the view-model)
+--   blueprint.for_beacon(row, info)    the row's beacon (row.beacons[1] from the view-model, or a chosen one)
 --
 -- `row` is a view-model row (lib/viewmodel.lua). `info` is nil when the game has no
 -- such entity, else
@@ -126,8 +126,12 @@ function M.for_machine(row, info)
   }, info)
 end
 
-function M.for_beacon(row, info)
-  local beacon = row.beacon
+-- `beacon` (optional) is the beacon configuration the player clicked, one of
+-- row.beacons: a row shows one beacon slot per configuration and each puts its own
+-- in the cursor, so the choice comes from the caller. Without it the row's first
+-- configuration is used.
+function M.for_beacon(row, info, beacon)
+  beacon = beacon or (row.beacons and row.beacons[1])
   if beacon == nil then
     return refused("no-machine")
   end
