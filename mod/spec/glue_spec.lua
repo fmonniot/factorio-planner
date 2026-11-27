@@ -317,7 +317,9 @@ describe("scripts/gui.lua", function()
     assert.are.equal(6, t.column_count)
     local copper = line_named(window, "[recipe=copper-cable]")
     assert.is_truthy(copper)
-    local machine, beacon = copper[3], copper[4]
+    -- SPIKE: with several beacon configurations the beacon cell is a flow (the first
+    -- slot with the "+N" label over it), so the slot is the cell's first button.
+    local machine, beacon = copper[3], buttons(copper[4])[1]
     assert.are.equal("entity/bob-assembling-machine-6", machine.sprite)
     assert.are.equal(1, machine.number)
     assert.are.same({ "left" }, machine.mouse_button_filter)
@@ -325,7 +327,7 @@ describe("scripts/gui.lua", function()
     assert.are.equal("Nested sub-factories", machine.tags.block)
     assert.are.equal("entity/beacon", beacon.sprite)
     assert.are.equal(8, beacon.number) -- 8 per machine
-    assert.are.same({ "left" }, beacon.mouse_button_filter)
+    assert.are.same({ "left", "right" }, beacon.mouse_button_filter) -- SPIKE: more than one configuration
     assert.are.equal("beacon", beacon.tags.what)
     assert.are.equal(machine.tags.entry, beacon.tags.entry)
     local tooltip = fake_game.flatten(beacon.tooltip)
@@ -351,7 +353,7 @@ describe("scripts/gui.lua", function()
       end
     end
     local _, window = show(snapshot, { level = GROUP .. "Plates and cables" })
-    local beacon = line_named(window, "[recipe=copper-cable]")[4]
+    local beacon = buttons(line_named(window, "[recipe=copper-cable]")[4])[1]
     assert.are.equal(8, beacon.number) -- 8 per machine, 3 machines
     assert.is_truthy(string.find(fake_game.flatten(beacon.tooltip), "{fp-viewer.tt-beacons-total|24}", 1, true))
   end)
@@ -793,7 +795,11 @@ describe("control.lua", function()
   end
 
   local function click(element)
-    fake.handlers.on_gui_click({ element = element, player_index = 1 })
+    fake.handlers.on_gui_click({ element = element, player_index = 1, button = _G.defines.mouse_button_type.left })
+  end
+
+  local function right_click(element)
+    fake.handlers.on_gui_click({ element = element, player_index = 1, button = _G.defines.mouse_button_type.right })
   end
 
   -- The names of the cursor calls made, in order.
@@ -1423,7 +1429,7 @@ describe("control.lua", function()
 
     it("puts a beacon with its modules into the cursor", function()
       open_group("Plates and cables")
-      click(line_named(window, "[recipe=copper-cable]")[4])
+      click(buttons(line_named(window, "[recipe=copper-cable]")[4])[1])
       local entity = call("set_blueprint_entities")[2][1]
       assert.are.equal("beacon", entity.name)
       assert.is_nil(entity.recipe)
@@ -1434,6 +1440,76 @@ describe("control.lua", function()
         },
       }, entity.items)
       assert.are.equal(0, fake.inventories_open)
+    end)
+
+    -- SPIKE (beacon configurations): the "+N" label and the expansion under the slot.
+    -- Every row with a beacon gets two simulated extra configurations (view-model).
+    describe("the beacon configurations", function()
+      local function copper()
+        return line_named(window, "[recipe=copper-cable]")[4]
+      end
+
+      local function badge_of(cell)
+        return fake_game.find(cell, function(e)
+          return e.type == "label" and e.caption == "+2"
+        end)[1]
+      end
+
+      it("draws one slot and a +2 label that ignores clicks, the other configurations hidden", function()
+        open_group("Plates and cables")
+        assert.are.equal(1, #buttons(copper()))
+        local label = badge_of(copper())
+        assert.is_truthy(label)
+        assert.is_true(label.ignored_by_interaction)
+        assert.are.equal(0, #fake_game.find(copper(), function(e)
+          return e.type == "button"
+        end))
+      end)
+
+      it("takes right clicks on the slot and says so in its tooltip", function()
+        open_group("Plates and cables")
+        local slot = buttons(copper())[1]
+        assert.are.same({ "left", "right" }, slot.mouse_button_filter)
+        local tooltip = fake_game.flatten(slot.tooltip)
+        assert.is_truthy(string.find(tooltip, "{fp-viewer.tt-beacon-more|2}", 1, true))
+        assert.is_truthy(string.find(tooltip, "tt-beacon-more-show", 1, true))
+      end)
+
+      it("shows every configuration on a right click, and hides them on a second", function()
+        open_group("Plates and cables")
+        right_click(buttons(copper())[1])
+        local first = buttons(copper())[1]
+        assert.is_true(_G.storage.fp_viewer.expanded[1]["Nested sub-factories\31" .. first.tags.entry])
+        local slots = buttons(copper())
+        assert.are.equal(3, #slots)
+        assert.are.same({ 1, 2, 3 }, { slots[1].tags.config, slots[2].tags.config, slots[3].tags.config })
+        -- Every slot of the row takes right clicks, and the tooltip now offers to hide.
+        assert.are.same({ "left", "right" }, slots[3].mouse_button_filter)
+        assert.is_truthy(string.find(fake_game.flatten(slots[1].tooltip), "tt-beacon-more-hide", 1, true))
+        -- The extras say they are simulated; the real configuration does not.
+        assert.is_nil(string.find(fake_game.flatten(slots[1].tooltip), "tt-beacon-simulated", 1, true))
+        assert.is_truthy(string.find(fake_game.flatten(slots[2].tooltip), "tt-beacon-simulated", 1, true))
+        assert.are.equal(9, slots[2].number) -- 8 + 1 per machine
+        right_click(slots[3])
+        assert.are.equal(1, #buttons(copper()))
+      end)
+
+      it("keeps a left click for the cursor, whether the row is open or not", function()
+        open_group("Plates and cables")
+        click(buttons(copper())[1])
+        assert.are.equal("beacon", call("set_blueprint_entities")[2][1].name)
+        assert.are.equal(1, #buttons(copper()))
+      end)
+
+      it("keeps a row open through a redraw, and puts the clicked configuration in the cursor", function()
+        open_group("Plates and cables")
+        right_click(buttons(copper())[1])
+        -- A "built" tick redraws the whole table.
+        click(tagged(window, "check")[1])
+        assert.are.equal(3, #buttons(copper()))
+        click(buttons(copper())[3])
+        assert.are.equal("beacon", call("set_blueprint_entities")[2][1].name)
+      end)
     end)
 
     it("puts a plain building into the cursor as a ghost of its item", function()

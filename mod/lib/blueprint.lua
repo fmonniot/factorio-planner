@@ -126,8 +126,12 @@ function M.for_machine(row, info)
   }, info)
 end
 
-function M.for_beacon(row, info)
-  local beacon = row.beacon
+-- SPIKE: `beacon` (optional) is the beacon configuration the player clicked, one of
+-- row.beacons. A row can now show several beacon slots and each puts its own
+-- configuration in the cursor, so the choice has to come from the caller; without
+-- it the row's first configuration is used, as before.
+function M.for_beacon(row, info, beacon)
+  beacon = beacon or row.beacon
   if beacon == nil then
     return refused("no-machine")
   end

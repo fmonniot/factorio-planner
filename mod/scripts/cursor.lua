@@ -98,10 +98,15 @@ end
 -- `what` is "machine" or "beacon" (format.TAG_MACHINE, format.TAG_BEACON);
 -- `row` a view-model row. Returns what was done: "blueprint", "ghost" or the
 -- refusal reason shown.
-function M.place(player, row, what)
+--
+-- SPIKE: `config` (optional, 1-based) picks which of the row's beacon configurations
+-- a beacon click stands for (row.beacons[config]). Motivation: a row now draws one
+-- beacon slot per configuration, see scripts/gui.lua. Ignored for a machine.
+function M.place(player, row, what, config)
   local plan
   if what == format.TAG_BEACON then
-    plan = blueprint.for_beacon(row, entity_info(row.beacon and row.beacon.id))
+    local beacon = (row.beacons and row.beacons[config or 1]) or row.beacon
+    plan = blueprint.for_beacon(row, entity_info(beacon and beacon.id), beacon)
   else
     plan = blueprint.for_machine(row, entity_info(row.machine))
   end

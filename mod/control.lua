@@ -65,6 +65,26 @@ local function toggle_unit(player_index)
   s.unit[player_index] = unit_for(player_index) == "sec" and "min" or "sec"
 end
 
+-- SPIKE (beacon configurations, see scripts/gui.lua beacon_cell): which rows of
+-- which player show their extra beacon configurations, expanded[player_index]
+-- [block key .. "\31" .. row key] = true. Per player because the window is, and in
+-- `storage` (not in the GUI) because a new snapshot redraws the whole table, which
+-- would otherwise close every row the player had opened. Created on first use,
+-- never in on_load, so older saves work (same pattern as the rate unit above).
+local function expanded_for(player_index)
+  local all = storage.fp_viewer and storage.fp_viewer.expanded
+  return all and all[player_index] or {}
+end
+
+local function toggle_expanded(player_index, block_key, entry_key)
+  local s = state()
+  s.expanded = s.expanded or {}
+  s.expanded[player_index] = s.expanded[player_index] or {}
+  local k = block_key .. "\31" .. entry_key
+  local set = s.expanded[player_index]
+  set[k] = (not set[k]) or nil
+end
+
 -- The "built" ticks, done[block_key][row_key] (lib/progress.lua): one set for the
 -- save, not per player, kept through new snapshots. Created on first use, so a
 -- save made before it existed gets it then (never from on_load).
@@ -218,6 +238,7 @@ local function context(player, indicator, model, extra)
     level = level,
     done = done(),
     unit = unit_for(player.index),
+    expanded = expanded_for(player.index), -- SPIKE
   }
   for k, v in pairs(extra or {}) do
     ctx[k] = v
@@ -394,11 +415,24 @@ script.on_event(defines.events.on_gui_click, function(event)
       end
       return
     end
+    if what == format.TAG_BEACON and event.button == defines.mouse_button_type.right then
+      -- SPIKE: a right click on a beacon slot shows or hides the row's other beacon
+      -- configurations (the "+N" label is not clickable, the slot takes the click);
+      -- the scroll position stays (only_table, no reset_scroll). A single-
+      -- configuration slot does not take right clicks (its filter is left only).
+      if entry ~= nil and entry.type == "row" then
+        toggle_expanded(player.index, block.key, entry.key)
+        redraw(player, { only_table = true })
+      end
+      return
+    end
     -- A machine or a beacon: into the cursor. The window stays open.
     if entry == nil or entry.type ~= "row" or (what ~= format.TAG_MACHINE and what ~= format.TAG_BEACON) then
       return
     end
-    local ok, err = pcall(cursor.place, player, entry.row, what)
+    -- SPIKE: a beacon slot carries which of the row's configurations it stands for.
+    local _, _, _, config = format.parse_tags(element.tags)
+    local ok, err = pcall(cursor.place, player, entry.row, what, config)
     if not ok then
       log_once("cursor", err)
       pcall(cursor.refuse, player, "failed")
@@ -470,5 +504,8 @@ script.on_event(defines.events.on_player_removed, function(event)
   s.selected[event.player_index] = nil
   if s.unit then
     s.unit[event.player_index] = nil
+  end
+  if s.expanded then
+    s.expanded[event.player_index] = nil -- SPIKE
   end
 end)

@@ -48,7 +48,8 @@
 --   solved,                                          -- machines, machines_ceil or throughput present
 --   inputs = { ref }, outputs = { ref },             -- items/min; {} when none
 --   modules = { { id, count, sprite, rich, missing } },   -- the machine's own
---   beacon = nil | { id, sprite, rich, missing,
+--   beacons = { beacon },                           -- SPIKE: every beacon configuration of the row; {} when none
+--   beacon = nil | { id, sprite, rich, missing,     -- the first of `beacons` (kept: blueprint and tests read it)
 --                    per_machine,                    -- beacons per machine
 --                    total,                          -- per_machine * machines_ceil; nil without machines_ceil
 --                    modules = { module } },         -- the module each beacon holds, same shape as above
@@ -134,6 +135,35 @@ function M.build(snapshot, opts)
     }
   end
 
+  -- SPIKE (beacon configurations). Motivation: the snapshot carries only the row's
+  -- first beacon configuration (`r.beacon`), but the web planner lets a row hold
+  -- several, and the mod's UI for that (a "+N" badge on the slot that expands the
+  -- other configurations under it) has to be tried in the game before the snapshot
+  -- schema, the contract, the bridge fixtures and the mod's receiver are changed.
+  -- So, with no wire change, every row that has a beacon is given
+  -- SPIKE_EXTRA_CONFIGS invented configurations next to the real one, so the badge
+  -- and the expansion can be exercised on any plan. They are marked `simulated` (the
+  -- tooltip says so) and differ in their count so they can be told apart.
+  -- To end the spike: delete this constant and `simulated_configs`, and fill
+  -- `out.beacons` from the snapshot's real `beacons` list; `gui.lua` and `cursor.lua`
+  -- already read `row.beacons` only.
+  local SPIKE_EXTRA_CONFIGS = 2
+
+  local function simulated_configs(first)
+    local list = { first }
+    for i = 1, SPIKE_EXTRA_CONFIGS do
+      local copy = {}
+      for k, v in pairs(first) do
+        copy[k] = v
+      end
+      copy.per_machine = first.per_machine + i
+      copy.total = first.total ~= nil and (copy.per_machine * (first.total / first.per_machine)) or nil
+      copy.simulated = true
+      list[#list + 1] = copy
+    end
+    return list
+  end
+
   local function row(r, key)
     local out = {
       key = key,
@@ -164,6 +194,9 @@ function M.build(snapshot, opts)
         total = r.machinesCeil ~= nil and (b.count * r.machinesCeil) or nil,
         modules = b.modules > 0 and { module(b.module, b.modules) } or {},
       }
+      out.beacons = simulated_configs(out.beacon) -- SPIKE, see simulated_configs
+    else
+      out.beacons = {}
     end
     if r.recipe then
       out.kind = "recipe"
