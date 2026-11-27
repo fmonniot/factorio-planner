@@ -22,6 +22,11 @@ against `GameDataSchema` and throw `GameDataLoadError` on failure.
 Bundles for Nullius and Kompetenz Seablock are committed under `public/data/`;
 the user can also upload a custom bundle (see [ui.md](ui.md)).
 
+Each committed bundle has an `info.json` beside it (`DataSetInfoSchema`), derived from the bundle by
+`npm run data-info`: `{ factorioVersion, modSet, recipeCount }`, where `recipeCount` counts the recipes that are
+not hidden. It lets the first-visit screen show a data set's versions without loading the bundle; a test fails
+while it differs from the bundle.
+
 ### GameData (root)
 
 ```ts

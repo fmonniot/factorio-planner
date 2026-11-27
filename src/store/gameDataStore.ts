@@ -100,7 +100,12 @@ export const useGameDataStore = create<GameDataStoreState>((set) => ({
     const request = ++latestRequest
     set({ status: { type: 'loading' } })
     try {
-      const json = await fetch(url).then(r => r.text())
+      const res = await fetch(url)
+      if (!res.ok) {
+        if (request === latestRequest) set({ status: { type: 'error', message: `Could not load the game data (HTTP ${res.status})` } })
+        return
+      }
+      const json = await res.text()
       const gameData = loadGameDataFromJson(json)
       if (request !== latestRequest) return
       set({ status: { type: 'loaded', gameData, sourceId } })

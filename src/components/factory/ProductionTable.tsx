@@ -3,6 +3,7 @@ import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/bl
 import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { RecipeRow } from './RecipeRow'
+import { DataSetPicker } from './DataSetPicker'
 import { useNarrowTable } from './useNarrowTable'
 import { useAddRecipeShortcut } from './useAddRecipeShortcut'
 import { SidePanel } from './sidePanel/SidePanel'
@@ -134,16 +135,7 @@ export function ProductionTable() {
 
   useAddRecipeShortcut(() => setPicker({}), gameData != null && activeBlock !== undefined)
 
-  if (!gameData) {
-    return (
-      <div className="flex flex-1 min-h-0 min-w-0 bg-gray-900">
-        <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900 items-center justify-center gap-2 text-gray-400">
-          <span className="text-sm">Load game data to begin</span>
-          <span className="text-xs text-gray-700">Open the workspace menu at the top right to pick a game data set</span>
-        </div>
-      </div>
-    )
-  }
+  if (!gameData) return <DataSetPicker />
 
   return (
     <div className="flex flex-1 min-h-0 min-w-0 bg-gray-900">

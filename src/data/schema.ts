@@ -225,6 +225,14 @@ export const TechnologySchema = z.object({
   trigger: ResearchTriggerSchema.optional(),
 })
 
+/** The `info.json` beside a bundled `game-data.json`: what the start screen shows about a data set before loading it. */
+export const DataSetInfoSchema = z.object({
+  factorioVersion: z.string(),
+  modSet: z.record(z.string(), z.string()),
+  /** The recipes that are not hidden. */
+  recipeCount: z.number().int().nonnegative(),
+})
+
 export const GameDataSchema = z.object({
   factorioVersion: z.string(),
   modSet: z.record(z.string(), z.string()),
@@ -792,6 +800,7 @@ export type Technology = z.output<typeof TechnologySchema>
 export type TechnologyCost = z.output<typeof TechnologyCostSchema>
 export type ResearchTrigger = z.output<typeof ResearchTriggerSchema>
 export type GameData = z.output<typeof GameDataSchema>
+export type DataSetInfo = z.output<typeof DataSetInfoSchema>
 
 export type Product = z.output<typeof ProductSchema>
 export type ModuleConfig = z.output<typeof ModuleConfigSchema>

@@ -8,8 +8,10 @@ import { customSourceId, customFilename, normalizeDatasetId } from '../store/sou
 import { removeCustomPlans, checkPlanImport, importPlanAsNew, exportFileName, exportPlanJson, makeDataSetStamp, dataSetMismatchMessage } from '../store/persistence'
 import type { AppState, GameData, PlanDataSetStamp } from '../data/types'
 import { SERVER_DATASETS, DATASET_LABELS, dataSetName, type ServerDatasetId } from '../store/dataSets'
+import { summarizeDataSet, dataSetInfoText } from '../store/dataSetInfo'
 import { Modal } from './Modal'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
+import { useDataSetInfos } from './useDataSetInfos'
 import { usePlanSection } from './PlanMenu'
 import { DefaultMachinesMenuItem } from './DefaultMachinesMenu'
 import { useViewerTriggerName } from '../viewer/viewer'
@@ -142,6 +144,15 @@ function useGameDataSource(): GameDataSource {
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // The empty table's picker asks for a bundled data set here, since this hook owns the choice.
+  const request = useUiStore(s => s.dataSetRequest)
+  useEffect(() => {
+    if (!request) return
+    useUiStore.getState().clearDataSetRequest()
+    void selectServerDataset(request.id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request])
 
   async function selectServerDataset(id: ServerDatasetId) {
     // A radio item fires on the current choice too; reloading would wipe the
@@ -349,17 +360,107 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
 // WorkspaceMenu
 // ---------------------------------------------------------------------------
 
-const BUILT_IN_MODS = ['base', 'elevated-rails', 'quality', 'space-age']
-
 /** What the menu shows about a loaded data set: the game version and the size of what was exported. */
 function gameDataInfo(gd: GameData) {
-  const mods = Object.keys(gd.modSet).filter(m => !BUILT_IN_MODS.includes(m))
-  return {
-    version: gd.factorioVersion,
-    modCount: mods.length,
+  return summarizeDataSet({
+    factorioVersion: gd.factorioVersion,
+    modSet: gd.modSet,
     recipeCount: Object.values(gd.recipes).filter(r => !r.hidden).length,
-    mods,
-  }
+  })
+}
+
+/** What the menu says about a data set: its game version and the size of what was exported. */
+type DataSetSummary = ReturnType<typeof summarizeDataSet>
+
+/**
+ * The menu's Game data group: the bundled data sets, the uploaded file and Upload file…. It lives only while the menu is
+ * open, which is when the versions of the data sets that are not loaded are read.
+ */
+function GameDataGroup({ close, selectedValue, uploadedFilename, loadedInfo, selectServerDataset, openUploadPicker }: {
+  close: (returnFocus: boolean) => void
+  selectedValue: string
+  uploadedFilename: string | null
+  /** The loaded data set's own summary, which says more than a data set's info.json can once it is checked. */
+  loadedInfo: DataSetSummary | null
+  selectServerDataset: (id: ServerDatasetId) => Promise<void>
+  openUploadPicker: () => void
+}) {
+  const infos = useDataSetInfos()
+  const idPrefix = useId()
+  const uploadInfoId = `${idPrefix}-upload-info`
+  return (
+    <div role="group" aria-label="Game data" className="flex flex-col">
+      <div aria-hidden className="text-[11px] uppercase tracking-wide text-gray-400 px-3 pt-1 pb-1">Game data</div>
+      {SERVER_DATASETS.map(d => {
+        const checked = selectedValue === d.id
+        const read = infos[d.id]
+        // The loaded data set's own summary once checked; otherwise what its info.json says.
+        const summary = checked && loadedInfo ? loadedInfo : read ? summarizeDataSet(read) : null
+        const modVersion = (checked ? loadedInfo?.modSet[d.mod] : undefined) ?? read?.modSet[d.mod]
+        const versionId = `${idPrefix}-${d.id}-version`
+        const infoId = `${idPrefix}-${d.id}-info`
+        return (
+          <button
+            key={d.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={checked}
+            aria-label={d.label}
+            aria-describedby={summary ? `${modVersion ? `${versionId} ` : ''}${infoId}` : undefined}
+            tabIndex={-1}
+            className={ITEM_CLASS}
+            onClick={() => { void selectServerDataset(d.id); close(true) }}
+          >
+            <span className="flex flex-col items-start">
+              <span className="flex items-center gap-1">
+                <span aria-hidden className="w-3 inline-block">{checked ? '✓' : ''}</span>{d.label}
+                {modVersion && <span id={versionId} className="text-[11px] text-gray-400 pl-1">{modVersion}</span>}
+              </span>
+              {summary && (
+                <span id={infoId} className="block text-[11px] text-gray-400 pl-4" data-tip={summary.mods.join('\n')}>
+                  {dataSetInfoText(summary)}
+                </span>
+              )}
+            </span>
+          </button>
+        )
+      })}
+      {uploadedFilename && (
+        <button
+          type="button"
+          role="menuitemradio"
+          aria-checked={true}
+          aria-label={uploadedFilename}
+          aria-describedby={loadedInfo ? uploadInfoId : undefined}
+          data-tip={uploadedFilename}
+          tabIndex={-1}
+          className={ITEM_CLASS}
+          onClick={() => close(true)}
+        >
+          <span className="flex flex-col items-start min-w-0">
+            <span className="flex items-center gap-1">
+              <span aria-hidden className="w-3 inline-block">✓</span>
+              <span className="truncate max-w-64">{uploadedFilename}</span>
+            </span>
+            {loadedInfo && (
+              <span id={uploadInfoId} className="block text-[11px] text-gray-400 pl-4" data-tip={loadedInfo.mods.join('\n')}>
+                {dataSetInfoText(loadedInfo)}
+              </span>
+            )}
+          </span>
+        </button>
+      )}
+      <button
+        type="button"
+        role="menuitem"
+        tabIndex={-1}
+        className={ITEM_CLASS}
+        onClick={() => { openUploadPicker(); close(true) }}
+      >
+        <span aria-hidden className="w-3 inline-block" />Upload file…
+      </button>
+    </div>
+  )
 }
 
 /**
@@ -380,11 +481,7 @@ export function WorkspaceMenu() {
   const plans = usePlanSection()
   const gameData = useGameDataStore(selectGameData)
   const defaultMachinesSignal = useUiStore(s => s.defaultMachinesRequest?.seq)
-  const infoId = useId()
   const info = useMemo(() => (gameData ? gameDataInfo(gameData) : null), [gameData])
-  const infoText = info
-    ? `Factorio ${info.version} · ${info.modCount} ${info.modCount === 1 ? 'mod' : 'mods'} · ${info.recipeCount} ${info.recipeCount === 1 ? 'recipe' : 'recipes'}`
-    : null
 
   const topLine = plans.active?.name ?? 'Choose game data'
   const datasetLabel = DATASET_LABELS[selectedValue] ?? uploadedFilename
@@ -426,71 +523,14 @@ export function WorkspaceMenu() {
           <>
             {plans.renderItems(close)}
             {plans.active && <div role="separator" className="my-1 border-t border-gray-700" />}
-            <div role="group" aria-label="Game data" className="flex flex-col">
-              <div aria-hidden className="text-[11px] uppercase tracking-wide text-gray-400 px-3 pt-1 pb-1">Game data</div>
-              {SERVER_DATASETS.map(d => {
-                const checked = selectedValue === d.id
-                const showInfo = checked && infoText !== null
-                return (
-                  <button
-                    key={d.id}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={checked}
-                    aria-label={d.label}
-                    aria-describedby={showInfo ? infoId : undefined}
-                    tabIndex={-1}
-                    className={ITEM_CLASS}
-                    onClick={() => { void selectServerDataset(d.id); close(true) }}
-                  >
-                    <span className="flex flex-col items-start">
-                      <span className="flex items-center gap-1">
-                        <span aria-hidden className="w-3 inline-block">{checked ? '✓' : ''}</span>{d.label}
-                      </span>
-                      {showInfo && info && (
-                        <span id={infoId} className="block text-[11px] text-gray-400 pl-4" data-tip={info.mods.join('\n')}>
-                          {infoText}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                )
-              })}
-              {uploadedFilename && (
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={true}
-                  aria-label={uploadedFilename}
-                  aria-describedby={infoText !== null ? infoId : undefined}
-                  data-tip={uploadedFilename}
-                  tabIndex={-1}
-                  className={ITEM_CLASS}
-                  onClick={() => close(true)}
-                >
-                  <span className="flex flex-col items-start min-w-0">
-                    <span className="flex items-center gap-1">
-                      <span aria-hidden className="w-3 inline-block">✓</span>
-                      <span className="truncate max-w-64">{uploadedFilename}</span>
-                    </span>
-                    {info && (
-                      <span id={infoId} className="block text-[11px] text-gray-400 pl-4" data-tip={info.mods.join('\n')}>
-                        {infoText}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              )}
-              <button
-                type="button"
-                role="menuitem"
-                tabIndex={-1}
-                className={ITEM_CLASS}
-                onClick={() => { openUploadPicker(); close(true) }}
-              >
-                <span aria-hidden className="w-3 inline-block" />Upload file…
-              </button>
-            </div>
+            <GameDataGroup
+              close={close}
+              selectedValue={selectedValue}
+              uploadedFilename={uploadedFilename}
+              loadedInfo={info}
+              selectServerDataset={selectServerDataset}
+              openUploadPicker={openUploadPicker}
+            />
             <div role="separator" className="my-1 border-t border-gray-700" />
             <ViewerMenuItem onTroubleshoot={() => { setTroubleshooting(true); close(true) }} />
             <div role="separator" className="my-1 border-t border-gray-700" />

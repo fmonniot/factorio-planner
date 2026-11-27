@@ -113,20 +113,27 @@ describe('importGameDataUrl', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
   it('ignores a stale response when a newer request was made (last click wins)', async () => {
-    let resolveSlow!: (r: { text: () => Promise<string> }) => void
-    const slow = new Promise<{ text: () => Promise<string> }>(res => { resolveSlow = res })
-    const fast = { text: async () => makeGameDataJson({ factorioVersion: '2.0.2' }) }
+    type Res = { ok: boolean; text: () => Promise<string> }
+    let resolveSlow!: (r: Res) => void
+    const slow = new Promise<Res>(res => { resolveSlow = res })
+    const fast = { ok: true, text: async () => makeGameDataJson({ factorioVersion: '2.0.2' }) }
     vi.stubGlobal('fetch', vi.fn()
       .mockReturnValueOnce(slow)
       .mockReturnValueOnce(Promise.resolve(fast)))
 
     const first = useGameDataStore.getState().importGameDataUrl('/slow.json', 'slow')
     await useGameDataStore.getState().importGameDataUrl('/fast.json', 'fast')
-    resolveSlow({ text: async () => makeGameDataJson({ factorioVersion: '2.0.1' }) })
+    resolveSlow({ ok: true, text: async () => makeGameDataJson({ factorioVersion: '2.0.1' }) })
     await first
 
     const { status } = useGameDataStore.getState()
     expect(status.type === 'loaded' && status.sourceId).toBe('fast')
+  })
+
+  it('reports an HTTP error as such, not as invalid JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<!doctype html>', { status: 404 })))
+    await useGameDataStore.getState().importGameDataUrl('/missing.json', 'missing')
+    expect(useGameDataStore.getState().status).toEqual({ type: 'error', message: 'Could not load the game data (HTTP 404)' })
   })
 })
 
