@@ -1,0 +1,87 @@
+name: Release the in-game viewer
+
+# When a GitHub release is published, attaches the in-game viewer's downloads to it: the mod zip and one
+# archive of the bridge per platform. The version is the release's tag without its leading "v"; the mod's
+# info.json is stamped with it in the zip (scripts/package-viewer-mod.sh), so mod/info.json is not edited per release.
+# The bridge has no C dependency, so the Linux build is static (musl) and the Windows build links the C runtime
+# statically: one file per platform, nothing to install next to it. The binaries are unsigned.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to attach the downloads to; it must contain scripts/package-viewer-mod.sh, so only tags cut after the viewer packaging was added
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  # Same toolchain as bridge.yml; bump them together.
+  TOOLCHAIN: 1.98.1
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  mod:
+    name: mod zip
+    # Factorio only accepts X.Y.Z versions, so a pre-release (v1.0.0-rc1) gets no downloads.
+    if: github.event_name != 'release' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - run: scripts/package-viewer-mod.sh "$TAG" dist
+      - run: gh release upload "$TAG" dist/*.zip --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  bridge:
+    name: bridge (${{ matrix.target }})
+    if: github.event_name != 'release' || !github.event.release.prerelease
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, platform: linux-x86_64, archive: tar.gz }
+          - { os: macos-latest, target: aarch64-apple-darwin, platform: macos-arm64, archive: tar.gz }
+          - { os: macos-latest, target: x86_64-apple-darwin, platform: macos-x86_64, archive: tar.gz }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, platform: windows-x86_64, archive: zip }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          targets: ${{ matrix.target }}
+      - name: Build
+        working-directory: bridge
+        env:
+          RUSTFLAGS: ${{ contains(matrix.target, 'windows') && '-C target-feature=+crt-static' || '' }}
+        run: cargo build --release --locked --target ${{ matrix.target }} -p factorio-planner-bridge
+      - name: Archive
+        id: archive
+        run: |
+          version="${TAG#v}"
+          name="factorio-planner-bridge_${version}_${{ matrix.platform }}"
+          exe=factorio-planner-bridge
+          if [[ "${{ matrix.target }}" == *windows* ]]; then exe=$exe.exe; fi
+          mkdir "$name"
+          cp "bridge/target/${{ matrix.target }}/release/$exe" "$name/"
+          if [[ "${{ matrix.archive }}" == zip ]]; then
+            7z a "$name.zip" "$name" > /dev/null
+          else
+            tar -czf "$name.tar.gz" "$name"
+          fi
+          echo "file=$name.${{ matrix.archive }}" >> "$GITHUB_OUTPUT"
+          # The Intel macOS binary is cross-built on an Arm runner and is not run.
+          if [[ "${{ matrix.target }}" != x86_64-apple-darwin ]]; then "$name/$exe" --help > /dev/null; fi
+      - run: gh release upload "$TAG" "${{ steps.archive.outputs.file }}" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
