@@ -109,6 +109,22 @@ The Playwright specs for the viewer run against `e2e/support/fakeBridge.ts`, a W
 
 ---
 
+## Desktop wrapper: Tauri
+
+`src-tauri/` wraps the built site in a native window with Tauri 2 (a system webview, not a bundled browser: WebView2, WKWebView or WebKitGTK). It is an ordinary Cargo package, outside the `bridge/` workspace, so the Node and bridge jobs do not build it. The web build stays the product: the wrapper adds no planner code and the planner never calls a Tauri API, so a change to the site needs nothing here.
+
+- **One build, two bases.** The site is built with base `/factorio-planner/` for GitHub Pages. The Tauri CLI sets `TAURI_ENV_PLATFORM` while it runs `beforeBuildCommand` (`npm run build`), and `vite.config.ts` then builds with base `/`, which is where the app serves it, into `dist-desktop/` rather than `dist/`. `scripts/build-icons.mjs` follows the same variable. Keeping the folders apart means a desktop build never leaves `dist/` with the wrong base for `npm run preview` or the e2e suite. The app code already goes through `import.meta.env.BASE_URL` for data and icons.
+- **Downloads.** Tauri creates the window from `tauri.conf.json`, and `src-tauri/src/lib.rs` adds nothing to it. Export plan needs no download hook: with none registered, wry's default handler accepts every download and saves it to the user's downloads folder under its suggested name, which is what a browser does. Import needs nothing either: a file input works in all three webviews.
+- **System webview floor.** The bundle runs on whatever engine the system has, so it must meet Vite's default build target (Safari 16.4, Chrome 111) and the planner's `structuredClone` (Safari 15.4). `bundle.macOS.minimumSystemVersion` is therefore 13.3, the first macOS that ships Safari 16.4; on an older system macOS refuses to open the app instead of showing a blank window. Windows' WebView2 is an evergreen Chromium. Linux packages cannot state such a floor: the app needs WebKitGTK 2.40 or newer, which current distributions ship.
+- **Version.** `tauri.conf.json` reads the app's version from `package.json`, so the bundles, the macOS About box and the MSI product version share one source. It is `0.0.0` in the tree; a build for a release sets it from the tag.
+- **Storage.** Plans live in the webview's own localStorage and IndexedDB, apart from any browser's; Export plan and Import move them.
+- **Permissions.** The window's capability (`capabilities/default.json`) grants no permission, not even `core:default`, so the host refuses every IPC command the page could send; add only what a feature needs. The page loads no remote content and no plugin is enabled, so the CSP is left unset for now.
+- **Checks.** `desktop.yml` runs `cargo fmt --check` and `cargo clippy` on Linux against a placeholder `dist-desktop/`, and `cargo check` on the `rust-version` that `src-tauri/Cargo.toml` declares. No test drives the window; CI does not build the installers.
+
+The in-game viewer is not wired in: the bridge checks the `Origin` header, and the app's origin is `tauri://localhost` (`http://tauri.localhost` on Windows), which is not in its default list. Hosting the bridge inside the app is the follow-up in [backlog.md](../initiatives/backlog.md).
+
+---
+
 ## Hosting
 
 Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage (several per game data set) and can be exported, and imported as new plans, as JSON.

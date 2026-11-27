@@ -2,7 +2,8 @@ name: Bridge
 
 # The in-game viewer's bridge (bridge/): a Cargo workspace, checked apart from the planner's jobs in test.yml.
 # The toolchains are pinned, so that a new stable release with a new lint cannot break unrelated pull requests;
-# bump RUST_TOOLCHAIN deliberately, together with whatever clippy then asks for.
+# bump RUST_TOOLCHAIN deliberately, together with whatever clippy then asks for and with the same pin in desktop.yml and
+# release-viewer.yml.
 on:
   pull_request:
   # Also run on main so its cache exists for pull requests, which can only read caches from their base branch.

@@ -25,6 +25,7 @@ A browser-based production planner for Factorio 2.0, built Nullius-first but dat
 npm run dev        # start Vite dev server
 npm run build      # type-check + bundle; postbuild runs scripts/build-icons.mjs (WebP + PNG optimisation in dist/)
 npm run preview    # serve the production build
+npm run tauri dev  # desktop wrapper (src-tauri/) around the dev server; `npm run tauri build` makes the installer. Needs Rust; see README "Desktop app"
 npm run lint       # ESLint
 npm run lint:docs  # broken relative links / repo paths in Markdown
 npm run contract   # regenerate contract/ (snapshot JSON Schema + fixtures) after changing src/snapshot/, the solver or the Seablock export

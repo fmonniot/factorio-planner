@@ -205,7 +205,9 @@ function exportPlan() {
   a.href = url
   a.download = exportFileName(selectActivePlanEntry(usePlansStore.getState())?.name ?? '', new Date())
   a.click()
-  URL.revokeObjectURL(url)
+  // Not revoked at once: WebKit (the desktop app on macOS and Linux) decides on the download asynchronously and reads
+  // the blob after `click()` returns, so an immediate revoke can save nothing. A minute is far longer than that takes.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 type ImportDialog =

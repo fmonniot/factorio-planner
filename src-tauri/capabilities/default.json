@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the planner window may ask of the host: nothing. The planner is a static site and calls no Tauri command, so any IPC call from the page is refused.",
+  "windows": ["main"],
+  "permissions": []
+}
