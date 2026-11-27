@@ -1,0 +1,40 @@
+name: Desktop
+
+# The desktop wrapper (src-tauri/): a Tauri app that shows the planner built into dist/. This checks that the Rust side
+# formats, lints and compiles on Linux; the planner itself is checked by test.yml. The toolchain is pinned like bridge.yml's,
+# so a new stable release with a new lint cannot break unrelated pull requests; bump it together with RUST_TOOLCHAIN there.
+on:
+  pull_request:
+  # Also run on main so its cache exists for pull requests, which can only read caches from their base branch.
+  push:
+    branches: [main]
+
+env:
+  RUST_TOOLCHAIN: 1.98.1
+
+jobs:
+  rust:
+    name: fmt + clippy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the webview libraries Tauri links against
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+        working-directory: .
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      # `tauri::generate_context!` embeds the folder named by `frontendDist` and fails when it is missing. A placeholder
+      # page is enough to compile; the real build is `npm run tauri build`.
+      - run: mkdir -p ../dist && echo '<!doctype html>' > ../dist/index.html
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the planner window may ask of the host. Nothing yet: the planner is a static site.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

@@ -10,6 +10,10 @@ test-results/
 # Rust build output (the bridge workspace)
 bridge/target/
 
+# Desktop wrapper (src-tauri/): Rust build output and the bundles it writes
+src-tauri/target/
+src-tauri/gen/schemas/
+
 # TypeScript build info
 *.tsbuildinfo
 

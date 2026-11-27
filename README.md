@@ -150,6 +150,17 @@ The e2e tests use Playwright. On a fresh checkout, run `npx playwright install c
 
 The stack is React, TypeScript, Vite, Zustand, Zod and Tailwind. The reasoning behind those choices is in [spec/tech-stack.md](spec/tech-stack.md).
 
+### Desktop app
+
+The planner also builds as a desktop app with [Tauri](https://tauri.app): a native window around the same site, with nothing else added yet. You need a Rust toolchain (the one in `bridge/` works) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your system, for example the WebKitGTK packages on Linux.
+
+```sh
+npm run tauri dev    # the dev server in a native window, with hot reload
+npm run tauri build  # npm run build, then the app and its installer under src-tauri/target/release/bundle/
+```
+
+The app keeps its plans in its own storage, apart from the browser's: move them with Export plan and Import. Export plan saves to the downloads folder. The in-game viewer does not work from it yet; use the browser for that.
+
 ### Exporting game data
 
 The planner is data-driven. The recipes, machines and icons it shows come from a JSON file generated from a real Factorio install with the target mods enabled. The Nullius export in `public/data/nullius/` and the Seablock export in `public/data/kompetenz-seablock/` are committed. To regenerate it or build one for another mod set:
@@ -298,7 +309,8 @@ After re-exporting the Seablock bundle, run `npm run contract`: the in-game view
 | `spec/` | How the system works today (`in-game-viewer-protocol.md` is the in-game viewer's wire protocol) |
 | `initiatives/` | Backlog, in-flight initiatives and the archive of finished ones |
 | `scripts/package-viewer-mod.sh` | Builds the in-game viewer mod's release zip (`<name>_<version>.zip`, one folder, `info.json` stamped with the version) |
-| `.github/workflows/` | CI (`test.yml`: lint, doc links, unit, e2e, build; `mod.yml`: busted and luacheck for the mod; `bridge.yml`: fmt, clippy and test for `bridge/`; all on PRs and pushes to `main`; `dependabot-automerge.yml`: auto-merge for Dependabot PRs), GitHub Pages deploy on release and `release-viewer.yml`, which attaches the viewer's downloads to a published release |
+| `src-tauri/` | The desktop wrapper (Tauri 2, its own Cargo package apart from `bridge/`): `lib.rs` opens one window on the built `dist/` and lets it download files, `tauri.conf.json` names the app, the dev server and `dist/`, `capabilities/default.json` is what the window may ask of the host, `icons/` come from `public/favicon.svg` (`npx tauri icon public/favicon.svg`, then delete the mobile folders) |
+| `.github/workflows/` | CI (`test.yml`: lint, doc links, unit, e2e, build; `mod.yml`: busted and luacheck for the mod; `bridge.yml`: fmt, clippy and test for `bridge/`; `desktop.yml`: fmt and clippy for `src-tauri/`; all on PRs and pushes to `main`; `dependabot-automerge.yml`: auto-merge for Dependabot PRs), GitHub Pages deploy on release and `release-viewer.yml`, which attaches the viewer's downloads to a published release |
 | `CLAUDE.md` | Project conventions for AI coding agents |
 
 Contributors who use AI coding agents should also read [CLAUDE.md](CLAUDE.md), which holds the project conventions.

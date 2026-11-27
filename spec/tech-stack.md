@@ -109,6 +109,20 @@ The Playwright specs for the viewer run against `e2e/support/fakeBridge.ts`, a W
 
 ---
 
+## Desktop wrapper: Tauri
+
+`src-tauri/` wraps the built site in a native window with Tauri 2 (a system webview, not a bundled browser: WebView2, WKWebView or WebKitGTK). It is an ordinary Cargo package, outside the `bridge/` workspace, so the Node and bridge jobs do not build it. The web build stays the product: the wrapper adds no planner code and the planner never calls a Tauri API, so a change to the site needs nothing here.
+
+- **One build, two bases.** The site is built with base `/factorio-planner/` for GitHub Pages. The Tauri CLI sets `TAURI_ENV_PLATFORM` while it runs `beforeBuildCommand` (`npm run build`), and `vite.config.ts` then builds with base `/`, which is where the app serves `dist/`. The app code already goes through `import.meta.env.BASE_URL` for data and icons.
+- **Downloads.** A webview saves a file only when the host registers a download hook; without one the planner's Export plan does nothing. `src-tauri/src/lib.rs` therefore builds the window in code (`"create": false` in `tauri.conf.json`) to give it `on_download`, which accepts every download and saves it to the user's downloads folder. Import needs nothing: a file input works in all three webviews.
+- **Storage.** Plans live in the webview's own localStorage and IndexedDB, apart from any browser's; Export plan and Import move them.
+- **Permissions.** The window's capability (`capabilities/default.json`) is `core:default` only. The page loads no remote content and no plugin is enabled, so the CSP is left unset for now.
+- **Checks.** `desktop.yml` runs `cargo fmt --check` and `cargo clippy` on Linux against a placeholder `dist/`. No test drives the window; CI does not build the installers.
+
+The in-game viewer is not wired in: the bridge checks the `Origin` header, and the app's origin is `tauri://localhost` (`http://tauri.localhost` on Windows), which is not in its default list. Hosting the bridge inside the app is the follow-up in [backlog.md](../initiatives/backlog.md).
+
+---
+
 ## Hosting
 
 Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage (several per game data set) and can be exported, and imported as new plans, as JSON.

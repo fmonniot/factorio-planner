@@ -7,7 +7,9 @@ import sharp from 'sharp'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: mode === 'production' ? '/factorio-planner/' : '/',
+  // The desktop app (src-tauri/) serves dist/ from its own origin, at the root; the Tauri CLI sets TAURI_ENV_PLATFORM
+  // for the build it runs, so a build for the web keeps the GitHub Pages path.
+  base: mode === 'production' && !process.env.TAURI_ENV_PLATFORM ? '/factorio-planner/' : '/',
   // Fixed: the bridge's default allowed origins assume it. Playwright overrides it with --port.
   server: { port: 4000, strictPort: true },
   plugins: [
