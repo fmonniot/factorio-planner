@@ -19,6 +19,7 @@ export type {
   TechnologyCost,
   ResearchTrigger,
   GameData,
+  DataSetInfo,
   ModuleConfig,
   BeaconConfig,
   RecipeNode,

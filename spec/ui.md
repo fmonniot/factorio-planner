@@ -587,10 +587,16 @@ captures it on mount and clears it.
 persisted, never cleared; `seq` changes on every request) to show a production-table row,
 see [Recipe rows](#recipe-rows).
 
-The checked data set's radio item carries a second line, "Factorio <version> · N mods · N recipes"
-(singular for 1; `aria-describedby`, so it is its accessible description; the tooltip lists the mod
-names). Mods are the `modSet` entries other than `base`, `elevated-rails`, `quality` and
-`space-age`; recipes are the non-hidden ones. It shows only once the data has loaded.
+Each bundled data set's radio item shows its version after the name (the version of the mod it is named
+after, `SERVER_DATASETS[].mod`) and carries a second line, "Factorio <version> · N mods · N recipes"
+(singular for 1; both are `aria-describedby`, so they are its accessible description; the tooltip lists the
+mod names). Mods are the `modSet` entries other than `base`, `elevated-rails`, `quality` and `space-age`;
+recipes are the non-hidden ones. They show whether or not the data set is loaded: a data set that is not
+loaded reads them from its `info.json` (`useDataSetInfos`, which reads both on first use and keeps what it
+read), fetched only while the menu is open (`GameDataGroup`), so the lines appear a moment after the menu
+does; the checked one uses the loaded data, which is the same bundle. An info that cannot be read leaves
+that data set without the lines. The uploaded file's item has the line once loaded and no version, since
+a custom export has no info.json.
 
 **Context menus.** `RowActionsMenu`, `ConnectionMenu` and the block tab menu are portalled `role="menu"` panels that do not take focus when they open. `useMenuKeyboard(ref, onClose, { grid? })` (`factory/`) binds a document keydown (capture) listener while one is mounted: the first ArrowDown enters at the first enabled item and the first ArrowUp at the last, then Up, Down, Home and End walk the enabled items (`menuitem`, `menuitemcheckbox` and `menuitemradio` buttons; `ITEM_SELECTOR`) and wrap; with `grid` (a selector) the items it matches form a 2-D grid after the list (the block tab menu's colour cells). Tab calls `onClose` without preventing the key, after giving focus back to where it was when the menu opened. Escape stays with each menu's own handler.
 
@@ -684,14 +690,14 @@ The workspace menu's Game data group (`useGameDataSource` in `WorkspaceMenu.tsx`
 
 Picking the checked bundled data set again does nothing, unless its last load failed (then it
 retries); the uploaded file's item only closes the menu (upload the file again to retry).
-Once loaded, the checked item shows the data set's version and mod and recipe counts (see
+Each bundled item shows its data set's version and mod and recipe counts, loaded or not (see
 [Workspace menu](#workspace-menu)). A failure to store the upload or to clear it when switching (IndexedDB blocked) shows the same
 "Error loading data" label and leaves the previous choice checked. Picking a data set before the
 stored upload has been read abandons that pending read.
 Picking a bundled dataset remembers the choice in `localStorage` and clears any
 stored upload. An uploaded file is stored in IndexedDB (database
 `factorio-planner`) and reloaded on the next visit. With neither, no item is
-checked, nothing is loaded and the empty table says to open the workspace menu, whose button reads "Choose game data". "Loading…"
+checked, nothing is loaded and the table lists the bundled data sets, one full-width button each (`DataSetPicker`), with the version of the mod the data set is named after and the same line the menu shows (Factorio version, mod and recipe counts), read from the data set's `info.json` (a data set whose info cannot be read is listed without; a pick there is the same as picking in the menu, through `uiStore.dataSetRequest`), with a line saying that game data exported from the player's own mods goes through **Upload file…** in the workspace menu (so it is not taken for a plan export), whose button reads "Choose game data". While a data set loads the buttons are disabled, and after a failed load the error shows above them and a button retries. "Loading…"
 or "Error loading data" shows as the button's sub-line while loading or after a validation
 failure (the tooltip carries the error message).
 
@@ -879,7 +885,7 @@ The popover closes on Escape or a click outside.
 
 `ProductionTable.tsx` renders the active block's recipe tree, and the [side panel](#side-panel) beside it.
 
-- Without game data: "Load game data to begin".
+- Without game data: "Load game data to begin", with the bundled data sets and their versions listed to pick from (see [Game data set](#game-data-set)).
 - With no nodes: "No recipes yet" (the toolbar's `+ Recipe` button is the way to add one). When the [filter](#table-toolbar) matches nothing, the table gives way to `No rows match "<query>"` and a **Show all rows** button.
 - Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width. The table is at least 730px wide (the sum of the column minimums); when its wrapper is narrower, the wrapper scrolls horizontally while the sticky header stays at its top. Above 730px the free width is shared by the Recipe, Byproducts and Ingredients columns in the proportions 3 : 2 : 4 (Products is fixed), on top of their minimums (see [Columns](#columns)). Below 768px the table has no Machine and Beacons columns and is at least 554px wide (see [Narrow screens](#narrow-screens)).
 

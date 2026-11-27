@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { DEFAULT_BRIDGE_URL } from '../viewer/protocol'
+import type { ServerDatasetId } from './dataSets'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -48,6 +49,13 @@ export interface UiStoreState {
   defaultMachinesRequest: { seq: number; category: string | undefined } | null
   requestDefaultMachines: (category?: string) => void
   clearDefaultMachinesRequest: () => void
+  /**
+   * Transient (not persisted) ask to load a bundled data set, made by the empty table's picker. The workspace menu owns the
+   * data set choice (its storage, its plans) and carries the request out. `seq` changes on every request.
+   */
+  dataSetRequest: { seq: number; id: ServerDatasetId } | null
+  requestDataSet: (id: ServerDatasetId) => void
+  clearDataSetRequest: () => void
   /** Transient (not persisted) ask to show a production-table row of the active block: expand its sub-factories, scroll to it, flash it. `seq` changes on every request. */
   revealRowRequest: { seq: number; nodeId: string } | null
   requestRevealRow: (nodeId: string) => void
@@ -147,6 +155,9 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   requestDefaultMachines: (category) =>
     set(state => ({ defaultMachinesRequest: { seq: (state.defaultMachinesRequest?.seq ?? 0) + 1, category } })),
   clearDefaultMachinesRequest: () => set({ defaultMachinesRequest: null }),
+  dataSetRequest: null,
+  requestDataSet: (id) => set(state => ({ dataSetRequest: { seq: (state.dataSetRequest?.seq ?? 0) + 1, id } })),
+  clearDataSetRequest: () => set({ dataSetRequest: null }),
   revealRowRequest: null,
   requestRevealRow: (nodeId) =>
     set(state => ({ revealRowRequest: { seq: (state.revealRowRequest?.seq ?? 0) + 1, nodeId } })),

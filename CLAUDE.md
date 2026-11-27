@@ -28,6 +28,7 @@ npm run preview    # serve the production build
 npm run tauri dev  # desktop wrapper (src-tauri/) around the dev server; `npm run tauri build` makes the installer. Needs Rust; see README "Desktop app"
 npm run lint       # ESLint
 npm run lint:docs  # broken relative links / repo paths in Markdown
+npm run data-info  # rewrite public/data/*/info.json from the game-data.json bundles after an export or patch
 npm run contract   # regenerate contract/ (snapshot JSON Schema + fixtures) after changing src/snapshot/, the solver or the Seablock export
 npm test           # unit + e2e (test:unit then test:e2e)
 npm run test:unit  # Vitest, all projects, once

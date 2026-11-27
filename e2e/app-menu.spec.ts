@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
-import { appMenu, menuTrigger, openAppMenu } from './support/appMenu'
+import { appMenu, expectDataset, menuTrigger, openAppMenu } from './support/appMenu'
 import { detail, selectSlot } from './support/summary'
 
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
@@ -86,7 +86,14 @@ test.describe('workspace menu', () => {
     await setup(page)
     const menu = await openAppMenu(page)
     await expect(menu.getByRole('menuitemradio', { name: 'Nullius' }))
-      .toHaveAccessibleDescription(/^Factorio 2\.0\.76 · \d+ mods · \d+ recipes$/)
+      .toHaveAccessibleDescription(/^\d+\.\d+\.\d+ Factorio 2\.0\.76 · \d+ mods · \d+ recipes$/)
+  })
+
+  test('every bundled data set shows its versions, not only the checked one', async ({ page }) => {
+    await setup(page)
+    const menu = await openAppMenu(page)
+    await expect(menu.getByRole('menuitemradio', { name: 'Seablock' }))
+      .toHaveAccessibleDescription(/^\d+\.\d+\.\d+ Factorio \d+\.\d+\.\d+ · \d+ mods · \d+ recipes$/)
   })
 
   test('the table toolbar rate segment switches the slot rates and persists', async ({ page }) => {
@@ -126,14 +133,29 @@ test.describe('workspace menu', () => {
     await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'selected')
   })
 
-  test('first visit: hint points to the menu, nothing checked, Import plan disabled', async ({ page }) => {
+  test('first visit: the table offers the data sets, nothing checked, Import plan disabled', async ({ page }) => {
     await page.goto('./')
     await page.evaluate(() => localStorage.clear())
     await page.reload()
-    await expect(page.getByText('Open the workspace menu at the top right to pick a game data set')).toBeVisible()
+    const picker = page.getByRole('group', { name: 'Game data sets' })
+    await expect(picker.getByRole('button', { name: 'Nullius' })).toBeVisible()
+    await expect(picker.getByRole('button', { name: 'Seablock' })).toBeVisible()
+    // The versions show before anything is loaded.
+    await expect(picker.getByRole('button', { name: 'Nullius' })).toContainText(/Factorio \d+\.\d+\.\d+ · \d+ mods · \d+ recipes/)
     await expect(menuTrigger(page)).toHaveAccessibleName('Choose game data')
     const menu = await openAppMenu(page)
     await expect(menu.locator('[role="menuitemradio"][aria-checked="true"]')).toHaveCount(0)
     await expect(menu.getByRole('menuitem', { name: 'Import plan' })).toBeDisabled()
+  })
+
+  test('first visit: picking a data set in the table loads it and checks it in the menu', async ({ page }) => {
+    await page.goto('./')
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await page.getByRole('group', { name: 'Game data sets' }).getByRole('button', { name: 'Seablock' }).click()
+    await expect(page.getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expectDataset(page, 'Seablock')
+    await page.reload()
+    await expect(menuTrigger(page)).toHaveAccessibleName(/^Plan: /)
   })
 })

@@ -9,6 +9,7 @@ import { useUiStore } from '../store/uiStore'
 import { activateDataSet } from '../store/persistence'
 import type { GameData } from '../data/types'
 import { makeMenuGameData } from '../test/menuGameData'
+import { clearDataSetInfoCache } from './useDataSetInfos'
 
 const KEY = 'factorio-planner:game-data-source'
 
@@ -32,7 +33,19 @@ function fakeIndexedDb(opts: { stored?: unknown; getGate?: Promise<void>; failWr
   return { open: () => request({ transaction: tx, createObjectStore: () => {} }) }
 }
 
+// What the info.json of each bundled data set says; any other URL is a 404.
+const INFOS: Record<string, unknown> = {
+  nullius: { factorioVersion: '2.0.76', modSet: { base: '2.0.76', nullius: '2.0.4', flib: '0.14.2' }, recipeCount: 2033 },
+  'kompetenz-seablock': { factorioVersion: '2.0.77', modSet: { base: '2.0.77', SeaBlock: '0.6.0' }, recipeCount: 1 },
+}
+const serveInfos = (infos: Record<string, unknown> = INFOS) => vi.stubGlobal('fetch', vi.fn((url: string) => {
+  const id = Object.keys(infos).find(k => url.includes(`/${k}/`))
+  return Promise.resolve(id ? Response.json(infos[id]) : new Response('', { status: 404 }))
+}))
+
 beforeEach(() => {
+  clearDataSetInfoCache()
+  vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('', { status: 404 }))))
   vi.stubGlobal('indexedDB', fakeIndexedDb())
   localStorage.clear()
   useBlockStore.setState({ defaultMachineOverrides: {} })
@@ -324,6 +337,43 @@ describe('WorkspaceMenu game data info', () => {
     await openMenu()
     const radio = screen.getByRole('menuitemradio', { name: 'Nullius' })
     expect(radio).toHaveAccessibleDescription('Factorio 2.0.0 · 1 mod · 1 recipe')
+    expect(screen.getByRole('menuitemradio', { name: 'Seablock' })).not.toHaveAccessibleDescription()
+  })
+
+  it('shows the versions of every bundled data set, loaded or not', async () => {
+    serveInfos()
+    localStorage.setItem(KEY, 'nullius')
+    loaded()
+    render(<WorkspaceMenu />)
+    await openMenu()
+    // Seablock is not the loaded one: its line comes from its info.json.
+    expect(await screen.findByText('Factorio 2.0.77 · 1 mod · 1 recipe')).toBeInTheDocument()
+    expect(screen.getByRole('menuitemradio', { name: 'Seablock' })).toHaveAccessibleDescription('0.6.0 Factorio 2.0.77 · 1 mod · 1 recipe')
+    // The loaded one keeps what the loaded data says, and gains its version.
+    expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAccessibleDescription('2.0.4 Factorio 2.0.0 · 1 mod · 1 recipe')
+  })
+
+  it('shows the versions while nothing is loaded, so a choice can be made on them', async () => {
+    serveInfos()
+    render(<WorkspaceMenu />)
+    await openMenu()
+    expect(await screen.findByText('Factorio 2.0.76 · 2 mods · 2033 recipes')).toBeInTheDocument()
+    expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAccessibleDescription('2.0.4 Factorio 2.0.76 · 2 mods · 2033 recipes')
+  })
+
+  it('reads the versions only once the menu is opened', async () => {
+    serveInfos()
+    render(<WorkspaceMenu />)
+    expect(fetch).not.toHaveBeenCalled()
+    await openMenu()
+    await screen.findByText('Factorio 2.0.76 · 2 mods · 2033 recipes')
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('lists a data set without versions when its info cannot be read', async () => {
+    render(<WorkspaceMenu />)
+    await openMenu()
+    expect(screen.getByRole('menuitemradio', { name: 'Seablock' })).toBeEnabled()
     expect(screen.getByRole('menuitemradio', { name: 'Seablock' })).not.toHaveAccessibleDescription()
   })
 
