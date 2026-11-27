@@ -10,8 +10,11 @@ export default defineConfig(({ mode }) => ({
   // The desktop app (src-tauri/) serves dist/ from its own origin, at the root; the Tauri CLI sets TAURI_ENV_PLATFORM
   // for the build it runs, so a build for the web keeps the GitHub Pages path.
   base: mode === 'production' && !process.env.TAURI_ENV_PLATFORM ? '/factorio-planner/' : '/',
-  // Fixed: the bridge's default allowed origins assume it. Playwright overrides it with --port.
-  server: { port: 4000, strictPort: true },
+  // Fixed: the bridge's default allowed origins assume it. Playwright overrides it with --port. The Rust folders are not
+  // watched: cargo writes tens of thousands of files under their target/ on every build.
+  server: { port: 4000, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/bridge/**'] } },
+  // `npm run tauri dev` shares the terminal with cargo; clearing it would hide cargo's errors.
+  clearScreen: !process.env.TAURI_ENV_PLATFORM,
   plugins: [
     react(),
     tailwindcss(),
