@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to attach the downloads to (for example v0.6.0)
+        description: Existing release tag to attach the downloads to; it must contain scripts/package-viewer-mod.sh, so only tags cut after the viewer packaging was added
         required: true
 
 permissions:
@@ -25,6 +25,8 @@ env:
 jobs:
   mod:
     name: mod zip
+    # Factorio only accepts X.Y.Z versions, so a pre-release (v1.0.0-rc1) gets no downloads.
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,6 +39,7 @@ jobs:
 
   bridge:
     name: bridge (${{ matrix.target }})
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -60,7 +63,7 @@ jobs:
       - name: Build
         working-directory: bridge
         env:
-          RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
+          RUSTFLAGS: ${{ contains(matrix.target, 'windows') && '-C target-feature=+crt-static' || '' }}
         run: cargo build --release --locked --target ${{ matrix.target }} -p factorio-planner-bridge
       - name: Archive
         id: archive
@@ -68,7 +71,7 @@ jobs:
           version="${TAG#v}"
           name="factorio-planner-bridge_${version}_${{ matrix.platform }}"
           exe=factorio-planner-bridge
-          if [[ "${{ matrix.os }}" == windows-latest ]]; then exe=$exe.exe; fi
+          if [[ "${{ matrix.target }}" == *windows* ]]; then exe=$exe.exe; fi
           mkdir "$name"
           cp "bridge/target/${{ matrix.target }}/release/$exe" "$name/"
           if [[ "${{ matrix.archive }}" == zip ]]; then

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the in-game viewer mod's release zip: <name>_<version>.zip holding one folder, <name>_<version>/,
 # which is the layout Factorio expects. Only what the game loads goes in (not mod/spec, mod/tools, the
-# Lua toolchain setup or the manual checklist). The version written into info.json is the argument, so that
+# Lua toolchain setup, the manual checklist or the sprite's SVG source). The version written into info.json is the argument, so that
 # the zip, the folder and info.json agree, which Factorio requires.
 #
 # Usage: scripts/package-viewer-mod.sh <version, e.g. 0.6.0 (a leading v is dropped)> <output directory>
@@ -22,16 +22,22 @@ fi
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mkdir -p "$outdir"
 outdir="$(cd "$outdir" && pwd)"
-name="$(node -p "require('$root/mod/info.json').name")"
+name="$(node -p 'require(process.argv[1]).name' "$root/mod/info.json")"
 folder="${name}_${version}"
 
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
-mkdir -p "$stage/$folder/graphics"
+mkdir -p "$stage/$folder"
 cd "$root/mod"
-cp control.lua data.lua settings.lua "$stage/$folder/"
-cp -R lib locale scripts "$stage/$folder/"
-cp graphics/button-x56.png "$stage/$folder/graphics/"
+# Everything the game loads: all of mod/ except the development files (the Lua toolchain, specs, the stand-in
+# sender, the manual checklist, the README, the SVG source of the sprite). A new runtime file is included by default.
+for entry in * ; do
+  case "$entry" in
+    spec|tools|setup-lua.sh|CHECKLIST.md|README.md|info.json) ;;
+    *) cp -R "$entry" "$stage/$folder/" ;;
+  esac
+done
+find "$stage/$folder" -name '*.svg' -delete
 node -e '
   const fs = require("fs");
   const info = JSON.parse(fs.readFileSync("info.json", "utf8"));

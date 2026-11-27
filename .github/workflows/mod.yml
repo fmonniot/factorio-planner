@@ -43,6 +43,10 @@ jobs:
       - name: Check the layout
         run: |
           zip="$RUNNER_TEMP/dist/factorio-planner-viewer_9.9.9.zip"
-          unzip -Z1 "$zip" | grep -v '^factorio-planner-viewer_9.9.9/' && exit 1
+          list="$(unzip -Z1 "$zip")"
+          if grep -qv '^factorio-planner-viewer_9\.9\.9/' <<< "$list"; then echo "entry outside the one folder"; exit 1; fi
           unzip -p "$zip" factorio-planner-viewer_9.9.9/info.json | grep -q '"version": "9.9.9"'
-          for f in info.json control.lua data.lua settings.lua graphics/button-x56.png; do unzip -Z1 "$zip" | grep -qx "factorio-planner-viewer_9.9.9/$f"; done
+          for f in info.json control.lua data.lua settings.lua graphics/button-x56.png lib/receiver.lua scripts/gui.lua locale/en/factorio-planner-viewer.cfg; do
+            grep -qxF "factorio-planner-viewer_9.9.9/$f" <<< "$list" || { echo "missing $f"; exit 1; }
+          done
+          if grep -E '/(spec|tools)/|\.svg$' <<< "$list"; then echo "development file in the zip"; exit 1; fi
