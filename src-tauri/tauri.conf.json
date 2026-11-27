@@ -13,7 +13,6 @@
     "windows": [
       {
         "label": "main",
-        "create": false,
         "title": "Factorio Planner",
         "width": 1440,
         "height": 900,

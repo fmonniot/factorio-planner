@@ -309,7 +309,7 @@ After re-exporting the Seablock bundle, run `npm run contract`: the in-game view
 | `spec/` | How the system works today (`in-game-viewer-protocol.md` is the in-game viewer's wire protocol) |
 | `initiatives/` | Backlog, in-flight initiatives and the archive of finished ones |
 | `scripts/package-viewer-mod.sh` | Builds the in-game viewer mod's release zip (`<name>_<version>.zip`, one folder, `info.json` stamped with the version) |
-| `src-tauri/` | The desktop wrapper (Tauri 2, its own Cargo package apart from `bridge/`): `lib.rs` opens one window on the built `dist/` and lets it download files, `tauri.conf.json` names the app, the dev server and `dist/`, `capabilities/default.json` is what the window may ask of the host, `icons/` come from `public/favicon.svg` (`npx tauri icon public/favicon.svg`, then delete the mobile folders) |
+| `src-tauri/` | The desktop wrapper (Tauri 2, its own Cargo package apart from `bridge/`): `lib.rs` starts the app, `tauri.conf.json` names the app, its window, the dev server and `dist/`, `capabilities/default.json` is what the window may ask of the host, `icons/` come from `public/favicon.svg` (`npx tauri icon public/favicon.svg`, then delete the mobile folders) |
 | `.github/workflows/` | CI (`test.yml`: lint, doc links, unit, e2e, build; `mod.yml`: busted and luacheck for the mod; `bridge.yml`: fmt, clippy and test for `bridge/`; `desktop.yml`: fmt and clippy for `src-tauri/`; all on PRs and pushes to `main`; `dependabot-automerge.yml`: auto-merge for Dependabot PRs), GitHub Pages deploy on release and `release-viewer.yml`, which attaches the viewer's downloads to a published release |
 | `CLAUDE.md` | Project conventions for AI coding agents |
 
