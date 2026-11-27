@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Factorio Planner",
-  "version": "0.1.0",
+  "version": "../package.json",
   "identifier": "io.github.fmonniot.factorio-planner",
   "build": {
     "beforeDevCommand": "npm run dev",
