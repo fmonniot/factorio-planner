@@ -81,6 +81,20 @@ pub struct BindError {
     source: io::Error,
 }
 
+impl BindError {
+    /// The port that could not be bound.
+    #[must_use]
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    /// Whether the port is taken by another socket, as opposed to any other failure.
+    #[must_use]
+    pub fn port_in_use(&self) -> bool {
+        self.source.kind() == io::ErrorKind::AddrInUse
+    }
+}
+
 impl fmt::Display for BindError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let what = if self.protocol == "TCP" {

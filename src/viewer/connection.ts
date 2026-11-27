@@ -1,3 +1,4 @@
+import type { DesktopHost } from './desktop'
 import {
   DEFAULT_GAME_PORT,
   MAX_SNAPSHOT_BYTES,
@@ -370,7 +371,14 @@ export function transferText(status: BridgeStatus | undefined): string {
   }
 }
 
-export function badgeFor(state: ConnectionState): Badge {
+/** The "No bridge" detail inside the desktop app, where the bridge is the app's own and there is no command to run. */
+function desktopNoBridgeDetail(host: DesktopHost): string {
+  return host.bridge === 'running'
+    ? "The app's built-in bridge is not answering at this address. Check the address, or restart the app."
+    : `The app's built-in bridge could not start: ${host.bridge.error} Close whatever uses that port, or run a standalone bridge, then restart. Retrying every few seconds.`
+}
+
+export function badgeFor(state: ConnectionState, host?: DesktopHost): Badge {
   switch (state.phase) {
     case 'off':
       return { kind: 'off', tone: 'idle', label: 'Off', short: 'Off', detail: 'The planner is not connected to the in-game viewer.' }
@@ -402,7 +410,9 @@ export function badgeFor(state: ConnectionState): Badge {
         tone: 'warn',
         label: 'No bridge',
         short: 'No bridge',
-        detail: `${state.failure === 'lost' ? 'The connection to the bridge closed.' : 'No bridge answered at this address.'} Start the bridge, or check the address. Retrying every few seconds. ${BLOCK_HINT}`,
+        detail: host
+          ? desktopNoBridgeDetail(host)
+          : `${state.failure === 'lost' ? 'The connection to the bridge closed.' : 'No bridge answered at this address.'} Start the bridge, or check the address. Retrying every few seconds. ${BLOCK_HINT}`,
       }
     case 'open': {
       const status = state.status

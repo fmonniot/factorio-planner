@@ -4,6 +4,7 @@ import path from 'node:path'
 import Ajv2020 from 'ajv/dist/2020.js'
 import { loadPlanFixture } from './support/loadPlan'
 import { menuTrigger, openAppMenu, pickPlanFile, selectDataset } from './support/appMenu'
+import { DESKTOP_HOST_KEY } from '../src/viewer/desktop'
 import { fixtureMessage, startFakeBridge, type FakeBridge } from './support/fakeBridge'
 
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
@@ -580,5 +581,50 @@ test.describe('In-game viewer reconnection', () => {
     await page.waitForTimeout(500)
     expect(bridge.snapshots()).toHaveLength(0)
     expect(bridge.announces()).toHaveLength(1)
+  })
+})
+
+test.describe('In-game viewer inside the desktop app', () => {
+  /** What the app's Rust side writes before the page loads. */
+  const asDesktop = (page: Page, value: unknown) =>
+    page.addInitScript(([key, v]) => Object.assign(window, { [key as string]: v }), [DESKTOP_HOST_KEY, value])
+
+  test('with a running built-in bridge, the viewer connects and no command is offered', async ({ page }) => {
+    await asDesktop(page, { bridge: 'running' })
+    await openApp(page)
+    await switchOn(page, bridge)
+    await expectBadge(page, 'Bridge, no game')
+    bridge.broadcast(connectedStatus())
+    await expectBadge(page, 'Connected')
+
+    await bridge.stop()
+    await expectBadge(page, 'No bridge')
+    const dialog = await openTroubleshoot(page)
+    await expect(dialog).toContainText('built-in bridge')
+    await expect(dialog).not.toContainText('factorio-planner-bridge')
+  })
+
+  test('with a built-in bridge that could not start, the host\'s message replaces the command', async ({ page }) => {
+    await asDesktop(page, { bridge: { error: 'Port 34199 is already in use, probably by something else.' } })
+    await openApp(page)
+    const unused = bridge.url
+    await bridge.stop()
+    await setAddress(page, unused)
+    await (await openViewer(page)).getByLabel('Connect to the bridge').check()
+    await expectBadge(page, 'No bridge')
+    const dialog = await openTroubleshoot(page)
+    await expect(dialog).toContainText('Port 34199 is already in use, probably by something else.')
+    await expect(dialog).not.toContainText('factorio-planner-bridge')
+    await expect(dialog.getByRole('button', { name: /^Copy/ })).toHaveCount(0)
+  })
+
+  test('in a browser, the bridge command is still shown', async ({ page }) => {
+    await openApp(page)
+    const unused = bridge.url
+    await bridge.stop()
+    await setAddress(page, unused)
+    await (await openViewer(page)).getByLabel('Connect to the bridge').check()
+    await expectBadge(page, 'No bridge')
+    await expect(await openTroubleshoot(page)).toContainText('factorio-planner-bridge')
   })
 })

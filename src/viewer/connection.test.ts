@@ -11,6 +11,7 @@ import {
   type ConnectionState,
   type PlanSnapshot,
 } from './connection'
+import type { DesktopHost } from './desktop'
 import { MAX_SNAPSHOT_BYTES } from './protocol'
 
 // The six steps of "What the planner does" in the wire protocol, driven without a socket.
@@ -445,6 +446,21 @@ describe('connection failures', () => {
     expect(badge.kind).toBe('no-bridge')
     expect(badge.detail).toMatch(/uBlock/)
     expect(badge.detail).toMatch(/permission/)
+  })
+
+  it('inside the desktop app, blames the built-in bridge and not the browser', () => {
+    const { state } = run([{ type: 'enable' }, { type: 'closed' }])
+    const failed: DesktopHost = { bridge: { error: 'Port 34199 is already in use.' } }
+    const badge = badgeFor(state, failed)
+    expect(badge.kind).toBe('no-bridge')
+    expect(badge.detail).toContain('Port 34199 is already in use.')
+    expect(badge.detail).not.toMatch(/Chrome|uBlock/)
+
+    const running = badgeFor(state, { bridge: 'running' })
+    expect(running.kind).toBe('no-bridge')
+    expect(running.detail).toContain('built-in bridge')
+    expect(running.detail).not.toContain('Start the bridge')
+    expect(running.detail).not.toMatch(/Chrome|uBlock/)
   })
 
   it('suggests the permission prompt when connecting takes long', () => {

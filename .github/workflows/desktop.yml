@@ -41,6 +41,7 @@ jobs:
       - run: mkdir -p ../dist-desktop && echo '<!doctype html>' > ../dist-desktop/index.html
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked --lib
 
   # The declared minimum Rust version really builds.
   msrv:

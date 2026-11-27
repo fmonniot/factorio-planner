@@ -25,7 +25,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Desktop app
 
-- [ ] **Host the bridge in the desktop app.** The Tauri wrapper in `src-tauri/` shows the planner only. Run the `bridge/` library inside it (it is already a library crate with a thin `main`), so that the in-game viewer needs no second download and no browser-to-localhost setup. The app's origin (`tauri://localhost`, `http://tauri.localhost` on Windows) is not in the bridge's default origin list; if the bridge runs in-process the `Origin` check may not be needed at all. Source: [Later](archive/in-game-viewer/plan.md#later) in the in-game viewer plan.
 - [ ] **Desktop installers in the release.** `release-viewer.yml` attaches the mod and the bridge to a release; add the Tauri bundles (`.dmg`, `.msi`, `.AppImage`), which need a build per platform and, to avoid the system's unsigned-app warnings, signing certificates. `tauri.conf.json` takes the app's version from `package.json` (`0.0.0` in the tree), so the job must stamp the tag's version there before `tauri build`, as `scripts/package-viewer-mod.sh` does for the mod; otherwise every installer reports the same version and Windows Installer will not treat a newer MSI as an upgrade.
 - [ ] **Save dialog for Export plan in the desktop app.** The wrapper saves exports to the downloads folder without telling the user; a native "Save as" would need `tauri-plugin-dialog` and a small branch in `WorkspaceMenu.tsx`.
 

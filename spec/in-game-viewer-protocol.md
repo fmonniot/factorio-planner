@@ -50,6 +50,7 @@ Where a field has no snapshot to name, it holds sixteen dashes: `---------------
 | Bridge UDP port | `34199` | A flag on the bridge; the mod's runtime-global setting |
 | Bridge WebSocket port | `34199`, TCP | The same bridge flag: one number for both |
 
+The ports are the same whether the bridge is the standalone program or runs inside the desktop app: one process either way, and the desktop app uses the defaults only.
 The bridge sends and receives on one UDP socket bound to `127.0.0.1` and the bridge port. A UDP error caused by the game's port being closed (Windows reports one on the next receive) means nothing: the bridge ignores it and carries on.
 
 ---
@@ -96,7 +97,7 @@ Sizes in the [Buffer budget](#buffer-budget) use 92 B of overhead per datagram, 
 
 ### Connection
 
-The planner opens `ws://127.0.0.1:34199/` when the user turns the connection on. The bridge checks `Origin` during the handshake and answers HTTP 403 to an origin it does not allow. A handshake with no `Origin` header is accepted, on purpose: the bridge only listens on the loopback interface, and a browser always sends `Origin`, so a request without one comes from a non-browser process on the same machine. Such a process can send any `Origin` it likes, so rejecting the missing header would add no security. The check exists to stop other web pages from reaching the bridge. No WebSocket subprotocol is used, because a browser reports a failed one with no detail, and the planner must be able to say what is wrong.
+The planner opens `ws://127.0.0.1:34199/` when the user turns the connection on. The bridge can be the standalone `factorio-planner-bridge` or run inside the desktop app (`src-tauri/`), on the same address and ports. The bridge checks `Origin` during the handshake and answers HTTP 403 to an origin it does not allow. The default list is the hosted planner (`https://fmonniot.github.io`), the dev server (`http://localhost:4000`, `http://127.0.0.1:4000`) and the desktop app's webview (`tauri://localhost`, and `http://tauri.localhost` on Windows). The check stays when the bridge runs inside the app: it still listens on a TCP port on `127.0.0.1` that any web page in the user's browser could reach. `tauri` is the only scheme accepted besides `http` and `https`, and it has no default port. A handshake with no `Origin` header is accepted, on purpose: the bridge only listens on the loopback interface, and a browser always sends `Origin`, so a request without one comes from a non-browser process on the same machine. Such a process can send any `Origin` it likes, so rejecting the missing header would add no security. The check exists to stop other web pages from reaching the bridge. No WebSocket subprotocol is used, because a browser reports a failed one with no detail, and the planner must be able to say what is wrong.
 
 Any number of planners may connect at once. All receive every `status`, and the last snapshot received wins, whoever sent it.
 
