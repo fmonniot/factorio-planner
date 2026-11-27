@@ -31,3 +31,18 @@ jobs:
       - name: busted
         working-directory: mod
         run: .lua/bin/busted
+
+  # The release workflow (release-viewer.yml) only runs when a release is published, so the packaging
+  # script is exercised here: the zip must hold one <name>_<version>/ folder with a matching info.json.
+  package:
+    name: release zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/package-viewer-mod.sh v9.9.9 "$RUNNER_TEMP/dist"
+      - name: Check the layout
+        run: |
+          zip="$RUNNER_TEMP/dist/factorio-planner-viewer_9.9.9.zip"
+          unzip -Z1 "$zip" | grep -v '^factorio-planner-viewer_9.9.9/' && exit 1
+          unzip -p "$zip" factorio-planner-viewer_9.9.9/info.json | grep -q '"version": "9.9.9"'
+          for f in info.json control.lua data.lua settings.lua graphics/button-x56.png; do unzip -Z1 "$zip" | grep -qx "factorio-planner-viewer_9.9.9/$f"; done
