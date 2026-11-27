@@ -699,7 +699,7 @@ stored upload. An uploaded file is stored in IndexedDB (database
 `factorio-planner`) and reloaded on the next visit. With neither, no item is
 checked, nothing is loaded and the table lists the bundled data sets, one full-width button each (`DataSetPicker`), with the version of the mod the data set is named after and the same line the menu shows (Factorio version, mod and recipe counts), read from the data set's `info.json` (a data set whose info cannot be read is listed without; a pick there is the same as picking in the menu, through `uiStore.dataSetRequest`), with a line saying that game data exported from the player's own mods goes through **Upload file…** in the workspace menu (so it is not taken for a plan export), whose button reads "Choose game data". While a data set loads the buttons are disabled, and after a failed load the error shows above them and a button retries. "Loading…"
 or "Error loading data" shows as the button's sub-line while loading or after a validation
-failure (the tooltip carries the error message).
+failure or an HTTP error on the bundle ("Could not load the game data (HTTP 404)"; the tooltip carries the error message).
 
 Each data set has its own list of plans (see [Plans](#plans)). When a data set finishes loading and
 differs from the previous one, its active plan replaces the one on screen (or an empty "Factory"

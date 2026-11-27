@@ -11,6 +11,7 @@ export function summarizeDataSet(info: DataSetInfo) {
     modCount: mods.length,
     recipeCount: info.recipeCount,
     mods,
+    modSet: info.modSet,
   }
 }
 

@@ -361,6 +361,14 @@ describe('WorkspaceMenu game data info', () => {
     expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAccessibleDescription('2.0.4 Factorio 2.0.76 · 2 mods · 2033 recipes')
   })
 
+  it('keeps the loaded data set\'s version when its info.json cannot be read', async () => {
+    localStorage.setItem(KEY, 'nullius')
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: { ...makeMenuGameData(), modSet: { base: '2.0.0', nullius: '2.0.4' } }, sourceId: 'nullius' } })
+    render(<WorkspaceMenu />)
+    await openMenu()
+    expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAccessibleDescription('2.0.4 Factorio 2.0.0 · 1 mod · 1 recipe')
+  })
+
   it('reads the versions only once the menu is opened', async () => {
     serveInfos()
     render(<WorkspaceMenu />)

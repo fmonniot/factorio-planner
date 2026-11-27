@@ -396,7 +396,7 @@ function GameDataGroup({ close, selectedValue, uploadedFilename, loadedInfo, sel
         const read = infos[d.id]
         // The loaded data set's own summary once checked; otherwise what its info.json says.
         const summary = checked && loadedInfo ? loadedInfo : read ? summarizeDataSet(read) : null
-        const modVersion = read?.modSet[d.mod]
+        const modVersion = (checked ? loadedInfo?.modSet[d.mod] : undefined) ?? read?.modSet[d.mod]
         const versionId = `${idPrefix}-${d.id}-version`
         const infoId = `${idPrefix}-${d.id}-info`
         return (

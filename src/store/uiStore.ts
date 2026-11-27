@@ -51,9 +51,9 @@ export interface UiStoreState {
   clearDefaultMachinesRequest: () => void
   /**
    * Transient (not persisted) ask to load a bundled data set, made by the empty table's picker. The workspace menu owns the
-   * data set choice (its storage, its plans) and carries the request out. `seq` changes on every request.
+   * data set choice (its storage, its plans) and carries the request out. Every request is a new object, which is what the menu reacts to.
    */
-  dataSetRequest: { seq: number; id: ServerDatasetId } | null
+  dataSetRequest: { id: ServerDatasetId } | null
   requestDataSet: (id: ServerDatasetId) => void
   clearDataSetRequest: () => void
   /** Transient (not persisted) ask to show a production-table row of the active block: expand its sub-factories, scroll to it, flash it. `seq` changes on every request. */
@@ -156,7 +156,7 @@ export const useUiStore = create<UiStoreState>()((set) => ({
     set(state => ({ defaultMachinesRequest: { seq: (state.defaultMachinesRequest?.seq ?? 0) + 1, category } })),
   clearDefaultMachinesRequest: () => set({ defaultMachinesRequest: null }),
   dataSetRequest: null,
-  requestDataSet: (id) => set(state => ({ dataSetRequest: { seq: (state.dataSetRequest?.seq ?? 0) + 1, id } })),
+  requestDataSet: (id) => set({ dataSetRequest: { id } }),
   clearDataSetRequest: () => set({ dataSetRequest: null }),
   revealRowRequest: null,
   requestRevealRow: (nodeId) =>

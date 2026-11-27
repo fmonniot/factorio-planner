@@ -78,6 +78,7 @@ To regenerate game data, follow [README.md — Exporting game data](README.md#ex
 - **Synthetic cases** in [spec/test-synthetic.md](spec/test-synthetic.md) are the ground truth for solver behaviour. They are automated in `src/solver/synthetic.test.ts`; update the spec and that test together when a synthetic-case value changes. They stay on synthetic fixtures; real-data solver invariants live in `src/solver/index.integration.test.ts`.
 - **Fixture hygiene:** fixture factory functions must return a fresh object each call (a new literal or `structuredClone(...)`). Shared mutable fixtures cause hard-to-diagnose test ordering bugs.
 - **Vitest API:** the message goes on `expect(value, 'message')`, not `expect(value).toBe(true, 'message')` — the latter is a TypeScript error.
+- **No real network in unit tests:** `src/test-setup.ts` replaces `fetch` with one that answers 404, so a component that fetches (the data sets' `info.json`) never reaches a server. A test that needs an answer stubs its own with `vi.stubGlobal('fetch', …)`; one that needs a real `fetch` (say, against a loopback server) must restore it first.
 - **Testing preference:** when a plan includes validation steps, prefer Playwright e2e tests (in `e2e/`) over manual browser checks. Fall back to manual testing only when the scenario cannot be automated.
 
 ---
