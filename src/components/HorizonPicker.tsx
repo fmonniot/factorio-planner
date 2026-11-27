@@ -6,7 +6,7 @@ import { hasTechnologies } from '../data/horizon'
 import { IconButton } from './IconButton'
 import { FlagIcon, XIcon } from './icons'
 import { TechIcon } from './TechIcon'
-import { TechTreeModal } from './TechTree'
+import { TechTreeModal } from './lazyModals'
 import { Popover } from './factory/Popover'
 import type { GameData } from '../data/types'
 

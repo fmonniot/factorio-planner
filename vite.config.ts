@@ -11,7 +11,24 @@ export default defineConfig(({ mode }) => ({
   // TAURI_ENV_PLATFORM for the build it runs, so a build for the web keeps the GitHub Pages path. The two builds go to
   // separate folders, so a desktop build never leaves dist/ with the wrong base for `npm run preview` or the e2e suite.
   base: mode === 'production' && !process.env.TAURI_ENV_PLATFORM ? '/factorio-planner/' : '/',
-  build: { outDir: process.env.TAURI_ENV_PLATFORM ? 'dist-desktop' : 'dist' },
+  build: {
+    outDir: process.env.TAURI_ENV_PLATFORM ? 'dist-desktop' : 'dist',
+    rolldownOptions: {
+      output: {
+        // Chunks the browser can cache and fetch side by side, so that no single one passes the 500 kB size warning:
+        // third-party code (it changes far less often than the planner's own), and the solver. The two big modals
+        // (src/components/lazyModals.ts) are split off by dynamic import instead.
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 3 },
+            { name: 'lp-solver', test: /node_modules[\\/]javascript-lp-solver[\\/]/, priority: 2 },
+            { name: 'solver', test: /[\\/]src[\\/]solver[\\/]/, priority: 2 },
+            { name: 'vendor', test: /node_modules/, priority: 1 },
+          ],
+        },
+      },
+    },
+  },
   // Fixed: the bridge's default allowed origins assume it. Playwright overrides it with --port. The Rust folders are not
   // watched: cargo writes tens of thousands of files under their target/ on every build.
   server: { port: 4000, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/bridge/**'] } },
