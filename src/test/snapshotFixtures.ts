@@ -131,7 +131,11 @@ function groupsPlan(gameData: GameData): Snapshot {
       richRow('g-r1', 'sb-iron-plate-from-ore', { modules: [{ moduleId: 'speed-module', count: 2 }] }),
       { kind: 'subplan', id: 'g-h1', subPlanId: 'g-power' },
       richRow('g-r2', 'copper-cable', {
-        beaconConfigs: [{ beaconId: 'beacon', modules: [{ moduleId: 'speed-module', count: 2 }], beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 }],
+        beaconConfigs: [
+          { beaconId: 'beacon', modules: [{ moduleId: 'speed-module', count: 2 }], beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 },
+          { beaconId: 'beacon', modules: [{ moduleId: 'speed-module', count: 1 }, { moduleId: 'efficiency-module', count: 1 }], beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 },
+          { beaconId: 'beacon', modules: [{ moduleId: 'speed-module', count: 2 }], beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 1.5 },
+        ],
       }),
     ],
     [power],

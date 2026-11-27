@@ -317,7 +317,7 @@ describe("scripts/gui.lua", function()
     assert.are.equal(6, t.column_count)
     local copper = line_named(window, "[recipe=copper-cable]")
     assert.is_truthy(copper)
-    -- SPIKE: with several beacon configurations the beacon cell is a flow (the first
+    -- With several beacon configurations the beacon cell is a flow (the first
     -- slot with the "+N" label over it), so the slot is the cell's first button.
     local machine, beacon = copper[3], buttons(copper[4])[1]
     assert.are.equal("entity/bob-assembling-machine-6", machine.sprite)
@@ -327,7 +327,7 @@ describe("scripts/gui.lua", function()
     assert.are.equal("Nested sub-factories", machine.tags.block)
     assert.are.equal("entity/beacon", beacon.sprite)
     assert.are.equal(8, beacon.number) -- 8 per machine
-    assert.are.same({ "left", "right" }, beacon.mouse_button_filter) -- SPIKE: more than one configuration
+    assert.are.same({ "left", "right" }, beacon.mouse_button_filter) -- more than one configuration
     assert.are.equal("beacon", beacon.tags.what)
     assert.are.equal(machine.tags.entry, beacon.tags.entry)
     local tooltip = fake_game.flatten(beacon.tooltip)
@@ -341,6 +341,24 @@ describe("scripts/gui.lua", function()
     end))
     -- A row without a beacon has an empty cell there.
     assert.are.equal("empty-widget", furnace[4].type)
+  end)
+
+  it("draws a row with one beacon configuration as a plain slot: no +N label, left click only", function()
+    local snapshot = support.json_to_table(fixture_text("seablock-groups"))
+    for _, block in ipairs(snapshot.blocks) do
+      for _, row in ipairs(block.rows) do
+        if row.recipe == "copper-cable" then
+          row.beacons = { row.beacons[1] }
+        end
+      end
+    end
+    local _, window = show(snapshot, { level = GROUP .. "Plates and cables" })
+    local cell = line_named(window, "[recipe=copper-cable]")[4]
+    assert.are.equal("beacon", cell.tags.what)
+    assert.are.same({ "left" }, cell.mouse_button_filter)
+    assert.are.equal(0, #fake_game.find(window, function(e)
+      return e.type == "label" and e.caption == "+2"
+    end))
   end)
 
   it("numbers the beacon icon with the beacons per machine, not the row's total", function()
@@ -1442,8 +1460,8 @@ describe("control.lua", function()
       assert.are.equal(0, fake.inventories_open)
     end)
 
-    -- SPIKE (beacon configurations): the "+N" label and the expansion under the slot.
-    -- Every row with a beacon gets two simulated extra configurations (view-model).
+    -- The beacon configurations: the "+N" label and the expansion under the slot. The
+    -- cable row of the fixture holds three (8 x speed 2, 4 x speed + efficiency, 2 x speed 2).
     describe("the beacon configurations", function()
       local function copper()
         return line_named(window, "[recipe=copper-cable]")[4]
@@ -1486,10 +1504,11 @@ describe("control.lua", function()
         -- Every slot of the row takes right clicks, and the tooltip now offers to hide.
         assert.are.same({ "left", "right" }, slots[3].mouse_button_filter)
         assert.is_truthy(string.find(fake_game.flatten(slots[1].tooltip), "tt-beacon-more-hide", 1, true))
-        -- The extras say they are simulated; the real configuration does not.
-        assert.is_nil(string.find(fake_game.flatten(slots[1].tooltip), "tt-beacon-simulated", 1, true))
-        assert.is_truthy(string.find(fake_game.flatten(slots[2].tooltip), "tt-beacon-simulated", 1, true))
-        assert.are.equal(9, slots[2].number) -- 8 + 1 per machine
+        assert.are.same({ 8, 4, 2 }, { slots[1].number, slots[2].number, slots[3].number })
+        -- The mixed configuration lists both its modules.
+        local mixed = fake_game.flatten(slots[2].tooltip)
+        assert.is_truthy(string.find(mixed, "{fp-viewer.tt-module|1|[item=speed-module]", 1, true))
+        assert.is_truthy(string.find(mixed, "{fp-viewer.tt-module|1|[item=efficiency-module]", 1, true))
         right_click(slots[3])
         assert.are.equal(1, #buttons(copper()))
       end)
@@ -1499,6 +1518,15 @@ describe("control.lua", function()
         click(buttons(copper())[1])
         assert.are.equal("beacon", call("set_blueprint_entities")[2][1].name)
         assert.are.equal(1, #buttons(copper()))
+      end)
+
+      it("puts the mixed configuration in the cursor with both its modules", function()
+        open_group("Plates and cables")
+        right_click(buttons(copper())[1])
+        click(buttons(copper())[2])
+        local entity = call("set_blueprint_entities")[2][1]
+        assert.are.equal("beacon", entity.name)
+        assert.are.same({ "speed-module", "efficiency-module" }, { entity.items[1].id.name, entity.items[2].id.name })
       end)
 
       it("keeps a row open through a redraw, and puts the clicked configuration in the cursor", function()

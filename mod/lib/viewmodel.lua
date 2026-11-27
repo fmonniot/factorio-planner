@@ -48,11 +48,11 @@
 --   solved,                                          -- machines, machines_ceil or throughput present
 --   inputs = { ref }, outputs = { ref },             -- items/min; {} when none
 --   modules = { { id, count, sprite, rich, missing } },   -- the machine's own
---   beacons = { beacon },                           -- SPIKE: every beacon configuration of the row; {} when none
---   beacon = nil | { id, sprite, rich, missing,     -- the first of `beacons` (kept: blueprint and tests read it)
---                    per_machine,                    -- beacons per machine
---                    total,                          -- per_machine * machines_ceil; nil without machines_ceil
---                    modules = { module } },         -- the module each beacon holds, same shape as above
+--   beacons = { beacon },                           -- every beacon configuration, in plan order; {} when none
+--   -- beacon = { id, sprite, rich, missing,
+--   --            per_machine,                         -- beacons per machine
+--   --            total,                               -- per_machine * machines_ceil; nil without machines_ceil
+--   --            modules = { module } },              -- the modules of one beacon, same shape as above
 -- }
 --
 -- ref = { id, type, rate, sprite, rich, missing }; a `virtual` ref (electricity, heat)
@@ -135,33 +135,21 @@ function M.build(snapshot, opts)
     }
   end
 
-  -- SPIKE (beacon configurations). Motivation: the snapshot carries only the row's
-  -- first beacon configuration (`r.beacon`), but the web planner lets a row hold
-  -- several, and the mod's UI for that (a "+N" badge on the slot that expands the
-  -- other configurations under it) has to be tried in the game before the snapshot
-  -- schema, the contract, the bridge fixtures and the mod's receiver are changed.
-  -- So, with no wire change, every row that has a beacon is given
-  -- SPIKE_EXTRA_CONFIGS invented configurations next to the real one, so the badge
-  -- and the expansion can be exercised on any plan. They are marked `simulated` (the
-  -- tooltip says so) and differ in their count so they can be told apart.
-  -- To end the spike: delete this constant and `simulated_configs`, and fill
-  -- `out.beacons` from the snapshot's real `beacons` list; `gui.lua` and `cursor.lua`
-  -- already read `row.beacons` only.
-  local SPIKE_EXTRA_CONFIGS = 2
-
-  local function simulated_configs(first)
-    local list = { first }
-    for i = 1, SPIKE_EXTRA_CONFIGS do
-      local copy = {}
-      for k, v in pairs(first) do
-        copy[k] = v
-      end
-      copy.per_machine = first.per_machine + i
-      copy.total = first.total ~= nil and (copy.per_machine * (first.total / first.per_machine)) or nil
-      copy.simulated = true
-      list[#list + 1] = copy
+  -- One beacon configuration of a row; `machines_ceil` (may be nil) gives the total.
+  local function beacon_of(b, machines_ceil)
+    local modules = {}
+    for i, m in ipairs(b.modules) do
+      modules[i] = module(m.id, m.count)
     end
-    return list
+    return {
+      id = b.id,
+      sprite = "entity/" .. b.id,
+      rich = "[entity=" .. b.id .. "]",
+      missing = is_missing("machine", b.id),
+      per_machine = b.count,
+      total = machines_ceil ~= nil and (b.count * machines_ceil) or nil,
+      modules = modules,
+    }
   end
 
   local function row(r, key)
@@ -183,20 +171,9 @@ function M.build(snapshot, opts)
     for i, m in ipairs(r.modules or {}) do
       out.modules[i] = module(m.id, m.count)
     end
-    local b = r.beacon
-    if b then
-      out.beacon = {
-        id = b.id,
-        sprite = "entity/" .. b.id,
-        rich = "[entity=" .. b.id .. "]",
-        missing = is_missing("machine", b.id),
-        per_machine = b.count,
-        total = r.machinesCeil ~= nil and (b.count * r.machinesCeil) or nil,
-        modules = b.modules > 0 and { module(b.module, b.modules) } or {},
-      }
-      out.beacons = simulated_configs(out.beacon) -- SPIKE, see simulated_configs
-    else
-      out.beacons = {}
+    out.beacons = {}
+    for i, b in ipairs(r.beacons or {}) do
+      out.beacons[i] = beacon_of(b, r.machinesCeil)
     end
     if r.recipe then
       out.kind = "recipe"
@@ -328,7 +305,7 @@ function M.build(snapshot, opts)
       local base = row_identity(r)
       local key_j = unique(row_keys, gi and (groups[gi].path .. SEP .. base) or base)
       rows[j] = row(r, key_j)
-      has_beacon = has_beacon or r.beacon ~= nil
+      has_beacon = has_beacon or #rows[j].beacons > 0
 
       -- The sub-factories above this row, outermost first.
       local chain = {}

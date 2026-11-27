@@ -90,17 +90,17 @@ local TAG_KINDS = {
 -- The tags of a checkbox, a machine button, a beacon button or a sub-factory's
 -- icon (the button that opens it).
 --
--- SPIKE: `config` (optional) is which of the row's beacon configurations a beacon
--- button stands for (1-based, an index into row.beacons). A row now has several
--- beacon slots, and the click handler cannot tell them apart from block and entry
--- alone. Left out (nil) it means the first, which is what every pre-spike caller got.
+-- `config` (optional) is which of the row's beacon configurations a beacon
+-- button stands for (1-based, an index into row.beacons). A row has one beacon slot
+-- per configuration, and the click handler cannot tell them apart from block and
+-- entry alone. Left out (nil) it means the first.
 function M.tags(block_key, entry_key, what, config)
   return { block = block_key, entry = entry_key, what = what, config = config }
 end
 
 -- block_key, entry_key, what, config of an element's tags, or nil when they are not
 -- ours (no tags, wrong types, an unknown `what`, or a missing entry key). `config`
--- is nil unless the tags carry a number (SPIKE, see M.tags).
+-- is nil unless the tags carry a number (see M.tags).
 function M.parse_tags(tags)
   if
     type(tags) ~= "table"

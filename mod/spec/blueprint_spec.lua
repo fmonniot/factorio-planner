@@ -205,7 +205,7 @@ describe("blueprint.for_beacon", function()
     for k, v in pairs(fields or {}) do
       beacon[k] = v
     end
-    return row({ beacon = beacon })
+    return row({ beacons = { beacon } })
   end
   local function beacon_info(fields)
     local i = info({ type = "beacon", place_item = "beacon" })
@@ -245,6 +245,28 @@ describe("blueprint.for_beacon", function()
     assert.are.equal("blueprint", blueprint.for_beacon(r, beacon_info()).kind)
   end)
 
+  it("uses the chosen configuration, and the first without one", function()
+    local r = beacon_row()
+    r.beacons[2] = { id = "beacon", missing = false, per_machine = 4, total = 4, modules = { module("efficiency-module", 1) } }
+    assert.are.equal("efficiency-module", blueprint.for_beacon(r, beacon_info(), r.beacons[2]).entities[1].items[1].id.name)
+    assert.are.equal("speed-module", blueprint.for_beacon(r, beacon_info()).entities[1].items[1].id.name)
+  end)
+
+  it("puts every module of a beacon with mixed modules in the blueprint, in consecutive stack positions", function()
+    local r = beacon_row({ modules = { module("speed-module", 1), module("efficiency-module", 1) } })
+    local items = blueprint.for_beacon(r, beacon_info()).entities[1].items
+    assert.are.equal(2, #items)
+    assert.are.same({ { inventory = 7, stack = 0 } }, items[1].items.in_inventory)
+    assert.are.same({ { inventory = 7, stack = 1 } }, items[2].items.in_inventory)
+  end)
+
+  it("refuses only the configuration whose module the game lacks", function()
+    local r = beacon_row()
+    r.beacons[2] = { id = "beacon", missing = false, per_machine = 4, total = 4, modules = { module("gone", 1, true) } }
+    assert.are.equal("unknown-module", refusal(blueprint.for_beacon(r, beacon_info(), r.beacons[2])))
+    assert.are.equal("blueprint", blueprint.for_beacon(r, beacon_info(), r.beacons[1]).kind)
+  end)
+
   it("refuses a row with no beacon", function()
     assert.are.equal("no-machine", refusal(blueprint.for_beacon(row(), beacon_info())))
   end)
@@ -280,6 +302,13 @@ describe("blueprint on rows from the view-model", function()
     local result = blueprint.for_beacon(r, info({ type = "beacon", place_item = "beacon" }))
     assert.are.equal("beacon", result.entities[1].name)
     assert.are.equal(7, result.entities[1].items[1].items.in_inventory[1].inventory)
+    assert.are.equal(2, #result.entities[1].items[1].items.in_inventory)
+  end)
+
+  it("builds the second beacon configuration of the cable row, a speed and an efficiency module", function()
+    local r = block().by_key["Plates and cables" .. SEP .. "copper-cable"].row
+    local result = blueprint.for_beacon(r, info({ type = "beacon", place_item = "beacon" }), r.beacons[2])
+    assert.are.same({ "speed-module", "efficiency-module" }, { result.entities[1].items[1].id.name, result.entities[1].items[2].id.name })
   end)
 
   it("puts a generator row in the cursor as a ghost", function()

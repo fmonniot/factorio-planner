@@ -539,7 +539,7 @@ local function machine_cell(t, block, entry, gray)
   })
 end
 
--- SPIKE (beacon configurations). What and why, for whoever picks this up cold:
+-- Beacon configurations. What and why, for whoever picks this up cold:
 --
 -- A row can hold several beacon configurations (the web planner shows a lavender
 -- "+N" chip), but the beacon column is one slot wide, and a horizontal run of
@@ -558,12 +558,6 @@ end
 --     added, so the stripes stay in step). The tooltips say so;
 --   * which rows are open is per player and lives in `storage` (control.lua), so
 --     it survives the redraws a new snapshot causes.
--- What to judge in the game: does the label read over the icon, is a right click
--- found without being told (the tooltip is the only hint), does the row growing
--- while open feel fine, is the hidden-by-default list too easy to forget when
--- building a row. Not verified without the game: the overlay (negative margins in
--- a fixed-size holder), `ignored_by_interaction` and the `count_label` look are
--- the parts most likely to need a touch-up.
 
 -- The tooltip lines of one beacon configuration: its name, how many per machine
 -- and in all, its modules.
@@ -576,9 +570,6 @@ local function beacon_parts(beacon)
     parts[#parts + 1] = { "", "\n", { key("tt-beacons-total"), format.tooltip_number(beacon.total) } }
   end
   module_lines(parts, beacon.modules)
-  if beacon.simulated then
-    parts[#parts + 1] = { "", "\n", { key("tt-beacon-simulated") } }
-  end
   return parts
 end
 
@@ -784,7 +775,7 @@ end
 
 -- `entries` are the lines of the level shown: the block's top level or a
 -- sub-factory's own lines.
--- `expanded` (SPIKE, see beacon_cell) is the set of the rows whose extra beacon
+-- `expanded` (see beacon_cell) is the set of the rows whose extra beacon
 -- configurations are shown: [block key .. "\31" .. entry key] = true.
 local function fill_table(scroll, block, entries, done, window_width, unit, expanded)
   scroll.clear()

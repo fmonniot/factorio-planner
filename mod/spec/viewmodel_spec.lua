@@ -134,6 +134,7 @@ describe("viewmodel.build", function()
     assert.are.equal("item/iron-plate", row.inputs[1].sprite)
     assert.are.same({ "iron-gear-wheel=60" }, ids(row.outputs))
     assert.are.same({}, row.modules)
+    assert.are.same({}, row.beacons)
     assert.is_nil(row.beacon)
     assert.is_false(block.has_beacon)
     assert.are.same({}, vm.missing)
@@ -268,47 +269,72 @@ describe("viewmodel.build", function()
         { id = "speed-module", count = 2, sprite = "item/speed-module", rich = "[item=speed-module]", missing = false },
         furnace.modules[1]
       )
-      assert.is_nil(furnace.beacon)
+      assert.are.same({}, furnace.beacons)
     end)
 
-    it("gives a row its beacon, with the total count and the module each holds", function()
+    it("gives a row every beacon configuration, in order, with the total count and the modules each holds", function()
       local block = groups_block()
       local cable = block.by_key["Plates and cables" .. SEP .. "copper-cable"].row
-      local beacon = cable.beacon
-      assert.are.equal("beacon", beacon.id)
-      assert.are.equal("entity/beacon", beacon.sprite)
-      assert.are.equal("[entity=beacon]", beacon.rich)
-      assert.are.equal(8, beacon.per_machine)
-      assert.are.equal(8, beacon.total) -- 8 per machine, 1 machine rounded up
+      assert.is_nil(cable.beacon)
+      assert.are.equal(3, #cable.beacons)
+      local first = cable.beacons[1]
+      assert.are.equal("beacon", first.id)
+      assert.are.equal("entity/beacon", first.sprite)
+      assert.are.equal("[entity=beacon]", first.rich)
+      assert.are.equal(8, first.per_machine)
+      assert.are.equal(8, first.total) -- 8 per machine, 1 machine rounded up
       assert.are.same({
         { id = "speed-module", count = 2, sprite = "item/speed-module", rich = "[item=speed-module]", missing = false },
-      }, beacon.modules)
+      }, first.modules)
+      assert.are.same({ 8, 4, 2 }, { cable.beacons[1].per_machine, cable.beacons[2].per_machine, cable.beacons[3].per_machine })
+      assert.are.same({ 8, 4, 2 }, { cable.beacons[1].total, cable.beacons[2].total, cable.beacons[3].total })
+      assert.is_nil(first.simulated)
       assert.is_true(block.has_beacon)
+    end)
+
+    it("gives a beacon with mixed modules one entry per module", function()
+      local mixed = groups_block().by_key["Plates and cables" .. SEP .. "copper-cable"].row.beacons[2]
+      assert.are.same({
+        { id = "speed-module", count = 1, sprite = "item/speed-module", rich = "[item=speed-module]", missing = false },
+        { id = "efficiency-module", count = 1, sprite = "item/efficiency-module", rich = "[item=efficiency-module]", missing = false },
+      }, mixed.modules)
     end)
 
     it("multiplies by the rounded-up machine count, and has no total without one", function()
       local s = one_block({
-        { recipe = "a", machinesCeil = 3, beacon = { id = "beacon", count = 4, module = "speed-module", modules = 2 } },
-        { recipe = "b", beacon = { id = "beacon", count = 4, module = "speed-module", modules = 0 } },
+        { recipe = "a", machinesCeil = 3, beacons = { { id = "beacon", count = 4, modules = { { id = "speed-module", count = 2 } } } } },
+        { recipe = "b", beacons = { { id = "beacon", count = 4, modules = {} } } },
       })
       local rows = viewmodel.build(s).blocks[1].rows
-      assert.are.equal(12, rows[1].beacon.total)
-      assert.are.equal(4, rows[2].beacon.per_machine)
-      assert.is_nil(rows[2].beacon.total)
-      assert.are.same({}, rows[2].beacon.modules)
+      assert.are.equal(12, rows[1].beacons[1].total)
+      assert.are.equal(4, rows[2].beacons[1].per_machine)
+      assert.is_nil(rows[2].beacons[1].total)
+      assert.are.same({}, rows[2].beacons[1].modules)
     end)
 
-    it("flags a module, a beacon and an item rate the game lacks", function()
+    it("flags a module, a beacon and an item rate the game lacks, per configuration", function()
       local s = fixture("seablock-groups")
       local _, missing = snapshot.find_missing(s, support.exists_except({ ["speed-module"] = true, beacon = true, ["copper-plate"] = true }))
       local block = viewmodel.build(s, { missing = missing }).blocks[1]
       local furnace = block.by_key["Plates and cables" .. SEP .. "sb-iron-plate-from-ore"].row
       local cable = block.by_key["Plates and cables" .. SEP .. "copper-cable"].row
       assert.is_true(furnace.modules[1].missing)
-      assert.is_true(cable.beacon.missing)
-      assert.is_true(cable.beacon.modules[1].missing)
+      for i = 1, 3 do
+        assert.is_true(cable.beacons[i].missing, "beacon " .. i)
+        assert.is_true(cable.beacons[i].modules[1].missing, "module " .. i)
+      end
+      assert.is_false(cable.beacons[2].modules[2].missing)
       assert.is_true(cable.inputs[1].missing)
       assert.is_false(cable.outputs[1].missing)
+    end)
+
+    it("flags only the configuration whose module the game lacks", function()
+      local s = fixture("seablock-groups")
+      local _, missing = snapshot.find_missing(s, support.exists_except({ ["efficiency-module"] = true }))
+      local cable = viewmodel.build(s, { missing = missing }).blocks[1].by_key["Plates and cables" .. SEP .. "copper-cable"].row
+      assert.is_false(cable.beacons[1].modules[1].missing)
+      assert.is_true(cable.beacons[2].modules[2].missing)
+      assert.is_false(cable.beacons[3].modules[1].missing)
     end)
 
     it("says a block has no beacon when no row does", function()

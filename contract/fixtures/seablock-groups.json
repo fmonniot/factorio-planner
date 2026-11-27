@@ -128,7 +128,7 @@
           "recipe": "copper-cable",
           "machine": "bob-assembling-machine-6",
           "group": 0,
-          "machines": 0.025,
+          "machines": 0.017,
           "machinesCeil": 1,
           "throughput": 60,
           "inputs": [
@@ -146,12 +146,42 @@
               "primary": true
             }
           ],
-          "beacon": {
-            "id": "beacon",
-            "count": 8,
-            "module": "speed-module",
-            "modules": 2
-          }
+          "beacons": [
+            {
+              "id": "beacon",
+              "count": 8,
+              "modules": [
+                {
+                  "id": "speed-module",
+                  "count": 2
+                }
+              ]
+            },
+            {
+              "id": "beacon",
+              "count": 4,
+              "modules": [
+                {
+                  "id": "speed-module",
+                  "count": 1
+                },
+                {
+                  "id": "efficiency-module",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "beacon",
+              "count": 2,
+              "modules": [
+                {
+                  "id": "speed-module",
+                  "count": 2
+                }
+              ]
+            }
+          ]
         },
         {
           "recipe": "pipe",

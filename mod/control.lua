@@ -65,7 +65,7 @@ local function toggle_unit(player_index)
   s.unit[player_index] = unit_for(player_index) == "sec" and "min" or "sec"
 end
 
--- SPIKE (beacon configurations, see scripts/gui.lua beacon_cell): which rows of
+-- Beacon configurations (see scripts/gui.lua beacon_cell): which rows of
 -- which player show their extra beacon configurations, expanded[player_index]
 -- [block key .. "\31" .. row key] = true. Per player because the window is, and in
 -- `storage` (not in the GUI) because a new snapshot redraws the whole table, which
@@ -238,7 +238,7 @@ local function context(player, indicator, model, extra)
     level = level,
     done = done(),
     unit = unit_for(player.index),
-    expanded = expanded_for(player.index), -- SPIKE
+    expanded = expanded_for(player.index),
   }
   for k, v in pairs(extra or {}) do
     ctx[k] = v
@@ -416,7 +416,7 @@ script.on_event(defines.events.on_gui_click, function(event)
       return
     end
     if what == format.TAG_BEACON and event.button == defines.mouse_button_type.right then
-      -- SPIKE: a right click on a beacon slot shows or hides the row's other beacon
+      -- A right click on a beacon slot shows or hides the row's other beacon
       -- configurations (the "+N" label is not clickable, the slot takes the click);
       -- the scroll position stays (only_table, no reset_scroll). A single-
       -- configuration slot does not take right clicks (its filter is left only).
@@ -430,7 +430,7 @@ script.on_event(defines.events.on_gui_click, function(event)
     if entry == nil or entry.type ~= "row" or (what ~= format.TAG_MACHINE and what ~= format.TAG_BEACON) then
       return
     end
-    -- SPIKE: a beacon slot carries which of the row's configurations it stands for.
+    -- A beacon slot carries which of the row's configurations it stands for.
     local _, _, _, config = format.parse_tags(element.tags)
     local ok, err = pcall(cursor.place, player, entry.row, what, config)
     if not ok then
@@ -506,6 +506,6 @@ script.on_event(defines.events.on_player_removed, function(event)
     s.unit[event.player_index] = nil
   end
   if s.expanded then
-    s.expanded[event.player_index] = nil -- SPIKE
+    s.expanded[event.player_index] = nil
   end
 end)

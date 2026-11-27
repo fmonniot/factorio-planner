@@ -1,13 +1,13 @@
 import { ELECTRICITY_ITEM_ID, HEAT_ITEM_ID, isEnergyItem } from '../data/electricity'
 import { applyDefaultMachineOverrides, computeHorizon, resolveRowMachine } from '../data/horizon'
 import { syntheticRecipeKind } from '../data/syntheticRecipes'
-import { mostUsedModuleCount } from '../data/mostUsedModule'
 import { dedicatedProduct } from '../solver/areas'
 import type {
   AppState,
   Block,
   GameData,
   GameRecipeNode,
+  ModuleConfig,
   MultiBlockSolve,
   PlanDataSetStamp,
   SolvedNode,
@@ -73,24 +73,36 @@ function outputRates(rates: Record<string, number>, ref: (id: string) => Snapsho
   return itemRates(rates, ref).map(r => (r.id === dedicated ? { ...r, primary: true as const } : r))
 }
 
-/** The keys of a row that come from the plan's node: its machine modules and its first sendable beacon, each left out when there is nothing to place. */
-function nodeValues(node: GameRecipeNode, beacons: GameData['beacons']): { modules?: SnapshotModule[]; beacon?: SnapshotBeacon } {
-  const modules = node.modules.filter(m => m.moduleId !== '').map(m => ({ id: m.moduleId, count: m.count }))
-  // The wire format carries one beacon: the first configuration that has something to place. Its slots hold
-  // one module in the wire shape, so a beacon with mixed slots is sent as the module most of them hold (`mostUsedModuleCount`, the tie rule of the table's chips).
-  let beacon: SnapshotBeacon | undefined
-  for (const c of node.beaconConfigs ?? []) {
-    if (!c.beaconId || c.beaconCount <= 0) continue
-    const best = mostUsedModuleCount(c.modules.filter(m => m.moduleId !== '' && m.count > 0))
-    if (!best) continue
-    // The wire count cannot exceed the beacon's slots: a list that overflows them (a hand-edited plan) still places a valid blueprint.
-    const slots = beacons[c.beaconId]?.moduleSlots ?? c.modulesPerBeacon
-    beacon = { id: c.beaconId, count: c.beaconCount, module: best[0], modules: slots > 0 ? Math.min(best[1], slots) : best[1] }
-    break
+/**
+ * A beacon's modules for the wire: repeated ids merged (first appearance order), empty ids and counts
+ * of zero or less dropped, the total capped at the beacon's slots by truncating in order (a list that
+ * overflows them, as in a hand-edited plan, still places a valid blueprint). `slots` <= 0 means no cap.
+ */
+function beaconModules(modules: readonly ModuleConfig[], slots: number): SnapshotModule[] {
+  const counts = new Map<string, number>()
+  for (const m of modules) if (m.moduleId !== '' && m.count > 0) counts.set(m.moduleId, (counts.get(m.moduleId) ?? 0) + m.count)
+  let room = slots > 0 ? slots : Infinity
+  const out: SnapshotModule[] = []
+  for (const [id, count] of counts) {
+    const n = Math.min(count, room)
+    if (n <= 0) break
+    out.push({ id, count: n })
+    room -= n
   }
+  return out
+}
+
+/** The keys of a row that come from the plan's node: its machine modules and its beacon configurations that have something to place (in plan order), each left out when there is nothing to place. */
+function nodeValues(node: GameRecipeNode, beacons: GameData['beacons']): { modules?: SnapshotModule[]; beacons?: SnapshotBeacon[] } {
+  const modules = node.modules.filter(m => m.moduleId !== '').map(m => ({ id: m.moduleId, count: m.count }))
+  const list = (node.beaconConfigs ?? []).flatMap((c): SnapshotBeacon[] => {
+    if (!c.beaconId || c.beaconCount <= 0) return []
+    const mods = beaconModules(c.modules, beacons[c.beaconId]?.moduleSlots ?? c.modulesPerBeacon)
+    return mods.length > 0 ? [{ id: c.beaconId, count: c.beaconCount, modules: mods }] : []
+  })
   return {
     ...(modules.length > 0 ? { modules } : {}),
-    ...(beacon ? { beacon } : {}),
+    ...(list.length > 0 ? { beacons: list } : {}),
   }
 }
 

@@ -475,70 +475,77 @@ describe('projectSnapshot', () => {
       expect('modules' in rowOf(rowNode('n1', 'smelt'))).toBe(false)
     })
 
-    it('sends the beacon entity, how many per machine, and the module and how many of it each holds', () => {
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [beacon()] }))).toMatchObject({
-        beacon: { id: 'beacon', count: 8, module: 'speed-module', modules: 2 },
-      })
+    const beaconsOf = (...configs: ReturnType<typeof beacon>[]) => rowOf(richNode('n1', 'smelt', { beaconConfigs: configs })).beacons
+    const speed = (count: number) => ({ moduleId: 'speed-module', count })
+    const eff = (count: number) => ({ moduleId: 'efficiency-module', count })
+
+    it('sends the beacon entity, how many per machine, and its modules', () => {
+      expect(beaconsOf(beacon())).toEqual([{ id: 'beacon', count: 8, modules: [{ id: 'speed-module', count: 2 }] }])
     })
 
-    it('sends no beacon for a config without a beacon id (made without beacon data)', () => {
-      const noId = { modules: [{ moduleId: 'speed-module', count: 2 }], beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
-      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [noId] }))).toBe(false)
+    it('leaves the key out when there is no beacon to send', () => {
+      expect('beacons' in rowOf(rowNode('n1', 'smelt'))).toBe(false)
     })
 
-    it('sends no beacon for a config without a module (nothing to place in it)', () => {
-      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [{ ...beacon(), modules: [] }] }))).toBe(false)
+    it('skips a config without a beacon id (made without beacon data)', () => {
+      const noId = { modules: [speed(2)], beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
+      expect('beacons' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [noId] }))).toBe(false)
+    })
+
+    it('skips a config without a module, with only an empty-id module, or with a count of 0', () => {
+      for (const c of [{ ...beacon(), modules: [] }, { ...beacon(), modules: [{ moduleId: '', count: 1 }] }, { ...beacon(), beaconCount: 0 }]) {
+        expect('beacons' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [c] }))).toBe(false)
+      }
+    })
+
+    it('leaves the key out for an empty list', () => {
+      expect('beacons' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [] }))).toBe(false)
+    })
+
+    it('sends every configuration in plan order', () => {
+      expect(beaconsOf({ ...beacon(), beaconCount: 3 }, beacon(), { ...beacon(), beaconCount: 2 })?.map(b => b.count)).toEqual([3, 8, 2])
+    })
+
+    it('leaves no hole for a skipped configuration', () => {
+      const noModule = { ...beacon(), modules: [] }
+      expect(beaconsOf(noModule, beacon(), { ...beacon(), beaconCount: 2 })?.map(b => b.count)).toEqual([8, 2])
+    })
+
+    it('sends every module of a beacon with mixed modules', () => {
+      expect(beaconsOf({ ...beacon(), modulesPerBeacon: 3, modules: [speed(1), eff(2)] })?.[0].modules).toEqual([{ id: 'speed-module', count: 1 }, { id: 'efficiency-module', count: 2 }])
     })
 
     it('sends the real count of a partly filled beacon', () => {
-      const half = { ...beacon(), modules: [{ moduleId: 'speed-module', count: 1 }] }
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [half] }))).toMatchObject({ beacon: { module: 'speed-module', modules: 1 } })
+      expect(beaconsOf({ ...beacon(), modules: [speed(1)] })?.[0].modules).toEqual([{ id: 'speed-module', count: 1 }])
     })
 
-    it('sends only the module most slots hold for a beacon with mixed modules', () => {
-      const mixed = { ...beacon(), modules: [{ moduleId: 'speed-module', count: 1 }, { moduleId: 'efficiency-module', count: 2 }] }
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [mixed] }))).toMatchObject({ beacon: { module: 'efficiency-module', modules: 2 } })
+    it('caps the modules at the slots of the beacon', () => {
+      expect(beaconsOf({ ...beacon(), modulesPerBeacon: 1, modules: [speed(2)] })?.[0].modules).toEqual([{ id: 'speed-module', count: 1 }])
     })
 
-    it('sends the lowest module id on a tie, as the table chips show it', () => {
-      const tie = { ...beacon(), modules: [{ moduleId: 'speed-module', count: 1 }, { moduleId: 'efficiency-module', count: 1 }] }
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [tie] }))).toMatchObject({ beacon: { module: 'efficiency-module', modules: 1 } })
+    it('caps at the slots of a beacon the data set has, over the config\'s own count', () => {
+      const gd = makeGameData()
+      gd.beacons = { beacon: { id: 'beacon', name: 'beacon', iconPath: '', hidden: false, moduleSlots: 1, distributionEfficiency: 1.5, allowedEffects: [] } }
+      const node = richNode('n1', 'smelt', { beaconConfigs: [{ ...beacon(), modulesPerBeacon: 4, modules: [speed(2)] }] })
+      const root = plan('root', 'Main', [node])
+      const snap = projectSnapshot(stateOf([makeBlock('a', { rootPlan: root })]), solveOf(), gd, stamp)
+      expect(snap.blocks[0].rows[0]).toMatchObject({ beacons: [{ modules: [{ id: 'speed-module', count: 1 }] }] })
     })
 
-    it('caps the count at the slots of the beacon', () => {
-      const over = { ...beacon(), modulesPerBeacon: 1, modules: [{ moduleId: 'speed-module', count: 2 }] }
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [over] }))).toMatchObject({ beacon: { module: 'speed-module', modules: 1 } })
+    it('truncates a mixed overflow in order', () => {
+      const two = { ...beacon(), modulesPerBeacon: 2, modules: [speed(1), eff(2)] }
+      expect(beaconsOf(two)?.[0].modules).toEqual([{ id: 'speed-module', count: 1 }, { id: 'efficiency-module', count: 1 }])
     })
 
-    it('does not send a configuration whose only module has an empty id', () => {
-      const blank = { ...beacon(), modules: [{ moduleId: '', count: 1 }] }
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [blank, { ...beacon(), beaconCount: 3 }] })))
-        .toMatchObject({ beacon: { count: 3 } })
-    })
-
-    it('sends the first sendable configuration, not literally the first', () => {
-      const noModule = { ...beacon(), modules: [] }
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [noModule, beacon(), { ...beacon(), beaconCount: 2 }] })))
-        .toMatchObject({ beacon: { count: 8 } })
-    })
-
-    it('sends the first of several valid configurations', () => {
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [{ ...beacon(), beaconCount: 3 }, beacon()] })))
-        .toMatchObject({ beacon: { count: 3 } })
-    })
-
-    it('sends no beacon for an empty list', () => {
-      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [] }))).toBe(false)
+    it('merges repeated module ids and drops empty ones', () => {
+      expect(beaconsOf({ ...beacon(), modules: [speed(1), speed(1)] })?.[0].modules).toEqual([{ id: 'speed-module', count: 2 }])
+      expect(beaconsOf({ ...beacon(), modules: [{ moduleId: '', count: 1 }, speed(1)] })?.[0].modules).toEqual([{ id: 'speed-module', count: 1 }])
     })
 
     it('skips a machine module slot with an empty module id', () => {
       const row = rowOf(richNode('n1', 'smelt', { modules: [{ moduleId: '', count: 2 }, { moduleId: 'speed-module', count: 1 }] }))
       expect(row.modules).toEqual([{ id: 'speed-module', count: 1 }])
       expect('modules' in rowOf(richNode('n1', 'smelt', { modules: [{ moduleId: '', count: 2 }] }))).toBe(false)
-    })
-
-    it('sends no beacon for a count of 0', () => {
-      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [{ ...beacon(), beaconCount: 0 }] }))).toBe(false)
     })
   })
 
