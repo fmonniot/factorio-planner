@@ -2,7 +2,7 @@ name: Bridge
 
 # The in-game viewer's bridge (bridge/): a Cargo workspace, checked apart from the planner's jobs in test.yml.
 # The toolchains are pinned, so that a new stable release with a new lint cannot break unrelated pull requests;
-# bump TOOLCHAIN deliberately, together with whatever clippy then asks for.
+# bump RUST_TOOLCHAIN deliberately, together with whatever clippy then asks for.
 on:
   pull_request:
   # Also run on main so its cache exists for pull requests, which can only read caches from their base branch.
@@ -10,7 +10,7 @@ on:
     branches: [main]
 
 env:
-  TOOLCHAIN: 1.98.1
+  RUST_TOOLCHAIN: 1.98.1
   # Must equal rust-version in bridge/Cargo.toml.
   MSRV: 1.90.0
 
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ env.TOOLCHAIN }}
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
