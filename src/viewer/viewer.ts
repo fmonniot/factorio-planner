@@ -4,6 +4,7 @@ import { dataSetName } from '../store/dataSets'
 import { selectAppState, useBlockStore } from '../store/blockStore'
 import { selectGameData, useGameDataStore } from '../store/gameDataStore'
 import { makeDataSetStamp } from '../store/persistence'
+import { selectNoPlan, usePlansStore } from '../store/plansStore'
 import { useSolverStore } from '../store/solverStore'
 import { useUiStore } from '../store/uiStore'
 import { badgeFor, type ConnectionState } from './connection'
@@ -46,8 +47,8 @@ export function setViewerAutoSend(value: boolean): void {
 
 /**
  * Builds the snapshot of the latest solve and hands its id and bytes to the connection. Returns
- * early (and builds nothing) while the connection is off, while a solve is pending, or without
- * game data.
+ * early (and builds nothing) while the connection is off, while a solve is pending, without
+ * game data, or while no plan is open.
  */
 export async function publishLatestPlan(isCurrent: () => boolean): Promise<void> {
   if (viewer.getState().phase === 'off') return
@@ -55,6 +56,8 @@ export async function publishLatestPlan(isCurrent: () => boolean): Promise<void>
   const gameDataStatus = useGameDataStore.getState().status
   const solver = useSolverStore.getState()
   if (!gameData || gameDataStatus.type !== 'loaded') return
+  // With no plan open the block store only holds a placeholder; the game keeps the last plan it was sent.
+  if (selectNoPlan(usePlansStore.getState())) return
   if (solver.status.type === 'pending' || solver.status.type === 'idle') return
   if (Object.keys(solver.lastResults).length === 0) return
 

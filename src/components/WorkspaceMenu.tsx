@@ -476,6 +476,14 @@ export function WorkspaceMenu() {
     selectedValue, uploadedFilename, selectServerDataset, fileInputRef, openUploadPicker, handleUploadChange,
   } = useGameDataSource()
   const { startImport, dialog } = usePlanImport()
+  // The no-plan screen asks for an import here, since this hook owns the flow (file picker, warnings, errors).
+  const importRequest = useUiStore(s => s.planImportRequest)
+  useEffect(() => {
+    if (!importRequest) return
+    useUiStore.getState().clearPlanImportRequest()
+    startImport()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importRequest])
   const [troubleshooting, setTroubleshooting] = useState(false)
   const viewerName = useViewerTriggerName()
   const plans = usePlanSection()
@@ -483,10 +491,10 @@ export function WorkspaceMenu() {
   const defaultMachinesSignal = useUiStore(s => s.defaultMachinesRequest?.seq)
   const info = useMemo(() => (gameData ? gameDataInfo(gameData) : null), [gameData])
 
-  const topLine = plans.active?.name ?? 'Choose game data'
+  const topLine = plans.active?.name ?? (plans.noPlan ? 'No plan open' : 'Choose game data')
   const datasetLabel = DATASET_LABELS[selectedValue] ?? uploadedFilename
   const statusSuffix = status.type === 'loading' ? ', loading' : status.type === 'error' ? ', error loading data' : ''
-  const ariaLabel = (plans.active ? `Plan: ${plans.active.name}` : 'Choose game data') + statusSuffix + (viewerName ? `. ${viewerName}` : '')
+  const ariaLabel = (plans.active ? `Plan: ${plans.active.name}` : plans.noPlan ? 'No plan open' : 'Choose game data') + statusSuffix + (viewerName ? `. ${viewerName}` : '')
 
   return (
     <>
@@ -522,7 +530,7 @@ export function WorkspaceMenu() {
         {close => (
           <>
             {plans.renderItems(close)}
-            {plans.active && <div role="separator" className="my-1 border-t border-gray-700" />}
+            {(plans.active || plans.noPlan) && <div role="separator" className="my-1 border-t border-gray-700" />}
             <GameDataGroup
               close={close}
               selectedValue={selectedValue}
@@ -544,8 +552,9 @@ export function WorkspaceMenu() {
               type="button"
               role="menuitem"
               data-tip="Export plan as JSON"
+              disabled={plans.noPlan}
               tabIndex={-1}
-              className={ITEM_CLASS}
+              className={`${ITEM_CLASS} disabled:pointer-events-none`}
               onClick={() => { exportPlan(); close(true) }}
             >
               <DownloadIcon />Export plan

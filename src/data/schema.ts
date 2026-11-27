@@ -771,8 +771,11 @@ export const PlanDataSetStampSchema = z.object({
 /** One saved plan of a data set, as listed in its plan index. */
 export const PlanEntrySchema = z.object({ id: z.string().min(1), name: z.string() })
 
-/** The plans saved for one data set, and which of them is active. */
-export const PlanIndexSchema = z.object({ activePlanId: z.string(), plans: z.array(PlanEntrySchema) })
+/**
+ * The plans saved for one data set, and which of them is active. A data set whose last plan was deleted has no plan
+ * and no active one (`activePlanId` null); the two always go together.
+ */
+export const PlanIndexSchema = z.object({ activePlanId: z.string().nullable(), plans: z.array(PlanEntrySchema) })
 
 // ---------------------------------------------------------------------------
 // Canonical types — derived from the schema, not written by hand.

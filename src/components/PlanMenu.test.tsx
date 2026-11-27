@@ -116,9 +116,29 @@ describe('Plans section of the workspace menu', () => {
       await openMenu()
       await userEvent.click(screen.getByRole('menuitem', { name: 'Delete plan' }))
       expect(screen.getByRole('heading', { name: 'Delete plan "Plan 1"?' })).toBeInTheDocument()
-      expect(screen.getByText(/An empty plan replaces it\./)).toBeInTheDocument()
+      expect(screen.getByText(/This cannot be undone/)).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
       expect(planNames()).toEqual(['Plan 1'])
+    })
+
+    it('deleting the only plan leaves no plan, and the menu offers only a new plan', async () => {
+      activate()
+      render(<WorkspaceMenu />)
+      await openMenu()
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Delete plan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Delete plan' }))
+      expect(planNames()).toEqual([])
+      expect(screen.getByRole('button', { name: 'No plan open' })).toBeEnabled()
+      await userEvent.click(screen.getByRole('button', { name: 'No plan open' }))
+      expect(screen.queryByRole('group', { name: 'Plans' })).not.toBeInTheDocument()
+      expect(screen.getByText('No plan open', { selector: 'div' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'New plan' })).toBeEnabled()
+      for (const name of ['Rename plan', 'Duplicate plan', 'Delete plan', 'Export plan']) {
+        expect(screen.getByRole('menuitem', { name }), name).toBeDisabled()
+      }
+      expect(screen.getByRole('menuitem', { name: 'Import plan…' })).toBeEnabled()
+      await userEvent.click(screen.getByRole('menuitem', { name: 'New plan' }))
+      expect(screen.getByRole('button', { name: 'Plan: Plan 1' })).toBeInTheDocument()
     })
 
     it('deletes after confirmation', async () => {

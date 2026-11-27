@@ -1,7 +1,7 @@
 import { expect, type Download, type FileChooser, type Locator, type Page } from '@playwright/test'
 
 /** The workspace button: named after the active plan, or inviting a data set pick. */
-export const menuTrigger = (page: Page) => page.getByRole('button', { name: /^(Plan: |Choose game data)/ })
+export const menuTrigger = (page: Page) => page.getByRole('button', { name: /^(Plan: |Choose game data|No plan open)/ })
 export const appMenu = (page: Page) => page.getByRole('menu', { name: 'Plan and game data' })
 
 /** Open the workspace menu (no-op when already open) and return it. */
