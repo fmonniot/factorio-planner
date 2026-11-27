@@ -7,9 +7,11 @@ import sharp from 'sharp'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  // The desktop app (src-tauri/) serves dist/ from its own origin, at the root; the Tauri CLI sets TAURI_ENV_PLATFORM
-  // for the build it runs, so a build for the web keeps the GitHub Pages path.
+  // The desktop app (src-tauri/) serves its build from its own origin, at the root; the Tauri CLI sets
+  // TAURI_ENV_PLATFORM for the build it runs, so a build for the web keeps the GitHub Pages path. The two builds go to
+  // separate folders, so a desktop build never leaves dist/ with the wrong base for `npm run preview` or the e2e suite.
   base: mode === 'production' && !process.env.TAURI_ENV_PLATFORM ? '/factorio-planner/' : '/',
+  build: { outDir: process.env.TAURI_ENV_PLATFORM ? 'dist-desktop' : 'dist' },
   // Fixed: the bridge's default allowed origins assume it. Playwright overrides it with --port. The Rust folders are not
   // watched: cargo writes tens of thousands of files under their target/ on every build.
   server: { port: 4000, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/bridge/**'] } },

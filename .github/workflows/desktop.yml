@@ -1,6 +1,6 @@
 name: Desktop
 
-# The desktop wrapper (src-tauri/): a Tauri app that shows the planner built into dist/. This checks that the Rust side
+# The desktop wrapper (src-tauri/): a Tauri app that shows the planner built into dist-desktop/. This checks that the Rust side
 # formats, lints and compiles on Linux; the planner itself is checked by test.yml. The toolchain is pinned like bridge.yml's,
 # so a new stable release with a new lint cannot break unrelated pull requests; bump it together with RUST_TOOLCHAIN there.
 on:
@@ -35,6 +35,6 @@ jobs:
           workspaces: src-tauri
       # `tauri::generate_context!` embeds the folder named by `frontendDist` and fails when it is missing. A placeholder
       # page is enough to compile; the real build is `npm run tauri build`.
-      - run: mkdir -p ../dist && echo '<!doctype html>' > ../dist/index.html
+      - run: mkdir -p ../dist-desktop && echo '<!doctype html>' > ../dist-desktop/index.html
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings

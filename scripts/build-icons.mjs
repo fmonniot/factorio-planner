@@ -5,7 +5,8 @@ import { join } from 'node:path'
 import { cpus } from 'node:os'
 import sharp from 'sharp'
 
-const ROOT = 'dist/data'
+// The same folder vite.config.ts builds into: dist-desktop/ when the Tauri CLI runs the build.
+const ROOT = `${process.env.TAURI_ENV_PLATFORM ? 'dist-desktop' : 'dist'}/data`
 // Optimised icons are kept here by source-content hash, so an unchanged icon
 // is copied instead of re-encoded. CI persists this directory between runs.
 const CACHE_DIR = process.env.ICON_CACHE_DIR ?? '.cache/icons'
