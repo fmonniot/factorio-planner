@@ -537,6 +537,19 @@ describe('projectSnapshot', () => {
       expect(beaconsOf(two)?.[0].modules).toEqual([{ id: 'speed-module', count: 1 }, { id: 'efficiency-module', count: 1 }])
     })
 
+    it('truncates in slot order before merging repeated ids', () => {
+      const three = { ...beacon(), modulesPerBeacon: 2, modules: [speed(1), eff(1), speed(1)] }
+      expect(beaconsOf(three)?.[0].modules).toEqual([{ id: 'speed-module', count: 1 }, { id: 'efficiency-module', count: 1 }])
+    })
+
+    it('falls back to the config\'s slots when the data set\'s beacon has none', () => {
+      const gd = makeGameData()
+      gd.beacons = { beacon: { id: 'beacon', name: 'beacon', iconPath: '', hidden: false, moduleSlots: 0, distributionEfficiency: 1.5, allowedEffects: [] } }
+      const node = richNode('n1', 'smelt', { beaconConfigs: [{ ...beacon(), modulesPerBeacon: 2, modules: [speed(5)] }] })
+      const snap = projectSnapshot(stateOf([makeBlock('a', { rootPlan: plan('root', 'Main', [node]) })]), solveOf(), gd, stamp)
+      expect(snap.blocks[0].rows[0]).toMatchObject({ beacons: [{ modules: [{ id: 'speed-module', count: 2 }] }] })
+    })
+
     it('merges repeated module ids and drops empty ones', () => {
       expect(beaconsOf({ ...beacon(), modules: [speed(1), speed(1)] })?.[0].modules).toEqual([{ id: 'speed-module', count: 2 }])
       expect(beaconsOf({ ...beacon(), modules: [{ moduleId: '', count: 1 }, speed(1)] })?.[0].modules).toEqual([{ id: 'speed-module', count: 1 }])

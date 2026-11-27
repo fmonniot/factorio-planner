@@ -74,22 +74,22 @@ function outputRates(rates: Record<string, number>, ref: (id: string) => Snapsho
 }
 
 /**
- * A beacon's modules for the wire: repeated ids merged (first appearance order), empty ids and counts
- * of zero or less dropped, the total capped at the beacon's slots by truncating in order (a list that
- * overflows them, as in a hand-edited plan, still places a valid blueprint). `slots` <= 0 means no cap.
+ * A beacon's modules for the wire: the slots are filled in plan order and the list truncated at the
+ * beacon's slots (a list that overflows them, as in a hand-edited plan, still places a valid
+ * blueprint), then repeated ids are merged (first appearance order) and empty ids and counts of zero
+ * or less dropped. `slots` <= 0 means no cap.
  */
 function beaconModules(modules: readonly ModuleConfig[], slots: number): SnapshotModule[] {
   const counts = new Map<string, number>()
-  for (const m of modules) if (m.moduleId !== '' && m.count > 0) counts.set(m.moduleId, (counts.get(m.moduleId) ?? 0) + m.count)
   let room = slots > 0 ? slots : Infinity
-  const out: SnapshotModule[] = []
-  for (const [id, count] of counts) {
-    const n = Math.min(count, room)
+  for (const m of modules) {
+    if (m.moduleId === '' || m.count <= 0) continue
+    const n = Math.min(m.count, room)
     if (n <= 0) break
-    out.push({ id, count: n })
+    counts.set(m.moduleId, (counts.get(m.moduleId) ?? 0) + n)
     room -= n
   }
-  return out
+  return [...counts].map(([id, count]) => ({ id, count }))
 }
 
 /** The keys of a row that come from the plan's node: its machine modules and its beacon configurations that have something to place (in plan order), each left out when there is nothing to place. */
@@ -97,7 +97,7 @@ function nodeValues(node: GameRecipeNode, beacons: GameData['beacons']): { modul
   const modules = node.modules.filter(m => m.moduleId !== '').map(m => ({ id: m.moduleId, count: m.count }))
   const list = (node.beaconConfigs ?? []).flatMap((c): SnapshotBeacon[] => {
     if (!c.beaconId || c.beaconCount <= 0) return []
-    const mods = beaconModules(c.modules, beacons[c.beaconId]?.moduleSlots ?? c.modulesPerBeacon)
+    const mods = beaconModules(c.modules, beacons[c.beaconId]?.moduleSlots || c.modulesPerBeacon)
     return mods.length > 0 ? [{ id: c.beaconId, count: c.beaconCount, modules: mods }] : []
   })
   return {
