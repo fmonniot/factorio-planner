@@ -35,6 +35,11 @@ updates:
     schedule:
       interval: "weekly"
       day: friday
+  - package-ecosystem: "cargo"
+    directory: "/src-tauri" # The desktop app
+    schedule:
+      interval: "weekly"
+      day: friday
   - package-ecosystem: "github-actions"
     directory: "/" # Workflows live in .github/workflows
     schedule:

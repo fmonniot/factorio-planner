@@ -82,6 +82,12 @@ pub struct BindError {
 }
 
 impl BindError {
+    /// An error for `port` (`protocol` is `"TCP"` or `"UDP"`), for hosts and tests that need one without binding.
+    #[must_use]
+    pub fn new(protocol: &'static str, port: u16, source: io::Error) -> Self {
+        Self { protocol, port, source }
+    }
+
     /// The port that could not be bound.
     #[must_use]
     pub fn port(&self) -> u16 {
@@ -95,18 +101,25 @@ impl BindError {
     }
 }
 
-impl fmt::Display for BindError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl BindError {
+    /// What failed, without any advice (the advice names the standalone binary's flags, which a host of the library may not have).
+    #[must_use]
+    pub fn reason(&self) -> String {
         let what = if self.protocol == "TCP" {
             "the planner's WebSocket"
         } else {
             "the mod's UDP datagrams"
         };
-        write!(
-            f,
+        format!(
             "cannot listen on 127.0.0.1:{} ({}, for {what}): {}.",
             self.port, self.protocol, self.source
-        )?;
+        )
+    }
+}
+
+impl fmt::Display for BindError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.reason())?;
         if self.source.kind() == io::ErrorKind::AddrInUse {
             write!(
                 f,
@@ -566,7 +579,7 @@ fn check_origin(request: &Request, response: Response, origins: &[String]) -> Re
     let origin = request.headers().get("origin").map(|v| v.to_str().unwrap_or(""));
     match origin {
         Some(origin) if !canonical_origin(origin).is_some_and(|o| origins.contains(&o)) => {
-            eprintln!("refused a connection from the origin {origin:?}; allow it with --origin if it is yours");
+            eprintln!("refused a connection from the origin {origin:?}, which is not an allowed origin");
             let mut refusal = ErrorResponse::new(Some("origin not allowed\n".to_owned()));
             *refusal.status_mut() = StatusCode::FORBIDDEN;
             Err(refusal)

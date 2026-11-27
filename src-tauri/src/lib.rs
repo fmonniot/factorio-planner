@@ -8,11 +8,19 @@ use tauri::{Manager, RunEvent, WebviewWindowBuilder};
 /// The in-game viewer's bridge running inside this process, so the planner needs no separate download.
 pub(crate) struct BridgeHost {
     shutdown: ShutdownHandle,
+    /// The port the bridge bound, which tests rebind to prove `stop` freed it.
+    #[cfg(test)]
+    port: u16,
     thread: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl BridgeHost {
     /// Stops the bridge and waits until its ports are free.
+    #[cfg(test)]
+    fn port(&self) -> u16 {
+        self.port
+    }
+
     fn stop(&self) {
         self.shutdown.shutdown();
         let thread = self.thread.lock().ok().and_then(|mut slot| slot.take());
@@ -35,6 +43,8 @@ fn start_bridge(config: &Config) -> Bridge {
         Err(err) => return Bridge::Failed(failure_text(&err)),
     };
     let shutdown = server.shutdown_handle();
+    #[cfg(test)]
+    let port = server.port();
     let spawned = thread::Builder::new().name("bridge".into()).spawn(move || {
         if let Err(err) = server.run() {
             eprintln!("the in-game viewer's bridge stopped: {err}");
@@ -43,22 +53,29 @@ fn start_bridge(config: &Config) -> Bridge {
     match spawned {
         Ok(thread) => Bridge::Running(BridgeHost {
             shutdown,
+            #[cfg(test)]
+            port,
             thread: Mutex::new(Some(thread)),
         }),
-        Err(err) => Bridge::Failed(format!("The bridge's thread could not start: {err}.")),
+        Err(err) => Bridge::Failed(format!(
+            "The bridge's thread could not start: {err}. Restart the app."
+        )),
     }
 }
 
-/// The text the planner shows when the bridge could not start. The library's own advice names a command-line flag that the app
-/// does not have.
+/// The text the planner shows when the bridge could not start, with advice that fits the cause. The library's own advice names
+/// a command-line flag that the app does not have.
 fn failure_text(err: &BindError) -> String {
     if err.port_in_use() {
         format!(
-            "Port {} is already in use, probably by a standalone bridge or another program.",
+            "Port {} is already in use, probably by a standalone bridge or another program. Close whatever uses it, then restart the app.",
             err.port()
         )
     } else {
-        err.to_string()
+        format!(
+            "The bridge {} Restart the app once that is fixed.",
+            err.reason()
+        )
     }
 }
 
@@ -93,6 +110,11 @@ pub fn run() {
             if let Bridge::Failed(error) = &bridge {
                 eprintln!("the in-game viewer's bridge did not start: {error}");
             }
+            let announcement = init_script(&bridge);
+            if let Bridge::Running(host) = bridge {
+                // Managed first, so that a failed window still reaches the exit handler and stops the bridge.
+                app.manage(host);
+            }
             let window = app
                 .config()
                 .app
@@ -101,11 +123,8 @@ pub fn run() {
                 .cloned()
                 .ok_or("tauri.conf.json declares no window")?;
             WebviewWindowBuilder::from_config(app.handle(), &window)?
-                .initialization_script(init_script(&bridge))
+                .initialization_script(announcement)
                 .build()?;
-            if let Bridge::Running(host) = bridge {
-                app.manage(host);
-            }
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -129,9 +148,30 @@ mod tests {
         let Bridge::Running(host) = start_bridge(&config(0)) else {
             panic!("expected Running")
         };
+        let port = host.port();
+        assert_ne!(port, 0);
         host.stop();
         // Stopping twice is harmless.
         host.stop();
+        Server::bind(&config(port)).expect("the port is free again after stop()");
+    }
+
+    #[test]
+    fn advice_fits_the_cause_and_never_names_a_flag() {
+        let held = Server::bind(&config(0)).expect("bind");
+        let busy = Server::bind(&config(held.port())).err().expect("in use");
+        let text = failure_text(&busy);
+        assert!(text.contains("Close whatever uses it"), "{text}");
+        let other = failure_text(&BindError::new(
+            "TCP",
+            80,
+            std::io::ErrorKind::PermissionDenied.into(),
+        ));
+        assert!(other.contains("80"), "{other}");
+        assert!(
+            !other.contains("Close whatever") && !other.contains("--bridge-port"),
+            "{other}"
+        );
     }
 
     #[test]

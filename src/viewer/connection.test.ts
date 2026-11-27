@@ -463,6 +463,17 @@ describe('connection failures', () => {
     expect(running.detail).not.toMatch(/Chrome|uBlock/)
   })
 
+  it('inside the desktop app, the permission and blocked badges drop the browser wording', () => {
+    const host: DesktopHost = { bridge: 'running' }
+    const slow = badgeFor(run([{ type: 'enable' }, { type: 'slow' }]).state, host)
+    expect(slow.kind).toBe('permission')
+    expect(slow.detail).toContain('built-in bridge')
+    expect(slow.detail).not.toMatch(/browser|network/)
+    const blocked = badgeFor({ ...run([{ type: 'enable' }, { type: 'closed' }]).state, failure: 'blocked' }, host)
+    expect(blocked.kind).toBe('blocked')
+    expect(blocked.detail).not.toMatch(/browser|localhost|https/)
+  })
+
   it('suggests the permission prompt when connecting takes long', () => {
     const { state } = run([{ type: 'enable' }, { type: 'slow' }])
     expect(badgeFor(state).kind).toBe('permission')

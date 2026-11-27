@@ -134,10 +134,11 @@ fn normalize_origin(text: &str) -> Result<String, String> {
 }
 
 /// The canonical form of a web origin, so that `HTTPS://Me.github.io:443` and `https://me.github.io` compare equal: the scheme
-/// and host in lower case, the scheme's default port (80, 443) dropped, a trailing slash dropped. `None` if `text` is not
-/// `http://`, `https://` or `tauri://` (the desktop app's webview; it has no default port) followed by a host and an optional
-/// port (a path, a query, credentials or the literal `null` that
-/// browsers send for opaque origins are not). This is the only normalization: there is no wildcard and no suffix match.
+/// and host in lower case, the scheme's default port (80, 443) dropped, a trailing slash dropped.
+///
+/// `None` if `text` is not `http://`, `https://` or `tauri://` (the desktop app's webview, which has no default port) followed
+/// by a host and an optional port. A path, a query, credentials and the literal `null` that browsers send for opaque origins
+/// are not accepted. This is the only normalization: there is no wildcard and no suffix match.
 #[must_use]
 pub fn canonical_origin(text: &str) -> Option<String> {
     let (scheme, rest) = text.trim_end_matches('/').split_once("://")?;

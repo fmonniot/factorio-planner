@@ -375,7 +375,7 @@ export function transferText(status: BridgeStatus | undefined): string {
 function desktopNoBridgeDetail(host: DesktopHost): string {
   return host.bridge === 'running'
     ? "The app's built-in bridge is not answering at this address. Check the address, or restart the app."
-    : `The app's built-in bridge could not start: ${host.bridge.error} Close whatever uses that port, or run a standalone bridge, then restart. Retrying every few seconds.`
+    : `The app's built-in bridge could not start. ${host.bridge.error} Retrying every few seconds.`
 }
 
 export function badgeFor(state: ConnectionState, host?: DesktopHost): Badge {
@@ -389,7 +389,9 @@ export function badgeFor(state: ConnectionState, host?: DesktopHost): Badge {
             tone: 'busy',
             label: 'Waiting for the browser',
             short: 'Waiting',
-            detail: 'The connection is taking a while. The browser may be asking for permission to connect to devices on your network: allow it, or the connection stays blocked.',
+            detail: host
+              ? "The connection is taking a while. The app's built-in bridge is not answering yet."
+              : 'The connection is taking a while. The browser may be asking for permission to connect to devices on your network: allow it, or the connection stays blocked.',
           }
         : { kind: 'connecting', tone: 'busy', label: 'Connecting', short: 'Connecting', detail: 'Reaching the bridge.' }
     case 'waiting':
@@ -399,7 +401,9 @@ export function badgeFor(state: ConnectionState, host?: DesktopHost): Badge {
           tone: 'error',
           label: 'Blocked by the browser',
           short: 'Blocked',
-          detail: 'The browser refused to open the connection (an https page may not open a plain ws:// address in every browser). Use the planner from http://localhost, or allow the connection. Retrying every few seconds.',
+          detail: host
+            ? "The app's window refused to open the connection to the bridge. Check the address, or restart the app. Retrying every few seconds."
+            : 'The browser refused to open the connection (an https page may not open a plain ws:// address in every browser). Use the planner from http://localhost, or allow the connection. Retrying every few seconds.',
         }
       }
       if (state.failure === 'bad-address') {
