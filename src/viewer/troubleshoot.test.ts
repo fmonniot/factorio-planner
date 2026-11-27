@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { initialConnectionState, reduce, type ConnectionEvent } from './connection'
+import type { DesktopHost } from './desktop'
 import { BRIDGE_COMMAND, troubleshootSteps } from './troubleshoot'
 
 const status = (extra: object = {}, protocol = 1) =>
@@ -33,6 +34,14 @@ describe('troubleshootSteps', () => {
     const [bridge, game, plan] = troubleshootSteps(on({ type: 'closed' }))
     expect(bridge).toMatchObject({ tone: 'warn', code: BRIDGE_COMMAND })
     expect([game.tone, plan.tone]).toEqual(['idle', 'idle'])
+  })
+
+  it('inside the desktop app, has no command to copy and shows the host\'s message', () => {
+    const host: DesktopHost = { bridge: { error: 'Port 34199 is already in use.' } }
+    const [bridge] = troubleshootSteps(on({ type: 'closed' }), host)
+    expect(bridge.code).toBeUndefined()
+    expect(bridge.detail).toContain('Port 34199 is already in use.')
+    expect(troubleshootSteps(on({ type: 'closed' }))[0].code).toBe(BRIDGE_COMMAND)
   })
 
   it('blames the bridge for a version mismatch, and nothing after it', () => {

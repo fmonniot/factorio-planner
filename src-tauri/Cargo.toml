@@ -15,3 +15,5 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+bridge-lib = { path = "../bridge/lib" }
+serde_json = "1"

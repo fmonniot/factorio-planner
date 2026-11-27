@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useUiStore } from '../store/uiStore'
 import { badgeFor, canSend, notices, type BadgeTone } from '../viewer/connection'
+import { desktopHost } from '../viewer/desktop'
 import { DEFAULT_BRIDGE_URL } from '../viewer/protocol'
 import { troubleshootSteps } from '../viewer/troubleshoot'
 import { setViewerAutoSend, useViewerState, viewer } from '../viewer/viewer'
@@ -43,7 +44,7 @@ const LINK_BUTTON = 'text-xs text-blue-400 hover:text-blue-300 underline underli
 
 /** The connection's status dot, to sit on the workspace menu's trigger; nothing while the connection is off. */
 export function ViewerStatusDot() {
-  const dot = DOT[badgeFor(useViewerState()).tone]
+  const dot = DOT[badgeFor(useViewerState(), desktopHost).tone]
   if (!dot) return null
   return (
     <span
@@ -113,7 +114,7 @@ function BridgeAddress({ on }: { on: boolean }) {
 
 function ViewerFlyout({ onTroubleshoot }: { onTroubleshoot: () => void }) {
   const state = useViewerState()
-  const badge = badgeFor(state)
+  const badge = badgeFor(state, desktopHost)
   const on = state.phase !== 'off'
   const messages = notices(state)
   const sendable = canSend(state) && !!state.plan
@@ -136,7 +137,9 @@ function ViewerFlyout({ onTroubleshoot }: { onTroubleshoot: () => void }) {
       </div>
       {!on && (
         <p className="text-gray-400 leading-snug">
-          Shows this plan inside Factorio. Needs the bridge running on this computer and the mod enabled in the game.
+          {desktopHost
+            ? 'Shows this plan inside Factorio. The desktop app runs the bridge for you; turn this on and enable the mod in the game.'
+            : 'Shows this plan inside Factorio. Needs the bridge running on this computer and the mod enabled in the game.'}
         </p>
       )}
       {on && (
@@ -182,7 +185,7 @@ function ViewerFlyout({ onTroubleshoot }: { onTroubleshoot: () => void }) {
 
 /** The workspace menu's "In-game viewer" entry: its status on the row, the controls in a flyout. */
 export function ViewerMenuItem({ onTroubleshoot }: { onTroubleshoot: () => void }) {
-  const badge = badgeFor(useViewerState())
+  const badge = badgeFor(useViewerState(), desktopHost)
   const dot = DOT[badge.tone]
   return (
     <SubmenuItem
@@ -231,7 +234,7 @@ function CopyButton({ text }: { text: string }) {
 
 export function ViewerTroubleshootDialog({ onClose }: { onClose: () => void }) {
   const state = useViewerState()
-  const steps = troubleshootSteps(state)
+  const steps = troubleshootSteps(state, desktopHost)
   return (
     <Modal onClose={onClose} className="w-[34rem] max-w-[calc(100vw-2rem)] bg-gray-900">
       <div role="dialog" aria-modal="true" aria-label="Troubleshoot the in-game viewer" className="flex flex-col">

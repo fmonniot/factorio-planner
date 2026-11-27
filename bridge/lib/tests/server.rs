@@ -28,7 +28,12 @@ fn config(bridge_port: u16, game_port: u16) -> Config {
     Config {
         game_port,
         bridge_port,
-        origins: vec![ORIGIN.to_owned(), "https://planner.test".to_owned()],
+        origins: vec![
+            ORIGIN.to_owned(),
+            "https://planner.test".to_owned(),
+            "tauri://localhost".to_owned(),
+            "http://tauri.localhost".to_owned(),
+        ],
     }
 }
 
@@ -286,6 +291,32 @@ fn a_disallowed_origin_gets_http_403() {
     }
     // The refusals did not disturb the server.
     drop(rig.planner());
+}
+
+#[test]
+fn the_desktop_apps_origins_connect_and_lookalikes_do_not() {
+    let rig = Rig::start();
+    for origin in ["tauri://localhost", "http://tauri.localhost"] {
+        drop(rig.connect(Some(origin)).expect(origin));
+    }
+    for origin in ["tauri://evil.test", "null"] {
+        assert!(
+            matches!(rig.connect(Some(origin)), Err(Error::Http(r)) if r.status().as_u16() == 403),
+            "{origin}"
+        );
+    }
+    drop(rig.connect(None).expect("no Origin header"));
+}
+
+#[test]
+fn a_taken_port_is_reported_as_in_use() {
+    let first = Server::bind(&config(0, 1)).expect("bind");
+    let port = first.port();
+    let Err(error) = Server::bind(&config(port, 1)) else {
+        panic!("the port is taken")
+    };
+    assert!(error.port_in_use(), "{error}");
+    assert_eq!(error.port(), port);
 }
 
 // -------------------------------------------------------------------------------------------------

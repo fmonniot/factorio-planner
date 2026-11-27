@@ -1,3 +1,4 @@
+import type { DesktopHost } from './desktop'
 import {
   DEFAULT_GAME_PORT,
   MAX_SNAPSHOT_BYTES,
@@ -370,7 +371,14 @@ export function transferText(status: BridgeStatus | undefined): string {
   }
 }
 
-export function badgeFor(state: ConnectionState): Badge {
+/** The "No bridge" detail inside the desktop app, where the bridge is the app's own and there is no command to run. */
+function desktopNoBridgeDetail(host: DesktopHost): string {
+  return host.bridge === 'running'
+    ? "The app's built-in bridge is not answering at this address. Check the address, or restart the app."
+    : `The app's built-in bridge could not start. ${host.bridge.error} Retrying every few seconds.`
+}
+
+export function badgeFor(state: ConnectionState, host?: DesktopHost): Badge {
   switch (state.phase) {
     case 'off':
       return { kind: 'off', tone: 'idle', label: 'Off', short: 'Off', detail: 'The planner is not connected to the in-game viewer.' }
@@ -381,7 +389,9 @@ export function badgeFor(state: ConnectionState): Badge {
             tone: 'busy',
             label: 'Waiting for the browser',
             short: 'Waiting',
-            detail: 'The connection is taking a while. The browser may be asking for permission to connect to devices on your network: allow it, or the connection stays blocked.',
+            detail: host
+              ? "The connection is taking a while. The app's built-in bridge is not answering yet."
+              : 'The connection is taking a while. The browser may be asking for permission to connect to devices on your network: allow it, or the connection stays blocked.',
           }
         : { kind: 'connecting', tone: 'busy', label: 'Connecting', short: 'Connecting', detail: 'Reaching the bridge.' }
     case 'waiting':
@@ -391,7 +401,9 @@ export function badgeFor(state: ConnectionState): Badge {
           tone: 'error',
           label: 'Blocked by the browser',
           short: 'Blocked',
-          detail: 'The browser refused to open the connection (an https page may not open a plain ws:// address in every browser). Use the planner from http://localhost, or allow the connection. Retrying every few seconds.',
+          detail: host
+            ? "The app's window refused to open the connection to the bridge. Check the address, or restart the app. Retrying every few seconds."
+            : 'The browser refused to open the connection (an https page may not open a plain ws:// address in every browser). Use the planner from http://localhost, or allow the connection. Retrying every few seconds.',
         }
       }
       if (state.failure === 'bad-address') {
@@ -402,7 +414,9 @@ export function badgeFor(state: ConnectionState): Badge {
         tone: 'warn',
         label: 'No bridge',
         short: 'No bridge',
-        detail: `${state.failure === 'lost' ? 'The connection to the bridge closed.' : 'No bridge answered at this address.'} Start the bridge, or check the address. Retrying every few seconds. ${BLOCK_HINT}`,
+        detail: host
+          ? desktopNoBridgeDetail(host)
+          : `${state.failure === 'lost' ? 'The connection to the bridge closed.' : 'No bridge answered at this address.'} Start the bridge, or check the address. Retrying every few seconds. ${BLOCK_HINT}`,
       }
     case 'open': {
       const status = state.status

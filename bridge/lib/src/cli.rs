@@ -7,11 +7,16 @@ pub const DEFAULT_GAME_PORT: u16 = 34198;
 /// The bridge's port by default, for both its WebSocket (TCP) and its UDP socket.
 pub const DEFAULT_BRIDGE_PORT: u16 = 34199;
 
-/// Origins allowed by default: the deployed planner (GitHub Pages) and the Vite dev server.
-pub const DEFAULT_ORIGINS: [&str; 3] = [
+/// Origins allowed by default: the deployed planner (GitHub Pages), the Vite dev server and the desktop app's webview, which
+/// is `tauri://localhost` on macOS and Linux and `http://tauri.localhost` on Windows. The desktop app and the standalone
+/// bridge share this list, so a standalone bridge also serves the app. `https://tauri.localhost` is not listed because the
+/// app does not set `useHttpsScheme`; flipping that setting needs it here.
+pub const DEFAULT_ORIGINS: [&str; 5] = [
     "https://fmonniot.github.io",
     "http://localhost:4000",
     "http://127.0.0.1:4000",
+    "tauri://localhost",
+    "http://tauri.localhost",
 ];
 
 /// What the server runs with.
@@ -121,14 +126,19 @@ fn parse_port(flag: &str, text: String) -> Result<u16, String> {
 
 /// Checks that `text` is an origin and gives its canonical form.
 fn normalize_origin(text: &str) -> Result<String, String> {
-    canonical_origin(text)
-        .ok_or_else(|| format!("--origin wants scheme, host and port only, like http://localhost:4000, not {text:?}"))
+    canonical_origin(text).ok_or_else(|| {
+        format!(
+            "--origin wants scheme, host and port only, like http://localhost:4000 or tauri://localhost, not {text:?}"
+        )
+    })
 }
 
 /// The canonical form of a web origin, so that `HTTPS://Me.github.io:443` and `https://me.github.io` compare equal: the scheme
-/// and host in lower case, the scheme's default port (80, 443) dropped, a trailing slash dropped. `None` if `text` is not
-/// `http://` or `https://` followed by a host and an optional port (a path, a query, credentials or the literal `null` that
-/// browsers send for opaque origins are not). This is the only normalization: there is no wildcard and no suffix match.
+/// and host in lower case, the scheme's default port (80, 443) dropped, a trailing slash dropped.
+///
+/// `None` if `text` is not `http://`, `https://` or `tauri://` (the desktop app's webview, which has no default port) followed
+/// by a host and an optional port. A path, a query, credentials and the literal `null` that browsers send for opaque origins
+/// are not accepted. This is the only normalization: there is no wildcard and no suffix match.
 #[must_use]
 pub fn canonical_origin(text: &str) -> Option<String> {
     let (scheme, rest) = text.trim_end_matches('/').split_once("://")?;
@@ -136,6 +146,7 @@ pub fn canonical_origin(text: &str) -> Option<String> {
     let default_port = match scheme.as_str() {
         "http" => ":80",
         "https" => ":443",
+        "tauri" => "",
         _ => return None,
     };
     if rest.is_empty() || rest.contains(['/', '?', '#', '@']) || rest.chars().any(char::is_whitespace) {
@@ -166,6 +177,35 @@ mod tests {
         assert_eq!(config.bridge_port, 34199);
         assert!(config.origins.contains(&"https://fmonniot.github.io".to_owned()));
         assert!(config.origins.contains(&"http://localhost:4000".to_owned()));
+        assert!(config.origins.contains(&"tauri://localhost".to_owned()));
+        assert!(config.origins.contains(&"http://tauri.localhost".to_owned()));
+    }
+
+    #[test]
+    fn the_desktop_apps_scheme_is_an_origin_and_no_other_scheme_is() {
+        assert_eq!(
+            canonical_origin("tauri://localhost").as_deref(),
+            Some("tauri://localhost")
+        );
+        assert_eq!(
+            canonical_origin("TAURI://LocalHost/").as_deref(),
+            Some("tauri://localhost")
+        );
+        assert_eq!(
+            canonical_origin("tauri://localhost:443").as_deref(),
+            Some("tauri://localhost:443")
+        );
+        for text in ["tauri://", "tauri://localhost/x", "file://x", "null", "ftp://localhost"] {
+            assert_eq!(canonical_origin(text), None, "{text}");
+        }
+    }
+
+    #[test]
+    fn the_desktop_origin_can_be_given_as_a_flag() {
+        let Ok(Command::Run(config)) = parse(&["--origin", "tauri://localhost"]) else {
+            panic!("expected Run")
+        };
+        assert_eq!(config.origins, ["tauri://localhost"]);
     }
 
     #[test]

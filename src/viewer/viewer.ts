@@ -7,6 +7,7 @@ import { makeDataSetStamp } from '../store/persistence'
 import { useSolverStore } from '../store/solverStore'
 import { useUiStore } from '../store/uiStore'
 import { badgeFor, type ConnectionState } from './connection'
+import { desktopHost } from './desktop'
 import { createController } from './controller'
 import { MAX_SNAPSHOT_BYTES, snapshotBytes, snapshotId } from './protocol'
 
@@ -34,7 +35,7 @@ export function useViewerState(): ConnectionState {
 
 /** What the workspace menu's trigger adds to its accessible name: the connection, once it says something. */
 export function useViewerTriggerName(): string {
-  const badge = badgeFor(useViewerState())
+  const badge = badgeFor(useViewerState(), desktopHost)
   return badge.tone === 'idle' ? '' : `In-game viewer: ${badge.label}`
 }
 

@@ -1,3 +1,4 @@
+import type { DesktopHost } from './desktop'
 import { badgeFor, gameLaunchOption, transferText, type BadgeTone, type ConnectionState } from './connection'
 
 // ---------------------------------------------------------------------------
@@ -38,8 +39,8 @@ const RUNNING: Part = { tone: 'ok', state: 'Running' }
 /** The command that starts the bridge, as the README gives it. */
 export const BRIDGE_COMMAND = 'factorio-planner-bridge'
 
-export function troubleshootSteps(state: ConnectionState): TroubleshootStep[] {
-  const badge = badgeFor(state)
+export function troubleshootSteps(state: ConnectionState, host?: DesktopHost): TroubleshootStep[] {
+  const badge = badgeFor(state, host)
   const parts = ((): [Part, Part, Part] => {
     switch (badge.kind) {
       case 'off':
@@ -49,6 +50,8 @@ export function troubleshootSteps(state: ConnectionState): TroubleshootStep[] {
       case 'permission':
         return [{ tone: 'busy', state: badge.label, detail: badge.detail }, WAITING, WAITING]
       case 'no-bridge':
+        // Inside the app the bridge is its own: no command to copy, no browser to blame.
+        if (host) return [{ tone: 'warn', state: 'No bridge answered', detail: badge.detail }, WAITING, WAITING]
         return [
           {
             tone: 'warn',
