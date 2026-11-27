@@ -18,7 +18,7 @@ permissions:
   contents: write
 
 env:
-  # Same toolchain as bridge.yml; bump them together.
+  # Same toolchain as bridge.yml and desktop.yml; bump the three together.
   RUST_TOOLCHAIN: 1.98.1
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
 

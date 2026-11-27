@@ -2,7 +2,8 @@ name: Desktop
 
 # The desktop wrapper (src-tauri/): a Tauri app that shows the planner built into dist-desktop/. This checks that the Rust side
 # formats, lints and compiles on Linux; the planner itself is checked by test.yml. The toolchain is pinned like bridge.yml's,
-# so a new stable release with a new lint cannot break unrelated pull requests; bump it together with RUST_TOOLCHAIN there.
+# so a new stable release with a new lint cannot break unrelated pull requests; bump it together with RUST_TOOLCHAIN in
+# bridge.yml and release-viewer.yml.
 on:
   pull_request:
   # Also run on main so its cache exists for pull requests, which can only read caches from their base branch.
@@ -11,6 +12,8 @@ on:
 
 env:
   RUST_TOOLCHAIN: 1.98.1
+  # Must equal rust-version in src-tauri/Cargo.toml.
+  MSRV: 1.90.0
 
 jobs:
   rust:
@@ -38,3 +41,26 @@ jobs:
       - run: mkdir -p ../dist-desktop && echo '<!doctype html>' > ../dist-desktop/index.html
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
+
+  # The declared minimum Rust version really builds.
+  msrv:
+    name: check on the minimum Rust version
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the webview libraries Tauri links against
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+        working-directory: .
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MSRV }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: mkdir -p ../dist-desktop && echo '<!doctype html>' > ../dist-desktop/index.html
+      - run: cargo check --all-targets --locked
