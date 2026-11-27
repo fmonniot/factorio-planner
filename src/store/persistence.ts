@@ -30,7 +30,7 @@ const EXPORT_SLUG_MAX_LENGTH = 40
 /** Plans listed in memory only because storage refused the index write: a sync keeps them instead of treating them as deleted elsewhere. */
 const pending = new Set<string>()
 /** The stored index as last read or written, so an unchanged one is not parsed again on every autosave. */
-let lastSynced: { raw: string; activePlanId: string } | null = null
+let lastSynced: { raw: string; activePlanId: string | null } | null = null
 /** Another tab removed this custom upload's index; nothing of this data set may be written back. */
 let indexRemoved = false
 
@@ -40,10 +40,10 @@ function resetTabState(): void {
   indexRemoved = false
 }
 
-/** Key the autosave writes to; null until a data set has been activated. */
+/** Key the autosave writes to; null until a data set has been activated, and while it has no plan. */
 function activePlanKey(): string | null {
   const { sourceId, index } = usePlansStore.getState()
-  return sourceId !== null && index !== null ? planKey(sourceId, index.activePlanId) : null
+  return sourceId !== null && index !== null && index.activePlanId !== null ? planKey(sourceId, index.activePlanId) : null
 }
 
 // ---------------------------------------------------------------------------
@@ -222,6 +222,10 @@ export function checkPlanImport(json: string, gameData: GameData, sourceId: stri
 // Plan index
 // ---------------------------------------------------------------------------
 
+/**
+ * Replace the block store's content by a single empty block. Also what the store holds while no plan is open: the
+ * rest of the app always expects a block, and the no-plan screen hides it (nothing is saved, see `activePlanKey`).
+ */
 function resetToEmptyPlan(): void {
   const block = makeEmptyBlock('Factory')
   useBlockStore.getState().setAppState({
@@ -286,12 +290,12 @@ function markUnwritten(): void {
   for (const p of index.plans) if (!storedIds.has(p.id)) pending.add(p.id)
 }
 
-/** Drop duplicate ids; null when no plan is left; an unknown active id falls back to the first plan. */
-function normalizeIndex(index: PlanIndex): PlanIndex | null {
+/** Drop duplicate ids; an unknown active id falls back to the first plan, and a list with no plan has no active one. */
+function normalizeIndex(index: PlanIndex): PlanIndex {
   const seen = new Set<string>()
   const plans = index.plans.filter(p => !seen.has(p.id) && !!seen.add(p.id))
-  if (plans.length === 0) return null
-  return { plans, activePlanId: seen.has(index.activePlanId) ? index.activePlanId : plans[0].id }
+  if (plans.length === 0) return { plans, activePlanId: null }
+  return { plans, activePlanId: index.activePlanId !== null && seen.has(index.activePlanId) ? index.activePlanId : plans[0].id }
 }
 
 /** Rebuild an index from the plan keys found in storage (used when the index is unreadable). */
@@ -306,11 +310,12 @@ function recoverIndex(sourceId: string): PlanIndex | null {
   } catch {
     return null
   }
+  if (ids.length === 0) return null
   ids.sort()
-  return normalizeIndex({ activePlanId: '', plans: ids.map((id, i) => ({ id, name: `Plan ${i + 1}` })) })
+  return normalizeIndex({ activePlanId: null, plans: ids.map((id, i) => ({ id, name: `Plan ${i + 1}` })) })
 }
 
-/** Parse and normalise a stored index; null when it is unreadable or lists no plan. */
+/** Parse and normalise a stored index; null when it is unreadable. An index that lists no plan is valid: every plan was deleted. */
 function parseStoredIndex(raw: string): PlanIndex | null {
   try {
     return normalizeIndex(parsePlanIndex(JSON.parse(raw) as unknown))
@@ -320,7 +325,11 @@ function parseStoredIndex(raw: string): PlanIndex | null {
   }
 }
 
-/** The stored index of a data set; null when there is none (an unreadable one is quarantined and rebuilt from the plan keys). */
+/**
+ * The stored index of a data set; null when there is none (an unreadable one is quarantined and rebuilt from the plan
+ * keys, and null when there are none). A stored index with no plan is returned as it is, so a data set whose plans
+ * were all deleted stays without one after a reload; only a data set with no index at all starts with "Plan 1".
+ */
 function readIndex(sourceId: string): PlanIndex | null {
   const key = planIndexKey(sourceId)
   let raw: string | null
@@ -528,12 +537,13 @@ export function syncPlanIndex(): string | null {
   }
 
   const listed = new Set(plans.map(p => p.id))
-  const activeDeleted = !listed.has(index.activePlanId)
+  // Without an active plan (none was left) the tab takes the first one another tab added; with none listed it stays as it is.
+  const activeDeleted = index.activePlanId === null ? plans.length > 0 : !listed.has(index.activePlanId)
   let activePlanId = index.activePlanId
   if (activeDeleted) {
     const at = index.plans.findIndex(p => p.id === activePlanId)
     const around = [...index.plans.slice(at + 1), ...index.plans.slice(0, at).reverse()]
-    activePlanId = (around.find(p => listed.has(p.id)) ?? plans[0]).id
+    activePlanId = (around.find(p => listed.has(p.id)) ?? plans[0])?.id ?? null
   }
   const unchanged =
     !activeDeleted &&
@@ -558,7 +568,7 @@ function currentIndex(): { index: PlanIndex; storedActive: string | null } {
  * persist it. The stored active plan id (`storedActive`) is the last tab's
  * that switched, so it is kept (when still listed) unless `activeChanged`.
  */
-function commitIndex(plans: PlanEntry[], activePlanId: string, activeChanged: boolean, storedActive: string | null): void {
+function commitIndex(plans: PlanEntry[], activePlanId: string | null, activeChanged: boolean, storedActive: string | null): void {
   const hint = !activeChanged && storedActive !== null && plans.some(p => p.id === storedActive) ? storedActive : undefined
   usePlansStore.setState({ index: { plans, activePlanId } })
   persistIndex(hint)
@@ -602,6 +612,7 @@ export function duplicatePlan(): LoadAppStateResult {
   const { index, storedActive } = currentIndex()
   // The sync moved this tab off a plan deleted elsewhere: what is on screen is no longer the plan the user clicked.
   if (index.activePlanId !== before) return { type: 'error', message: 'That plan no longer exists.' }
+  if (index.activePlanId === null) return { type: 'error', message: 'No plan is open.' }
   saveAppState()
   const copy = clonePlan(selectAppState(useBlockStore.getState()))
   const at = index.plans.findIndex(p => p.id === index.activePlanId)
@@ -625,7 +636,8 @@ export function renamePlan(planId: string, name: string): LoadAppStateResult {
 
 /**
  * Delete a plan. Deleting the active one activates the next (else previous)
- * plan; deleting the only one leaves a fresh empty "Plan 1".
+ * plan; deleting the only one leaves the data set with no plan, which stays
+ * so after a reload until one is created or imported.
  */
 export function deletePlan(planId: string): LoadAppStateResult {
   const blocked = guardActive()
@@ -639,10 +651,9 @@ export function deletePlan(planId: string): LoadAppStateResult {
   } catch {
     // localStorage unavailable — ignore.
   }
-  let plans = index.plans.filter(p => p.id !== planId)
-  if (plans.length === 0) plans = [freshEntry('Plan 1')]
+  const plans = index.plans.filter(p => p.id !== planId)
   const wasActive = planId === index.activePlanId
-  const activePlanId = wasActive ? (plans[at] ?? plans[at - 1] ?? plans[0]).id : index.activePlanId
+  const activePlanId = wasActive ? (plans[at] ?? plans[at - 1])?.id ?? null : index.activePlanId
   commitIndex(plans, activePlanId, wasActive, storedActive)
   if (wasActive) loadActivePlan()
   return { type: 'ok' }

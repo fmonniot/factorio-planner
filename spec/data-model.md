@@ -502,8 +502,11 @@ The user's work is a set of plans, each an `AppState`. A game data set (`nullius
 plans, one of them active, and the app saves to `localStorage` on every change:
 
 - `factorio-planner:plan-index:<sourceId>` holds a `PlanIndex` (`src/data/schema.ts`, parsed by
-  `parsePlanIndex` in `src/data/loader.ts`): `{ activePlanId: string, plans: PlanEntry[] }`, where a
-  `PlanEntry` is `{ id: string, name: string }`. The list order is the menu order.
+  `parsePlanIndex` in `src/data/loader.ts`): `{ activePlanId: string | null, plans: PlanEntry[] }`, where a
+  `PlanEntry` is `{ id: string, name: string }`. The list order is the menu order. The list is empty, and
+  `activePlanId` null, when every plan was deleted: the two always go together, and a stored index like that is
+  kept, so the data set stays without a plan after a reload (a data set with no index at all starts with "Plan 1").
+  A stored active id that names no listed plan falls back to the first plan.
 - `factorio-planner:plan:<sourceId>/<planId>` holds one plan's `AppState`. An exported file adds a
   `dataSet` stamp (`PlanDataSetStamp`, `src/data/schema.ts`), read by `parsePlanDataSetStamp` and never
   persisted.
@@ -523,7 +526,7 @@ before acting, and a `storage` event on the index key triggers the same merge: t
 and names win (plans another tab created appear, plans it deleted disappear). Each tab keeps its own
 active plan; the stored `activePlanId` is that of the last tab that switched, and renaming or deleting
 another plan leaves it alone. A tab whose active plan was deleted elsewhere switches to the next (else
-previous) plan; edits are autosaved, and the autosave syncs first so it never recreates the deleted
+previous) plan, or to none when that was the last one (and takes the first plan another tab adds then); edits are autosaved, and the autosave syncs first so it never recreates the deleted
 plan's key. The sync only runs while the data set is loaded and matches the tab's list. Plans that
 storage refused to list (quota exceeded) stay in this tab's memory until a later index write succeeds,
 and are not treated as deleted elsewhere. An unreadable index is only recovered at activation; a

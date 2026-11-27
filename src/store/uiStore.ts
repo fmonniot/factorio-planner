@@ -56,6 +56,13 @@ export interface UiStoreState {
   dataSetRequest: { id: ServerDatasetId } | null
   requestDataSet: (id: ServerDatasetId) => void
   clearDataSetRequest: () => void
+  /**
+   * Transient (not persisted) ask to import a plan from a file, made by the no-plan screen. The workspace menu owns the
+   * import flow (file picker, warnings) and carries the request out.
+   */
+  planImportRequest: object | null
+  requestPlanImport: () => void
+  clearPlanImportRequest: () => void
   /** Transient (not persisted) ask to show a production-table row of the active block: expand its sub-factories, scroll to it, flash it. `seq` changes on every request. */
   revealRowRequest: { seq: number; nodeId: string } | null
   requestRevealRow: (nodeId: string) => void
@@ -158,6 +165,9 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   dataSetRequest: null,
   requestDataSet: (id) => set({ dataSetRequest: { id } }),
   clearDataSetRequest: () => set({ dataSetRequest: null }),
+  planImportRequest: null,
+  requestPlanImport: () => set({ planImportRequest: {} }),
+  clearPlanImportRequest: () => set({ planImportRequest: null }),
   revealRowRequest: null,
   requestRevealRow: (nodeId) =>
     set(state => ({ revealRowRequest: { seq: (state.revealRowRequest?.seq ?? 0) + 1, nodeId } })),

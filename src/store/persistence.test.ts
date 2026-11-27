@@ -23,15 +23,18 @@ import {
 } from './persistence'
 import { useBlockStore, makeEmptyBlock, makeEmptySubPlan, selectAppState } from './blockStore'
 import { parseAppState } from '../data/loader'
-import { usePlansStore } from './plansStore'
+import { usePlansStore, selectNoPlan } from './plansStore'
 import { legacyPlanStorageKey, planIndexKey, planKey } from './sourceId'
 import { HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore } from './gameDataStore'
 import type { AppState, GameData, Block, GameRecipeNode, PlanIndex } from '../data/types'
 
+/** A plan index with a plan open, which is what most tests read. */
+type OpenIndex = Omit<PlanIndex, 'activePlanId'> & { activePlanId: string }
+
 /** Parsed plan index stored for a data set; throws when there is none. */
-function readIndex(sourceId: string): PlanIndex {
-  return JSON.parse(store[planIndexKey(sourceId)]) as PlanIndex
+function readIndex(sourceId: string): OpenIndex {
+  return JSON.parse(store[planIndexKey(sourceId)]) as OpenIndex
 }
 
 /** Storage key of the active plan of a data set. */
@@ -585,7 +588,7 @@ describe('plan actions', () => {
   })
   afterEach(() => { unsub() })
 
-  const index = () => usePlansStore.getState().index!
+  const index = () => usePlansStore.getState().index! as OpenIndex
   const names = () => index().plans.map(p => p.name)
   const activeName = () => index().plans.find(p => p.id === index().activePlanId)!.name
 
@@ -729,16 +732,58 @@ describe('plan actions', () => {
     expect(index().activePlanId).toBe(firstId)
   })
 
-  it('deletePlan of the only plan leaves a fresh empty "Plan 1" and never re-saves the old key', () => {
+  it('deletePlan of the only plan leaves no plan, and never re-saves the old key', () => {
     const oldId = index().activePlanId
     useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     expect(deletePlan(oldId)).toEqual({ type: 'ok' })
-    expect(names()).toEqual(['Plan 1'])
-    expect(index().activePlanId).not.toBe(oldId)
+    expect(usePlansStore.getState().index).toEqual({ plans: [], activePlanId: null })
+    expect(selectNoPlan(usePlansStore.getState())).toBe(true)
+    expect(JSON.parse(store[planIndexKey('nullius')])).toEqual({ plans: [], activePlanId: null })
     expect(store[planKey('nullius', oldId)]).toBeUndefined()
+    // The block store holds a placeholder, and editing it saves nothing.
     expect(useBlockStore.getState().blocks[0].products).toEqual([])
+    const keys = Object.keys(store).sort()
     useBlockStore.getState().addProduct({ id: 'g2', itemId: 'copper-plate', extraRate: 60 })
-    expect(store[planKey('nullius', oldId)]).toBeUndefined()
+    expect(Object.keys(store).sort()).toEqual(keys)
+  })
+
+  it('a data set whose plans were all deleted stays without one after a reload, while a first visit gets "Plan 1"', () => {
+    deletePlan(index().activePlanId)
+    unsub()
+    usePlansStore.setState({ sourceId: null, index: null })
+    useGameDataStore.setState({ status: { type: 'empty' } })
+    unsub = initAppStatePersistence()
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    expect(usePlansStore.getState().index).toEqual({ plans: [], activePlanId: null })
+    expect(useBlockStore.getState().blocks).toHaveLength(1)
+    // Another data set has no index yet.
+    useGameDataStore.setState({ status: loadedStatus('seablock') })
+    expect(usePlansStore.getState().index?.plans.map(p => p.name)).toEqual(['Plan 1'])
+  })
+
+  it('createPlan and importPlanAsNew open a plan again from the no-plan state', () => {
+    deletePlan(index().activePlanId)
+    expect(createPlan()).toEqual({ type: 'ok' })
+    expect(names()).toEqual(['Plan 1'])
+    expect(readIndex('nullius').activePlanId).toBe(index().activePlanId)
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
+    expect(store[planKey('nullius', index().activePlanId)]).toContain('iron-plate')
+
+    deletePlan(index().activePlanId)
+    const block = makeEmptyBlock('b2')
+    const imported: AppState = { blocks: [block], activeBlockId: block.id, horizonTechnologyIds: [], defaultMachineOverrides: {} }
+    expect(importPlanAsNew(imported, 'nullius', 'my-factory.json')).toEqual({ type: 'ok' })
+    expect(names()).toEqual(['my-factory'])
+    expect(useBlockStore.getState().blocks.map(b => b.name)).toEqual(['b2'])
+    expect(store[planKey('nullius', index().activePlanId)]).toBeDefined()
+  })
+
+  it('duplicate and rename refuse while no plan is open', () => {
+    const only = index().activePlanId
+    deletePlan(only)
+    expect(duplicatePlan()).toEqual({ type: 'error', message: 'No plan is open.' })
+    expect(renamePlan(only, 'x').type).toBe('error')
+    expect(usePlansStore.getState().index).toEqual({ plans: [], activePlanId: null })
   })
 
   it('every action errors while game data is loading or another data set is loaded', () => {
@@ -765,7 +810,7 @@ describe('multiple tabs', () => {
   })
   afterEach(() => { unsub() })
 
-  const index = () => usePlansStore.getState().index!
+  const index = () => usePlansStore.getState().index! as OpenIndex
   const names = () => index().plans.map(p => p.name)
   const activeName = () => index().plans.find(p => p.id === index().activePlanId)!.name
   const idOf = (name: string) => index().plans.find(p => p.name === name)!.id
@@ -912,6 +957,19 @@ describe('multiple tabs', () => {
     expect(useBlockStore.getState().blocks[0].name).toBe('Fresh')
   })
 
+  it('empties the list when another tab deleted every plan, and takes the first plan another tab adds', () => {
+    const old = index().activePlanId
+    otherTabDeletes(old)
+    syncPlanIndex()
+    expect(usePlansStore.getState().index).toEqual({ plans: [], activePlanId: null })
+    expect(store[planKey('nullius', old)], 'deleted key not recreated').toBeUndefined()
+    syncPlanIndex() // nothing changed: still no plan, nothing reloaded
+    expect(usePlansStore.getState().index).toEqual({ plans: [], activePlanId: null })
+    otherTabCreates('n', 'Plan 1')
+    syncPlanIndex()
+    expect(index().activePlanId).toBe('n')
+  })
+
   /** Make storage refuse writes to the index key (quota exceeded) until the returned function is called. */
   function refuseIndexWrites(): () => void {
     localStorageMock.setItem.mockImplementation((key: string, value: string) => {
@@ -936,17 +994,6 @@ describe('multiple tabs', () => {
       otherTabDeletes(created)
       syncPlanIndex()
       expect(index().activePlanId, 'now a normal stored plan: deleted elsewhere').not.toBe(created)
-    })
-
-    it('keeps the replacement "Plan 1" of a refused deletePlan', () => {
-      const only = index().activePlanId
-      const allow = refuseIndexWrites()
-      deletePlan(only)
-      const replacement = index().activePlanId
-      expect(replacement).not.toBe(only)
-      syncPlanIndex()
-      expect(index().activePlanId).toBe(replacement)
-      allow()
     })
 
     it('keeps a migrated legacy plan that could only be kept in memory', () => {
@@ -1373,7 +1420,7 @@ describe('plan import', () => {
     it('adds a plan named after the file, makes it active and leaves the previous plan alone', () => {
       useGameDataStore.setState({ status: loadedStatus('nullius') })
       useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
-      const previousId = usePlansStore.getState().index!.activePlanId
+      const previousId = usePlansStore.getState().index!.activePlanId!
       const previous = JSON.stringify(selectAppState(useBlockStore.getState()))
       const imported = makeState('b2')
       expect(importPlanAsNew(imported, 'nullius', 'block-connection.json')).toEqual({ type: 'ok' })

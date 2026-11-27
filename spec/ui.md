@@ -124,8 +124,8 @@ Plan state lives in `plansStore.ts` (plan list and active plan) and the actions 
 `persistence.ts`.
 
 - **Default names.** A first visit starts with "Plan 1"; **New plan** adds an empty plan named
-  "Plan N" (N is the plan count plus one, increased until the name is unused). No name is asked
-  for. Names need not be unique.
+  "Plan N" (N is the plan count plus one, increased until the name is unused, so the first plan
+  after the last one was deleted is "Plan 1" again). No name is asked for. Names need not be unique.
 - **Rename** opens a dialog with a "Plan name" field, pre-filled and selected; Enter or
   **Rename** saves, Escape or **Cancel** closes it, and **Rename** is disabled while the trimmed
   name is empty. Names are trimmed and cut to 60 characters. The same dialog component
@@ -136,15 +136,40 @@ Plan state lives in `plansStore.ts` (plan list and active plan) and the actions 
   solver results and undo history are keyed by block id), with connections and the active block
   pointing into the copy.
 - **Delete** asks "Delete plan "<name>"?" (the block count, that it cannot be undone and to
-  export first; plus "An empty plan replaces it." for the only plan) with **Cancel** and
-  **Delete plan**. Deleting the active plan activates the next one (else the previous one).
-  Deleting the only plan is allowed and leaves an empty "Plan 1".
+  export first) with **Cancel** and **Delete plan**, for the only plan too. Deleting the active
+  plan activates the next one (else the previous one). Deleting the only plan is allowed and leaves
+  the data set with [no plan](#no-plan), which a reload keeps.
 - Creating, duplicating and switching save the current plan first, so nothing is lost, and
   clear the undo history. The active plan is remembered per data set and restored on the next
   visit; each data set has its own list. See [Game data set](#game-data-set) for storage.
 - **Several tabs.** Plans created, renamed or deleted in another tab show up in the list without
   a reload; each tab keeps its own active plan, unless another tab deleted it, in which case the
-  tab switches to the neighbouring plan. Editing the same plan in two tabs is last write wins.
+  tab switches to the neighbouring plan (or shows the [no-plan screen](#no-plan) when that was the
+  last one, and opens the first plan another tab creates after that). Editing the same plan in two
+  tabs is last write wins.
+
+#### No plan
+
+`NoPlanScreen.tsx`. A data set whose last plan was deleted has an empty plan list and no active plan
+(`PlanIndex.activePlanId` is null; `selectNoPlan` in `plansStore.ts`), and the list is stored like
+that: after a reload the data set is still without a plan. Only a data set with no stored index at
+all (a first visit) gets "Plan 1". While game data is loaded and no plan is open:
+
+- `FactoryShell` draws `NoPlanScreen` in place of the summary strip and the production table: a
+  "No plan open" heading, "Start a new plan, or import one you exported before.", a **New plan**
+  button (`createPlan`; a refused one shows its message in a `role="alert"` line) and an
+  **Import plan…** button, which asks the workspace menu to run its import flow
+  (`uiStore.requestPlanImport`, carried out by `WorkspaceMenu`, which owns the file picker and its
+  warnings).
+- The top bar hides the block tabs and the block, graph, horizon, tech tree and undo tools; the
+  workspace menu stays. Its trigger reads "No plan open" (accessible name `No plan open`, plus the
+  loading and error suffixes), and the Plans section holds the heading, a "No plan open" line and
+  the tiles, of which only **New** is enabled; **Export plan** is disabled and **Import plan…**
+  stays available.
+- The block store holds one empty placeholder block, which nothing saves (the autosave has no key
+  without an active plan); the solver may solve it, but the in-game viewer is sent nothing, so the
+  game keeps the last plan it was given. Without game data the table shows its data set picker
+  instead, whatever list was left over from the previous data set.
 
 ### Block tabs
 
@@ -536,13 +561,14 @@ active plan's name and a sub-line, and a chevron:
 | No data set chosen yet | Choose game data | none | `Choose game data` |
 | Loading | active plan name, else "Choose game data" | Loading… | `Plan: <name>, loading` (or `Choose game data, loading`) |
 | Error | active plan name, else "Choose game data" | Error loading data (red; the tooltip carries the error message) | `Plan: <name>, error loading data` (or `Choose game data, error loading data`) |
-| Loaded | active plan name | data set label: Nullius, Seablock or the uploaded file name | `Plan: <name>` |
+| Loaded | active plan name, or "No plan open" when the [last plan was deleted](#no-plan) | data set label: Nullius, Seablock or the uploaded file name | `Plan: <name>` (or `No plan open`) |
 
 While the in-game viewer connection is on, a status dot (`viewer-dot`) sits on the trigger's top-right corner and `. In-game viewer: <badge label>` is appended to the accessible name (for example `Plan: Main. In-game viewer: Connected`); both are absent while the connection is off.
 
 It opens a panel named "Plan and game data", in order:
 
-- the [Plans](#plans) section (heading, plan radio items, action tiles), only when a data set is
+- the [Plans](#plans) section (heading, plan radio items, action tiles; with [no plan](#no-plan)
+  the heading, a "No plan open" line and the tiles), only when a data set is
   active;
 - a separator, then a **Game data** group: **Nullius**, **Seablock**, the name of the uploaded file
   once there is one, and **Upload file…**; the current data set is the checked item (see
@@ -721,7 +747,8 @@ older versions is normalised to `kompetenz-seablock` and rewritten on load; if t
 rewrite fails (quota full, storage blocked) the normalised id is still used.
 
 **Storage.** Each data set has an index key, `factorio-planner:plan-index:<sourceId>`, holding
-`{ activePlanId, plans: [{ id, name }] }`, and one key per plan,
+`{ activePlanId, plans: [{ id, name }] }` (`activePlanId` is null and `plans` empty once the last plan was
+deleted: that survives a reload), and one key per plan,
 `factorio-planner:plan:<sourceId>/<planId>`, holding that plan's `AppState` (the autosave writes
 to the active one; switching tabs alone does not save). A stored plan that fails validation is not
 overwritten: its raw value is first copied to `<planKey>:corrupt`, and the plan starts empty (it stays in

@@ -61,7 +61,7 @@ test.describe('multiple plans per data set', () => {
     await expect(goalSlots).toHaveCount(1)
   })
 
-  test('deleting a plan activates another; deleting the only plan leaves an empty Plan 1', async ({ page }) => {
+  test('deleting a plan activates another; deleting the only plan leaves the no-plan screen, which survives a reload', async ({ page }) => {
     await addGoal(page, '250')
     await runPlanAction(page, 'New plan')
     await deleteActivePlan(page)
@@ -70,9 +70,34 @@ test.describe('multiple plans per data set', () => {
     expect(await planNames(page)).toEqual(['Plan 1'])
 
     await deleteActivePlan(page)
-    await expectPlan(page, 'Plan 1')
+    const noPlan = page.getByRole('heading', { name: 'No plan open' })
+    await expect(noPlan).toBeVisible()
+    await expect(planTrigger(page)).toHaveAccessibleName('No plan open')
     await expect(page.locator('main')).not.toContainText('250')
+    await expect(page.getByTestId('block-tab')).toHaveCount(0)
+    expect(await planNames(page)).toEqual([])
+
+    await page.reload()
+    await expect(noPlan).toBeVisible()
+
+    await page.getByRole('button', { name: 'New plan' }).click()
+    await expectPlan(page, 'Plan 1')
+    await expect(noPlan).toBeHidden()
+    await expect(page.getByTestId('block-tab')).toHaveCount(1)
     expect(await planNames(page)).toEqual(['Plan 1'])
+  })
+
+  test('the no-plan screen imports a plan file', async ({ page }) => {
+    await deleteActivePlan(page)
+    await expect(page.getByRole('heading', { name: 'No plan open' })).toBeVisible()
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('button', { name: 'Import plan…' }).click(),
+    ])
+    await chooser.setFiles(path.resolve('e2e/fixtures/block-connection.json'))
+    await expectPlan(page, 'block-connection')
+    await expect(page.getByRole('heading', { name: 'No plan open' })).toBeHidden()
+    expect(await planNames(page)).toEqual(['block-connection'])
   })
 
   test('each data set has its own plan list', async ({ page }) => {
@@ -134,5 +159,9 @@ test.describe('two tabs', () => {
     await deleteActivePlan(page)
     await expectPlan(page, 'Mine')
     await expectPlan(other, 'Mine')
+
+    // Deleting the last plan reaches the other tab too.
+    await deleteActivePlan(page)
+    await expect(other.getByRole('heading', { name: 'No plan open' })).toBeVisible()
   })
 })
