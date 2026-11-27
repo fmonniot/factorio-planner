@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { HorizonButton } from './HorizonPicker'
+import { TechTreeModal } from './lazyModals'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
 import type { GameData } from '../data/types'
+
+// The modal's code is a chunk of its own; fetch it once so each test renders it synchronously.
+beforeAll(() => TechTreeModal.preload())
 
 function recipe(id: string): GameData['recipes'][string] {
   return {

@@ -1,12 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { BlockGraphButton } from './BlockGraph'
+import { BlockGraphModal } from '../lazyModals'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
 import { tipOf } from '../../test/byTip'
 import type { Block, ConnectionFlow, GameData } from '../../data/types'
+
+// The modal's code is a chunk of its own; fetch it once so each test renders it synchronously.
+beforeAll(() => BlockGraphModal.preload())
 
 const items = {
   'iron-plate': { id: 'iron-plate', name: 'Iron Plate', type: 'item', iconPath: 'iron-plate.png', hidden: false },

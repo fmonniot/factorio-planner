@@ -1,13 +1,17 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, beforeAll } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { PlanAreasView } from './PlanAreas'
 import { BlockGraphButton } from './BlockGraph'
+import { BlockGraphModal } from '../lazyModals'
 import { blocksWithAreas, defaultAreasTab, useAreasUi } from './areasUi'
 import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults } from '../../store/solverStore'
 import type { Block, GameData, SolverResult, SubPlan } from '../../data/types'
+
+// The modal's code is a chunk of its own; fetch it once so each test renders it synchronously.
+beforeAll(() => BlockGraphModal.preload())
 
 const gameData = {
   factorioVersion: '2.0.0',
