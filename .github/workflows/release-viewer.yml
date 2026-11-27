@@ -19,7 +19,7 @@ permissions:
 
 env:
   # Same toolchain as bridge.yml; bump them together.
-  TOOLCHAIN: 1.98.1
+  RUST_TOOLCHAIN: 1.98.1
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
 
 jobs:
@@ -58,7 +58,7 @@ jobs:
           ref: ${{ env.TAG }}
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ env.TOOLCHAIN }}
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
           targets: ${{ matrix.target }}
       - name: Build
         working-directory: bridge
